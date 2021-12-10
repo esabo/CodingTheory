@@ -8,10 +8,13 @@
 # using HTTP
 # using JSON
 
-# import Primes: factor, Factorization, isprime
+# this used to work, now it doesn't. fix so don't need to import all of Primes
+import Primes: factor, Factorization, isprime
 
 include("cyclotomic.jl")
 include("linearcode.jl")
+
+# using Primes
 
 abstract type AbstractCyclicCode <: AbstractLinearCode end
 abstract type AbstractBCHCode <: AbstractCyclicCode end
@@ -197,13 +200,17 @@ end
 function Base.show(io::IO, C::T) where T <: AbstractCyclicCode
     if get(io, :compact, false)
         # to use type "show(IOContext(stdout, :compact=>true), C)" instead
-        if typeof(C) <: BCHCode
+        if typeof(C) <: ReedSolomonCode
+            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
+        elseif typeof(C) <: BCHCode
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code over splitting field GF($(order(splittingfield(C)))).")
         else
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) cyclic code over splitting field GF($(order(splittingfield(C)))).")
         end
     else
-        if typeof(C) <: BCHCode
+        if typeof(C) <: ReedSolomonCode
+            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
+        elseif typeof(C) <: BCHCode
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code over splitting field GF($(order(splittingfield(C)))).")
         else
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) cyclic code over splitting field GF($(order(splittingfield(C)))).")
@@ -356,7 +363,7 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
         t = 1
     end
 
-    F, _ = FiniteField(p, t, "η")
+    F, _ = FiniteField(p, t, "α") # changed to keep ReedSolomonCodes printing α's'
     deg = ord(n, q)
     E, α = FiniteField(p, t * deg, "α")
     R, _ = PolynomialRing(E, "x")
@@ -390,6 +397,11 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     end
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
+        if deg == 1 && n == q - 1
+            return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
+                defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+        end
+
         return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets, sort!([arr[1] for arr in cosets]),
             defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
     end
@@ -460,7 +472,7 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     end
 
     if q <= 1 || n <= 1
-        error("Invalid parameters past to CyclicCode constructor: q = $q, n = $n")
+        error("Invalid parameters past to BCHCode constructor: q = $q, n = $n")
     end
 
     if !isprime(q)
@@ -474,7 +486,7 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
         t = 1
     end
 
-    F, _ = FiniteField(p, t, "η")
+    F, _ = FiniteField(p, t, "α") # changed to keep ReedSolomonCodes printing α's'
     deg = ord(n, q)
     E, α = FiniteField(p, t * deg, "α")
     R, _ = PolynomialRing(E, "x")
@@ -508,7 +520,71 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
         end
     end
 
-    return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets, sort!([arr[1] for arr in cosets]),
+    if deg == 1 && n == q - 1
+        return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
+            defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+    end
+
+    return BCHCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
+        defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+end
+
+function ReedSolomonCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
+    if δ < 2
+        error("Reed Solomon codes require δ ≥ 2 but the constructor was given δ = $δ.")
+    end
+
+    if q <= 1 || n <= 1
+        error("Invalid parameters past to ReedSolomonCode constructor: q = $q, n = $n")
+    end
+
+    if ord(n, q) != 1 || n != q - 1
+        error("Reed Solomon codes require n = q - 1.")
+    end
+
+    if !isprime(q)
+        factors = factor(q)
+        if length(factors) != 1
+            error("There is no finite field of order $(prod(factors))")
+        end
+        (p, t), = factors
+    else
+        p = q
+        t = 1
+    end
+
+    F, α = FiniteField(p, t, "α") # changed to keep ReedSolomonCodes printing α's'
+    R, _ = PolynomialRing(F, "x")
+
+    cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
+    defset = sort!(vcat(cosets...))
+    k = n - length(defset)
+    comcosets = complementqcosets(q, n, cosets)
+    g = generatorpolynomial(R, α, defset)
+    h = generatorpolynomial(R, α, vcat(comcosets...))
+    e = idempotent(g, h, n)
+    G = generatormatrix(F, n, k, g)
+    H = generatormatrix(F, n, n - k, reverse(h))
+    Gstand, Hstand = standardform(G)
+    δ, b, HT = finddelta(n, cosets)
+
+    if verify
+        flag, htest = divides(gen(R)^n - 1, g)
+        if !flag
+            error("Incorrect generator polynomial, does not divide x^$n - 1.")
+        end
+        if htest != h
+            error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+        end
+        if size(H) == (n - k, k)
+            H = H'
+        end
+        if !iszero(G * H') || !iszero(H * G')
+            error("Generator and parity check matrices are not transpose orthogonal.")
+        end
+    end
+
+    return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
         defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
 end
 
