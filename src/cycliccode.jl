@@ -102,10 +102,7 @@ function generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int64})
 
     return g
 end
-
-function generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int64}})
-    return generatorpolynomial(R, β, vcat(qcosets...))
-end
+generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int64}}) = generatorpolynomial(R, β, vcat(qcosets...))
 
 # ::AbstractAlgebra.Generic.Poly{AbstractAlgebra.Generic.Res{AbstractAlgebra.Generic.Poly{AbstractAlgebra.GFElem{Int64}}}}
 function generatormatrix(F::FqNmodFiniteField, n::Integer, k::Integer, g::fq_nmod_poly) # =none
@@ -529,23 +526,24 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
         defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
 end
 
-function ReedSolomonCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
+function ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
     if δ < 2
         error("Reed Solomon codes require δ ≥ 2 but the constructor was given δ = $δ.")
     end
 
-    if q <= 1 || n <= 1
-        error("Invalid parameters past to ReedSolomonCode constructor: q = $q, n = $n")
+    if q <= 4
+        error("Invalid or too small parameters past to ReedSolomonCode constructor: q = $q.")
     end
 
-    if ord(n, q) != 1 || n != q - 1
-        error("Reed Solomon codes require n = q - 1.")
-    end
+    # n = q - 1
+    # if ord(n, q) != 1
+    #     error("Reed Solomon codes require n = q - 1.")
+    # end
 
     if !isprime(q)
         factors = factor(q)
         if length(factors) != 1
-            error("There is no finite field of order $(prod(factors))")
+            error("There is no finite field of order $(prod(factors)).")
         end
         (p, t), = factors
     else
@@ -556,6 +554,7 @@ function ReedSolomonCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, veri
     F, α = FiniteField(p, t, "α") # changed to keep ReedSolomonCodes printing α's'
     R, _ = PolynomialRing(F, "x")
 
+    n = q - 1
     cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
     defset = sort!(vcat(cosets...))
     k = n - length(defset)

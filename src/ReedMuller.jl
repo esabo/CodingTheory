@@ -31,7 +31,7 @@ function m(C::ReedMullerCode)
     return C.m
 end
 
-function Base.show(io::IO, C::T) where T <: AbstractReedMullerCode
+function show(io::IO, C::T) where T <: AbstractReedMullerCode
     if get(io, :compact, false)
         println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed Muller code RM($(r(C)), $(m(C))).")
     else
@@ -53,9 +53,7 @@ function Base.show(io::IO, C::T) where T <: AbstractReedMullerCode
 end
 
 function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
-    if !(0 ≤ r ≤ m)
-        error("Reed Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m.")
-    end
+    (0 ≤ r ≤ m) || error("Reed Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m.")
 
     if q == 2
         F, _ = FiniteField(2, 1, "α")
@@ -77,31 +75,21 @@ function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
 end
 
 function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
-    if !(1 ≤ r < m)
-        error("Reed Muller codes require 1 ≤ r < m, received r = $r and m = $m.")
-    end
-
-    if m >= 63
-        error("This Reed Muller code requires the implmentation of BigInts. Change if necessary.")
-    end
-
-    if q != 2
-        error("Nonbinary Reed Muller codes have not yet been implemented.")
-    end
+    (1 ≤ r < m) || error("Reed Muller codes require 1 ≤ r < m, received r = $r and m = $m.")
+    m < 64 || error("This Reed Muller code requires the implmentation of BigInts. Change if necessary.")
+    q == 2 || error("Nonbinary Reed Muller codes have not yet been implemented.")
 
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = standardform(G)
 
     if verify
-        if size(G, 2) != 2^m # need to BigInt this?
-            error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(size(G, 2)), expected: $(BigInt(2)^m).")
+        # need to BigInt this?
+        size(G, 2) == 2^m || error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(size(G, 2)), expected: $(BigInt(2)^m).")
         end
 
         k = sum([binomial(m, i) for i in 0:r])
-        if size(G, 1) != k
-            error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
-        end
+        size(G, 1) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
     end
 
     return ReedMullerCode(base_ring(G), size(G, 2), size(G, 1), 2^(m - r), r, m, G, missing,
