@@ -7,4 +7,6 @@
 #
 # you can do things like:
 
+using Tests
+
 @test 5 == 2^2 + 1
