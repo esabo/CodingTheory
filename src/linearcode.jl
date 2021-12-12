@@ -9,7 +9,8 @@ ENV["NEMO_PRINT_BANNER"] = "false"
 using AbstractAlgebra
 using Nemo
 
-import Base: length#, ⊆
+import Base: length, in, ⊆, /
+import AbstractAlgebra: quo
 
 include("utils.jl")
 
@@ -199,8 +200,8 @@ function syndrome(v::Vector{Int64}, C::T) where T <: AbstractLinearCode
     return syndrome(matrix(field(C), v'), C)
 end
 
-# should cast this zero up but probably faster to let it cast down
-Base.:(in)(v::Union{gfp_mat, fq_nmod_mat}, C::T) where T <: AbstractLinearCode = iszero(syndrome(v, C))
+# need to remove Base.:(in)(
+in(v::Union{gfp_mat, fq_nmod_mat}, C::T) where T <: AbstractLinearCode = iszero(syndrome(v, C))
 
 function Base.:(⊆)(C1::S, C2::T)  where S <: AbstractLinearCode where T <: AbstractLinearCode
     if field(C1) != field(C2) || length(C1) != length(C2) || dimension(C1) > dimension(C2)
@@ -219,8 +220,8 @@ end
 
 issubcode(C1::S, C2::T)  where S <: AbstractLinearCode where T <: AbstractLinearCode = C1 ⊆ C2
 
-# Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke package for the correcting,
-# and providing an elegant solution
+# Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke package for debugging
+# and providing an elegant implementation here
 function codecomplement(C1::S, C2::T) where S <: AbstractLinearCode where T <: AbstractLinearCode
     C1 ⊆ C2 || error("First code must be a subset of the second code.")
     V = VectorSpace(field(C1), length(C1))
@@ -239,9 +240,10 @@ function codecomplement(C1::S, C2::T) where S <: AbstractLinearCode where T <: A
     end
     return LinearCode(G)
 end
-# quo(C1::S, C2::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
+quo(C1::S, C2::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
 quotient(C1::S, C2::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
-Base.:(/)(C2::S, C1::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
+/(C2::S, C1::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
+#Base.:(/)
 
 function dual(C::T) where T <: AbstractLinearCode
     return LinearCode(field(C), length(C), length(C) - dimension(C), missing,
