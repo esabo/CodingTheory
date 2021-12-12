@@ -97,7 +97,7 @@ function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int64})
 end
 _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int64}}) = _generatorpolynomial(R, β, vcat(qcosets...))
 
-function _generatormatrix(F::FqNmodFiniteField, n::Integer, k::Integer, g::fq_nmod_poly) # =none
+function _generatormatrix(F::FqNmodFiniteField, n::Integer, k::Integer, g::fq_nmod_poly)
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
     # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
     coeffs = collect(coefficients(g))
@@ -132,20 +132,27 @@ function _idempotent(g::fq_nmod_poly, h::fq_nmod_poly, n::Integer)
     return mod(g * a, gen(parent(g))^n - 1)
 end
 
-basefield(C::T) where T <: AbstractCyclicCode = C.F
-splittingfield(C::T) where T <: AbstractCyclicCode = C.E
-polynomialring(C::T) where T <: AbstractCyclicCode = C.R
-primitiveroot(C::T) where T <: AbstractCyclicCode = C.β
-offset(C::T) where T <: AbstractCyclicCode = C.b
-designdistance(C::T) where T <: AbstractCyclicCode = C.δ
-qcosets(C::T) where T <: AbstractCyclicCode = C.qcosets
-qcosetsreps(C::T) where T <: AbstractCyclicCode = C.qcosetsreps
-definingset(C::T) where T <: AbstractCyclicCode = C.defset
-generatorpolynomial(C::T) where T <: AbstractCyclicCode = C.g
-paritycheckpolynomial(C::T) where T <: AbstractCyclicCode = C.h
-idempotent(C::T) where T <: AbstractCyclicCode = C.e
+# MattsonSolomontransform(f, n)
+# inverseMattsonSolomontransform
 
-function show(io::IO, C::T) where T <: AbstractCyclicCode
+
+basefield(C::AbstractCyclicCode) = C.F
+splittingfield(C::AbstractCyclicCode) = C.E
+polynomialring(C::AbstractCyclicCode) = C.R
+primitiveroot(C::AbstractCyclicCode) = C.β
+offset(C::AbstractCyclicCode) = C.b
+designdistance(C::AbstractCyclicCode) = C.δ
+qcosets(C::AbstractCyclicCode) = C.qcosets
+qcosetsreps(C::AbstractCyclicCode) = C.qcosetsreps
+definingset(C::AbstractCyclicCode) = C.defset
+generatorpolynomial(C::AbstractCyclicCode) = C.g
+paritycheckpolynomial(C::AbstractCyclicCode) = C.h
+idempotent(C::AbstractCyclicCode) = C.e
+isprimitive(C::AbstractCyclicCode) = length(n) == order(basefield(C)) - 1
+isnarrowsense(C::AbstractCyclicCode) = iszero(offset(C)) # should we define this as b = 1 instead?
+isreversible(C::AbstractCyclicCode) = [length(C) - i for i in defset] ⊆ defset
+
+function Base.show(io::IO, C::AbstractCyclicCode)
     if get(io, :compact, false)
         # to use type "show(IOContext(stdout, :compact=>true), C)" instead
         if typeof(C) <: ReedSolomonCode
@@ -323,7 +330,7 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = standardform(G)
+    Gstand, Hstand = _standardform(G)
     δ, b, HT = finddelta(n, cosets)
 
     if verify
@@ -331,9 +338,14 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
         flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
         htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
         if size(H) == (n - k, k)
-            H = H'
+            H = deepcopy(H')
         end
         !(!iszero(G * H') || !iszero(H * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H') || error("Column swap appeared in _standardform.")
+        end
+
+        # check e=e^2
     end
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
@@ -381,16 +393,19 @@ function CyclicCode(q::Integer, n::Integer, g::fq_nmod_poly, verify::Bool=true)
     e = _idempotent(g, h)
     G = _generatormatrix(n, k, g)
     H = _generatormatrix(n, n - k, reverse(htest))
-    Gstand, Hstand = standardform(G)
+    Gstand, Hstand = _standardform(G)
     _, _, HT = finddelta(n, qcosets)
 
     if verify
         h, _, _, _ = _generatorpolynomial(q, n, vcat(comcosets...))
         htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
         if size(H) == (n - k, k)
-            H = H'
+            H = deepcopy(H')
         end
         !(!iszero(G * H') || !iszero(H * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H') || error("Column swap appeared in _standardform.")
+        end
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, HT, qcosets, sort!([arr[1] for arr in qcosets]),
@@ -402,7 +417,7 @@ end
 # self orthogonal code must contain all of its self orthogonal q-cosets and at least one of every q-coset pair
 function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
     δ >= 2 || error("BCH codes require δ ≥ 2 but the constructor was given δ = $δ.")
-    !(q <= 1 || n <= 1) || error("Invalid parameters past to BCHCode constructor: q = $q, n = $n".)
+    !(q <= 1 || n <= 1) || error("Invalid parameters past to BCHCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
         factors = factor(q)
@@ -430,7 +445,7 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = standardform(G)
+    Gstand, Hstand = _standardform(G)
     δ, b, HT = finddelta(n, cosets)
 
     if verify
@@ -438,9 +453,12 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
         flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
         htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
         if size(H) == (n - k, k)
-            H = H'
+            H = deepcopy(H')
         end
         !(!iszero(G * H') || !iszero(H * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H') || error("Column swap appeared in _standardform.")
+        end
     end
 
     if deg == 1 && n == q - 1
@@ -485,7 +503,7 @@ function ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=tru
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = standardform(G)
+    Gstand, Hstand = _standardform(G)
     δ, b, HT = finddelta(n, cosets)
 
     if verify
@@ -493,16 +511,19 @@ function ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=tru
         flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
         htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
         if size(H) == (n - k, k)
-            H = H'
+            H = deepcopy(H')
         end
         !(!iszero(G * H') || !iszero(H * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+        end
     end
 
     return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
         defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
 end
 
-function complement(C::T, verify::Bool=true) where T <: AbstractCyclicCode
+function complement(C::AbstractCyclicCode, verify::Bool=true)
     D = CyclicCode(Int64(order(field(C))), length(C),
         complementqcosets(Int64(order(field(C))), length(C), qcosets(C)))
     if verify
@@ -515,25 +536,25 @@ function complement(C::T, verify::Bool=true) where T <: AbstractCyclicCode
 end
 
 # C1 ⊆ C2 iff g_2(x) | g_1(x) iff T_2 ⊆ T_1
-⊆(C1::T, C2::T) where T <: AbstractCyclicCode = C2.defset ⊆ C1.defset
-issubcode(C1::T, C2::T) where T <: AbstractCyclicCode = C1 ⊆ C2
+⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.defset ⊆ C1.defset
+issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
-function ==(C1::T, C2::T) where T <: AbstractCyclicCode
+function ==(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # should also check primitive root but so far the user is not given a choice here
     return field(C1) == field(C2) && length(C1) == length(C2) && definingset(C1) == definingset(C2)
 end
 
-function dual(C::T) where T <: AbstractCyclicCode
+function dual(C::AbstractCyclicCode)
     # one is even-like and the other is odd-like
     return CyclicCode(Int64(order(field(C))), length(C),
         dualqcosets(Int64(order(field(C))), length(C), qcosets(C)))
 end
 
 # this checks def set, need to rewrite == for linear first
-isselfdual(C::T) where T <: AbstractCyclicCode = C == dual(C)
+isselfdual(C::AbstractCyclicCode) = C == dual(C)
 
 # don't think this is necessary in order to invoke the ⊆ for CyclicCode
-# function isselforthogonal(C::T) where T <: AbstractCyclicCode
+# function isselforthogonal(C::AbstractCyclicCode)
 #     # A code is self-orthogonal if it is a subcode of its dual.
 #     return C ⊆ dual(C)
 # end
@@ -543,7 +564,7 @@ isselfdual(C::T) where T <: AbstractCyclicCode = C == dual(C)
 #     # technically changes g(x) and e(x) but the q-cosets are the same?
 # end
 
-function ∩(C1::S, C2::T) where S <: AbstractCyclicCode where T <: AbstractCyclicCode
+function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial lcm(g_1(x), g_2(x))
     # has generator idempotent e_1(x) e_2(x)
 
@@ -555,7 +576,7 @@ function ∩(C1::S, C2::T) where S <: AbstractCyclicCode where T <: AbstractCycl
     end
 end
 
-function +(C1::S, C2::T) where S <: AbstractCyclicCode where T <: AbstractCyclicCode
+function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial gcd(g_1(x), g_2(x))
     # has generator idempotent e_1(x) + e_2(x) - e_1(x) e_2(x)
     if field(C1) == field(C2) && length(C1) == length(C2)

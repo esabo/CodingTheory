@@ -23,15 +23,10 @@ struct ReedMullerCode <: AbstractReedMullerCode
     Hstand::Union{gfp_mat, fq_nmod_mat}
 end
 
-function r(C::ReedMullerCode)
-    return C.r
-end
+r(C::ReedMullerCode) = C.r
+m(C::ReedMullerCode) = C.m
 
-function m(C::ReedMullerCode)
-    return C.m
-end
-
-function show(io::IO, C::T) where T <: AbstractReedMullerCode
+function show(io::IO, C::AbstractReedMullerCode)
     if get(io, :compact, false)
         println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed Muller code RM($(r(C)), $(m(C))).")
     else
@@ -80,16 +75,19 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
     q == 2 || error("Nonbinary Reed Muller codes have not yet been implemented.")
 
     G = ReedMullergeneratormatrix(q, r, m)
-    H = ReedMullergeneratormatrix(q, m - r - 1, m)
-    Gstand, Hstand = standardform(G)
+    H = deepcopy(ReedMullergeneratormatrix(q, m - r - 1, m)')
+    Gstand, Hstand = _standardform(G)
 
     if verify
-        # need to BigInt this?
         size(G, 2) == 2^m || error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(size(G, 2)), expected: $(BigInt(2)^m).")
-        end
-
         k = sum([binomial(m, i) for i in 0:r])
         size(G, 1) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
+        if size(H) == (n - k, k)
+            H = deepcopy(H')
+        end
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+        end
     end
 
     return ReedMullerCode(base_ring(G), size(G, 2), size(G, 1), 2^(m - r), r, m, G, missing,
