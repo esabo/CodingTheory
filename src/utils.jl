@@ -22,6 +22,7 @@ kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_
 # nrows(A::T) where T = size(A, 1)
 # ncols(A::T) where T = size(A, 2)
 
+
 # function hamming_distance(w₁::T, w₂::T) where T <: AbstractWord
 #     if ! isequal(length(w₁), length(w₂))
 #         throw(error("Cannot compute Hamming Distance on strings of unequal length."))
@@ -60,40 +61,7 @@ kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_
 # end
 # sizeof_all_words(q::Number, n::Number) = sizeof_all_words(round.(BigInt, (q, n))...)
 #
-# """
-# ```julia
-# get_codewords(G::AbstractArray, m::Int) -> Codewords{M}
-# ```
-# Get codewords of a code from the _generating matrix_ under a finite field of modulo `m`.  Precisely, computes all linear combinations of the rows of the generating matrix.
-#
-# Parameters:
-#   - `G::AbstractArray`: A matrix of Ints which generates the code.
-#   - `m::Int`: The bounds of the finite field (i.e., the molulus you wish to work in).
-#
-# Returns:
-#   - `Codewords{M}`: An array of codewords, each of length `M`.  Each codewords is a tuple, and each character in said word is a symbol.
-# """
-#
-# function get_codewords(G::AbstractArray, m::Int)
-# 	codewords = Vector()
-# 	rows = Vector(undef, size(G, 2))
-#
-# 	for i in 1:size(G, 1)
-# 		rows[i] = [G[i, j] for j in 1:size(G, 2)]
-# 	end
-#
-# 	for c in Base.Iterators.product([0:m-1 for _ in 1:size(G, 1)]...)
-# 		word = Ref(c[1]) .* rows[1]
-#
-# 		for i in 2:size(G, 1)
-# 			word = mod.(word .+ (Ref(c[i]) .* rows[i]), m)
-# 		end
-#
-# 		push!(codewords, word)
-# 	end
-#
-# 	return codewords
-# end
+
 
 # # to get primitive element out of field in Nemo
 # function primitive_element(F::T; n_quo::Int = -1) where T <: Union{FqFiniteField, FqNmodFiniteField, Nemo.GaloisField, Nemo.GaloisFmpzField}
