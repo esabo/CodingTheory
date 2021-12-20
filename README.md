@@ -2,27 +2,6 @@
  A basic coding theory library for Julia.
 
 TODO:
-in utils
-
-need to extend the following functions to fq_nmod_mat, if matrix or Vector of fq_nmod_mat objects, return per row/elm
-maybe if matrix not a vector (no distinction inside type fq_nmod_mat so will have to check size) just run vector one in loop
-function Hammingweight(v::Vector{Int64})
-    # return number of nonzero elements of the array
-end
-weight(v::Vector{Int64}) = Hammingweight(v)
-weight(v::fq_nmod_mat) = Hammingweight(v)
-wt(v::Vector{Int64}) = Hammingweight(v)
-wt(v::fq_nmod_mat) = Hammingweight(v)
-
-function Hammingdistance(u::, v::)
-    # two vectors of types like above, must be vectors
-    # maybe could make them different types since they never need to interact?
-    # this is Hammingweight(u - v) and Hammingweight is Hammingdistance(v, 0)
-    # but probably inefficient to do this
-    # merely return number of times u[i] != v[i]
-end
-distance(u::, v::) = Hammingdistance(u, v)
-
 iterator for linear code
 function something(C::T) where T <: AbstractLinearCode
     # object has matrix C.G
@@ -100,7 +79,7 @@ function Hammingparitycheckmatrix(m::Int64, q::Int64)
 	# unless it's easier to make a zero one and then chance column slices then
 	M = MatrixSpace(F, m, n)
 	# where n is as below
-	
+
 end
 
 function construct_ham_matrix(r::Int, q::Int)

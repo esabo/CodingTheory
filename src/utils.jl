@@ -7,6 +7,8 @@
 using AbstractAlgebra
 using Nemo
 
+import LinearAlgebra: tr
+
 function ⊕(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
     base_ring(A) == base_ring(B) || error("Matrices must be over the same base ring in directsum.")
 
@@ -22,78 +24,104 @@ kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_
 # nrows(A::T) where T = size(A, 1)
 # ncols(A::T) where T = size(A, 2)
 
+# I think we should avoid length checking here and return it for entire matrix if given
+Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
+weight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+wt(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+distance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+dist(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
 
-# function hamming_distance(w₁::T, w₂::T) where T <: AbstractWord
-#     if ! isequal(length(w₁), length(w₂))
-#         throw(error("Cannot compute Hamming Distance on strings of unequal length."))
-#     end
-#
-#     distance = 0
-#
-# 	for (s₁, s₂) in zip(w₁, w₂)
-# 		if s₁ ≠ s₂
-# 			distance += 1
-# 		end
-# 	end
-#
-#     return distance
-# end
-#
-# """
-# ```julia
-# sizeof_perfect_code(q::Number, n::Number, d::Number) -> Number
-# ```
-# Calculates the number of gigabytes required to store a perfect code of parameters q, n, and d.
-# """
-# function sizeof_perfect_code(q::Int, n::Int, d::Int)
-# 	return (sizeof(ntuple(_ -> gensym(), n)) * hamming_bound(big.([q, n, d])...)) / (2^30)
-# end
-# sizeof_perfect_code(q::Number, n::Number, d::Number) = sizeof_perfect_code(round.(BigInt, [q, n, d])...)
-#
-# """
-# ```julia
-# sizeof_all_words(q::Number, n::Number) -> Number
-# ```
-# Calculates the number of gigabytes required to store all unique words of length n from an alphabet of size q.
-# """
-# function sizeof_all_words(q::Int, n::Int)
-# 	return (sizeof(ntuple(_ -> gensym(), n)) * big(q)^n) / (2^30)
-# end
-# sizeof_all_words(q::Number, n::Number) = sizeof_all_words(round.(BigInt, (q, n))...)
-#
+function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
+    L = parent(x)
+    if verify
+        # shouldn't need Int casting here but just in case...
+        Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+        degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+    end
+    n = div(degree(L), degree(K))
+    return sum([x^(q^i) for i in 0:(n - 1)])
+end
 
+function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+    return [tr(x * i, K, verify) for i in basis]
+end
 
-# # to get primitive element out of field in Nemo
-# function primitive_element(F::T; n_quo::Int = -1) where T <: Union{FqFiniteField, FqNmodFiniteField, Nemo.GaloisField, Nemo.GaloisFmpzField}
-#     n = order(F)-1
-#     k = fmpz(1)
-#     if n_quo != -1
-#         if !divisible(n, n_quo)
-#             return F(1)
-#         end
-#         n, k = ppio(n, fmpz(n_quo))
-#     end
-#     primefactors_n = collect(keys(factor(n).fac))
+function _expandrow(row::Vector{fq_nmod}, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+    return hcat([_expandelement(row[i], K, basis, verify)]...)
+end
+
+function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    L = base_ring(M)
+    L != K || return M
+    # shouldn't need Int casting here but just in case...
+    Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+    degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+    n = div(degree(L), degree(K))
+    n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
+    # should really check if it is a basis
+    return vcat([_expandrow(M[r, :], K, basis) for r in 1:size(M, 1)])
+end
+
+function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+    (size(u, 1) == 1 || size(u, 2) == 1) || error("First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).")
+    (size(v, 1) == 1 || size(v, 2) == 1) || error("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).")
+    length(u) == length(v) || error("Vectors must be the same length in symplectic inner product.")
+    iseven(length(u)) || error("Vectors must have even length in symplectic inner product.")
+    base_ring(u) == base_ring(v) || error("Vectors must be over the same field in symplectic inner product.")
+    ncols = div(length(u), 2)
+    return sum([u[i + ncols] * v[i] - v[i + ncols] * u[i] for i in 1:ncols])
+end
+# SIP(u::fq_nmod_mat, v::fq_nmod_mat) = symplecticinnerproduct(u, v)
+
+# function traceinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
 #
-#     x = rand(F)^Int(k)
-#     while iszero(x)
-#         x = rand(F)^Int(k)
-#     end
-#     while true
-#         found = true
-#         for l in primefactors_n
-#             if isone(x^Int(div(n, l)))
-#                 found = false
-#                 break
-#             end
-#         end
-#         if found
-#             break
-#         end
-#         x = rand(F)^Int(k)
-#         while iszero(x)
-#             x = rand(F)^Int(k)
-#         end
-#     end
-#     return x
 # end
+# TIP(u::fq_nmod_mat, v::fq_nmod_mat) = traceinnerproduct(u, v)
+
+function Hermitianinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+    (size(u, 1) == 1 || size(u, 2) == 1) || error("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).")
+    (size(v, 1) == 1 || size(v, 2) == 1) || error("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).")
+    length(u) == length(v) || error("Vectors must be the same length in Hermitian inner product.")
+    base_ring(u) == base_ring(v) || error("Vectors must be over the same field in Hermitian inner product.")
+    q2 = order(base_ring(u))
+    issquare(q2) || error("The Hermitian inner product is only defined over quadratic field extensions.")
+    q = Int64(sqrt(q2))
+    return sum([u[i] * v[i]^q for i in 1:length(u)])
+end
+# HIP(u::fq_nmod_mat, v::fq_nmod_mat) = Hermitianinnerproduct(u, v)
+
+function Hermitianconjugatematrix(A::fq_nmod_mat)
+    B = copy(A)
+    q2 = order(base_ring(A))
+    issquare(q2) || error("The Hermitian conjugate is only defined over quadratic field extensions.")
+    q = Int64(sqrt(q2))
+    return B .^ q
+end
+
+function printstringarray(A::Vector{String}, withoutIs=false)
+    for a in A
+        if !withoutIs
+            println(a)
+        else
+            for i in a
+                if i == 'I'
+                    print(' ')
+                else
+                    print(i)
+                end
+            end
+            print('\n')
+        end
+    end
+end
+printchararray(A::Vector{Vector{Char}}, withoutIs=false) = printstringarray(setchartostringarray(A), withoutIs)
+printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Integer = printstringarray(setsymplectictostringarray(A), withoutIs)
+
+function entropy(x::Real)
+    x != 0 || return 0
+    (0 < x <= 1 - 1 / q) || error("Number should be in the range [0, 1 - 1/order(field)].")
+    F = parent(x)
+    q = order(F)
+    return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
+end

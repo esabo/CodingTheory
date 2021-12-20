@@ -321,22 +321,37 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     E, α = FiniteField(p, t * deg, "α")
     R, _ = PolynomialRing(E, "x")
     β = α^(div(q^deg - 1, n))
+    # println("here so far")
 
     defset = sort!(vcat(cosets...))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
+    # println("here 2")
     g = _generatorpolynomial(R, β, defset)
     h = _generatorpolynomial(R, β, vcat(comcosets...))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
+    # println("here 3")
+    # println(G)
     Gstand, Hstand = _standardform(G)
+    # println("here 4")
     δ, b, HT = finddelta(n, cosets)
+    # println("here 5")
 
     if verify
+        # println("above")
         flag, htest = divides(gen(R)^n - 1, g)
+        # println(flag)
+        # println(htest)
         flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
+        # println(htest, parent(h))
+        # println(h, parent(h))
         htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+        # if htest != h
+        #     println("sucks")
+        #     # error("test")
+        # end
         if size(H) == (n - k, k)
             H = deepcopy(H')
         end

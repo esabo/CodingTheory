@@ -9,12 +9,13 @@ ENV["NEMO_PRINT_BANNER"] = "false"
 using AbstractAlgebra
 using Nemo
 
-import Base: length, in, ⊆, /
+import Base: show, length, in, ⊆, /
 import AbstractAlgebra: quo
 
 include("utils.jl")
 
-abstract type AbstractLinearCode end
+abstract type AbstractCode end
+abstract type AbstractLinearCode <: AbstractCode end
 
 mutable struct LinearCode <: AbstractLinearCode
     F::Union{FqNmodFiniteField, Nemo.GaloisField, AbstractAlgebra.GFField{Int64}}
@@ -32,13 +33,49 @@ end
 # need to make sure this isn't doing column swaps
 function _standardform(G::Union{gfp_mat, fq_nmod_mat})
     # hnf(C.G) shoud also work in most situations
-    _, Gstand = rref(G)
-    A = G[:, (size(G, 1) + 1):size(G, 2)]
-    T = MatrixSpace(base_ring(G), size(G, 2) - size(G, 1), size(G, 2) - size(G, 1))
+    _, Gstand = rref(G) # breaks on this line
+    A = Gstand[:, (size(Gstand, 1) + 1):size(Gstand, 2)]
+    T = MatrixSpace(base_ring(Gstand), size(Gstand, 2) - size(Gstand, 1), size(Gstand, 2) - size(Gstand, 1))
     Hstand = hcat(-transpose(A), T(1))
     return Gstand, Hstand
 end
 
+"""
+    LinearCode(G::fq_nmod_mat, parity::Bool=false, verify::Bool=true)
+
+Return a LinearCode object using the matrix `G` as the generator matrix.
+
+If `G` is not full rank, a row-reduced form is computed for the generator matrix.
+The dimension of the code is the number of rows of the full-rank matrix, and the
+length the number of columns. If the optional paramater `parity` is set to `true`,
+a LinearCode is built with `G` as the parity check matrix. If the optional parameter
+`verify` is set to `true`, basic checks, such as checking `GH == 0` and checking
+for column swaps in the standard form, will be done to ensure correctness.
+
+# Arguments
+* `G`: A matrix over a finite field of type `FqNmodFiniteField`.
+* `parity`: A boolean
+* `verify`: A boolean
+
+# Notes
+* At the moment, no convention is used for G = 0 and an error is thrown.
+* Zero columns are not removed.
+* Row reduction is based on Nemo's rref function. It should be monitored to make
+  sure that this does not introduce column swapping in a future version.
+
+# Examples
+```julia
+julia> F, _ = FiniteField(2, 1, "α");
+julia> G = matrix(F, 4, 7, [1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]);
+julia> C = LinearCode(G)
+[7, 4]_2 linear code.
+Generator matrix: 4 × 7
+        1 0 0 0 0 1 1
+        0 1 0 0 1 0 1
+        0 0 1 0 1 1 0
+        0 0 0 1 1 1 1
+```
+"""
 function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::Bool=true)
     # if passed a VS, just ask for the basis
     !iszero(G) || error("Zero matrix passed into LinearCode constructor.")
@@ -47,7 +84,9 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
     end
 
     Gorig = G
-    if rank(G) < size(G, 1)
+    rk = rank(G)
+    !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    if rk < size(G, 1)
         _, G = rref(G)
     end
 
@@ -63,13 +102,15 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
         G = G[setdiff(1:size(G, 1), del), :]
     end
 
-    _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(H' * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
-    Gstand, Hstand = _standardform(G)
+    _, H = right_kernel(G)
 
-    for r in 1:size(Gstand, 1)
-        iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+    Gstand, Hstand = _standardform(G)
+    if verify
+        !(!iszero(G * H) || !iszero(H' * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        for r in 1:size(Gstand, 1)
+            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+        end
     end
 
     if !parity
@@ -81,7 +122,7 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
     end
 end
 
-function Base.show(io::IO, C::AbstractLinearCode)
+function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, false)
         println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
     else
@@ -102,51 +143,140 @@ function Base.show(io::IO, C::AbstractLinearCode)
     end
 end
 
-field(C::AbstractLinearCode) = C.F
-length(C::AbstractLinearCode) = C.n
-n(C::AbstractLinearCode) = C.n
+"""
+    field(C::AbstractLinearCode)
+
+Return the base ring of the generator matrix as a Nemo object.
+"""
+field(C::AbstractCode) = C.F
+
+"""
+    length(C::AbstractLinearCode)
+
+Return the length of the code.
+"""
+length(C::AbstractCode) = C.n
+# n(C::AbstracCode) = C.n
+
+"""
+    dimension(C::AbstractLinearCode)
+
+Return the dimension of the linear code.
+"""
 dimension(C::AbstractLinearCode) = C.k
-k(C::AbstractLinearCode) = C.k
+# k(C::AbstractLinearCode) = C.k
+
+"""
+    cardinality(C::AbstractLinearCode)
+
+Return the cardinality of the linear code.
+
+No size checking is done on the parameters of the code, returns a BitInt by default.
+"""
 cardinality(C::AbstractLinearCode) = BigInt(order(field(C)))^dimension(C)
+
+"""
+    rate(C::AbstractLinearCode)
+
+Return the rate, `R = k/n', of the linear code.
+"""
 rate(C::AbstractLinearCode) = dimension(C) / length(C)
 
+"""
+    minimumdistance(C::AbstractLinearCode)
+
+Return the minimum distance of the linear code if known, otherwise errors.
+"""
 function minimumdistance(C::AbstractLinearCode)
     !ismissing(C.d) || error("Unknown minimum distance for this code.")
     return C.d
 end
-d(C::AbstractLinearCode) = minimumdistance(C)
+# d(C::AbstractLinearCode) = minimumdistance(C)
 
+"""
+    setminimumdistance(C::AbstractLinearCode, d::Integer)
 
-function setminimumdistance!(C::T, d::Integer) where T <: AbstractLinearCode
-    !(d <= 0) || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
+Set the minimum distance of the linear code to `d`.
+
+The only check done on the value of `d` is that `1 ≤ d ≤ n`.
+"""
+function setminimumdistance!(C::AbstractLinearCode, d::Integer)
+    d > 0 && d <= length(C) || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
     C.d = d
 end
 
+"""
+    relativedistance(C::AbstractLinearCode)
+
+Return the relative minimum distance, `δ = d / n` of the linear code if `d` is known,
+otherwise errors.
+"""
 function relativedistance(C::AbstractLinearCode)
     !ismissing(C.d) || error("Unknown minimum distance for this code.")
     return C.d / C.n
 end
 
+"""
+    generatormatrix(C::AbstractLinearCode, standform::Bool=false)
+
+Return the generator matrix of the linear code.
+
+If the optional parameter `standform` is set to `true`, the standard form of the
+generator matrix is returned instead.
+"""
 function generatormatrix(C::AbstractLinearCode, standform::Bool=false)
     !standform || return C.Gstand
     return C.G
 end
 
+"""
+    originalgeneratormatrix(C::AbstractLinearCode)
+
+Return the original generator matrix used to create the linear code.
+
+This should not be interpreted as any kind of generator to the code. For example,
+if `G` is not a full-rank matrix, then this function acting on `C = LinearCode(G)`
+will return `G` instead of the generator matrix for `C`. This may be used to diagnose
+or understand the resulting code after its creation. An important use of this
+function is in connection with standard code modification procedures such as
+extending, puncturing, shortening, etc where this returns the matrix on which these
+procedures have been applied.
+"""
 function originalgeneratormatrix(C::AbstractLinearCode)
     !ismissing(C.Gorig) || return C.G # is ths the behavior I want?
     return C.Gorig
 end
 
+"""
+    paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
+
+Return the parity check matrix of the linear code.
+
+If the optional parameter `standform` is set to `true`, the standard form of the
+parity check matrix is returned instead.
+"""
 function paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
     !standform || return C.Hstand
     return C.H
 end
 
+"""
+    originalparitycheckmatrix(C::AbstractLinearCode)
+
+Return the original parity check matrix used to create the linear code.
+
+See `originalgeneratormatrix`.
+"""
 function originalparitycheckmatrix(C::AbstractLinearCode)
     !ismissing(C.Horig) || return C.H # is ths the behavior I want?
     return C.Horig
 end
 
+"""
+    genus(C::AbstractLinearCode)
+
+Return the genus, `n + 1 - k - d` the linear code.
+"""
 function genus(C::AbstractLinearCode)
     !ismissing(C.d) || error("Unknown minimum distance for this code.")
     return length(C) + 1 - dimension(C) - minimumdistance(C)
@@ -165,16 +295,38 @@ function Singletonbound(C::AbstractLinearCode)
     return Singletonbound(length(C), dimension(C))
 end
 
+"""
+    genus(C::AbstractLinearCode)
+
+Return whether or not the linear code is maximum distance separable (MDS).
+
+A linear code is MDS if it saturates the Singleton bound, `d = n - k + 1`.
+"""
 function isMDS(C::AbstractLinearCode)
     minimumdistance(C) != Singletonbound(C) || return true
     return false
 end
 
+"""
+    numbercorrectableerrors(C::AbstractLinearCode)
+
+Return the number of correctable errors for the linear code.
+
+The number of correctable errors is `t = floor((d - 1) / 2)`.
+"""
 function numbercorrectableerrors(C::AbstractLinearCode)
     !ismissing(minimumdistance(C)) || return -1 # what do I want to return here?
     return Int64(floor((minimumdistance(C) - 1) / 2))
 end
 
+"""
+    encode(v::Union{fq_nmod_mat, Vector{Int64}}, C::AbstractLinearCode)
+
+Return `v * G`, where `G` is the generator matrix of `C`.
+
+# Arguments
+* `v`: Either a `1 × k` or a `k × 1` vector.
+"""
 function encode(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
     !(size(v) != (1, dimension(C)) && size(v) != (dimension(C), 1)) ||
         error("Vector to be encoded is of incorrect dimension; expected length $(C.k), received: $(size(v)).")
@@ -190,6 +342,14 @@ function encode(v::Vector{Int64}, C::AbstractLinearCode)
     return encode(matrix(field(C), v'), C)
 end
 
+"""
+    syndrome(v::Union{fq_nmod_mat, Vector{Int64}}, C::AbstractLinearCode)
+
+Return `H * v`, where `H` is the parity check matrix of `C`.
+
+# Arguments
+* `v`: Either a `1 × k` or a `k × 1` vector.
+"""
 function syndrome(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
     !(size(v) != (length(C), 1) && size(v) != (1, length(C))) ||
         error("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")
@@ -205,10 +365,27 @@ function syndrome(v::Vector{Int64}, C::AbstractLinearCode)
     return syndrome(matrix(field(C), v'), C)
 end
 
-# need to remove Base.:(in)(
-in(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode) = iszero(syndrome(v, C))
+"""
+    in(v::Union{fq_nmod_mat, Vector{Int64}}, C::AbstractLinearCode)
 
-function Base.:(⊆)(C1::AbstractLinearCode, C2::AbstractLinearCode)
+Return whether or not `v` is a codeword of `C`.
+
+The vector `v` is a valid codeword of `C` if and only if the syndrome of `v` is zero.
+"""
+in(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode) = iszero(syndrome(v, C))
+in(v::Vector{Int64}, C::AbstractLinearCode) = iszero(syndrome(v, C))
+
+"""
+    ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    ⊂(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode)
+
+Return whether or not `C1` is a subcode of `C2`.
+
+A linear code `C1` is a subcode of another linear code `C2` if each row of
+the generator matrix of `C1` is a valid codeword of `C2`.
+"""
+function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
     if field(C1) != field(C2) || length(C1) != length(C2) || dimension(C1) > dimension(C2)
         return false
     end
@@ -222,11 +399,20 @@ function Base.:(⊆)(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
     return true
 end
-
+⊂(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 
-# Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke package for debugging
-# and providing an elegant implementation here
+"""
+    codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    quo(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    quotient(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    /(C2::AbstractLinearCode, C1::AbstractLinearCode)
+
+Return the linear code `C2 / C1` given `C1 ⊆ C2`.
+
+Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke packages for help with
+debugging and providing the most elegant implementation used here.
+"""
 function codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1 ⊆ C2 || error("First code must be a subset of the second code.")
     F = field(C1)
@@ -248,30 +434,88 @@ function codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
 end
 quo(C1::AbstractLinearCode, C2::AbstractLinearCode) = codecomplement(C1, C2)
 quotient(C1::AbstractLinearCode, C2::AbstractLinearCode) = codecomplement(C1, C2)
-/(C2::S, C1::T) where S <: AbstractLinearCode where T <: AbstractLinearCode = codecomplement(C1, C2)
-#Base.:(/)
+/(C2::AbstractLinearCode, C1::AbstractLinearCode) = codecomplement(C1, C2)
 
+
+"""
+    dual(C::AbstractLinearCode)
+
+Return the dual of a linear code.
+
+All of the necessary information for the dual is already stored in a LinearCode
+object, so this implementation merely swaps data fields, e.g., `G <-> H`, without
+doing any new computation.
+"""
 function dual(C::AbstractLinearCode)
     return LinearCode(field(C), length(C), length(C) - dimension(C), missing,
-        paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
-        originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true))
+        deepcopy(paritycheckmatrix(C)'), deepcopy(originalparitycheckmatrix(C)'), deepcopy(generatormatrix(C)'),
+        deepcopy(originalgeneratormatrix(C)'), deepcopy(paritycheckmatrix(C, true)'), deepcopy(generatormatrix(C, true)'))
 end
 
-isequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = (C1 ⊆ C2 && C2 ⊆ C1)
-isselfdual(C::AbstractLinearCode) = isequivalent(C, dual(C))
-isselforthogonal(C::AbstractLinearCode) = C ⊆ dual(C)
+"""
+    Hermitiandual(C::AbstractLinearCode)
 
+Return the Hermitian dual of a linear code defined over a quadratic extension.
+"""
+Hermitiandual(C::AbstractLinearCode) = dual(LinearCode(Hermitianconjugatematrix(generatormatrix(C))))
+# also valid to do LinearCode(Hermitianconjugatematrix(generatormatrix(dual(C))))
+
+"""
+    isequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)
+
+Return whether or not `C1 ⊆ C2` and `C2 ⊆ C1`.
+"""
+isequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = (C1 ⊆ C2 && C2 ⊆ C1)
+
+"""
+    isselfdual(C::AbstractLinearCode)
+
+Return whether or not `isequivalent(C, dual(C))`.
+"""
+isselfdual(C::AbstractLinearCode) = isequivalent(C, dual(C))
+
+"""
+    isselforthogonal(C::AbstractLinearCode)
+    isweaklyselfdual(C::AbstractLinearCode)
+
+Return whether or not `C ⊆ dual(C)`.
+"""
+isselforthogonal(C::AbstractLinearCode) = C ⊆ dual(C)
+isweaklyselfdual(C::AbstractLinearCode) = isselforthogonal(C)
+
+"""
+    ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    directsum(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊕ C2
+
+Return the direct sum code of `C1` and `C2`.
+
+The direct sum code has generator matrix `G1 ⊕ G2` and parity check matrix `H1 ⊕ H2`.
+"""
 function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     field(C1) == field(C2) || error("Codes must be over the same field in the direct sum.")
 
     G = directsum(generatormatrix(C1), generatormatrix(C2))
+    # this should just be the direct sum of these variables as well
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C1), length(C1), dimension(C1), missing, G, missing,
         directsum(C1.H, C2.H), missing, Gstand, Hstand)
 end
-
 directsum(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊕ C2
 
+"""
+    ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    kron(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
+    tensorproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
+    directproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
+    productcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
+
+Return the (direct/tensor) product code of `C1` and `C2`.
+
+The product code has generator matrix `G1 ⊗ G2` and parity check matrix `H1 ⊗ H2`.
+
+# Notes
+* The resulting product is not checked for any zero columns.
+"""
 function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     field(C1) == field(C2) || error("Codes must be over the same field in the tensor product.")
 
@@ -281,7 +525,6 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
         missing, G, missing, paritycheckmatrix(C1) ⊗ paritycheckmatrix(C2), missing,
         Gstand, Hstand)
 end
-
 kron(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 tensorproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 directproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
@@ -302,11 +545,16 @@ productcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 #     return q^(n - k) * prod([1 - x / j for j in supD if j > 0])
 # end
 
-function extend(C::AbstractLinearCode)
-    # add an extra column to G such that the sum of the coordinates of each
-    # row is 0
-    # this is the most common form of extending a code
+"""
+    extend(C::AbstractLinearCode)
 
+Return the extended linear code of `C`.
+
+This implementation chooses the most common form of extending a code, which is to
+add an extra column to the generator matrix such that the sum of the coordinates
+of each row is 0.
+"""
+function extend(C::AbstractLinearCode)
     col = [sum(C.G[i, :]) for i in 1:dimension(C)]
     M = MatrixSpace(field(C), dimension(C), 1)
     G = hcat(generatormatrix(C), M([characteristic(field(C)) - i for i in col]))
@@ -321,12 +569,21 @@ function extend(C::AbstractLinearCode)
         G, generatormatrix(C), H, paritycheckmatrix(C), Gstand, Hstand)
 end
 
+"""
+    puncture(C::AbstractLinearCode, cols::Vector{Int64})
+
+Return the linear code of `C` punctured at the columns in `cols`.
+
+Deletes the columns from the generator matrix and then removes any potentially
+resulting zero rows.
+"""
 function puncture(C::AbstractLinearCode, cols::Vector{Int64})
-    # delete columns from generator matrix and then remove any potentially resulting zero rows
-    # to decode a punctured code it ~inserts zeros into punctured locations then uses original
-    # decoder + erasures
+    # to decode a punctured code ~kinda insert zeros into punctured locations
+    # then uses original decoder + erasures
 
     !isempty(cols) || return C
+    cols ⊆ 1:length(C) || error("Columns to puncture are not a subset of the index set.")
+    length(cols) != length(C) || error("Cannot puncture all columns of a generator matrix.")
 
     G = C.G[:, setdiff(1:length(C), cols)]
     if rank(G) < size(G, 1)
@@ -355,10 +612,18 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
         H', paritycheckmatrix(C), Gstand, Hstand)
 end
 
-function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
-    # delete rows from generator matrix and then remove any potentially resulting zero columns
+"""
+    expurgate(C::AbstractLinearCode, rows::Vector{Int64})
 
+Return the linear code of `C` expuragated at the rows in `rows`.
+
+Deletes the rows from the generator matrix and then removes any potentially
+resulting zero columns.
+"""
+function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
     !isempty(rows) || return C
+    rows ⊆ 1:dimension(C) || error("Rows to expurgate are not a subset of the index set.")
+    length(rows) != dimension(C) || error("Cannot expurgate all rows of a generator matrix.")
 
     G = C.G[setdiff(1:dimension(C), rows), :]
     # instead of calling LinearCode(G) here I want to keep C.G has Gorig so I am
@@ -389,16 +654,23 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
         H', paritycheckmatrix(C), Gstand, Hstand)
 end
 
-function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
-    # adds rows (matrix M) to bottom of generator matrix of C
+"""
+    augment(C::AbstractLinearCode, M::fq_nmod_mat)
 
-    length(C) == size(M, 2) || error("Rows to add must have the same number of columns as the generator matrix.")
+Return the linear code of `C` whose generator matrix is augmented with `M`.
+
+Vertically joins the matrix `M` to the bottom of the generator matrix of `C`.
+"""
+function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
+    length(C) == size(M, 2) || error("Rows to augment must have the same number of columns as the generator matrix.")
     field(C) == base_ring(M) || error("Rows to augment must have the same base field as the code.")
 
     G = vcat(generatormatrix(C), M)
     # instead of calling LinearCode(G) here I want to keep C.G has Gorig so I am
     # repeating this constructor here such that I have more control over that
-    if rank(G) < size(G, 1)
+    rk = rank(G)
+    !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    if rk < size(G, 1)
         _, G = rref(G)
     end
 
@@ -420,25 +692,52 @@ function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
+    for r in 1:size(Gstand, 1)
+        iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+    end
+
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
         H', paritycheckmatrix(C), Gstand, Hstand)
 end
 
-function shorten(C::AbstractLinearCode, L::Vector{Int64})
-    # expurgate followed by puncture
-    # Using the fact that the shortened code C_L = ((C^⟂)^L)^⟂ where the exponent is
-    # code punctured on L
+"""
+    shorten(C::AbstractLinearCode, L::Vector{Int64})
 
+Return the linear code of `C` shortened on the indices `L`.
+
+Shortening is expurgating followed by puncturing. This implementation uses the
+theorem that the dual of code shortened on `L` is equal to the puncture of the
+dual code on `L`, i.e., `dual(puncture(dual(C), L))`.
+"""
+function shorten(C::AbstractLinearCode, L::Vector{Int64})
+    # most parameter checks here done in puncture
     !isempty(L) || return C
     return dual(puncture(dual(C), L))
 end
 
+"""
+    lengthen(C::AbstractLinearCode)
+
+Return the lengthened linear code of `C`.
+
+This augments the all 1's row and then extends.
+"""
 function lengthen(C::AbstractLinearCode)
     row = matrix(field(C), [1 for _ in 1:length(C)]')
     newcode = augment(C, row)
     return extend(newcode)
 end
 
+"""
+    uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
+    Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
+
+Return the Plotkin- or so-called (u | u + v)-construction with `u ∈ C1` and `v ∈ C2`.
+
+# Arguments
+* `verify`: Runs a verification step on the sizes of the constructed code versus the
+theoretically guarenteed values.
+"""
 function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
     # Returns the Plotkin `(u|u+v)`-construction with u = C1 and v = C2
     field(C1) == field(C2) || error("Base field must be the same in the Plotkin (u|u + v)-construction.")
@@ -465,12 +764,119 @@ function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=tr
 
     return LinearCode(field(C1), size(G, 2), size(G, 1), d, G, missing, H, missing, Gstand, Hstand)
 end
-Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode) = uuplusv(C1, C2)
+Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true) = uuplusv(C1, C2, verify)
 
-# function tracecode(C::AbstractLinearCode)
-#
-# end
+"""
+    subcode(C::AbstractLinearCode, k::Integer)
 
-# function subfieldsubcode(C::AbstractLinearCode)
-#     # return dual(tracecode(dual(C)))
-# end
+Return a `k`-dimension linear subcode code of `C`.
+"""
+function subcode(C::AbstractLinearCode, k::Integer)
+    k >= 1 && k < dimension(C) || error("Cannot construct a $k-dimensional subcode of an $(dimension(C))-dimensional code.")
+    k != dimension(C) || return C
+    return LinearCode(generatormatrix(C)[1:k, :])
+end
+
+"""
+    subcode(C::AbstractLinearCode, rows::Vector{Int64})
+
+Return a linear subcode code of `C` using the rows of the generator matrix of `C`
+listed in `rows`.
+"""
+function subcode(C::AbstractLinearCode, rows::Vector{Int64})
+    !isempty(rows) || error("Row index set empty in subcode.")
+    rows ⊆ 1:dimension(C) || error("Rows are not a subset of the index set.")
+    length(rows) != dimension(C) || return C
+    return LinearCode(generatormatri(C)[setdiff(1:dimension(C), rows), :])
+end
+
+"""
+    juxtaposition(C1::AbstractLinearCode, C2::AbstractLinearCode)
+
+Return the linear code generated by the horizontal concatenation of the generator
+matrices of `C1` then `C2`.
+"""
+function juxtaposition(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    field(C1) == field(C2) || error("Cannot juxtapose two codes over different fields.")
+    dimension(C1) == dimension(C2) || error("Cannot juxtapose two codes of different dimensions.")
+    return LinearCode(hcat(generatormatrix(C1), generatormatrix(C2)))
+end
+
+"""
+    constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode)
+
+Return the linear code generated by the construction X procedure.
+
+Let `C1` be an [n, k, d], `C2` be an [n, k - l, d + e], and `C3` be an [m, l, e] linear code
+with `C2 ⊂ C1` be proper. Construction X creates a [n + m, k, d + e] linear code.
+"""
+function constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode)
+    C1 ⊆ C2 || error("The first code must be a subcode of the second in construction X.")
+    !isequivalent(C1, C2) || error("The first code must be a proper subcode of the second in construction X.")
+    # the above line checks field(C1) == field(C2)
+    field(C1) == field(C3) || error("All codes must be over the same base ring in construction X.")
+    dimension(C2) == dimension(C1) + dimension(C3) ||
+        error("The dimension of the second code must be the sum of the dimensions of the first and third codes.")
+    # could do some verification steps on parameters
+    return LinearCode(vcat(hcat(generatormatrix(C1 / C2), generatormatrix(C3)),
+        hcat(generatormatrix(C1), zero_matrix(field(C1), dimension(C1), length(C3)))))
+end
+
+"""
+    constructionX3(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode,
+        C4::AbstractLinearCode, C5::AbstractLinearCode))
+
+Return the linear code generated by the construction X3 procedure.
+
+Let C1 = [n, k1, d1], C2 = [n, k2, d2], C3 = [n, k3, d3], C4 = [n4, k2 - k1, d4], and
+C5 = [n5, k3 - k2, d5] with `C1 ⊂ C2 ⊂ C3`. Construction X3 creates an [n + n4 + n5, k3, d]
+linear code with d ≥ min{d1, d2 + d4, d3 + d5}.
+"""
+function constructionX3(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode,
+    C4::AbstractLinearCode, C5::AbstractLinearCode)
+
+    C1 ⊆ C2 || error("The first code must be a subcode of the second in construction X3.")
+    !isequivalent(C1, C2) || error("The first code must be a proper subcode of the second in construction X3.")
+    C2 ⊆ C3 || error("The second code must be a subcode of the third in construction X3.")
+    !isequivalent(C2, C3) || error("The second code must be a proper subcode of the third in construction X3.")
+    # the above lines check field(C1) == field(C2) == field(C3)
+    field(C1) == field(C4)  == field(C5) || error("All codes must be over the same base ring in construction X3.")
+    dimension(C3) == dimension(C2) + dimension(C4) ||
+        error("The dimension of the third code must be the sum of the dimensions of the second and fourth codes in construction X3.")
+    dimension(C2) == dimension(C1) + dimension(C5) ||
+        error("The dimension of the second code must be the sum of the dimensions of the first and fifth codes in construction X3.")
+
+    C2modC1 = C2 / C1
+    C3modC2 = C3 / C2
+    F = field(C1)
+
+    # could do some verification steps on parameters
+    G = vcat(hcat(generatormatrix(C1), zero_matrix(F, dimension(C1), length(C4)), zero_matrix(F, dimension(C1), length(C5))),
+    hcat(generatormatrix(C2modC1), generatormatrix(C4), zero_matrix(F, dimension(C4), length(C5))),
+    hcat(generatormatrix(C3modC2), zero_matrix(F, dimension(C5), length(C4)), generatormatrix(C5)))
+    return LinearCode(G)
+end
+
+"""
+    upluswvpluswuplusvplusw(C1::AbstractLinearCode, C2::AbstractLinearCode)
+
+Return the linear code generated by the (u + w | v + w | u + v + w)-construction.
+
+Let C1 = [n, k1, d1] and C2 = [n, k2, d2]. This construction produces an [3n, 2k1 + k2]
+linear code. For binary codes, wt(u + w | v + w | u + v + w) = 2 wt(u ⊻ v) - wt(w) + 4s,
+where s = |{i | u_i = v_i = 0, w_i = 1}|.
+"""
+function upluswvpluswuplusvplusw(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    field(C1) == field(C2) || error("All codes must be over the same base ring in the (u + w | v + w | u + v + w)-construction.")
+    length(C1) == length(C2) || error("All codes must be the same length in the (u + w | v + w | u + v + w)-construction.")
+
+    # could do some verification steps on parameters
+    G = vcat(hcat(generatormatrix(C1), zero_matrix(field(C1), dimension(C1), length(C1)), generatormatrix(C1)),
+    hcat(generatormatrix(C2), generatormatrix(C2), generatormatrix(C2)),
+    hcat(zero_matrix(field(C1), dimension(C1), length(C1)), generatormatrix(C1), generatormatrix(C1)))
+    return LinearCode(G)
+end
+
+function expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    return LinearCode(expandmatrix(generatormatrix(C), K, basis))
+end
