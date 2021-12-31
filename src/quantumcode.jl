@@ -27,6 +27,9 @@ struct CSSCode <: AbstractCSSCode
     Zstabs::fq_nmod_mat
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
+    signs::Vector{Int64} # make bools, uint8's?
+    Xsigns::Vector{Int64} # make bools, uint8's?
+    Zsigns::Vector{Int64} # make bools, uint8's?
 end
 
 struct QuantumCode <: AbstractQuantumCode
@@ -37,6 +40,7 @@ struct QuantumCode <: AbstractQuantumCode
     d::Union{Integer, Missing}
     stabs::fq_nmod_mat
     dualgens::fq_nmod_mat
+    signs::Vector{Int64} # make bools, uint8's?
 end
 
 field(S::AbstractQuantumCode) = S.F
@@ -44,11 +48,34 @@ quadraticfield(S::AbstractQuantumCode) = S.E
 length(S::AbstractQuantumCode) = S.n
 numqubits(S::AbstractQuantumCode) = S.n
 dimension(S::AbstractQuantumCode) = S.k
+signs(S::AbstractQuantumCode) = S.signs
+Xsigns(S::CSSCode) = S.Xsigns
+Zsigns(S::CSSCode) = S.Zsigns
+stabilizers(S::AbstractQuantumCode) = S.stabs
+Xstabilizers(S::CSSCode) = S.Xstabs
+Zstabilizers(S::CSSCode) = S.Zstabs
+numXstabs(S::CSSCode) = size(S.Xstabs, 1)
+numZstabs(S::CSSCode) = size(S.Zstabs, 1)
+
+function minimumdistanceX(S::CSSCode)
+    !ismissing(S.dx) || error("Unknown minimum distance for this code.")
+    return S.dx
+end
+
+function minimumdistanceZ(S::CSSCode)
+    !ismissing(S.dz) || error("Unknown minimum distance for this code.")
+    return S.dz
+end
+
+function minimumdistance(S::AbstractQuantumCode)
+    !ismissing(S.d) || error("Unknown minimum distance for this code.")
+    return S.d
+end
 
 function quadratictosymplectic(M::fq_nmod_mat)
     E = base_ring(M)
     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-    F, _ = FiniteField(char(E), div(degree(E), 2), "ω")
+    F, _ = FiniteField(Int64(characteristic(E)), div(degree(E), 2), "ω")
     nrows = size(M, 1)
     ncols = size(M, 2)
     Msym = zero_matrix(F, nrows, 2 * ncols)
@@ -68,7 +95,7 @@ function symplectictoquadratic(M::fq_nmod_mat)
     nrows = size(M, 1)
     ncols = div(size(M, 2), 2)
     F = base_ring(M)
-    E, ω = FiniteField(Int(characteristic(F)), 2 * degree(F), "ω")
+    E, ω = FiniteField(Int64(characteristic(F)), 2 * degree(F), "ω")
     ϕ = embed(F, E)
     Mquad = zero_matrix(E, nrows, ncols)
     for r in 1:nrows
@@ -104,6 +131,123 @@ _Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat
 # need symplectictoPaulistring
 # quadratictoPaulistring
 
+symplecticstabilizers(S::AbstractQuantumCode) = quadratictosymplectic(S)
+
+function _processsigns(SPauli::Vector{T}, signs::Vector{Int64}=[]) where T <: Union{String, Vector{Char}}
+    Paulisigns = Vector{Int64}()
+    SPaulistripped = Vector{String}()
+    for (i, s) in enumerate(SPauli)
+        if s[1] ∈ ['I', 'X', 'Y', 'Z']
+            append!(Paulisigns, 1)
+            push!(SPaulistripped, s)
+        elseif s[1] == '+'
+            append!(Paulisigns, 1)
+            push!(SPaulistripped, s[2:end])
+        elseif s[1] == '-'
+            append!(Paulisigns, -1)
+            push!(SPaulistripped, s[2:end])
+        else
+            error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
+        end
+    end
+
+    for s in SPaulistripped
+        for i in s
+            if i ∉ ['I', 'X', 'Y', 'Z']
+                error("Element of provided Pauli string is not a Pauli character: $s.")
+            end
+        end
+    end
+
+    n = length(SPaulistripped[1])
+    for s in SPaulistripped
+        length(s) == n || error("Provided Pauli strings are not all of the same length.")
+    end
+
+    if isempty(signs)
+        signs = Paulisigns
+    else
+        if length(signs) != length(SPaulistripped)
+            error("Unexpected number of signs in CSSCode constructor. Expected: $(length(SPaulistripped)), received: $(length(signs)).")
+        end
+
+        for s in signs
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
+        end
+
+        temp = [1 for i in 1:length(signs)]
+        if Paulisigns != temp
+            signs == Paulisigns || error("Received contradictory sign information from the Pauli strings and the signs parameter.")
+        end
+    end
+    return SPaulistripped, signs
+end
+
+function splitstabilizers(S::fq_nmod_mat, signs::Vector{Int64}=[])
+    # iseven(size(S, 2)) || ()
+    # if not, check quadratic degree and send to symplectic and then do
+
+
+    ### need to handle signs first
+
+    Xstabs = []
+    Xsigns = Vector{Int64}()
+    Zstabs = []
+    Zsigns = Vector{Int64}()
+    mixedstabs = []
+    mixedsigns = Vector{Int64}()
+
+    half = div(size(S, 2), 2)
+    for r in 1:size(S, 1)
+        # use views?
+        s = S[r, :]
+        if iszero(s)
+            continue
+        else
+            sx = iszero(s[1, 1:half])
+            sz = iszero(s[1, half + 1:end])
+            if (sx && !sz)
+                push!(Zstabs, s)
+                append!(Zsigns, signs[r])
+            elseif !sx && sz
+                push!(Xstabs, s)
+                append!(Xsigns, signs[r])
+            elseif !sx && !sz
+                push!(mixedstabs, s)
+                append!(mixedsigns, signs[r])
+            end
+        end
+    end
+
+    if !isempty(Xstabs)
+        Xstabs = vcat(Xstabs...)
+    end
+    if !isempty(Zstabs)
+        Zstabs = vcat(Zstabs...)
+    end
+    if !isempty(mixedstabs)
+        mixedstabs = vcat(mixedstabs...)
+    end
+    return Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
+end
+
+function isCSS(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
+    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = splitstabilizers(S, signs)
+    if isempty(mixedstabs)
+        if trim
+            half = div(size(Xstabs, 2), 2)
+            return true, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns
+        else
+            return true, Xstabs, Xsigns, Zstabs, Zsigns
+        end
+    else
+        if trim
+            return false, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns, mixedstabs, mixedsigns
+        else
+            return false, Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
+        end
+    end
+end
 
 function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode)
     length(C1) ==  length(C2) || error("Both codes must have the same length in the CSS construction.")
@@ -120,10 +264,16 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode)
         minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2), paritycheckmatrix(C1), C2, C1)
 end
 
-function CSSCode(C::LinearCode)
+function CSSCode(C::LinearCode, signs::Vector{Int64}=[])
     # this should have Xstabs = Zstabs
     D = dual(C)
     C ⊆ D || error("The single code CSS construxtion requires C ⊆ C^⟂.")
+    if !isempty(signs)
+        for s in signs
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
+        end
+    end
+
 
     # C2 ⊆ C1
     # k = k1 - k2
@@ -133,17 +283,37 @@ function CSSCode(C::LinearCode)
     # # should do some checks for equality of the two methods
     # return CSSCode(C, D)
     Sq2 = symplectictoquadratic(directsum(paritycheckmatrix(D), paritycheckmatrix(D)))
-    return CSSCode(field(C), base_ring(Sq2), length(C), dimension(D) - dimension(C), missing,
-        minimumdistance(D), minimumdistance(C), Sq2, paritycheckmatrix(D), paritycheckmatrix(D), C, D)
+    k = dimension(D) - dimension(C)
+    if isempty(signs)
+        signs = [1 for i in 1:k]
+    end
+    return CSSCode(field(C), base_ring(Sq2), length(C), k, missing, minimumdistance(D),
+        minimumdistance(C), Sq2, paritycheckmatrix(D), paritycheckmatrix(D), C, D,
+        signs)
 end
 
-function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat)
+function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, Xsigns::Vector{Int64}=[],
+    Zsigns::Vector{Int64}=[])
     # this should have Zstabs * Xstabs' = 0
     # set dual containing if Xstabs == Zstabs, else not
     size(Xmatrix, 2) ==  size(Zmatrix, 2) || error("Both matrices must have the same length in the CSS construction.")
     base_ring(Xmatrix) == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
     rank(Xmatrix) == size(Xmatrix, 1) || error("Provided X-stabilizer matrix is not full rank.")
     rank(Zmatrix) == size(Zmatrix, 1) || error("Provided Z-stabilizer matrix is not full rank.")
+    if !isempty(Xsigns)
+        for s in Xsigns
+            (s == 1 || s == -1) || error("X-stabilizer signs must be +/- 1; received: $s")
+        end
+    else
+        Xsigns = [1 for i in 1:size(Xmatrix, 1)]
+    end
+    if !isempty(Zsigns)
+        for s in Zsigns
+            (s == 1 || s == -1) || error("Z-stabilizer signs must be +/- 1; received: $s")
+        end
+    else
+        Zsigns = [1 for i in 1:size(Zmatrix, 1)]
+    end
 
     S = directsum(Xmatrix, Zmatrix)
     for r1 in 1:size(S, 1)
@@ -154,75 +324,150 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat)
     end
     Sq2 = symplectictoquadratic(S)
     return CSSCode(base_ring(Xmatrix), base_ring(Sq2), size(Xmatrix, 2), size(Xmatrix, 1) + size(Zmatrix, 1),
-        missing, missing, missing, Sq2, missing, missing)
+        missing, missing, missing, Sq2, missing, missing, Xsigns, Zsigns)
 end
 
-function CSSCode(SPaul::Vector{T}) where T <: Union{String, Vector{Char}}
-    # see above comments on sorting types of CSS codes
-    n = length(SPaul[1])
-    # iseven(n) || error("Provided Pauli strings must have even length.")
-    for s in SPaul
-        length(s) == n || error("Provided Pauli strings are not all of the same length.")
-    end
-
-    S = _Paulistringtosymplectic(SPaul)
-    Xstabs = []
-    Zstabs = []
-    for r in 1:size(S, 1)
-        # use views?
-        row = S[r, :]
-        if iszero(row)
-            continue
-        elseif iszero(row[1, 1:n])
-            push!(Zstabs, row[1, n + 1:end])
-        elseif iszero(row[1, n + 1: end])
-            push!(Xstabs, row[1, 1:n])
-        else
-            error("Provided Pauli strings are not CSS.")
-        end
-    end
-    Xstabs = vcat(Xstabs...)
-    Zstabs = vcat(Zstabs...)
-
+function CSSCode(SPauli::Vector{T}, signs::Vector{Int64}=[]) where T <: Union{String, Vector{Char}}
+    SPaulistripped, signs = _processsigns(SPauli, signs)
+    S = _Paulistringtosymplectic(SPaulistripped)
     for r1 in 1:size(S, 1)
         for r2 in 1:size(S, 1)
             iszero(symplecticinnerproduct(S[r1, :], S[r2, :])) || error("The given stabilizers are not symplectic orthogonal.")
         end
     end
     Sq2 = symplectictoquadratic(S)
-    return CSSCode(base_ring(S), base_ring(Sq2), n, size(Sq2, 1), missing,
-        missing, missing, Sq2, Xstabs, Zstabs, missing, missing)
-end
 
-# entanglement-assisted is not symplectic orthogonal
-function QuantumCode(SPaul::Vector{T}) where T <: Union{String, Vector{Char}}
-    # need to check if CSS and then sort accordingly
-    # otherwise, Zpart * Xpart' + Xpart * Zpart' = 0, which is def of symplectic orthogonality
-    n = length(SPaul[1])
-    # iseven(n) || error("Provided Pauli strings must have equal length.")
-    for s in SPaul
-        length(s) == n || error("Provided Pauli strings are not all of the same length.")
-    end
-
-    S = _Paulistringtosymplectic(SPaul)
-    for r1 in 1:size(S, 1)
-        for r2 in 1:size(S, 1)
-            iszero(symplecticinnerproduct(S[r1, :], S[r2, :])) || error("The given stabilizers are not symplectic orthogonal.")
+    del = Vector{Int64}()
+    for r in 1:size(Sq2, 1)
+        if iszero(Sq2[r, :])
+            append!(del, r)
         end
     end
-    Sq2 = symplectictoquadratic(S)
+
+    flag1 = false
+    # not necessary but faster to skip
+    if !isempty(del)
+        Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
+        signs = signs[setdiff(1:size(Sq2, 1), del)]
+        flag1 = true
+    end
+
+    ###############
+    # need to figure out how to track signs as it drops rank
+    # would be easier to reassign given character vector instead of stabilizer signs
+    ###############
+
+    # if rank(Sq2) != size(Sq2, 1)
+    # rk = rank(G)
+    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    # if rk < size(G, 1)
+    #     _, G = rref(G)
+    # end
 
     # find dual
-    G = hcat(S[:, length(S) + 1:end], -S[:, 1:length(S)])
+    if flag1
+        S = quadratictosymplectic(Sq2)
+    end
+    G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
     !(!iszero(G * H) || !iszero(H' * G')) || error("Dual stabilizer matrix is not transpose, symplectic orthogonal.")
 
-    # split stabilizers into X and Z and check if any mixed
-    # return CSS if necessary
+    args = isCSS(S, signs, true)
+    if args[1]
+        return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 1), missing, missing,
+            missing, Sq2, args[2], args[4], missing, missing, signs, args[3], args[5])
+    else
+        error("Provided Pauli strings are not CSS.")
+    end
+end
 
+# entanglement-assisted is not symplectic orthogonal
+function QuantumCode(SPauli::Vector{T}, signs::Vector{Int64}=[]) where T <: Union{String, Vector{Char}}
+    SPaulistripped, signs = _processsigns(SPauli, signs)
+    S = _Paulistringtosymplectic(SPaulistripped)
+    for r1 in 1:size(S, 1)
+        for r2 in 1:size(S, 1)
+            iszero(symplecticinnerproduct(S[r1, :], S[r2, :])) || error("The given stabilizers are not symplectic orthogonal.")
+        end
+    end
+    Sq2 = symplectictoquadratic(S)
 
-    return QuantumCode(base_ring(S), base_ring(Sq2), n, size(Sq2, 1), missing, Sq2, copy(H'))
+    # make del zero rows, cols helper functions
+    # which will return a flag if this was ever done
+    del = Vector{Int64}()
+    for r in 1:size(Sq2, 1)
+        if iszero(Sq2[r, :])
+            append!(del, r)
+        end
+    end
+
+    flag1 = false
+    # not necessary but faster to skip
+    if !isempty(del)
+        Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
+        signs = signs[setdiff(1:size(Sq2, 1), del)]
+        flag1 = true
+    end
+
+    ###############
+    # need to figure out how to track signs as it drops rank
+    # would be easier to reassign given character vector instead of stabilizer signs
+    ###############
+
+    # if rank(Sq2) != size(Sq2, 1)
+    # rk = rank(G)
+    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    # if rk < size(G, 1)
+    #     _, G = rref(G)
+    # end
+
+    # find dual
+    if flag1
+        S = quadratictosymplectic(Sq2)
+    end
+    G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
+    _, H = right_kernel(G)
+    # note the H here is transpose of the standard definition
+    !(!iszero(G * H) || !iszero(H' * G')) || error("Dual stabilizer matrix is not transpose, symplectic orthogonal.")
+    Htemp = hcat(H[:, size(Sq2, 2) + 1:end], -H[:, 1:size(Sq2, 2)])
+    dualgens = symplectictoquadratic(Htemp')
+    dualgens2 = symplectictoquadratic(H')
+    # println(dualgens2)
+    # println(dualgens)
+
+    # println(size(S))
+    # println(size(Htemp))
+    # println(size(H))
+    #
+    # println("testing H'")
+    # for r1 in 1:size(S, 1)
+    #     for r2 in 1:size(H', 1)
+    #         # println("size S:", size(S[r1, :]))
+    #         # println("size dualgens:", size(dualgens[r2, :]))
+    #         println(iszero(symplecticinnerproduct(S[r1, :], H'[r2, :])))
+    #     end
+    # end
+
+    # println("testing Htemp")
+    # for r1 in 1:size(S, 1)
+    #     for r2 in 1:size(Htemp', 1)
+    #         # println("size S:", size(S[r1, :]))
+    #         # println("size Htemp':", size(Htemp'[r2, :]))
+    #         println(iszero(symplecticinnerproduct(S[r1, :], Htemp'[r2, :])))
+    #     end
+    # end
+
+    ###########
+
+    args = isCSS(S, signs, true)
+    if args[1]
+        return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 1), missing, missing,
+            missing, Sq2, args[2], args[4], missing, missing, signs, args[3], args[5])
+    else
+        return QuantumCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 1), missing,
+            Sq2, dualgens, signs)
+    end
 end
 
 # function QuantumCode()
@@ -233,29 +478,6 @@ end
 #         K = Int(log(Int64(K), q))
 #     end
 # end
-
-stabilizers(S::AbstractQuantumCode) = S.stabs
-symplecticstabilizers(S::AbstractQuantumCode) = quadratictosymplectic(S)
-Xstabilizers(S::CSSCode) = S.Xstabs
-Zstabilizers(S::CSSCode) = S.Zstabs
-
-function minimumdistanceX(S::CSSCode)
-    !ismissing(S.dx) || error("Unknown minimum distance for this code.")
-    return S.dx
-end
-
-function minimumdistanceZ(S::CSSCode)
-    !ismissing(S.dz) || error("Unknown minimum distance for this code.")
-    return S.dz
-end
-
-function minimumdistance(S::AbstractQuantumCode)
-    !ismissing(S.d) || error("Unknown minimum distance for this code.")
-    return S.d
-end
-
-numXstabs(S::CSSCode) = size(S.Xstabs, 1)
-numZstabs(S::CSSCode) = size(S.Zstabs, 1)
 
 function show(io::IO, S::AbstractQuantumCode)
     if get(io, :compact, false)

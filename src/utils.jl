@@ -125,3 +125,15 @@ function entropy(x::Real)
     q = order(F)
     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
 end
+
+function FpmattoJulia(M::fq_nmod_mat)
+    degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the integers.")
+    Fp = [i for i in 0:Int64(characteristic(base_ring(M)))]
+    A = zeros(Int64, size(M))
+    for r in 1:size(M, 1)
+        for c in 1:size(M, 2)
+            A[r, c] = Fp[findfirst(x->x==M[r, c], Fp)]
+        end
+    end
+    return A
+end
