@@ -74,6 +74,19 @@ function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
 end
 # SIP(u::fq_nmod_mat, v::fq_nmod_mat) = symplecticinnerproduct(u, v)
 
+function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat)
+    # might be faster to do matrix multiplication but then have to do all the
+    # error chceking again to make sure they are even symplectic
+    # whereas here that is all checked above
+    for r1 in 1:size(A, 1)
+        for r2 in 1:size(B, 1)
+            # views?
+            iszero(symplecticinnerproduct(A[r1, :], B[r2, :])) || return false
+        end
+    end
+    return true
+end
+
 # function traceinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
 #
 # end

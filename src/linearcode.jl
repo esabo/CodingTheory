@@ -17,6 +17,10 @@ include("utils.jl")
 abstract type AbstractCode end
 abstract type AbstractLinearCode <: AbstractCode end
 
+struct WeightEnumerator
+    polynomial::Vector{Vector{Int64}}
+end
+
 mutable struct LinearCode <: AbstractLinearCode
     F::Union{FqNmodFiniteField, Nemo.GaloisField, AbstractAlgebra.GFField{Int64}}
     n::Integer
@@ -28,6 +32,43 @@ mutable struct LinearCode <: AbstractLinearCode
     Horig::Union{gfp_mat, fq_nmod_mat, Missing}
     Gstand::Union{gfp_mat, fq_nmod_mat}
     Hstand::Union{gfp_mat, fq_nmod_mat}
+end
+
+function show(io::IO, W::WeightEnumerator)
+    for (i, term) in enumerate(W.polynomial)
+        if term == [1, 0, 0, 0]
+            print("1")
+        end
+        if term[1] != 1
+            print(io, term[1])
+        end
+        if term[2] != 0
+            if term[2] != 1
+                print(io, "x^", term[2])
+            else
+                print(io, "x")
+            end
+        end
+        if term[3] != 0
+            if term[3] != 1
+                print(io, "y^", term[3])
+            else
+                print(io, "y")
+            end
+        end
+        if term[4] != 0
+            if term[4] != 1
+                print(io, "z^", term[4])
+            else
+                print(io, "z")
+            end
+        end
+        if i != length(W.polynomial)
+            print(io, " + ")
+        else
+            print(io, "\n")
+        end
+    end
 end
 
 # need to make sure this isn't doing column swaps
@@ -107,6 +148,7 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
 
     Gstand, Hstand = _standardform(G)
     if verify
+        size(H', 1) == size(G, 2) - size(G, 1) || error("Parity check matrix is not size n - k.")
         !(!iszero(G * H) || !iszero(H' * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
         for r in 1:size(Gstand, 1)
             iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
@@ -185,13 +227,9 @@ rate(C::AbstractLinearCode) = dimension(C) / length(C)
 """
     minimumdistance(C::AbstractLinearCode)
 
-Return the minimum distance of the linear code if known, otherwise errors.
+Return the minimum distance of the linear code if known, otherwise returns missing.
 """
-function minimumdistance(C::AbstractLinearCode)
-    !ismissing(C.d) || error("Unknown minimum distance for this code.")
-    return C.d
-end
-# d(C::AbstractLinearCode) = minimumdistance(C)
+minimumdistance(C::AbstractLinearCode) = C.d
 
 """
     setminimumdistance(C::AbstractLinearCode, d::Integer)
@@ -414,7 +452,7 @@ Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke packages for help with
 debugging and providing the most elegant implementation used here.
 """
 function codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
-    C1 ⊆ C2 || error("First code must be a subset of the second code.")
+    C1 ⊆ C2 || error("Need C1 ⊆ C2 in codecomplement(C1, C2) or C2 / C1.")
     F = field(C1)
     V = VectorSpace(F, length(C1))
     U, UtoV = sub(V, [V(C1.G[i, :]) for i in 1:nrows(C1.G)])
@@ -423,7 +461,6 @@ function codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
     UinW, UinWtoW = sub(W, gensofUinW)
     Q, WtoQ = quo(W, UinW)
     C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
-
     Fbasis = [[F(C2modC1basis[j][i]) for i in 1:dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
     G = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
     for r in 1:length(Fbasis)
@@ -448,8 +485,8 @@ doing any new computation.
 """
 function dual(C::AbstractLinearCode)
     return LinearCode(field(C), length(C), length(C) - dimension(C), missing,
-        deepcopy(paritycheckmatrix(C)'), deepcopy(originalparitycheckmatrix(C)'), deepcopy(generatormatrix(C)'),
-        deepcopy(originalgeneratormatrix(C)'), deepcopy(paritycheckmatrix(C, true)'), deepcopy(generatormatrix(C, true)'))
+        deepcopy(paritycheckmatrix(C)), deepcopy(originalparitycheckmatrix(C)), deepcopy(generatormatrix(C)),
+        deepcopy(originalgeneratormatrix(C)), deepcopy(paritycheckmatrix(C, true)), deepcopy(generatormatrix(C, true)))
 end
 
 """

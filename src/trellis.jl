@@ -4,8 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-include("quantumcode.jl")
-
 import Base: ==, show
 
 mutable struct Vertex
@@ -25,62 +23,6 @@ end
 mutable struct Trellis
     vertices::Vector{Vector{Vertex}}
     edges::Vector{Vector{Vector{Edge}}}
-end
-
-struct WeightEnumerator
-    polynomial::Vector{Vector{Int64}}
-end
-
-function islessPoly(a::Vector{Int64}, b::Vector{Int64})
-    if isless(a[2:4], b[2:4])
-        return true
-    elseif a[2:4] == b[2:4]
-        if isless(a[1], b[1])
-            return true
-        else
-            return false
-        end
-    else
-        return false
-    end
-end
-
-function show(io::IO, W::WeightEnumerator)
-    # sort lexicographically
-    for (i, term) in enumerate(W.polynomial)
-        if term == [1, 0, 0, 0]
-            print("1")
-        end
-        if term[1] != 1
-            print(io, term[1])
-        end
-        if term[2] != 0
-            if term[2] > 1
-                print(io, "x^", term[2])
-            else
-                print(io, "x")
-            end
-        end
-        if term[3] != 0
-            if term[3] > 1
-                print(io, "y^", term[3])
-            else
-                print(io, "y")
-            end
-        end
-        if term[4] != 0
-            if term[4] > 1
-                print(io, "z^", term[4])
-            else
-                print(io, "z")
-            end
-        end
-        if i != length(W.polynomial)
-            print(io, " + ")
-        else
-            print(io, "\n")
-        end
-    end
 end
 
 vertices(T::Trellis) = T.vertices
@@ -576,50 +518,13 @@ function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
     return [stateprofile, branchprofile, indegrees, outdegrees]
 end
 
-# think of more scenarios
-# could allow general trellises given partial stabilizers for use in trellis product
-function trellisprofiles(Q::AbstractQuantumCode, type::String="weight")
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofiles.")
-    if type == "weight"
-        return _trellisprofiles(Q.dualgens, stabilizers(Q))
-    else
-        return _trellisprofiles(stabilizers(Q), Q.dualgens)
-    end
-end
-
-# need to fix all of these stabilizer grabs
-# I need to grab the stabs and make them quadratic before passing them
-function trellisprofilesCSS(Q::CSSCode, type::String="weight", Pauli::Char=' ')
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofilesCSS.")
-    Pauli ∈ ['X', 'Z'] || error("Pauli parameter in trellisprofilesCSS must be either 'X' or 'Z'.")
-    if type == "weight"
-        if Pauli == 'X'
-            # this should be wrtV = SperpZ, wrtE = SX
-            return _trellisprofiles(Q.dualgens, stabilizers(Q))
-        else
-            # this should be wrtV = SperpX, wrtE = SZ
-            return _trellisprofiles(Q.dualgens, stabilizers(Q))
-        end
-    else
-        if Pauli == 'X'
-            # this should be wrtV = SX, wrtE = SperpZ
-            return _trellisprofiles(stabilizers(Q), Q.dualgens)
-        else
-            # this should be wrtV = SZ, wrtE = SperpX
-            return _trellisprofiles(stabilizers(Q), Q.dualgens)
-        end
-    end
-end
-
 # ignoring signs for now
 # straight copy for now, redo signature later
-# assumes all stabilizers are given in positive powers
 function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::fq_nmod_mat,
-    CSS::Bool=false, type::Char=' ', verbose=false) where T <: Integer
+    charvec::Vector{Int64}, CSS::Char=' ', verbose=false) where T <: Integer
 
-    if CSS && type ∉ ['X', 'Z']
-        error("CSS flag detected but type flag is neither X or Z.")
-    end
+    CSS ∈ [' ', 'X', 'Z'] || error("CSS flag needs to be ' ', 'X', or 'Z'.")
+
 
     q = Int64(characteristic(base_ring(wrtV)))
     n = size(wrtV, 2)
@@ -676,27 +581,49 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
         end
     end
     verbose && println("Vertex construction completed.")
-    # println(V)
-
-    valid = []
-    if !CSS
-        valid = ["I", "X", "Y", "Z"]
-    else
-        if type == 'X'
-            valid = ["I", "Z"]
-        else
-            valid = ["I", "X"]
-        end
-    end
 
     symwrtV = quadratictosymplectic(wrtV)
     G = FpmattoJulia(hcat(symwrtV[:, n + 1:end], -symwrtV[:, 1:n]))
     # make this n?
     # Threads.@threads
-    for i = length(E):-1:1
+    Threads.@threads for i = length(E):-1:1
         verbose && println("Starting E[$i]")
         edgecontrib = Dict{String, Vector{Int64}}()
         contribedge = Dict{Vector{Int64}, String}()
+
+        valid = ["I"]
+        if CSS == ' '
+            if charvec[i] != 1
+                push!(valid, "-X")
+            else
+                push!(valid, "X")
+            end
+            if charvec[i + n] != 1
+                push!(valid, "-Z")
+            else
+                push!(valid, "Z")
+            end
+            if (charvec[i] != 1 && charvec[i + n] == 1) || (charvec[i] == 1 && charvec[i + n] != 1)
+                push!(valid, "-Y")
+            else
+                push!(valid, "Y")
+            end
+        else
+            if CSS == 'X'
+                if charvec[i + n] != 1
+                    push!(valid, "-Z")
+                else
+                    push!(valid, "Z")
+                end
+            else
+                if charvec[i] != 1
+                    push!(valid, "-X")
+                else
+                    push!(valid, "X")
+                end
+            end
+        end
+
         for lab in valid
             if lab == "I"
                 syn = zeros(Int64, size(wrtV, 1))
@@ -706,12 +633,12 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
                 # I can deterine this value without building this by something like
                 # syn1 = [wrtV[j][i] for j in 1:length(wrtV)]
                 PL = zeros(Int64, 2 * n)
-                if lab == "X"
+                if lab == "X" || lab == "-X"
                     PL[i] = 1
-                elseif lab == "Y"
+                elseif lab == "Y" || lab == "-Y"
                     PL[i] = 1
                     PL[i + n] = 1
-                elseif lab == "Z"
+                elseif lab == "Z" || lab == "-Z"
                     PL[i + n] = 1
                 else
                     error("Invalid edge label ($lab) in _syndrometrellis.")
@@ -854,229 +781,4 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
         verbose && println("E[$i] complete")
     end
     return Trellis(V, E)
-end
-
-
-############# need TOF here
-function syndrometrellis(Q::AbstractQuantumCode, type::String="weight")
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellis.")
-    profiles = trellisprofiles(Q, type)
-    if type == "weight"
-        return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
-    else
-        return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
-    end
-end
-
-# need to fix all of these stabilizer grabs
-# I need to grab the stabs and make them quadratic before passing them
-# how to pass CSS into this function? should separate?
-function syndrometrellisCSS(Q::CSSCode, type::String="weight", Pauli::Char=' ')
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellisCSS.")
-    Pauli ∈ ['X', 'Z'] || error("Pauli parameter in syndrometrellisCSS must be either 'X' or 'Z'.")
-    profiles = trellisprofilesCSS(Q, type, Pauli)
-
-    if type == "weight"
-        if Pauli == 'X'
-            # this should be wrtV = SperpZ, wrtE = SX
-            return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
-        else
-            # this should be wrtV = SperpX, wrtE = SZ
-            return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
-        end
-    else
-        if Pauli == 'X'
-            # this should be wrtV = SX, wrtE = SperpZ
-            return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
-        else
-            # this should be wrtV = SZ, wrtE = SperpX
-            return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
-        end
-    end
-end
-
-function _reducepoly(poly::Vector{Vector{Int64}})
-    reducedpoly = Vector{Vector{Int64}}()
-    processed = trues(length(poly))
-    # println("received: $poly")
-    # println("processed: $processed")
-    for (i, term) in enumerate(poly)
-        if processed[i]
-            for j in (i + 1):length(poly)
-                if processed[j]
-                    # println("comparing $term and $(poly[j])")
-                    if term[2] == poly[j][2] && term[3] == poly[j][3] && term[4] == poly[j][4]
-                        term[1] += poly[j][1]
-                        processed[j] = false
-                    end
-                end
-            end
-            push!(reducedpoly, term)
-            processed[i] = false
-        end
-    end
-    return reducedpoly
-end
-
-function weightenumerator(T::Trellis, cleanV::Bool=true)
-    V = vertices(T)
-    E = edges(T)
-    for i in 2:length(V)
-        for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
-            for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                # println("edge: $(e.label), inner: $inner")
-                # if e.label == "I"
-                #     continue
-                if e.label != "I"
-                    for term in inner
-                        term[2] += 1
-                    end
-                else
-                    for term in inner
-                        term[3] += 1
-                    end
-                end
-                append!(outer, inner)
-            end
-            # println(outer)
-            v.polynomial = _reducepoly(outer)
-            # println(v.polynomial)
-        end
-    end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPoly))
-
-    if cleanV
-        for i in 2:length(V)
-            for v in V[i]
-                v.polynomial = [[0, 0, 0, 0]]
-            end
-        end
-    end
-    return W
-end
-
-function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
-    V = vertices(T)
-    E = edges(T)
-    for i in 2:length(V)
-        for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
-            for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                # println("edge: $(e.label), inner: $inner")
-                # if e.label == "I"
-                #     continue
-                if e.label == "X"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[2] -= 1
-                        else
-                            term[2] += 1
-                        end
-                    end
-                elseif e.label == "Y"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[3] -= 1
-                        else
-                            term[3] += 1
-                        end
-                    end
-                elseif e.label == "Z"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[4] -= 1
-                        else
-                            term[4] += 1
-                        end
-                    end
-                elseif e.label == "-X"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[2] += 1
-                        else
-                            term[2] += 1
-                        end
-                    end
-                elseif e.label == "-Y"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[3] += 1
-                        else
-                            term[3] += 1
-                        end
-                    end
-                elseif e.label == "-Z"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[4] += 1
-                        else
-                            term[4] += 1
-                        end
-                    end
-                end
-                append!(outer, inner)
-            end
-            # println(outer)
-            v.polynomial = _reducepoly(outer)
-            # println(v.polynomial)
-        end
-    end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPoly))
-
-    if cleanV
-        for i in 2:length(V)
-            for v in V[i]
-                v.polynomial = [[0, 0, 0, 0]]
-            end
-        end
-    end
-    return W
-end
-
-function testtrellisSteane()
-    Q = QuantumCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"], [1, 1, 1, 1, 1, 1]);
-    F = field(Q)
-    test = symplectictoquadratic(matrix(F,
-        [1 1 1 0 0 0 0 0 0 0 0 0 0 0;
-         0 0 0 0 0 0 0 1 1 1 0 0 0 0;
-         0 1 0 1 0 1 0 0 0 0 0 0 0 0;
-         0 0 0 0 0 0 0 0 1 0 1 0 1 0;
-         0 0 1 1 1 0 0 0 0 0 0 0 0 0;
-         0 0 0 0 0 0 0 0 0 1 1 1 0 0;
-         0 0 0 1 1 1 1 0 0 0 0 0 0 0;
-         0 0 0 0 0 0 0 0 0 0 1 1 1 1]))
-    profiles = _trellisprofiles(stabilizers(Q), test)
-    # println(profiles)
-    T = _syndrometrellis(profiles, stabilizers(Q), test, false, ' ', false)
-    x = Pauliweightenumerator(T)
-    return x
-end
-
-function testtrellis422()
-    Q = QuantumCode(["XXXX", "-ZZII", "-IIZZ"], [1, -1, -1]);
-    F = field(Q)
-    test = symplectictoquadratic(matrix(F,
-        [1 1 0 0 0 0 0 0;
-         0 0 1 1 0 0 0 0;
-         0 0 0 0 1 1 0 0;
-         0 0 0 0 0 1 1 0;
-         0 0 0 0 0 0 1 1]))
-    profiles = _trellisprofiles(stabilizers(Q), test)
-    # println(profiles)
-    T = _syndrometrellis(profiles, stabilizers(Q), test, false, ' ', false)
-    # x = Pauliweightenumerator(T)
-    x = weightenumerator(T)
-    return x
 end
