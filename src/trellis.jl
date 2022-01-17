@@ -627,13 +627,13 @@ function optimalsectionalization(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
 
     sectboundaries = [n]
     next = V[end].prev
-    val = V[end].value
+    # val = V[end].value
     while next > 0
         append!(sectboundaries, next - 1)
-        val += V[next].value
+        # val += V[next].value
         next = V[next].prev
     end
-    return reverse(sectboundaries), Int(val)#Int(V[end].value)
+    return reverse(sectboundaries), Int(V[end].value) #Int(val)
 end
 
 function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing})
