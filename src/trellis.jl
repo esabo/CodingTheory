@@ -376,7 +376,7 @@ function _symplectickernel(A::fq_nmod_mat, B::fq_nmod_mat)
     for rb in 1:size(B, 1)
         flag = false
         for ra in 1:size(A, 1)
-            if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
+            @views if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
                 flag = true
                 break
             end
