@@ -376,7 +376,7 @@ function _symplectickernel(A::fq_nmod_mat, B::fq_nmod_mat)
     for rb in 1:size(B, 1)
         flag = false
         for ra in 1:size(A, 1)
-            if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
+            @views if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
                 flag = true
                 break
             end
@@ -414,11 +414,11 @@ function trellisorientedform(A::fq_nmod_mat)
         rows = findall(x->x==c, left)
         if length(rows) == 1
             if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             elseif !iszero(coeff(A[rows[1], c], 0))
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             else
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
             end
         elseif length(rows) > 1
             Xedges = []
@@ -442,49 +442,49 @@ function trellisorientedform(A::fq_nmod_mat)
                 if !isempty(Xedges)
                     Xpivot = true
                     row, X = Xedges[1]
-                    A[row, :] *= inv(E(coeff(X, 0)))
+                    @views A[row, :] *= inv(E(coeff(X, 0)))
                     # no problems here if this is only length 1
                     for i in 2:length(Xedges)
-                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                        @views A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
                     end
                 end
                 if !isempty(Zedges)
                     Zpivot = true
                     row, Z = Zedges[1]
-                    A[row, :] *= inv(E(coeff(Z, 1)))
+                    @views A[row, :] *= inv(E(coeff(Z, 1)))
                     # no problems here if this is only length 1
                     for i in 2:length(Zedges)
-                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                        @views A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
                     end
                 end
                 if !isempty(mixededges)
                     if Xpivot && Zpivot
                         for i in 1:length(mixededges)
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
                         end
                     elseif Xpivot
-                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[1][1], :]
+                        @views A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[1][1], :]
                         # no problems here if this is only length 1
                         for i in 2:length(mixededges)
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[1][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[1][1], :]
                         end
                     elseif Zpivot
-                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[1][1], :]
+                        @views A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[1][1], :]
                         # no problems here if this is only length 1
                         for i in 2:length(mixededges)
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
                         end
                     else
-                        A[mixededges[1][1], :] *= inv(E(coeff(mixededges[1][2], 0)))
+                        @views A[mixededges[1][1], :] *= inv(E(coeff(mixededges[1][2], 0)))
                         if length(mixededges) > 1
-                            A[mixededges[2][1], :] -= E(coeff(mixededges[2][2], 0)) * A[mixededges[1][1], :]
-                            A[mixededges[2][1], :] *= inv(E(coeff(A[mixededges[2][1], c], 1)))
+                            @views A[mixededges[2][1], :] -= E(coeff(mixededges[2][2], 0)) * A[mixededges[1][1], :]
+                            @views A[mixededges[2][1], :] *= inv(E(coeff(A[mixededges[2][1], c], 1)))
                             if length(mixededges) > 2
-                                A[mixededges[3][1], :] -= E(coeff(mixededges[3][2], 1)) * A[mixededges[2][1], :]
-                                A[mixededges[3][1], :] *= inv(E(coeff(A[mixededges[3][1], c], 0)))
+                                @views A[mixededges[3][1], :] -= E(coeff(mixededges[3][2], 1)) * A[mixededges[2][1], :]
+                                @views A[mixededges[3][1], :] *= inv(E(coeff(A[mixededges[3][1], c], 0)))
                                 # no problems here if this is only length 3
                                 for i in 3:length(mixededges)
-                                    A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[3][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[2][1], :]
+                                    @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[3][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[2][1], :]
                                 end
                             end
                         end
@@ -500,11 +500,11 @@ function trellisorientedform(A::fq_nmod_mat)
         rows = findall(x->x==c, right)
         if length(rows) == 1
             if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             elseif !iszero(coeff(A[rows[1], c], 0))
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             else
-                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
+                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
             end
         elseif length(rows) > 1
             Xedges = []
@@ -528,49 +528,49 @@ function trellisorientedform(A::fq_nmod_mat)
                 if !isempty(Xedges)
                     Xpivot = true
                     row, X = Xedges[end]
-                    A[row, :] *= inv(E(coeff(X, 0)))
+                    @views A[row, :] *= inv(E(coeff(X, 0)))
                     # no problems here if this is only length 1
                     for i in length(Xedges) - 1:-1:1
-                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                        @views A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
                     end
                 end
                 if !isempty(Zedges)
                     Zpivot = true
                     row, Z = Zedges[end]
-                    A[row, :] *= inv(E(coeff(Z, 1)))
+                    @views A[row, :] *= inv(E(coeff(Z, 1)))
                     # no problems here if this is only length 1
                     for i in length(Zedges) - 1:-1:1
-                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                        @views A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
                     end
                 end
                 if !isempty(mixededges)
                     if Xpivot && Zpivot
                         for i in 1:length(mixededges)
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
                         end
                     elseif Xpivot
-                        A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[end][1], :]
+                        @views A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[end][1], :]
                         # no problems here if this is only length 1
                         for i in length(mixededges) - 1:-1:1
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end][1], :]
                         end
                     elseif Zpivot
-                        A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[end][1], :]
+                        @views A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[end][1], :]
                         # no problems here if this is only length 1
                         for i in length(mixededges) - 1:-1:1
-                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
+                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
                         end
                     else
-                        A[mixededges[end][1], :] *= inv(E(coeff(mixededges[end][2], 0)))
+                        @views A[mixededges[end][1], :] *= inv(E(coeff(mixededges[end][2], 0)))
                         if length(mixededges) > 1
-                            A[mixededges[end - 1][1], :] -= E(coeff(mixededges[end - 1][2], 0)) * A[mixededges[end][1], :]
-                            A[mixededges[end - 1][1], :] *= inv(E(coeff(A[mixededges[end - 1][1], c], 1)))
+                            @views A[mixededges[end - 1][1], :] -= E(coeff(mixededges[end - 1][2], 0)) * A[mixededges[end][1], :]
+                            @views A[mixededges[end - 1][1], :] *= inv(E(coeff(A[mixededges[end - 1][1], c], 1)))
                             if length(mixededges) > 2
-                                A[mixededges[end - 2][1], :] -= E(coeff(mixededges[end - 2][2], 1)) * A[mixededges[end - 1][1], :]
-                                A[mixededges[end - 2][1], :] *= inv(E(coeff(A[mixededges[end - 2][1], c], 0)))
+                                @views A[mixededges[end - 2][1], :] -= E(coeff(mixededges[end - 2][2], 1)) * A[mixededges[end - 1][1], :]
+                                @views A[mixededges[end - 2][1], :] *= inv(E(coeff(A[mixededges[end - 2][1], c], 0)))
                                 # no problems here if this is only length 3
                                 for i in length(mixededges) - 1:-1:1
-                                    A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end - 2][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end - 1][1], :]
+                                    @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end - 2][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end - 1][1], :]
                                 end
                             end
                         end
