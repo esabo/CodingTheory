@@ -9,15 +9,17 @@ import Base: ==, show
 mutable struct Vertex
     label::BigInt
     prev::Int64
+    next::Int64
     value::Float64
     edgeloc::Int64
     polynomial::Vector{Vector{Int64}}
 end
 
 mutable struct Edge
-    label::String
+    label::Union{fq_nmod, fq_nmod_mat}
     weight::Float64
     outvertex::Int64
+    sign::Int8
 end
 
 mutable struct Trellis
@@ -29,7 +31,8 @@ vertices(T::Trellis) = T.vertices
 edges(T::Trellis) = T.edges
 
 function ==(a::Vertex, b::Vertex)
-    return a.label == b.label && a.prev == b.prev && a.value == b.value && a.edgeloc == b.edgeloc
+    return a.label == b.label && a.prev == b.prev && a.next == b.next &&
+        a.value == b.value && a.edgeloc == b.edgeloc && a.polynomial == b.polynomial
 end
 
 function ==(a::Vector{Vertex}, b::Vector{Vertex})
@@ -312,7 +315,7 @@ function _leftrightindices(A::fq_nmod_mat)
     return left, right
 end
 
-function _findactive(A::fq_nmod_mat)
+function _findactive(A::fq_nmod_mat, edges::Bool=false)
     # need to make sure quadratic extension
     n = size(A, 2)
     k = size(A, 1)
@@ -335,15 +338,29 @@ function _findactive(A::fq_nmod_mat)
     end
 
     active = Vector{Vector{Int64}}()
-    for i in 1:n
-        arri = Vector{Int64}()
-        for j in 1:k
-            if leftright[j][1] <= i < leftright[j][2]
-                push!(arri, j)
+    if edges
+        for i in 1:n
+            arri = Vector{Int64}()
+            for j in 1:k
+                if leftright[j][1] <= i <= leftright[j][2]
+                    push!(arri, j)
+                end
+            end
+            if !isempty(arri)
+                push!(active, arri)
             end
         end
-        if !isempty(arri)
-            push!(active, arri)
+    else
+        for i in 1:n
+            arri = Vector{Int64}()
+            for j in 1:k
+                if leftright[j][1] <= i < leftright[j][2]
+                    push!(arri, j)
+                end
+            end
+            if !isempty(arri)
+                push!(active, arri)
+            end
         end
     end
     return active
@@ -384,186 +401,337 @@ function _pastfuture(A::fq_nmod_mat)
     return past, future
 end
 
+# seeks to eliminate edges of the form a + bω in a quadratic extension
+# can't check that it's quadratic directly so note this will fail if a higher degree
+# should work for degree 1 extensions given the way AbstractAlgebra stores coefficints?
+# currently untested for characteristic > 2
 function trellisorientedform(A::fq_nmod_mat)
+    # check for quadratic field extension
     E = base_ring(A)
-    Int64(characteristic(E)) == 2 || error("Have not yet programmed the elimination of the TOF for p ≥ 3.")
     A = _sortbyleftindex(A)
-    numrows = size(A, 1)
-    numcols = size(A, 2)
-
-    row = 1
-    col = 1
-    while row < numrows
-        firstpivot = [row, A[row, col]]
-        secondpivot = [0, E(0)]
-        others = []
-        while row <= numrows && !iszero(A[row, col])
-            if secondpivot == [0, E(0)] && A[row, col] != firstpivot[2]
-                secondpivot = [row, A[row, col]]
-            elseif [row, A[row, col]] != firstpivot
-                push!(others, [row, A[row, col]])
-            end
-            row += 1
-        end
-
-        if secondpivot == [0, E(0)]
-            row = firstpivot[1] + 1
-        else
-            row = firstpivot[1] + 2
-        end
-
-        if !isempty(others)
-            Afspiv = 0
-            if !iszero(secondpivot[1])
-                Afspiv = A[firstpivot[1], :] + A[secondpivot[1], :]
-            end
-            for o in others
-                if o[2] == firstpivot[2]
-                    A[o[1], :] = A[firstpivot[1], :] + A[o[1], :]
-                elseif o[2] == secondpivot[2]
-                    A[o[1], :] = A[secondpivot[1], :] + A[o[1], :]
-                elseif !iszero(secondpivot[1])
-                    A[o[1], :] = Afspiv + A[o[1], :]
-                end
-            end
-        end
-        # println(A)
-        A = _sortbyleftindex(A)
-        col += 1
-    end
-
-    A = _sortbyrightindex(A)
-    row = numrows
-    col = numcols
-    while row > 1
-        others = []
-        temprow = row
-        while temprow >= 1 && !iszero(A[temprow, col])
-            # here must choose pivots by left index
-            for i in 1:numcols
-                if !iszero(A[temprow, i])
-                    push!(others, [temprow, A[temprow, col], i])
-                    break
-                end
-            end
-            temprow -= 1
-        end
-
-        if !isempty(others)
-            sort!(others, by=x->x[3])
-            firstpivot = others[end]
-            pop!(others)
-            secondpivot = [0, E(0)]
-            for (i, o) in enumerate(reverse!(others))
-                if o[2] != firstpivot[2]
-                    secondpivot = o
-                    deleteat!(others, i)
-                    break
-                end
-            end
-
-            if secondpivot == [0, E(0)]
-                row -= 1
+    for c in 1:size(A, 2)
+        left, right = _leftrightindices(A)
+        rows = findall(x->x==c, left)
+        if length(rows) == 1
+            if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+            elseif !iszero(coeff(A[rows[1], c], 0))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             else
-                row -= 2
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
             end
-
-            Afspiv = 0
-            if !iszero(secondpivot[1])
-                Afspiv = A[firstpivot[1], :] + A[secondpivot[1], :]
-            end
-            for o in others
-                if o[2] == firstpivot[2]
-                    A[o[1], :] = A[firstpivot[1], :] + A[o[1], :]
-                elseif o[2] == secondpivot[2]
-                    A[o[1], :] = A[secondpivot[1], :] + A[o[1], :]
-                elseif !iszero(secondpivot[1])
-                    A[o[1], :] = Afspiv + A[o[1], :]
+        elseif length(rows) > 1
+            Xedges = []
+            Zedges = []
+            mixededges = []
+            for row in rows
+                if !iszero(coeff(A[row, c], 0)) && !iszero(coeff(A[row, c], 1))
+                    push!(mixededges, (row, A[row, c]))
+                elseif !iszero(coeff(A[row, c], 0)) && iszero(coeff(A[row, c], 1))
+                    push!(Xedges, (row, A[row, c]))
+                elseif iszero(coeff(A[row, c], 0)) && !iszero(coeff(A[row, c], 1))
+                    push!(Zedges, (row, A[row, c]))
                 end
             end
-            A = _sortbyrightindex(A)
+
+            if length(Xedges) <= 1 && length(Zedges) <= 1 && length(mixededges) <= 1 && (length(Xedges) + length(Zedges) + length(mixededges)) <= 2
+                continue
+            else
+                Xpivot = false
+                Zpivot = false
+                if !isempty(Xedges)
+                    Xpivot = true
+                    row, X = Xedges[1]
+                    A[row, :] *= inv(E(coeff(X, 0)))
+                    # no problems here if this is only length 1
+                    for i in 2:length(Xedges)
+                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                    end
+                end
+                if !isempty(Zedges)
+                    Zpivot = true
+                    row, Z = Zedges[1]
+                    A[row, :] *= inv(E(coeff(Z, 1)))
+                    # no problems here if this is only length 1
+                    for i in 2:length(Zedges)
+                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                    end
+                end
+                if !isempty(mixededges)
+                    if Xpivot && Zpivot
+                        for i in 1:length(mixededges)
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                        end
+                    elseif Xpivot
+                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[1][1], :]
+                        # no problems here if this is only length 1
+                        for i in 2:length(mixededges)
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[1][1], :]
+                        end
+                    elseif Zpivot
+                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[1][1], :]
+                        # no problems here if this is only length 1
+                        for i in 2:length(mixededges)
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                        end
+                    else
+                        A[mixededges[1][1], :] *= inv(E(coeff(mixededges[1][2], 0)))
+                        if length(mixededges) > 1
+                            A[mixededges[2][1], :] -= E(coeff(mixededges[2][2], 0)) * A[mixededges[1][1], :]
+                            A[mixededges[2][1], :] *= inv(E(coeff(A[mixededges[2][1], c], 1)))
+                            if length(mixededges) > 2
+                                A[mixededges[3][1], :] -= E(coeff(mixededges[3][2], 1)) * A[mixededges[2][1], :]
+                                A[mixededges[3][1], :] *= inv(E(coeff(A[mixededges[3][1], c], 0)))
+                                # no problems here if this is only length 3
+                                for i in 3:length(mixededges)
+                                    A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[3][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[2][1], :]
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
-        col -= 1
     end
     A = _sortbyleftindex(A)
+    left, right = _leftrightindices(A)
+
+    for c in size(A, 2):-1:1
+        rows = findall(x->x==c, right)
+        if length(rows) == 1
+            if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+            elseif !iszero(coeff(A[rows[1], c], 0))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+            else
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
+            end
+        elseif length(rows) > 1
+            Xedges = []
+            Zedges = []
+            mixededges = []
+            for row in rows
+                if !iszero(coeff(A[row, c], 0)) && !iszero(coeff(A[row, c], 1))
+                    push!(mixededges, (row, A[row, c]))
+                elseif !iszero(coeff(A[row, c], 0)) && iszero(coeff(A[row, c], 1))
+                    push!(Xedges, (row, A[row, c]))
+                elseif iszero(coeff(A[row, c], 0)) && !iszero(coeff(A[row, c], 1))
+                    push!(Zedges, (row, A[row, c]))
+                end
+            end
+
+            if length(Xedges) <= 1 && length(Zedges) <= 1 && length(mixededges) <= 1 && (length(Xedges) + length(Zedges) + length(mixededges)) <= 2
+                continue
+            else
+                Xpivot = false
+                Zpivot = false
+                if !isempty(Xedges)
+                    Xpivot = true
+                    row, X = Xedges[end]
+                    A[row, :] *= inv(E(coeff(X, 0)))
+                    # no problems here if this is only length 1
+                    for i in length(Xedges) - 1:-1:1
+                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                    end
+                end
+                if !isempty(Zedges)
+                    Zpivot = true
+                    row, Z = Zedges[end]
+                    A[row, :] *= inv(E(coeff(Z, 1)))
+                    # no problems here if this is only length 1
+                    for i in length(Zedges) - 1:-1:1
+                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                    end
+                end
+                if !isempty(mixededges)
+                    if Xpivot && Zpivot
+                        for i in 1:length(mixededges)
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
+                        end
+                    elseif Xpivot
+                        A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[end][1], :]
+                        # no problems here if this is only length 1
+                        for i in length(mixededges) - 1:-1:1
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end][1], :]
+                        end
+                    elseif Zpivot
+                        A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[end][1], :]
+                        # no problems here if this is only length 1
+                        for i in length(mixededges) - 1:-1:1
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
+                        end
+                    else
+                        A[mixededges[end][1], :] *= inv(E(coeff(mixededges[end][2], 0)))
+                        if length(mixededges) > 1
+                            A[mixededges[end - 1][1], :] -= E(coeff(mixededges[end - 1][2], 0)) * A[mixededges[end][1], :]
+                            A[mixededges[end - 1][1], :] *= inv(E(coeff(A[mixededges[end - 1][1], c], 1)))
+                            if length(mixededges) > 2
+                                A[mixededges[end - 2][1], :] -= E(coeff(mixededges[end - 2][2], 1)) * A[mixededges[end - 1][1], :]
+                                A[mixededges[end - 2][1], :] *= inv(E(coeff(A[mixededges[end - 2][1], c], 0)))
+                                # no problems here if this is only length 3
+                                for i in length(mixededges) - 1:-1:1
+                                    A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end - 2][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end - 1][1], :]
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        left, right = _leftrightindices(A)
+    end
     return A
 end
 
-# need to include sectionalization - check other codebase for this
-function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
-    symV = quadratictosymplectic(wrtV)
-    symE = quadratictosymplectic(wrtE)
-    dimker, _ = _symplectickernel(symV, symE)
+# only valid for quantum codes
+function optimalsectionalization(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
+    K = base_ring(wrtE)
+    base_ring(wrtV) == K || error("Vertices and edges must have the same base ring.")
 
     n = size(wrtV, 2)
+    p = Int64(characteristic(K))
+    V = [Vertex(i, 0, 0, 0.0, 0, [[0, 0, 0, 0]]) for i in 1:n + 1]
+    E = [[Edge(K(0), 0.0, 0, 1) for i in 1:j] for j in n:-1:1]
+
+    symV = quadratictosymplectic(wrtV)
+    symE = quadratictosymplectic(wrtE)
+    # dimker, _ = _symplectickernel(symV, symE)
+    dimker = 0
+    past, future = _pastfuture(wrtE)
+    for i in 1:n
+        for j in i:n
+            # arbitrary size cutoff
+            if size(wrtE, 1) - past[i] - future[j + 1] - dimker > 50
+                E[i][j - i + 1].weight = Inf
+            else
+                E[i][j - i + 1].weight = p^(size(wrtE, 1) - past[i] - future[j + 1] - dimker)
+            end
+        end
+    end
+
+    for i in 1:n
+        leftb = 1
+        rightb = i
+        arr = [E[leftb][rightb].weight + V[leftb].value]
+
+        while leftb < i
+            leftb += 1
+            rightb -= 1
+            append!(arr, E[leftb][rightb].weight + V[leftb].value)
+        end
+
+        m, arg = findmin(arr)
+        V[i + 1].prev = arg
+        V[i + 1].value = m
+    end
+
+    sectboundaries = [n]
+    next = V[end].prev
+    val = V[end].value
+    while next > 0
+        append!(sectboundaries, next - 1)
+        val += V[next].value
+        next = V[next].prev
+    end
+    return reverse(sectboundaries), Int(val)#Int(V[end].value)
+end
+
+function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing})
+    if ismissing(boundaries)
+        bds = [1:size(wrtV, 2) + 1...]
+    else
+        bds = deepcopy(boundaries)
+        if 0 ∈ bds
+            bds .+= 1
+        end
+    end
+
+    symV = quadratictosymplectic(wrtV)
+    symE = quadratictosymplectic(wrtE)
+    # dimker, _ = _symplectickernel(symV, symE)
+    dimker = 0
+
+    n = length(bds) - 1
     stateprofile = zeros(Int64, n + 1)
     branchprofile = zeros(Int64, n)
     indegrees = zeros(Int64, n)
     outdegrees = zeros(Int64, n)
     past, future = _pastfuture(wrtV)
+    past = past[bds]
+    future = future[bds]
 
     p = Int64(characteristic(base_ring(wrtV)))
     for i in 1:n + 1
-        # same formula works wrtE but still needs a separate loop for the n + 1
-        # if only doing wrtE need to think about role of dimker
+    #     # same formula works wrtE but still needs a separate loop for the n + 1
+    #     # if only doing wrtE need to think about role of dimker
         stateprofile[i] = p^(size(wrtV, 1) - past[i] - future[i] - dimker)
     end
 
+    left, right = _leftrightindices(wrtE)
     past, future = _pastfuture(wrtE)
+    past = past[bds]
+    future = future[bds]
     for i in 1:n
-        branchprofile[i] = p^(size(wrtE, 1) - past[i] - future[i + 1] - dimker)
+        dimparallel = 0
+        for k in 1:length(left)
+            # maybw subtract 1 from all of these?
+            if bds[i] <= left[k] && right[k] <= bds[i + 1]
+                # println("Going from V[$(boundaries[i])] to V[$(boundaries[i + 1])] and claiming stabilizer $k has left index $(left[k]) and right index $(right[k]).")
+                dimparallel += 1
+            end
+        end
+        # stateprofile[i] = p^(size(wrtE, 1) - past[i] - future[i] - dimker)
+        branchprofile[i] = p^(size(wrtE, 1) - past[i] - future[i + 1] - dimker - dimparallel)
         indegrees[i] = div(branchprofile[i], stateprofile[i + 1])
         outdegrees[i] = div(branchprofile[i], stateprofile[i])
     end
+    # stateprofile[n + 1] = p^(size(wrtE, 1) - past[n + 1] - future[n + 1] - dimker)
     return [stateprofile, branchprofile, indegrees, outdegrees]
 end
 
-# ignoring signs for now
-# straight copy for now, redo signature later
-function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::fq_nmod_mat,
-    charvec::Vector{Int64}, CSS::Char=' ', verbose=false) where T <: Integer
+# TODO: remove dictionaries, iterate once to find left, once for right
+# keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
+function _syndrometrellisquantum(profiles::Vector{Vector{T}}, boundaries::Union{Vector{Int64}, Missing},
+    wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, charvec::Vector{Int64}, Pauli::Char=' ',
+    verbose=false) where T <: Integer
 
-    CSS ∈ [' ', 'X', 'Z'] || error("CSS flag needs to be ' ', 'X', or 'Z'.")
-
-
-    q = Int64(characteristic(base_ring(wrtV)))
-    n = size(wrtV, 2)
-    V = Vector{Vertex}[Vertex[] for i = 1:n + 1]
-    Threads.@threads for i = 1:length(profiles[1])
-        V[i] = [Vertex(999, 0, 0.0, 0, [[0, 0, 0, 0]]) for j = 1:profiles[1][i]]
+    Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
+    K = base_ring(wrtE)
+    base_ring(wrtV) == K || error("Vertices and edges must have the same base ring.")
+    if ismissing(boundaries)
+        bds = [0:size(wrtV, 2)...]
+    else
+        bds = deepcopy(boundaries)
     end
-    V[1] = [Vertex(0, 0, 0.0, 0, [[1, 0, 0, 0]])]
-    V[end] = [Vertex(0, 0, 0.0, 0, [[0, 0, 0, 0]])]
-    verbose && println("Vertex preallocation completed.")
 
-    # this code and the edge code below it has large problems with GC due to the lack of proper preallocation
-    # however, using, for example, the code below to fix this switchs from 60% GC time to 99% compile time
-    # rerunning it then works with almost no GC but is slower than doing the above code in parallel with
-    # tons of GC
-    # V = [if i == 1 || i == C.n + 1
-    #         SVector{1, Vertex}(Vertex(0, 0x000000, 0.0, 0x000000))
-    #     else
-    #         SVector{Int(profiles[1][i]), Vertex}(Vertex(999, 0x000000, 0.0, 0x000000) for j = 1:profiles[1][i])
-    #     end
-    #     for i = 1:C.n + 1]
+    ω = gen(K)
+    p = Int64(characteristic(K))
+    n = length(profiles[1]) - 1
+    symsize = size(wrtV, 2)
+    V = Vector{Vertex}[Vertex[] for i = 1:n + 1]
+    Threads.@threads for i = 1:n + 1
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, [[0, 0, 0, 0]]) for j = 1:profiles[1][i]]
+    end
+    V[1] = [Vertex(0, 0, 0, 0.0, 0, [[1, 0, 0, 0]])]
+    V[end] = [Vertex(0, 0, 0, 0.0, 0, [[0, 0, 0, 0]])]
+    verbose && println("Vertex preallocation completed.")
 
     E = Vector{Vector{Edge}}[[Edge[]] for i = 1:n]
     Threads.@threads for i in 1:n
         # the j-th element of Ei is going to be all of the edges going into Vi[j]
-        E[i] = [[Edge("e", 0.0, 0) for j = 1:profiles[3][i]] for k = 1:profiles[1][i + 1]]
+        E[i] = [[Edge(K(0), 0.0, 0, 1) for j = 1:profiles[3][i]] for k = 1:profiles[1][i + 1]]
     end
     verbose && println("Edge preallocation completed.")
 
     biz = BigInt(0)
     bio = BigInt(1)
-    # blank = [0xff, 0xff]
     synlen = size(wrtV, 1)
-    # M = MatrixSpace(base_ring(wrtV), 1, synlen)
     active = _findactive(wrtV)
+    active = active[bds[2:end - 1]]
     Threads.@threads for i = 2:n
         Visize = profiles[1][i]
         for num in 0:Visize - 1
-            bin = digits(num, base=2, pad=length(active[i - 1])) |> reverse
+            bin = reverse(digits(num, base=2, pad=length(active[i - 1])))
             templabel = zeros(Int64, synlen)
             loc = 1
             for j in active[i - 1]
@@ -582,74 +750,59 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
     end
     verbose && println("Vertex construction completed.")
 
+    # there has to be a one-liner for the below
+    left, right = _leftrightindices(wrtE)
+    active = _findactive(wrtE, true)
+    if ismissing(boundaries)
+        activetemp = active
+    else
+        activetemp = Vector{Vector{Int64}}()
+        for i in 1:length(bds) - 1
+            temp = Vector{Int64}()
+            for j in bds[i] + 1:bds[i + 1]
+                if !(bds[i] <= left[j] && right[j] <= bds[i + 1])
+                    append!(temp, active[j])
+                end
+            end
+            push!(activetemp, sort!(unique!(temp)))
+        end
+    end
+
     symwrtV = quadratictosymplectic(wrtV)
-    G = FpmattoJulia(hcat(symwrtV[:, n + 1:end], -symwrtV[:, 1:n]))
-    # make this n?
-    # Threads.@threads
-    Threads.@threads for i = length(E):-1:1
+    G = FpmattoJulia(hcat(symwrtV[:, symsize + 1:end], -symwrtV[:, 1:symsize]))
+    Threads.@threads for i = n:-1:1
         verbose && println("Starting E[$i]")
-        edgecontrib = Dict{String, Vector{Int64}}()
-        contribedge = Dict{Vector{Int64}, String}()
+        seclen = bds[i + 1] - bds[i]
+        validedges = Vector{fq_nmod_mat}()
+        edgecontrib = Dict{fq_nmod_mat, Vector{Int64}}()
+        contribedge = Dict{Vector{Int64}, fq_nmod_mat}()
 
-        valid = ["I"]
-        if CSS == ' '
-            if charvec[i] != 1
-                push!(valid, "-X")
-            else
-                push!(valid, "X")
-            end
-            if charvec[i + n] != 1
-                push!(valid, "-Z")
-            else
-                push!(valid, "Z")
-            end
-            if (charvec[i] != 1 && charvec[i + n] == 1) || (charvec[i] == 1 && charvec[i + n] != 1)
-                push!(valid, "-Y")
-            else
-                push!(valid, "Y")
-            end
-        else
-            if CSS == 'X'
-                if charvec[i + n] != 1
-                    push!(valid, "-Z")
-                else
-                    push!(valid, "Z")
-                end
-            else
-                if charvec[i] != 1
-                    push!(valid, "-X")
-                else
-                    push!(valid, "X")
-                end
+        for a in activetemp[i]
+            temp = wrtE[a, bds[i] + 1:bds[i + 1]]
+            if !iszero(temp)
+                push!(validedges, temp)
             end
         end
+        unique!(validedges)
 
-        for lab in valid
-            if lab == "I"
-                syn = zeros(Int64, size(wrtV, 1))
-                edgecontrib[lab] = syn
-                contribedge[syn] = lab
-            else
-                # I can deterine this value without building this by something like
-                # syn1 = [wrtV[j][i] for j in 1:length(wrtV)]
-                PL = zeros(Int64, 2 * n)
-                if lab == "X" || lab == "-X"
-                    PL[i] = 1
-                elseif lab == "Y" || lab == "-Y"
-                    PL[i] = 1
-                    PL[i + n] = 1
-                elseif lab == "Z" || lab == "-Z"
-                    PL[i + n] = 1
-                else
-                    error("Invalid edge label ($lab) in _syndrometrellis.")
+        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:Int64(characteristic(K)) - 1), length(validedges))
+            e = K(iter[1]) * validedges[1]
+            for r in 2:length(validedges)
+                if !iszero(iter[r])
+                    e += K(iter[r]) * validedges[r]
                 end
-                syn = G * PL
-                edgecontrib[lab] = syn
-                contribedge[syn] = lab
             end
+
+            P = zeros(Int64, 2 * symsize)
+            for (j, k) in enumerate(e)
+                P[bds[i] + j] = coeff(k, 0)
+                P[bds[i] + j + symsize] = coeff(k, 1)
+            end
+            syn = G * P .% p
+            edgecontrib[e] = syn
+            contribedge[syn] = e
         end
-        # println(edgecontrib)
-        # println(contribedge)
+        verbose && println("Edges dictionaries completed for E[$i].")
 
         Vleft = V[i]
         Vright = V[i + 1]
@@ -658,7 +811,7 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
         Vrightlocs = trues(lenright)
         startingrightindex = 1
         # keep below here instead of preallocating above or else the answer comes out wrong
-        blank = "e"
+        blank = K(0)
 
         while startingrightindex <= lenright
             startingrightv = Vright[startingrightindex].label
@@ -667,20 +820,20 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
             sizehint!(leftvertices, profiles[4][i])
             sizehint!(rightvertices, profiles[3][i])
 
-            startingrightvsyn = digits(startingrightv, base=2, pad=synlen) |> reverse
+            startingrightvsyn = reverse(digits(startingrightv, base=2, pad=synlen))
             push!(rightvertices, (startingrightindex, startingrightv, startingrightvsyn))
             connectingstarts = blank
             startingleftv = biz
 
             # start with a fixed right vertex and find all left vertices
-            for lab in valid
+            for lab in keys(edgecontrib)
                 temp = (startingrightvsyn .- edgecontrib[lab])
                 for t in 1:length(temp)
                     if temp[t] < 0
-                        temp[t] = q + temp[t]
+                        temp[t] = p + temp[t]
                     end
                 end
-                temp = temp .% q
+                temp = temp .% p
 
                 leftlabel = biz
                 for (shift, val) in enumerate(reverse(temp, dims=1))
@@ -714,9 +867,9 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
 
             # start with first left vertex and find all right vertices
             if length(rightvertices) != profiles[4][i]
-                for lab in valid
+                for lab in keys(edgecontrib)
                     if lab != connectingstarts
-                        temp = (startingleftv .+ edgecontrib[lab]) .% q
+                        temp = (startingleftv .+ edgecontrib[lab]) .% p
                         rightlabel = biz
                         for (shift, val) in enumerate(reverse(temp, dims=1))
                             if val == 1
@@ -737,8 +890,6 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
                                 break
                             end
                         end
-                    # else
-                    #     println("skipping $lab here")
                     end
 
                     if length(rightvertices) == profiles[4][i]
@@ -747,9 +898,8 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
                 end
             end
 
-            # if i == 1
-            #     println(rightvertices)
-            # end
+            # can probably skip this recalculation of temp by immediately storing
+            # instead of building right and left vertex lists
             # should now have all vertices
             for (rightindex, rightlabel, rightsyn) in rightvertices
                 count = 1
@@ -757,12 +907,24 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
                     temp = rightsyn .- leftsyn
                     for t in 1:length(temp)
                         if temp[t] < 0
-                            temp[t] = q + temp[t]
+                            temp[t] = p + temp[t]
                         end
                     end
-                    temp = temp .% q
-                    E[i][rightindex][count].label = contribedge[temp]
+                    temp = temp .% p
+                    lab = contribedge[temp]
+                    sign = 1 # should be K(1) when implementing as roots of unity or in \C?
+                    for (j, k) in enumerate(lab)
+                        if !iszero(coeff(k, 0))
+                            sign *= charvec[bds[i] + j]
+                        end
+                        if !iszero(coeff(k, 1))
+                            sign *= charvec[bds[i] + j + symsize]
+                        end
+                    end
+
+                    E[i][rightindex][count].label = lab
                     E[i][rightindex][count].outvertex = leftindex
+                    E[i][rightindex][count].sign = sign
                     count += 1
                 end
                 Vrightlocs[rightindex] = false
@@ -777,8 +939,268 @@ function _syndrometrellis(profiles::Vector{Vector{T}}, wrtV::fq_nmod_mat, wrtE::
                     break
                 end
             end
+
         end
         verbose && println("E[$i] complete")
     end
     return Trellis(V, E)
+end
+
+function loadbalancedecode(profile::Vector{Int64})
+    leftsum = 0
+    leftloc = 1
+    rightsum = 0
+    rightloc = length(profile)
+    while rightloc - leftloc > 2
+        if leftsum <= rightsum
+            leftsum += profile[leftloc]
+            leftloc += 1
+        else
+            rightsum += profile[rightloc]
+            rightloc -= 1
+        end
+    end
+    println(leftsum, ", ", rightsum)
+    return leftloc, rightloc
+end
+
+function loadbalancedcode(profiles::Vector{Vector{Int64}})
+    length(profiles) == 4 || error("Expected a length 4 profile vector. Pass in all or just the edges.")
+    return loadbalancedcode(profiles[2])
+end
+
+# error models need to take CSS combinations into account
+# Pauli == 'X'
+# I -> I + X
+# Z -> Z + Y
+# Pauli == 'Z'
+# I -> I + Z
+# X -> X + Y
+function weight!(T::Trellis, Ps::fq_nmod_mat, err_models::Vector{Dict{String, Float64}},
+    weighttype::String="additive")
+
+    weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
+
+    V = vertices(T)
+    E = edges(T)
+    for i in 1:length(E)
+        model = err_models[i]
+        for (j, v) in enumerate(V[i + 1])
+            Threads.@threads for e in E[i][j]
+                if weighttype == "additive"
+                    weight = 0.0
+                    for (j, k) in enumerate(e.label)
+                        weight += model[j]
+                    end
+                else
+                    weight = 1.0
+                    for (j, k) in enumerate(e.label)
+                        weight += model[j]
+                    end
+                end
+                e.weight = weight
+            end
+        end
+    end
+end
+
+# error models need to take CSS combinations into account
+# Pauli == 'X'
+# I -> I + X
+# Z -> Z + Y
+# Pauli == 'Z'
+# I -> I + Z
+# X -> X + Y
+# remove wrtV here
+function shiftandweight!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
+    err_models::Vector{Dict{String, Float64}}, charvec::Vector{Int64}, Pauli::Char=' ',
+    weighttype::String="additive")
+
+    Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
+    weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
+    length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
+
+    V = vertices(T)
+    E = edges(T)
+    coden = length(err_models)
+    if ismissing(boundaries)
+        bds = [0:coden...]
+    else
+        bds = deepcopy(boundaries)
+    end
+
+    for i in 1:length(E)
+        model = err_models[i]
+        for (j, v) in enumerate(V[i + 1])
+            Threads.@threads for e in E[i][j]
+                e.label += Ps[bds[i] + 1:bds[i + 1]]
+                if Pauli == 'X'
+                    for k in e.label
+                        coeff(k, 0) # = 0
+                    end
+                elseif Pauli == 'Z'
+                    for k in e.label
+                        coeff(k, 1) # = 0
+                    end
+                end
+
+                sign = 1 # should be K(1) when implementing as roots of unity or in \C?
+                if weighttype == "additive"
+                    weight = 0.0
+                else
+                    weight = 1.0
+                end
+                for (j, k) in enumerate(e.label)
+                    if !iszero(coeff(k, 0))
+                        sign *= charvec[bds[i] + j]
+                    end
+                    if !iszero(coeff(k, 1))
+                        sign *= charvec[bds[i] + j + coden]
+                    end
+                    if weighttype == "additive"
+                        weight += model[j]
+                    else
+                        weight *= model[j]
+                    end
+                end
+                e.sign = sign
+                e.weight = weight
+            end
+        end
+    end
+end
+
+# do I actually care about updating the signs here?
+function shiftanddecode!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
+    err_models::Vector{Dict{fq_nmod, Float64}}, charvec::Vector{Int64}, Pauli::Char=' ',
+    weighttype::String="additive")
+
+    # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
+    # weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
+    # length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
+
+    V = vertices(T)
+    E = edges(T)
+    coden = length(err_models)
+    if ismissing(boundaries)
+        bds = [0:coden...]
+    else
+        bds = deepcopy(boundaries)
+    end
+
+    for i in 1:length(E)
+        model = err_models[i]
+        for (j, v) in enumerate(V[i + 1])
+            Threads.@threads for e in E[i][j]
+                e.label += Ps[1, bds[i] + 1:bds[i + 1]]
+                if Pauli == 'X'
+                    for k in e.label
+                        coeff(k, 0) # = 0
+                    end
+                elseif Pauli == 'Z'
+                    for k in e.label
+                        coeff(k, 1) # = 0
+                    end
+                end
+
+                # sign = 1 # should be K(1) when implementing as roots of unity or in \C?
+                if weighttype == "additive"
+                    weight = 0.0
+                else
+                    weight = 1.0
+                end
+                for (j, k) in enumerate(e.label)
+                    # if !iszero(coeff(k, 0))
+                    #     sign *= charvec[bds[i] + j]
+                    # end
+                    # if !iszero(coeff(k, 1))
+                    #     sign *= charvec[bds[i] + j + coden]
+                    # end
+                    if weighttype == "additive"
+                        weight += model[k]
+                    else
+                        weight *= model[k]
+                    end
+                end
+                # e.sign = sign
+                e.weight = weight
+            end
+
+            # ignoring random tie breaker, breaks ties here by order of entered into trellis
+            w, loc = findmin([e.weight + V[i][e.outvertex].value for e in E[i][j]])
+            v.value = E[i][j][loc].weight + V[i][E[i][j][loc].outvertex].value
+            v.prev = E[i][j][loc].outvertex
+            v.edgeloc = loc
+        end
+    end
+
+    # redo here for the two-sided approach
+    path = zero_matrix(base_ring(Ps), 1, coden)
+    curr = coden
+    prev = 1
+    for i in length(E) + 1:-1:2
+        elabel = E[i - 1][prev][V[i][prev].edgeloc].label
+        path[1, (curr - length(elabel) + 1):curr] = elabel
+        prev = V[i][prev].prev
+        curr -= length(elabel)
+    end
+    return path
+end
+
+function shift!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
+    err_models::Vector{Dict{fq_nmod, Float64}}, charvec::Vector{Int64}, Pauli::Char=' ',
+    weighttype::String="additive")
+
+    # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
+    # weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
+    # length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
+
+    V = vertices(T)
+    E = edges(T)
+    coden = length(err_models)
+    if ismissing(boundaries)
+        bds = [0:coden...]
+    else
+        bds = deepcopy(boundaries)
+    end
+
+    for i in 1:length(E)
+        model = err_models[i]
+        for j in 1:length(V[i + 1])
+            Threads.@threads for e in E[i][j]
+                e.label += Ps[1, bds[i] + 1:bds[i + 1]]
+                # if Pauli == 'X'
+                #     for k in e.label
+                #         coeff(k, 0) # = 0
+                #     end
+                # elseif Pauli == 'Z'
+                #     for k in e.label
+                #         coeff(k, 1) # = 0
+                #     end
+                # end
+
+                # sign = 1 # should be K(1) when implementing as roots of unity or in \C?
+                if weighttype == "additive"
+                    weight = 0.0
+                else
+                    weight = 1.0
+                end
+                for (j, k) in enumerate(e.label)
+                    # if !iszero(coeff(k, 0))
+                    #     sign *= charvec[bds[i] + j]
+                    # end
+                    # if !iszero(coeff(k, 1))
+                    #     sign *= charvec[bds[i] + j + coden]
+                    # end
+                    if weighttype == "additive"
+                        weight += model[k]
+                    else
+                        weight *= model[k]
+                    end
+                end
+                # e.sign = sign
+                e.weight = weight
+            end
+        end
+    end
 end

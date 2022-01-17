@@ -4,6 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# using SymPy
+using Plots
+
 include("linearcode.jl")
 include("trellis.jl")
 
@@ -33,9 +36,6 @@ mutable struct CSSCode <: AbstractCSSCode
     dualgens::fq_nmod_mat
     logspace::Union{fq_nmod_mat, Missing}
     charvec::Vector{Int64} # make bools, uint8's?
-    Hwtenum::Union{WeightEnumerator, Missing}
-    Pwtenum::Union{WeightEnumerator, Missing}
-    trellis::Union{Trellis, Missing}
 end
 
 mutable struct QuantumCode <: AbstractQuantumCode
@@ -49,11 +49,6 @@ mutable struct QuantumCode <: AbstractQuantumCode
     logspace::Union{fq_nmod_mat, Missing}
     charvec::Vector{Int64} # make bools, uint8's?
     signs::Vector{Int64}
-    Hwtenum::Union{WeightEnumerator, Missing}
-    Pwtenum::Union{WeightEnumerator, Missing}
-    Xwtenum::Union{WeightEnumerator, Missing}
-    Zwtenum::Union{WeightEnumerator, Missing}
-    trellis::Union{Trellis, Missing}
 end
 
 field(S::AbstractQuantumCode) = S.F
@@ -203,7 +198,7 @@ function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector
     return SPaulistripped, charvec
 end
 
-function splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64}=[])
+function splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
     Xstabs = []
     Xsigns = Vector{Int64}()
     Zstabs = []
@@ -293,9 +288,10 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{
     end
     dualgens = directsum(generatormatrix(C1), generatormatrix(D2))
 
-    return CSSCode(field(C1), base_ring(Sq2), length(C1), dimension(C1) - dimension(C2), missing,
-        minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2), paritycheckmatrix(C1),
-        C2, C1, signs, Xsigns, Zsigns, dualgens, missing, charvec, missing, missing, missing)
+    return CSSCode(field(C1), base_ring(Sq2), length(C1), dimension(C1) - dimension(C2),
+        missing, minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2),
+        paritycheckmatrix(C1), C2, C1, signs, Xsigns, Zsigns, dualgens, missing,
+        charvec)
 end
 
 function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
@@ -329,7 +325,7 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
 
     return CSSCode(field(C), base_ring(Sq2), length(C), k, missing, minimumdistance(D),
         minimumdistance(D), Sq2, paritycheckmatrix(D), paritycheckmatrix(D), C, D,
-        signs, Xsigns, Zsigns, dualgens, missing, charvec, missing, missing, missing)
+        signs, Xsigns, Zsigns, dualgens, missing, charvec)
 end
 
 function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{Int64}, Vector{Any}}=[])
@@ -369,14 +365,17 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vect
 
     return CSSCode(base_ring(Xmatrix), base_ring(Sq2), size(Xmatrix, 2),
         size(Xmatrix, 2) - size(Xmatrix, 1) - size(Zmatrix, 1),
-        missing, missing, missing, Sq2, missing, missing, missing, missing, signs,
-        Xsigns, Zsigns, dualgens, missing, charvec, missing, missing, missing)
+        missing, missing, missing, Sq2, Xmatrix, Zmatrix, missing, missing, signs,
+        Xsigns, Zsigns, dualgens, missing, charvec)
 end
 
 function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    if isempty(charvec)
+        charvec = ones(Int64, size(S, 2))
+    end
     signs = _getsigns(S, charvec)
     Sq2 = symplectictoquadratic(S)
 
@@ -387,12 +386,11 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
         end
     end
 
-    flag1 = false
     # not necessary but faster to skip
     if !isempty(del)
         Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
+        S = S[setdiff(1:size(Sq2, 1), del), :]
         signs = signs[setdiff(1:size(Sq2, 1), del)]
-        flag1 = true
     end
 
     ###############
@@ -408,9 +406,6 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
     # end
 
     # find dual
-    if flag1
-        S = quadratictosymplectic(Sq2)
-    end
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
     size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
@@ -422,7 +417,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
     if args[1]
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 2) - size(Sq2, 1),
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, charvec, missing, missing, missing)
+            args[3], args[5], dualgens, missing, charvec)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -433,6 +428,9 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    if isempty(charvec)
+        charvec = ones(Int64, size(S, 2))
+    end
     signs = _getsigns(S, charvec)
     Sq2 = symplectictoquadratic(S)
 
@@ -445,12 +443,11 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
         end
     end
 
-    flag1 = false
     # not necessary but faster to skip
     if !isempty(del)
         Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
+        S = S[setdiff(1:size(Sq2, 1), del), :]
         signs = signs[setdiff(1:size(Sq2, 1), del)]
-        flag1 = true
     end
 
     # need to code an additive only rref but then apply _getsigns
@@ -462,9 +459,6 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
     # end
 
     # find dual
-    if flag1
-        S = quadratictosymplectic(Sq2)
-    end
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
     size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
@@ -482,28 +476,91 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
     if args[1]
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, charvec, missing, missing, missing)
+            args[3], args[5], dualgens, missing, charvec)
     else
         return QuantumCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
-            missing, Sq2, dualgens, missing, charvec, signs, missing, missing, missing, missing, missing)
+            missing, Sq2, dualgens, missing, charvec, signs)
     end
 end
 
-# function QuantumCode()
-#
-#     # determine K
-#     K = q^n // characteristic()^size(Ssomething, 1)
-#     if isinteger(K)
-#         K = Int(log(Int64(K), q))
-#     end
-# end
+function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+    if symp
+        iseven(size(Sq2, 2)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
+        if !isempty(charvec)
+            size(Sq2, 2) == length(charvec) || error("The characteristic value is of incorrect length.")
+        end
+        S = Sq2
+        Sq2 = symplectictoquadratic(Sq2)
+    else
+        E = base_ring(Sq2)
+        iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
+        S = quadratictosymplectic(Sq2)
+    end
+    if isempty(charvec)
+        charvec = ones(Int64, size(S, 2))
+    end
+    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    signs = _getsigns(S, charvec)
+    # make del zero rows, cols helper functions
+    # which will return a flag if this was ever done
+    del = Vector{Int64}()
+    for r in 1:size(Sq2, 1)
+        if iszero(Sq2[r, :])
+            append!(del, r)
+        end
+    end
+
+    # not necessary but faster to skip
+    if !isempty(del)
+        Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
+        S = S[setdiff(1:size(Sq2, 1), del), :]
+        signs = signs[setdiff(1:size(Sq2, 1), del)]
+    end
+
+    # need to code an additive only rref but then apply _getsigns
+    # if rank(Sq2) != size(Sq2, 1)
+    # rk = rank(G)
+    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    # if rk < size(G, 1)
+    #     _, G = rref(G)
+    # end
+
+    # find dual
+    G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
+    _, H = right_kernel(G)
+    size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    # note the H here is transpose of the standard definition
+    !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    dualgens = symplectictoquadratic(H')
+
+    try
+        temp = div(Int64(order(base_ring(Sq2))), Int64(characteristic(base_ring(Sq2))))
+        dimcode = temp^(size(Sq2, 2) - size(Sq2, 1))
+    catch
+        # over flows hard here - make rational{BigInt}?
+        dimcode = Int64(order(base_ring(Sq2)))^size(Sq2, 2) // Int64(characteristic(base_ring(Sq2)))^(size(Sq2, 1))
+    end
+    if isinteger(dimcode)
+        dimcode = Int64(log(Int64(characteristic(base_ring(S))), Int64(dimcode)))
+    end
+
+    args = isCSSsymplectic(S, signs, true)
+    if args[1]
+        return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
+            missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
+            args[3], args[5], dualgens, missing, charvec)
+    else
+        return QuantumCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
+            missing, Sq2, dualgens, missing, charvec, signs)
+    end
+end
 
 # this returns a basis for the space S^⟂ / S
 # work would need to be done to extract appropriate X_i, Z_i pairs from this
 # can implement Gottesman algorithm later
 function logicalspace(S::AbstractQuantumCode, alg::String="quotient")
-    if !ismissing(Q.logicalspace)
-        return Q.logicalspace
+    if !ismissing(S.logspace)
+        return S.logspace
     end
 
     alg ∈ ["quotient"] || error("Algorithm '$alg' not specified in logicalspace.")
@@ -518,27 +575,29 @@ function logicalspace(S::AbstractQuantumCode, alg::String="quotient")
         UinW, UinWtoW = sub(W, gensofUinW)
         Q, WtoQ = quo(W, UinW)
         C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
-        Fbasis = [[F(C2modC1basis[j][i]) for i in 1:dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
+        Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
         G2 = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 
         # returns linear object, make additive if necessary
         if size(G2, 1) == dimension(S)
-            Q.logicalspace = vcat(G2, gen(F) * G2)
-            return Q.logicalspace
+            S.logspace = vcat(G2, gen(F) * G2)
+            return S.logspace
         elseif size(G2, 1) == 2 * dimension(S)
-            Q.logicalspace = G2
-            return Q.logicalspace
+            S.logspace = G2
+            return S.logspace
         else
             error("Logical space produced of incorrect dimension; expected: ", 2 * dimension(S), ", received: ", size(G2, 1))
         end
     end
 end
 
+# can't check rank here because a self-dual code will have half rank since function is not additive
+# need to think about what this means for an irrational dimension
 function setlogicals!(Q::AbstractQuantumCode, L::fq_nmod_mat)
-    size(L) == (length(Q) + dimension(Q), length(Q)) || error("Provided matrix is of incorrect size for the logical space.")
-    rank(L) == size(L, 1) || error("Provided matrix is not of full rank.")
-    aresymplecticorthogonal(stabilizers(Q), L) || error("Provided matrix does not commute with the code.")
-    !aresymplecticorthogonal(L, L) || error("Provided matrix should not be symplectic self-orthogonal.")
+    size(L) == (2 * dimension(Q), length(Q)) || error("Provided matrix is of incorrect size for the logical space.")
+    # rank(L) == size(L, 1) || error("Provided matrix is not of full rank.")
+    # aresymplecticorthogonal(stabilizers(Q), L) || error("Provided matrix does not commute with the code.")
+    # !aresymplecticorthogonal(L, L) || error("Provided matrix should not be symplectic self-orthogonal.")
     Q.logspace = L
 end
 
@@ -625,18 +684,6 @@ function show(io::IO, S::AbstractQuantumCode)
     end
 end
 
-# # these only CSS otherwise it's just numlogicals
-# function numXlogicals(S::CSSCode)
-#     return
-# end
-#
-# function numZlogicals(S::CSSCode)
-#     return
-# end
-#
-# # just use 2k
-# numlogicals(S::AbstractQuantumCode) = numXlogicals(S) + numZlogicals(S)
-
 function Xsyndrome(S::CSSCode, v::fq_nmod_mat)
     n = length(S)
     if length(v) == 2 * n
@@ -673,27 +720,29 @@ function syndrome(S::AbstractQuantumCode, v::fq_nmod_mat)
     return symplecticstabilizers(S) * v
 end
 
-#############################
-        # Known codes
-#############################
+# function Singletonbound()
+#     n - k ≧ 2(d - 1)
+# end
 
-function fivequbitcode()
-    # is a perfect code
-    return QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
-end
-
-# should also do a test for other CSS construction via Hamming code and actually make that one default
-function Steanecode()
-    return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
-    # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
-end
-
-function Shorcode()
-    return CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
-end
-
-function Singletonbound()
-    n - k ≧ 2(d - 1)
+# will have to get signs on them separately
+# could make this considerably faster by using combinatorics package and skipping 0's
+# using Combinatorics
+# iter = combinations(1:size(stabs, 2))
+# but this only in base 2
+function allstabilizers(Q::AbstractQuantumCode)
+    E = quadraticfield(Q)
+    all = Vector{fq_nmod_mat}()
+    stabs = stabilizers(Q)
+    for iter in Base.Iterators.product([0:(Int64(characteristic(field(Q))) - 1) for _ in 1:size(stabs, 1)]...)
+        stab = E(iter[1]) * stabs[1, :]
+        for r in 2:size(stabs, 1)
+            if !iszero(iter[r])
+                stab += E(iter[r]) * stabs[r, :]
+            end
+        end
+        push!(all, stab)
+    end
+    return all
 end
 
 #############################
@@ -702,88 +751,169 @@ end
 
 # think of more scenarios
 # could allow general trellises given partial stabilizers for use in trellis product
-function trellisprofiles(Q::AbstractQuantumCode, type::String="weight")
+function trellisprofiles(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+    sect::Bool=false)
+
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofiles.")
+    (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
+    Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
+
     if type == "weight"
-        return _trellisprofiles(Q.dualgens, stabilizers(Q))
+        if Pauli == ' '
+            STOF = trellisorientedform(stabilizers(Q))
+            nTOF = trellisorientedform(normalizermatrix(Q))
+            if sect
+                opt, _ = optimalsectionalization(nTOF, STOF)
+                return _trellisprofiles(nTOF, STOF, opt), opt
+            end
+            return _trellisprofiles(nTOF, STOF, missing)
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedform(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedform(symplectictoquadratic(X))
+            if sect
+                opt, _ = optimalsectionalization(ZperpTOF, XTOF)
+                return _trellisprofiles(ZperpTOF, XTOF, opt), opt
+            end
+            return _trellisprofiles(ZperpTOF, XTOF, missing)
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedform(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedform(symplectictoquadratic(Z))
+            if sect
+                opt, _ = optimalsectionalization(XperpTOF, ZTOF)
+                return _trellisprofiles(XperpTOF, ZTOF, opt), opt
+            end
+            return _trellisprofiles(XperpTOF, ZTOF, missing)
+        end
     else
-        return _trellisprofiles(stabilizers(Q), Q.dualgens)
+        if Pauli == ' '
+            STOF = trellisorientedform(stabilizers(Q))
+            nTOF = trellisorientedform(normalizermatrix(Q))
+            if sect
+                opt, _ = optimalsectionalization(STOF, nTOF)
+                return _trellisprofiles(STOF, nTOF, opt), opt
+            end
+            return _trellisprofiles(STOF, nTOF, missing)
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedform(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedform(symplectictoquadratic(X))
+            if sect
+                opt, _ = optimalsectionalization(XTOF, ZperpTOF)
+                return _trellisprofiles(XTOF, ZperpTOF, opt), opt
+            end
+            return _trellisprofiles(XTOF, ZperpTOF, missing)
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedform(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedform(symplectictoquadratic(Z))
+            if sect
+                opt, _ = optimalsectionalization(ZTOF, XperpTOF)
+                return _trellisprofiles(ZTOF, XperpTOF, opt), opt
+            end
+            return _trellisprofiles(ZTOF, XperpTOF, missing)
+        end
     end
 end
 
-# need to fix all of these stabilizer grabs
-# I need to grab the stabs and make them quadratic before passing them
-function trellisprofilesCSS(Q::CSSCode, type::String="weight", Pauli::Char=' ')
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofilesCSS.")
-    Pauli ∈ ['X', 'Z'] || error("Pauli parameter in trellisprofilesCSS must be either 'X' or 'Z'.")
-    if type == "weight"
-        if Pauli == 'X'
-            # this should be wrtV = SperpZ, wrtE = SX
-            return _trellisprofiles(Q.dualgens, stabilizers(Q))
-        else
-            # this should be wrtV = SperpX, wrtE = SZ
-            return _trellisprofiles(Q.dualgens, stabilizers(Q))
-        end
-    else
-        if Pauli == 'X'
-            # this should be wrtV = SX, wrtE = SperpZ
-            return _trellisprofiles(stabilizers(Q), Q.dualgens)
-        else
-            # this should be wrtV = SZ, wrtE = SperpX
-            return _trellisprofiles(stabilizers(Q), Q.dualgens)
-        end
-    end
-end
+function syndrometrellis(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+    sect::Bool=false)
 
-
-############# need TOF here
-function syndrometrellis(Q::AbstractQuantumCode, type::String="weight")
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellis.")
-    profiles = trellisprofiles(Q, type)
+    (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
+    Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
+
     if type == "weight"
-        return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
+        if Pauli == ' '
+            STOF = trellisorientedform(stabilizers(Q))
+            nTOF = trellisorientedform(normalizermatrix(Q))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, nTOF, STOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, nTOF, STOF, charactervector(Q), Pauli, false)
+            end
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedform(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedform(symplectictoquadratic(X))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, ZperpTOF, XTOF, charactervector(Q), 'Z', false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, ZperpTOF, XTOF, charactervector(Q), 'Z', false)
+            end
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedform(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedform(symplectictoquadratic(Z))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, XperpTOF, ZTOF, charactervector(Q), 'X', false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, XperpTOF, ZTOF, charactervector(Q), 'X', false)
+            end
+        end
     else
-        return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
+        if Pauli == ' '
+            STOF = trellisorientedform(stabilizers(Q))
+            nTOF = trellisorientedform(normalizermatrix(Q))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, STOF, nTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, STOF, nTOF, charactervector(Q), Pauli, false)
+            end
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedform(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedform(symplectictoquadratic(X))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, XTOF, ZperpTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, XTOF, ZperpTOF, charactervector(Q), Pauli, false)
+            end
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedform(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedform(symplectictoquadratic(Z))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisquantum(profiles, opt, ZTOF, XperpTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisquantum(profiles, missing, ZTOF, XperpTOF, charactervector(Q), Pauli, false)
+            end
+        end
     end
 end
 
-# need to fix all of these stabilizer grabs
-# I need to grab the stabs and make them quadratic before passing them
-# how to pass CSS into this function? should separate?
-function syndrometrellisCSSsymplectic(Q::CSSCode, type::String="weight", Pauli::Char=' ')
-    type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellisCSSsymplectic.")
-    Pauli ∈ ['X', 'Z'] || error("Pauli parameter in syndrometrellisCSSsymplectic must be either 'X' or 'Z'.")
-    profiles = trellisprofilesCSS(Q, type, Pauli)
-
-    if type == "weight"
-        if Pauli == 'X'
-            # this should be wrtV = SperpZ, wrtE = SX
-            return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
-        else
-            # this should be wrtV = SperpX, wrtE = SZ
-            return _syndrometrellis(Q.dualgens, stabilizers(Q), profiles)
-        end
-    else
-        if Pauli == 'X'
-            # this should be wrtV = SX, wrtE = SperpZ
-            return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
-        else
-            # this should be wrtV = SZ, wrtE = SperpX
-            return _syndrometrellis(stabilizers(Q), Q.dualgens, profiles)
-        end
-    end
-end
+#############################
+    # Weight Enumerators
+#############################
 
 function _reducepoly(poly::Vector{Vector{Int64}})
     reducedpoly = Vector{Vector{Int64}}()
     processed = trues(length(poly))
-    # println("received: $poly")
-    # println("processed: $processed")
     for (i, term) in enumerate(poly)
         if processed[i]
             for j in (i + 1):length(poly)
                 if processed[j]
-                    # println("comparing $term and $(poly[j])")
                     if term[2] == poly[j][2] && term[3] == poly[j][3] && term[4] == poly[j][4]
                         term[1] += poly[j][1]
                         processed[j] = false
@@ -797,6 +927,8 @@ function _reducepoly(poly::Vector{Vector{Int64}})
     return reducedpoly
 end
 
+# for some reason this is broken?
+# sorting somehow changes all the elements
 function islessPoly(a::Vector{Int64}, b::Vector{Int64})
     if isless(a[2:4], b[2:4])
         return true
@@ -811,7 +943,11 @@ function islessPoly(a::Vector{Int64}, b::Vector{Int64})
     end
 end
 
-function _HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
+# right now this only makes sense for qubit codes
+# for nonqubit, can add coeff(l, ⋅) instead of 1 but then the concept of Y
+# is itself fuzzy
+# can just define a qudit version with X, Z tracking only
+function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
     V = vertices(T)
     E = edges(T)
     for i in 2:length(V)
@@ -819,160 +955,72 @@ function _HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
             outer = Vector{Vector{Int64}}()
             for e in E[i - 1][j]
                 inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                # println("edge: $(e.label), inner: $inner")
-                # if e.label == "I"
-                #     continue
-                if e.label != "I"
-                    for term in inner
-                        term[2] += 1
-                    end
-                else
-                    for term in inner
-                        term[3] += 1
-                    end
-                end
-                append!(outer, inner)
-            end
-            # println(outer)
-            v.polynomial = _reducepoly(outer)
-            # println(v.polynomial)
-        end
-    end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPoly))
-
-    if cleanV
-        for i in 2:length(V)
-            for v in V[i]
-                v.polynomial = [[0, 0, 0, 0]]
-            end
-        end
-    end
-    return W
-end
-
-function _PWEtoHWE(S::AbstractQuantumCode)
-    poly = deepcopy(S.Pwtenum.polynomial)
-    for term in poly
-        tot = abs(term[2] + term[3] + term[4])
-        term[2] = tot
-        term[3] = length(S) - tot
-        term[4] = 0
-    end
-    W = WeightEnumerator(_reducepoly(poly))
-    if ismissing(S.Hwtenum)
-        S.Hwtenum = W
-    end
-    return W
-end
-
-function _PWEtoXWE(S::AbstractQuantumCode)
-    poly = deepcopy(S.Pwtenum.polynomial)
-    for term in poly
-        term[3] = length(S) - abs(term[2])
-        term[4] = 0
-    end
-    W = WeightEnumerator(_reducepoly(poly))
-    if ismissing(S.Xwtenum)
-        S.Xwtenum = W
-    end
-    return W
-end
-
-function _PWEtoZWE(S::AbstractQuantumCode)
-    poly = deepcopy(S.Pwtenum.polynomial)
-    for term in poly
-        term[2] = length(S) - abs(term[4])
-        term[3] = 0
-    end
-    W = WeightEnumerator(_reducepoly(poly))
-    if ismissing(S.Zwtenum)
-        S.Zwtenum = W
-    end
-    return W
-end
-
-function Hammingweightenumerator(S::AbstractQuantumCode, keeptrellis::Bool=true, cleanV::Bool=true)
-    if ismissing(S.Hwtenum)
-        if !ismissing(S.Pwtenum)
-            return _PWEtoHWE(S)
-        elseif ismissing(trellis(S))
-            STOF = trellisorientedform(stabilizers(S))
-            nTOF = trellisorientedform(normalizermatrix(S))
-            profiles = _trellisprofiles(nTOF, STOF)
-            T = _syndrometrellis(profiles, nTOF, STOF, charactervector(S), ' ', false)
-            if keeptrellis
-                S.trellis = T
-            end
-        end
-        S.Hwtenum = _HammingweightenumeratorQ(T)
-    end
-    return S.Hwtenum
-end
-
-function _Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
-    V = vertices(T)
-    E = edges(T)
-    for i in 2:length(V)
-        for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
-            for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                if e.label == "X"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[2] -= 1
+                for k in e.label
+                    if coeff(k, 0) == 1 && iszero(coeff(k, 1))
+                        if e.sign == 1
+                            for term in inner
+                                if term[2] < 0 || term[3] < 0 || term[4] < 0
+                                    term[2] -= 1
+                                else
+                                    term[2] += 1
+                                end
+                            end
                         else
-                            term[2] += 1
+                            for term in inner
+                                term[2] *= -1
+                                term[3] *= -1
+                                term[4] *= -1
+                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
+                                    term[2] -= 1
+                                else
+                                    term[2] += 1
+                                end
+                            end
                         end
-                    end
-                elseif e.label == "Y"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[3] -= 1
+                    elseif coeff(k, 0) == 1 && coeff(k, 1) == 1
+                        if e.sign == 1
+                            for term in inner
+                                if term[2] < 0 || term[3] < 0 || term[4] < 0
+                                    term[3] -= 1
+                                else
+                                    term[3] += 1
+                                end
+                            end
                         else
-                            term[3] += 1
+                            for term in inner
+                                term[2] *= -1
+                                term[3] *= -1
+                                term[4] *= -1
+                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
+                                    term[3] -= 1
+                                else
+                                    term[3] += 1
+                                end
+                            end
                         end
-                    end
-                elseif e.label == "Z"
-                    for term in inner
-                        if term[2] < 0 || term[3] < 0 || term[4] < 0
-                            term[4] -= 1
+                    elseif iszero(coeff(k, 0)) && coeff(k, 1) == 1
+                        if e.sign == 1
+                            for term in inner
+                                if term[2] < 0 || term[3] < 0 || term[4] < 0
+                                    term[4] -= 1
+                                else
+                                    term[4] += 1
+                                end
+                            end
                         else
-                            term[4] += 1
+                            for term in inner
+                                term[2] *= -1
+                                term[3] *= -1
+                                term[4] *= -1
+                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
+                                    term[4] -= 1
+                                else
+                                    term[4] += 1
+                                end
+                            end
                         end
-                    end
-                elseif e.label == "-X"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                            term[2] -= 1
-                        else
-                            term[2] += 1
-                        end
-                    end
-                elseif e.label == "-Y"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                            term[3] -= 1
-                        else
-                            term[3] += 1
-                        end
-                    end
-                elseif e.label == "-Z"
-                    for term in inner
-                        term[2] *= -1
-                        term[3] *= -1
-                        term[4] *= -1
-                        if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                            term[4] -= 1
-                        else
-                            term[4] += 1
-                        end
+                    else
+                        error("Encounted unsupported edge $(e.label). Note the PWE is only valid for qubit codes. Run the standard Hamming weight enumerator for qudit codes.")
                     end
                 end
                 append!(outer, inner)
@@ -996,30 +1044,194 @@ function _Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
     return W
 end
 
-# do I want to compute this here? probably, for consistency
-function trellis(S::AbstractQuantumCode)
-    if ismissing(S.trellis)
-        return missing
-    else
-        return S.trellis
+function Pauliweightenumerator(Q::AbstractQuantumCode, Paui::Char=' ',
+    keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
+
+    T = syndrometrellis(Q, "weight", Pauli, sect)
+    if keeptrellis
+        return Pauliweightenumerator(T, cleanV), T
     end
+    return Pauliweightenumerator(T, cleanV)
 end
 
-function Pauliweightenumerator(S::AbstractQuantumCode, keeptrellis::Bool=true, cleanV::Bool=true)
-    if ismissing(S.Pwtenum)
-        if ismissing(trellis(S))
-            STOF = trellisorientedform(stabilizers(S))
-            nTOF = trellisorientedform(normalizermatrix(S))
-            profiles = _trellisprofiles(nTOF, STOF)
-            T = _syndrometrellis(profiles, nTOF, STOF, charactervector(S), ' ', false)
-            if keeptrellis
-                S.trellis = T
+function HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
+    V = vertices(T)
+    E = edges(T)
+    for i in 2:length(V)
+        for (j, v) in enumerate(V[i])
+            outer = Vector{Vector{Int64}}()
+            for e in E[i - 1][j]
+                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
+                for k in e.label
+                    if iszero(k)
+                        for term in inner
+                            term[3] += 1
+                        end
+                    else
+                        for term in inner
+                            term[2] += 1
+                        end
+                    end
+                end
+                append!(outer, inner)
+            end
+            # println(outer)
+            v.polynomial = _reducepoly(outer)
+            # println(v.polynomial)
+        end
+    end
+    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPoly))
+
+    if cleanV
+        for i in 2:length(V)
+            for v in V[i]
+                v.polynomial = [[0, 0, 0, 0]]
             end
         end
-        S.Pwtenum = _Pauliweightenumerator(T)
     end
-    _PWEtoHWE(S)
-    _PWEtoXWE(S)
-    _PWEtoZWE(S)
-    return S.Pwtenum
+    return W
 end
+
+function Hammingweightenumerator(Q::AbstractQuantumCode, Paui::Char=' ',
+    keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
+
+    T = syndrometrellis(Q, "weight", Pauli, sect)
+    if keeptrellis
+        return Hammingweightenumerator(T, cleanV), T
+    end
+    return Hammingweightenumerator(T, cleanV)
+end
+
+function PWEtoHWE(PWE::WeightEnumerator)
+    poly = deepcopy(PWE)
+    for term in poly
+        tot = abs(term[2] + term[3] + term[4])
+        term[2] = tot
+        term[3] = length(S) - tot
+        term[4] = 0
+    end
+    return WeightEnumerator(_reducepoly(poly))
+end
+
+function PWEtoXWE(PWE::WeightEnumerator)
+    poly = deepcopy(PWE)
+    for term in poly
+        tot = abs(term[2] + term[3])
+        term[2] = tot
+        term[3] = length(S) - tot
+        term[4] = 0
+    end
+    return WeightEnumerator(_reducepoly(poly))
+end
+
+function PWEtoZWE(PWE::WeightEnumerator)
+    poly = deepcopy(PWE)
+    for term in poly
+        tot = abs(term[3] + term[4])
+        term[2] = length(S) - tot
+        term[3] = 0
+        term[4] = tot
+    end
+    W = WeightEnumerator(_reducepoly(poly))
+    if ismissing(S.Zwtenum)
+        S.Zwtenum = W
+    end
+    return W
+end
+
+function weightdistribution(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false)
+    alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
+    T = syndrometrellis(Q, "weight", ' ', sect)
+    W = Pauliweightenumerator(T, true)
+    H = PWEtoHWE(W)
+    temp = zeros(Int64, 1, length(Q))
+    for term in H
+        temp[term[2]] = term[1]
+    end
+
+    if typeof(Q) <: CSSCode
+        X = PWEtoXWE(W)
+        Z = PWEtoZWE(W)
+        dist = Vector{Vector{Int64}}()
+        push!(dist, temp)
+
+        temp = zeros(Int64, 1, length(Q))
+        for term in X
+            temp[term[2]] = term[1]
+        end
+        push!(dist, temp)
+
+        temp = zeros(Int64, 1, length(Q))
+        for term in Z
+            temp[term[4]] = term[1]
+        end
+        push!(dist, temp)
+        return dist
+    end
+    return temp
+end
+
+
+#############################
+#   Generator Coefficients  #
+#############################
+
+
+# # to run this, need an error model,
+# # need wrtV,
+# # need clarification on general stabilizer codes
+# # need to process Pauli here
+# # sum of syndrome and logical?
+# function generatorcoefficients(Q::AbstractQuantumCode, θ::Union{Float64, Missing},
+#     Paui::Char=' ')
+#
+#     synlen = size(stabilizers(Q), 1)
+#     numsyns = BigInt(characteristic(field(Q)))^synlen
+#     # do some checks here for feasibility
+#     W, T = Pauliweightenumerator(Q, Pauli, true, true)
+#     prevsyn = zeros(Int64, synlen)
+#     logs = logicalspace(Q)
+#
+#     for i in 1:size(logs, 1)
+#         γ = logs[i, :]
+#         for j in 1:numsyns
+#             μ = digits(j, base=2, pad=synlen)
+#             shifttrellis!(T, μ .+ γ, wrtV, err_model, chractervector(Q), Pauli)
+#             push!(W, _Pauliweightenumerator(T))
+#             _reducepoly(W)
+#         end
+#     end
+#
+#     if ismissing(θ)
+#         # @vars θ
+#         n = length(Q)
+#         sum = Complex(0.0) # typeof(sum) = Sym
+#         for term in W
+#             if term[2] < 0 || term[3] < 0 || term[4] < 0
+#                 sum -= term[1] * cos(θ / 2)^abs(term[2] + term[3]) * (1im * sin(θ / 2))^abs(term[3] + term[4])
+#             else
+#                 sum += term[1] * cos(θ / 2)^abs(term[2] + term[3]) * (1im * sin(θ / 2))^abs(term[3] + term[4])
+#             end
+#         end
+#         return sum, W
+#     else
+#         n = length(Q)
+#         sum = Complex(0.0)
+#         for term in W
+#             if term[2] < 0 || term[3] < 0 || term[4] < 0
+#                 sum -= term[1] * cos(θ / 2)^(n - abs(term[2] + term[3])) * (1im * sin(θ / 2))^abs(term[3] + term[4])
+#             else
+#                 sum += term[1] * cos(θ / 2)^(n - abs(term[2] + term[3])) * (1im * sin(θ / 2))^abs(term[3] + term[4])
+#             end
+#         end
+#         return sum, W
+#     end
+# end
+
+# function plotgeneratorcoefficients(W, θmin, Qmax)
+#
+# end
+#
+# function plotgeneratorcoefficients(Q, θmin, Qmax)
+#
+# end

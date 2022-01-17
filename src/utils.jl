@@ -74,16 +74,10 @@ function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
 end
 # SIP(u::fq_nmod_mat, v::fq_nmod_mat) = symplecticinnerproduct(u, v)
 
+# since changed method here, need to add error checks on dimensions
 function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat)
-    # might be faster to do matrix multiplication but then have to do all the
-    # error chceking again to make sure they are even symplectic
-    # whereas here that is all checked above
-    for r1 in 1:size(A, 1)
-        for r2 in 1:size(B, 1)
-            # views?
-            iszero(symplecticinnerproduct(A[r1, :], B[r2, :])) || return false
-        end
-    end
+    AEuc = hcat(A[:, div(size(A, 2), 2) + 1:end], -A[:, 1:div(size(A, 2), 2)])
+    iszero(AEuc * transpose(B)) || return false
     return true
 end
 
@@ -141,12 +135,42 @@ end
 
 function FpmattoJulia(M::fq_nmod_mat)
     degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the integers.")
-    Fp = [i for i in 0:Int64(characteristic(base_ring(M)))]
+    # Fp = [i for i in 0:Int64(characteristic(base_ring(M)))]
     A = zeros(Int64, size(M))
     for r in 1:size(M, 1)
         for c in 1:size(M, 2)
-            A[r, c] = Fp[findfirst(x->x==M[r, c], Fp)]
+            # A[r, c] = Fp[findfirst(x->x==M[r, c], Fp)]
+            A[r, c] = coeff(M[r, c], 0)
         end
     end
     return A
+end
+
+function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
+    # let this fail elsewhere if not actually over a quadratic extension
+    if degree(base_ring(M)) != 1
+        M = deepcopy(quadratictosymplectic(M)')
+    else
+        M = deepcopy(M')
+    end
+
+    nr, nc = size(M)
+    MS = MatrixSpace(base_ring(M), nr, nr)
+    _, E = rref(hcat(M, MS(1)))
+    E = E[:, (nc + 1):end]
+    pinv = E[1:nc, :]
+    dual = E[nc + 1:nr, :]
+
+    if verify
+        _, Mrref = rref(M)
+        MScols = MatrixSpace(base_ring(M), nc, nc)
+        E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
+        Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
+        iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
+        pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
+        M' * pinv' == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
+        iszero(M' * dual') || error("Failed to correctly compute dual (rhs).")
+        iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
+    end
+    return pinv
 end
