@@ -25,7 +25,16 @@ kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_
 # ncols(A::T) where T = size(A, 2)
 
 # I think we should avoid length checking here and return it for entire matrix if given
-Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
+# Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
+function Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
+    count = 0
+    for i in 1:length(v)
+        if !iszero(v[i])
+            count += 1
+        end
+    end
+    return count
+end
 weight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
 wt(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
 Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
@@ -173,4 +182,61 @@ function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
         iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
     end
     return pinv
+end
+
+function istriorthogonal(G::fq_nmod_mat, verbose::Bool=false)
+    Int(order(base_ring(G))) == 2 || error("Triothogonality is only defined over 𝔽_2.")
+    nr, nc = size(G)
+    for r1 in 1:nr
+        for r2 in 1:nr
+            @views g1 = G[r1, :]
+            @views g2 = G[r2, :]
+            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]))
+                verbose && println("Rows $r1 and $r2 are not orthogonal.")
+                return false
+            end
+        end
+    end
+
+    for r1 in 1:nr
+        for r2 in 1:nr
+            for r3 in 1:nr
+                @views g1 = G[r1, :]
+                @views g2 = G[r2, :]
+                @views g3 = G[r3, :]
+                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]))
+                    verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
+function istriorthogonal(G::Matrix{Int})
+    nr, nc = size(G)
+    for r1 in 1:nr
+        for r2 in 1:nr
+            @views g1 = G[r1, :]
+            @views g2 = G[r2, :]
+            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]) % 2)
+                return false
+            end
+        end
+    end
+
+    for r1 in 1:nr
+        for r2 in 1:nr
+            for r3 in 1:nr
+                @views g1 = G[r1, :]
+                @views g2 = G[r2, :]
+                @views g3 = G[r3, :]
+                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]) % 2)
+                    return false
+                end
+            end
+        end
+    end
+    return true
 end

@@ -4,7 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# I want to remove this dependence
+using Primes
+
 import Base: ==, ∩, +
+import Primes: factor
 
 include("cyclotomic.jl")
 include("linearcode.jl")
@@ -36,6 +40,7 @@ struct CyclicCode <: AbstractCyclicCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 struct BCHCode <: AbstractBCHCode
@@ -60,6 +65,7 @@ struct BCHCode <: AbstractBCHCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 struct ReedSolomonCode <: AbstractReedSolomonCode
@@ -84,6 +90,7 @@ struct ReedSolomonCode <: AbstractReedSolomonCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int64})
@@ -134,7 +141,6 @@ end
 
 # MattsonSolomontransform(f, n)
 # inverseMattsonSolomontransform
-
 
 basefield(C::AbstractCyclicCode) = C.F
 splittingfield(C::AbstractCyclicCode) = C.E
@@ -306,7 +312,8 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     !(q <= 1 || n <= 1) ||error("Invalid parameters past to CyclicCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
-        factors = factor(q)
+        # this used to work with just AbstractAlgebra
+        factors = Primes.factor(q)
         if length(factors) != 1
             error("There is no finite field of order $(prod(factors)).")
         end
@@ -325,6 +332,7 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
 
     defset = sort!(vcat(cosets...))
     k = n - length(defset)
+    # println(k)
     comcosets = complementqcosets(q, n, cosets)
     # println("here 2")
     g = _generatorpolynomial(R, β, defset)
@@ -365,16 +373,19 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
-            return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-                defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+            return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
+                sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
+                H, missing, Gstand, Hstand, missing)
         end
 
-        return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-            defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+        return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets,
+            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
+            missing, Gstand, Hstand, missing)
     end
 
-    return CyclicCode(F, E, R, β, n, k, missing, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-        defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+    return CyclicCode(F, E, R, β, n, k, missing, b, HT, cosets,
+        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H, missing,
+        Gstand, Hstand, missing)
 end
 
 # currently untested - not fully fixed yet
@@ -423,8 +434,9 @@ function CyclicCode(q::Integer, n::Integer, g::fq_nmod_poly, verify::Bool=true)
         end
     end
 
-    return CyclicCode(F, E, R, β, n, k, missing, b, HT, qcosets, sort!([arr[1] for arr in qcosets]),
-        defset, g, h, e, G, H, Gstand, Hstand)
+    return CyclicCode(F, E, R, β, n, k, missing, b, HT, qcosets,
+        sort!([arr[1] for arr in qcosets]), defset, g, h, e, G, H, Gstand, Hstand,
+        missing)
 end
 
 # self orthogonal cyclic codes are even-like
@@ -435,7 +447,7 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     !(q <= 1 || n <= 1) || error("Invalid parameters past to BCHCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
-        factors = factor(q)
+        factors = Primes.factor(q)
         if length(factors) != 1
             error("There is no finite field of order $(prod(factors)).")
         end
@@ -477,12 +489,14 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     end
 
     if deg == 1 && n == q - 1
-        return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-            defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+        return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
+            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
+            missing, Gstand, Hstand, missing)
     end
 
-    return BCHCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-        defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+    return BCHCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
+        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
+        missing, Gstand, Hstand, missing)
 end
 
 function ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
@@ -534,8 +548,9 @@ function ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=tru
         end
     end
 
-    return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, HT, cosets, sort!([arr[1] for arr in cosets]),
-        defset, g, h, e, G, missing, H, missing, Gstand, Hstand)
+    return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, HT, cosets,
+        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
+        missing, Gstand, Hstand, missing)
 end
 
 function complement(C::AbstractCyclicCode, verify::Bool=true)

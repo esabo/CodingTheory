@@ -6,6 +6,10 @@
 
 import Base: ==, show
 
+#############################
+         # General
+#############################
+
 mutable struct Vertex
     label::BigInt
     prev::Int64
@@ -15,6 +19,9 @@ mutable struct Vertex
     polynomial::Vector{Vector{Int64}}
 end
 
+# could redo this for classical to remove sign
+# for a trellis with 10 million edges, this would save 10 MB
+# to do this, make EdgeC and EdgeQ and change all following functions to Union both
 mutable struct Edge
     label::Union{fq_nmod, fq_nmod_mat}
     weight::Float64
@@ -264,6 +271,7 @@ function _sortbyleftindex(A::fq_nmod_mat)
                 break
             end
         end
+        push!(arr, [numcols, A[r, :]])
     end
     sort!(arr, by=x->x[1])
     # vcat is faster and cheaper than the following
@@ -282,6 +290,7 @@ function _sortbyrightindex(A::fq_nmod_mat)
                 break
             end
         end
+        push!(arr, [1, A[r, :]])
     end
     sort!(arr, by=x->x[1]) #, rev=true
     return vcat([arr[i][2] for i in 1:numrows]...)
@@ -367,25 +376,33 @@ function _findactive(A::fq_nmod_mat, edges::Bool=false)
 end
 
 # finds all elements of B which have zero symplectic inner product with all of A
-function _symplectickernel(A::fq_nmod_mat, B::fq_nmod_mat)
+function _symplectickernel(A::fq_nmod_mat, B::fq_nmod_mat, returnker::Bool=false)
     size(A, 2) == size(B, 2) || error("Length mismatch in computedimkernel.")
     iseven(size(A, 2)) || error("Vectors in symplectickernel must have even length.")
 
-    n = div(size(A, 2), 2)
-    ker = []
-    for rb in 1:size(B, 1)
-        flag = false
-        for ra in 1:size(A, 1)
-            @views if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
-                flag = true
-                break
+    if returnker
+        ker = []
+        for rb in 1:size(B, 1)
+            for ra in 1:size(A, 1)
+                @views if !iszero(symplecticinnerproduct(A[ra, :], B[rb, :]))
+                    push!(ker, B[rb, :])
+                    break
+                end
             end
         end
-        if flag
-            push!(ker, B[rb, :])
+        return length(ker), vcat(ker...)
+    else
+        AEuc = hcat(A[:, div(size(A, 2), 2) + 1:end], -A[:, 1:div(size(A, 2), 2)])
+        prod = AEuc * transpose(B)
+        iszero(prod) && return 0
+        count = 0
+        for i in 1:size(prod, 2)
+            if !iszero(prod[:, i])
+                count += 1
+            end
         end
+        return count
     end
-    return length(ker), vcat(ker...)
 end
 
 function _pastfuture(A::fq_nmod_mat)
@@ -401,11 +418,405 @@ function _pastfuture(A::fq_nmod_mat)
     return past, future
 end
 
+function loadbalancedecode(profile::Vector{Int64})
+    leftsum = 0
+    leftloc = 1
+    rightsum = 0
+    rightloc = length(profile)
+    while rightloc - leftloc > 2
+        if leftsum <= rightsum
+            leftsum += profile[leftloc]
+            leftloc += 1
+        else
+            rightsum += profile[rightloc]
+            rightloc -= 1
+        end
+    end
+    # println(leftsum, ", ", rightsum)
+    return leftloc, rightloc
+end
+
+function loadbalancedcode(profiles::Vector{Vector{Int64}})
+    length(profiles) == 4 || error("Expected a length 4 profile vector. Pass in all or just the edges.")
+    return loadbalancedcode(profiles[2])
+end
+
+#############################
+        # Classical
+#############################
+
+# currently untested for characteristic > 2
+function trellisorientedformC(A::fq_nmod_mat)
+    E = base_ring(A)
+    isone(degree(E)) || error("The trellis oriented form has not yet been implemented for higher degree extensions.")
+    A = _sortbyleftindex(A)
+    for c in 1:size(A, 2)
+        left, right = _leftrightindices(A)
+        rows = findall(x->x==c, left)
+        if length(rows) == 1
+            @views A[rows[1], :] *= inv(A[rows[1], c])
+        elseif length(rows) > 1
+            edges = []
+            for row in rows
+                push!(edges, (row, A[row, c]))
+            end
+
+            pivot = false
+            if !isempty(edges)
+                pivot = true
+                row, X = edges[1]
+                @views A[row, :] *= inv(X)
+                for i in 2:length(edges)
+                    @views A[edges[i][1], :] -= edges[i][2] * A[row, :]
+                end
+            end
+        end
+    end
+    A = _sortbyleftindex(A)
+    left, right = _leftrightindices(A)
+
+    for c in size(A, 2):-1:1
+        rows = findall(x->x==c, right)
+        if length(rows) == 1
+            @views A[rows[1], :] *= inv(A[rows[1], c])
+        elseif length(rows) > 1
+            edges = []
+            for row in rows
+                push!(edges, (row, A[row, c]))
+            end
+
+            pivot = false
+            if !isempty(edges)
+                pivot = true
+                row, X = edges[end]
+                @views A[row, :] *= inv(X)
+                # no problems here if this is only length 1
+                for i in length(edges) - 1:-1:1
+                    @views A[edges[i][1], :] -= edges[i][2] * A[row, :]
+                end
+            end
+        end
+        left, right = _leftrightindices(A)
+    end
+    return A
+end
+
+function _trellisprofilesC(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing})
+    if ismissing(boundaries)
+        bds = [1:size(wrtV, 2) + 1...]
+    else
+        bds = deepcopy(boundaries)
+        if 0 ∈ bds
+            bds .+= 1
+        end
+    end
+
+    n = length(bds) - 1
+    stateprofile = zeros(Int64, n + 1)
+    branchprofile = zeros(Int64, n)
+    indegrees = zeros(Int64, n)
+    outdegrees = zeros(Int64, n)
+    past, future = _pastfuture(wrtV)
+    past = past[bds]
+    future = future[bds]
+
+    p = Int64(characteristic(base_ring(wrtV)))
+    for i in 1:n + 1
+    #     # same formula works wrtE but still needs a separate loop for the n + 1
+    #     # if only doing wrtE need to think about role of dimker
+        stateprofile[i] = p^(size(wrtV, 1) - past[i] - future[i]) # - dimker)
+    end
+
+    left, right = _leftrightindices(wrtE)
+    past, future = _pastfuture(wrtE)
+    past = past[bds]
+    future = future[bds]
+    for i in 1:n
+        dimparallel = 0
+        branchprofile[i] = p^(size(wrtE, 1) - past[i] - future[i + 1] - dimparallel) # - dimker
+        indegrees[i] = div(branchprofile[i], stateprofile[i + 1])
+        outdegrees[i] = div(branchprofile[i], stateprofile[i])
+    end
+    # stateprofile[n + 1] = p^(size(wrtE, 1) - past[n + 1] - future[n + 1] - dimker)
+    return [stateprofile, branchprofile, indegrees, outdegrees]
+end
+
+# TODO: remove dictionaries, iterate once to find left, once for right
+# keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
+function _syndrometrellisC(profiles::Vector{Vector{T}}, boundaries::Union{Vector{Int64}, Missing},
+    wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, verbose=false) where T <: Integer
+
+    K = base_ring(wrtE)
+    base_ring(wrtV) == K || error("Vertices and edges must have the same base ring.")
+    if ismissing(boundaries)
+        bds = [0:size(wrtV, 2)...]
+    else
+        bds = deepcopy(boundaries)
+    end
+
+    p = Int64(characteristic(K))
+    n = length(profiles[1]) - 1
+    V = Vector{Vertex}[Vertex[] for i = 1:n + 1]
+    Threads.@threads for i = 1:n + 1
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, [[0, 0, 0]]) for j = 1:profiles[1][i]]
+    end
+    V[1] = [Vertex(0, 0, 0, 0.0, 0, [[1, 0, 0]])]
+    V[end] = [Vertex(0, 0, 0, 0.0, 0, [[0, 0, 0]])]
+    verbose && println("Vertex preallocation completed.")
+
+    E = Vector{Vector{Edge}}[[Edge[]] for i = 1:n]
+    Threads.@threads for i in 1:n
+        # the j-th element of Ei is going to be all of the edges going into Vi[j]
+        E[i] = [[Edge(K(0), 0.0, 0, 1) for j = 1:profiles[3][i]] for k = 1:profiles[1][i + 1]]
+    end
+    verbose && println("Edge preallocation completed.")
+
+    biz = BigInt(0)
+    bio = BigInt(1)
+    synlen = size(wrtV, 1)
+    active = _findactive(wrtV)
+    active = active[bds[2:end - 1]]
+    Threads.@threads for i = 2:n
+        Visize = profiles[1][i]
+        for num in 0:Visize - 1
+            bin = reverse(digits(num, base=2, pad=length(active[i - 1])))
+            templabel = zeros(Int64, synlen)
+            loc = 1
+            for j in active[i - 1]
+                templabel[j] = bin[loc]
+                loc += 1
+            end
+
+            curlabel = biz
+            for (shift, val) in enumerate(reverse(templabel, dims=1))
+                if val == 1
+                    curlabel += bio << (shift - 1)
+                end
+            end
+            V[i][num + 1].label = curlabel
+        end
+    end
+    verbose && println("Vertex construction completed.")
+
+    # there has to be a one-liner for the below
+    left, right = _leftrightindices(wrtE)
+    active = _findactive(wrtE, true)
+    if ismissing(boundaries)
+        activetemp = active
+    else
+        activetemp = Vector{Vector{Int64}}()
+        for i in 1:length(bds) - 1
+            temp = Vector{Int64}()
+            for j in bds[i] + 1:bds[i + 1]
+                if !(bds[i] <= left[j] && right[j] <= bds[i + 1])
+                    append!(temp, active[j])
+                end
+            end
+            push!(activetemp, sort!(unique!(temp)))
+        end
+    end
+
+    H = FpmattoJulia(wrtV)
+    G = FpmattoJulia(wrtE)
+    Threads.@threads for i = n:-1:1
+        verbose && println("Starting E[$i]")
+        seclen = bds[i + 1] - bds[i]
+        validedges = Vector{fq_nmod_mat}()
+        edgecontrib = Dict{fq_nmod_mat, Vector{Int64}}()
+        contribedge = Dict{Vector{Int64}, fq_nmod_mat}()
+
+        for a in activetemp[i]
+            temp = wrtE[a, bds[i] + 1:bds[i + 1]]
+            if !iszero(temp)
+                push!(validedges, temp)
+            end
+        end
+        unique!(validedges)
+
+        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:Int64(characteristic(K)) - 1), length(validedges))
+            e = K(iter[1]) * validedges[1]
+            for r in 2:length(validedges)
+                if !iszero(iter[r])
+                    e += K(iter[r]) * validedges[r]
+                end
+            end
+
+            P = zeros(Int64, n)
+            for (j, k) in enumerate(e)
+                P[bds[i] + j] = coeff(k, 0)
+            end
+            syn = H * P .% p
+            edgecontrib[e] = syn
+            contribedge[syn] = e
+        end
+        verbose && println("Edges dictionaries completed for E[$i].")
+
+        Vleft = V[i]
+        Vright = V[i + 1]
+        lenleft = length(Vleft)
+        lenright = length(Vright)
+        Vrightlocs = trues(lenright)
+        startingrightindex = 1
+        # keep below here instead of preallocating above or else the answer comes out wrong
+        blank = K(0)
+
+        while startingrightindex <= lenright
+            startingrightv = Vright[startingrightindex].label
+            leftvertices = Vector{Tuple{Int64, BigInt, Vector{Int64}}}()
+            rightvertices = Vector{Tuple{Int64, BigInt, Vector{Int64}}}()
+            sizehint!(leftvertices, profiles[4][i])
+            sizehint!(rightvertices, profiles[3][i])
+
+            startingrightvsyn = reverse(digits(startingrightv, base=2, pad=synlen))
+            push!(rightvertices, (startingrightindex, startingrightv, startingrightvsyn))
+            connectingstarts = blank
+            startingleftv = biz
+
+            # start with a fixed right vertex and find all left vertices
+            for lab in keys(edgecontrib)
+                temp = (startingrightvsyn .- edgecontrib[lab])
+                for t in 1:length(temp)
+                    if temp[t] < 0
+                        temp[t] = p + temp[t]
+                    end
+                end
+                temp = temp .% p
+
+                leftlabel = biz
+                for (shift, val) in enumerate(reverse(temp, dims=1))
+                    if val == 1
+                        leftlabel += bio << (shift - 1)
+                    end
+                end
+
+                binsearchleft = 1
+                binsearchright = lenleft
+                while binsearchleft <= binsearchright
+                    mid = fld((binsearchleft + binsearchright), 2)
+                    if Vleft[mid].label < leftlabel
+                        binsearchleft = mid + 1
+                    elseif Vleft[mid].label > leftlabel
+                        binsearchright = mid - 1
+                    else
+                        push!(leftvertices, (mid, leftlabel, temp))
+                        if connectingstarts == blank
+                            connectingstarts = lab
+                            startingleftv = temp
+                        end
+                        break
+                    end
+                end
+
+                if length(leftvertices) == profiles[3][i]
+                    break
+                end
+            end
+
+            # start with first left vertex and find all right vertices
+            if length(rightvertices) != profiles[4][i]
+                for lab in keys(edgecontrib)
+                    if lab != connectingstarts
+                        temp = (startingleftv .+ edgecontrib[lab]) .% p
+                        rightlabel = biz
+                        for (shift, val) in enumerate(reverse(temp, dims=1))
+                            if val == 1
+                                rightlabel += bio << (shift - 1)
+                            end
+                        end
+
+                        binsearchleft = 1
+                        binsearchright = lenright
+                        while binsearchleft <= binsearchright
+                            mid = fld((binsearchleft + binsearchright), 2)
+                            if Vright[mid].label < rightlabel
+                                binsearchleft = mid + 1
+                            elseif Vright[mid].label > rightlabel
+                                binsearchright = mid - 1
+                            else
+                                push!(rightvertices, (mid, rightlabel, temp))
+                                break
+                            end
+                        end
+                    end
+
+                    if length(rightvertices) == profiles[4][i]
+                        break
+                    end
+                end
+            end
+
+            # can probably skip this recalculation of temp by immediately storing
+            # instead of building right and left vertex lists
+            # should now have all vertices
+            for (rightindex, rightlabel, rightsyn) in rightvertices
+                count = 1
+                for (leftindex, leftlabel, leftsyn) in leftvertices
+                    temp = rightsyn .- leftsyn
+                    for t in 1:length(temp)
+                        if temp[t] < 0
+                            temp[t] = p + temp[t]
+                        end
+                    end
+                    temp = temp .% p
+
+                    E[i][rightindex][count].label = contribedge[temp]
+                    E[i][rightindex][count].outvertex = leftindex
+                    count += 1
+                end
+                Vrightlocs[rightindex] = false
+            end
+
+            # should have ==
+            while startingrightindex <= lenright
+                startingrightindex += 1
+                if startingrightindex <= lenright && !Vrightlocs[startingrightindex]
+                    startingrightindex += 1
+                else
+                    break
+                end
+            end
+
+        end
+        verbose && println("E[$i] complete")
+    end
+    return Trellis(V, E)
+end
+
+# should probably return missing to unify if statements in the function below
+function trellisprofiles(C::AbstractLinearCode, sect::Bool=false)
+    GTOF = trellisorientedformC(generatormatrix(C))
+    HTOF = trellisorientedformC(paritycheckmatrix(C))
+    if sect
+        opt, _ = optimalsectionalizationC(HTOF, GTOF)
+        return _trellisprofilesC(HTOF, GTOF, opt), opt
+    end
+    return _trellisprofilesC(HTOF, GTOF, missing)
+end
+
+# recopy above so I don't call it and redo the TOF multiple times
+function syndrometrellis(C::AbstractLinearCode, sect::Bool=false)
+    GTOF = trellisorientedformC(generatormatrix(C))
+    HTOF = trellisorientedformC(paritycheckmatrix(C))
+    if sect
+        opt, _ = optimalsectionalizationC(HTOF, GTOF)
+        profiles = _trellisprofilesC(HTOF, GTOF, opt)
+        return _syndrometrellisC(profiles, opt, HTOF, GTOF, false)
+    else
+        profiles = _trellisprofilesC(HTOF, GTOF, missing)
+        return _syndrometrellisC(profiles, missing, HTOF, GTOF, false)
+        # return _syndrometrellisC(profiles, missing, HTOF, GTOF, [1 for _ in 1:length(C)], ' ', false)
+    end
+end
+
+#############################
+         # Quantum
+#############################
+
 # seeks to eliminate edges of the form a + bω in a quadratic extension
 # can't check that it's quadratic directly so note this will fail if a higher degree
 # should work for degree 1 extensions given the way AbstractAlgebra stores coefficints?
 # currently untested for characteristic > 2
-function trellisorientedform(A::fq_nmod_mat)
+function trellisorientedformQ(A::fq_nmod_mat)
     # check for quadratic field extension
     E = base_ring(A)
     A = _sortbyleftindex(A)
@@ -584,7 +995,7 @@ function trellisorientedform(A::fq_nmod_mat)
 end
 
 # only valid for quantum codes
-function optimalsectionalization(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
+function optimalsectionalizationQ(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
     K = base_ring(wrtE)
     base_ring(wrtV) == K || error("Vertices and edges must have the same base ring.")
 
@@ -595,8 +1006,7 @@ function optimalsectionalization(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
 
     symV = quadratictosymplectic(wrtV)
     symE = quadratictosymplectic(wrtE)
-    # dimker, _ = _symplectickernel(symV, symE)
-    dimker = 0
+    dimker = _symplectickernel(symV, symE)
     past, future = _pastfuture(wrtE)
     for i in 1:n
         for j in i:n
@@ -636,7 +1046,7 @@ function optimalsectionalization(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
     return reverse(sectboundaries), Int(V[end].value) #Int(val)
 end
 
-function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing})
+function _trellisprofilesQ(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing})
     if ismissing(boundaries)
         bds = [1:size(wrtV, 2) + 1...]
     else
@@ -648,8 +1058,7 @@ function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Unio
 
     symV = quadratictosymplectic(wrtV)
     symE = quadratictosymplectic(wrtE)
-    # dimker, _ = _symplectickernel(symV, symE)
-    dimker = 0
+    dimker = _symplectickernel(symV, symE)
 
     n = length(bds) - 1
     stateprofile = zeros(Int64, n + 1)
@@ -673,13 +1082,13 @@ function _trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, boundaries::Unio
     future = future[bds]
     for i in 1:n
         dimparallel = 0
-        for k in 1:length(left)
-            # maybw subtract 1 from all of these?
-            if bds[i] <= left[k] && right[k] <= bds[i + 1]
-                # println("Going from V[$(boundaries[i])] to V[$(boundaries[i + 1])] and claiming stabilizer $k has left index $(left[k]) and right index $(right[k]).")
-                dimparallel += 1
-            end
-        end
+        # for k in 1:length(left)
+        #     # maybw subtract 1 from all of these?
+        #     if bds[i] <= left[k] && right[k] <= bds[i + 1]
+        #         # println("Going from V[$(boundaries[i])] to V[$(boundaries[i + 1])] and claiming stabilizer $k has left index $(left[k]) and right index $(right[k]).")
+        #         dimparallel += 1
+        #     end
+        # end
         # stateprofile[i] = p^(size(wrtE, 1) - past[i] - future[i] - dimker)
         branchprofile[i] = p^(size(wrtE, 1) - past[i] - future[i + 1] - dimker - dimparallel)
         indegrees[i] = div(branchprofile[i], stateprofile[i + 1])
@@ -691,7 +1100,7 @@ end
 
 # TODO: remove dictionaries, iterate once to find left, once for right
 # keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
-function _syndrometrellisquantum(profiles::Vector{Vector{T}}, boundaries::Union{Vector{Int64}, Missing},
+function _syndrometrellisQ(profiles::Vector{Vector{T}}, boundaries::Union{Vector{Int64}, Missing},
     wrtV::fq_nmod_mat, wrtE::fq_nmod_mat, charvec::Vector{Int64}, Pauli::Char=' ',
     verbose=false) where T <: Integer
 
@@ -785,7 +1194,7 @@ function _syndrometrellisquantum(profiles::Vector{Vector{T}}, boundaries::Union{
         end
         unique!(validedges)
 
-        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:Int64(characteristic(K)) - 1), length(validedges))
+        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(validedges))
             e = K(iter[1]) * validedges[1]
             for r in 2:length(validedges)
                 if !iszero(iter[r])
@@ -946,29 +1355,6 @@ function _syndrometrellisquantum(profiles::Vector{Vector{T}}, boundaries::Union{
     return Trellis(V, E)
 end
 
-function loadbalancedecode(profile::Vector{Int64})
-    leftsum = 0
-    leftloc = 1
-    rightsum = 0
-    rightloc = length(profile)
-    while rightloc - leftloc > 2
-        if leftsum <= rightsum
-            leftsum += profile[leftloc]
-            leftloc += 1
-        else
-            rightsum += profile[rightloc]
-            rightloc -= 1
-        end
-    end
-    println(leftsum, ", ", rightsum)
-    return leftloc, rightloc
-end
-
-function loadbalancedcode(profiles::Vector{Vector{Int64}})
-    length(profiles) == 4 || error("Expected a length 4 profile vector. Pass in all or just the edges.")
-    return loadbalancedcode(profiles[2])
-end
-
 # error models need to take CSS combinations into account
 # Pauli == 'X'
 # I -> I + X
@@ -976,7 +1362,7 @@ end
 # Pauli == 'Z'
 # I -> I + Z
 # X -> X + Y
-function weight!(T::Trellis, Ps::fq_nmod_mat, err_models::Vector{Dict{String, Float64}},
+function weightQ!(T::Trellis, Ps::fq_nmod_mat, err_models::Vector{Dict{String, Float64}},
     weighttype::String="additive")
 
     weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
@@ -1012,7 +1398,7 @@ end
 # I -> I + Z
 # X -> X + Y
 # remove wrtV here
-function shiftandweight!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
+function shiftandweightQ!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
     err_models::Vector{Dict{String, Float64}}, charvec::Vector{Int64}, Pauli::Char=' ',
     weighttype::String="additive")
 
@@ -1020,6 +1406,7 @@ function shiftandweight!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{I
     weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
     length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
 
+    K = base_ring(Ps)
     V = vertices(T)
     E = edges(T)
     coden = length(err_models)
@@ -1036,11 +1423,11 @@ function shiftandweight!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{I
                 e.label += Ps[bds[i] + 1:bds[i + 1]]
                 if Pauli == 'X'
                     for k in e.label
-                        coeff(k, 0) # = 0
+                        k -= K(coeff(k, 0))
                     end
                 elseif Pauli == 'Z'
                     for k in e.label
-                        coeff(k, 1) # = 0
+                        k -= K(coeff(k, 1))
                     end
                 end
 
@@ -1071,7 +1458,7 @@ function shiftandweight!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{I
 end
 
 # do I actually care about updating the signs here?
-function shiftanddecode!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
+function shiftanddecodeQ!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Missing},
     err_models::Vector{Dict{fq_nmod, Float64}}, charvec::Vector{Int64}, Pauli::Char=' ',
     weighttype::String="additive")
 
@@ -1079,6 +1466,7 @@ function shiftanddecode!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{I
     # weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
     # length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
 
+    K = base_ring(Ps)
     V = vertices(T)
     E = edges(T)
     coden = length(err_models)
@@ -1095,11 +1483,11 @@ function shiftanddecode!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{I
                 e.label += Ps[1, bds[i] + 1:bds[i + 1]]
                 if Pauli == 'X'
                     for k in e.label
-                        coeff(k, 0) # = 0
+                        k -= K(coeff(k, 0))
                     end
                 elseif Pauli == 'Z'
                     for k in e.label
-                        coeff(k, 1) # = 0
+                        k -= K(coeff(k, 1))
                     end
                 end
 
@@ -1155,6 +1543,7 @@ function shift!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Mi
     # weighttype ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
     # length(charvec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
 
+    K = base_ring(Ps)
     V = vertices(T)
     E = edges(T)
     coden = length(err_models)
@@ -1169,15 +1558,15 @@ function shift!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Mi
         for j in 1:length(V[i + 1])
             Threads.@threads for e in E[i][j]
                 e.label += Ps[1, bds[i] + 1:bds[i + 1]]
-                # if Pauli == 'X'
-                #     for k in e.label
-                #         coeff(k, 0) # = 0
-                #     end
-                # elseif Pauli == 'Z'
-                #     for k in e.label
-                #         coeff(k, 1) # = 0
-                #     end
-                # end
+                if Pauli == 'X'
+                    for k in e.label
+                        k -= K(coeff(k, 0))
+                    end
+                elseif Pauli == 'Z'
+                    for k in e.label
+                        k -= K(coeff(k, 1))
+                    end
+                end
 
                 # sign = 1 # should be K(1) when implementing as roots of unity or in \C?
                 if weighttype == "additive"
@@ -1200,6 +1589,160 @@ function shift!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{Int64}, Mi
                 end
                 # e.sign = sign
                 e.weight = weight
+            end
+        end
+    end
+end
+
+# think of more scenarios
+# could allow general trellises given partial stabilizers for use in trellis product
+function trellisprofiles(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+    sect::Bool=false)
+
+    type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofiles.")
+    (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
+    Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
+
+    if type == "weight"
+        if Pauli == ' '
+            STOF = trellisorientedformQ(stabilizers(Q))
+            nTOF = trellisorientedformQ(normalizermatrix(Q))
+            if sect
+                opt, _ = optimalsectionalizationQ(nTOF, STOF)
+                return _trellisprofilesQ(nTOF, STOF, opt), opt
+            end
+            return _trellisprofilesQ(nTOF, STOF, missing)
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedformQ(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedformQ(symplectictoquadratic(X))
+            if sect
+                opt, _ = optimalsectionalizationQ(ZperpTOF, XTOF)
+                return _trellisprofilesQ(ZperpTOF, XTOF, opt), opt
+            end
+            return _trellisprofilesQ(ZperpTOF, XTOF, missing)
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedformQ(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedformQ(symplectictoquadratic(Z))
+            if sect
+                opt, _ = optimalsectionalizationQ(XperpTOF, ZTOF)
+                return _trellisprofilesQ(XperpTOF, ZTOF, opt), opt
+            end
+            return _trellisprofilesQ(XperpTOF, ZTOF, missing)
+        end
+    else
+        if Pauli == ' '
+            STOF = trellisorientedformQ(stabilizers(Q))
+            nTOF = trellisorientedformQ(normalizermatrix(Q))
+            if sect
+                opt, _ = optimalsectionalizationQ(STOF, nTOF)
+                return _trellisprofilesQ(STOF, nTOF, opt), opt
+            end
+            return _trellisprofilesQ(STOF, nTOF, missing)
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedformQ(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedformQ(symplectictoquadratic(X))
+            if sect
+                opt, _ = optimalsectionalizationQ(XTOF, ZperpTOF)
+                return _trellisprofilesQ(XTOF, ZperpTOF, opt), opt
+            end
+            return _trellisprofilesQ(XTOF, ZperpTOF, missing)
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedformQ(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedformQ(symplectictoquadratic(Z))
+            if sect
+                opt, _ = optimalsectionalizationQ(ZTOF, XperpTOF)
+                return _trellisprofilesQ(ZTOF, XperpTOF, opt), opt
+            end
+            return _trellisprofilesQ(ZTOF, XperpTOF, missing)
+        end
+    end
+end
+
+function syndrometrellis(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+    sect::Bool=false)
+
+    type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellis.")
+    (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
+    Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
+
+    if type == "weight"
+        if Pauli == ' '
+            STOF = trellisorientedformQ(stabilizers(Q))
+            nTOF = trellisorientedformQ(normalizermatrix(Q))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, nTOF, STOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, nTOF, STOF, charactervector(Q), Pauli, false)
+            end
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedformQ(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedformQ(symplectictoquadratic(X))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, ZperpTOF, XTOF, charactervector(Q), 'Z', false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, ZperpTOF, XTOF, charactervector(Q), 'Z', false)
+            end
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedformQ(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedformQ(symplectictoquadratic(Z))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, XperpTOF, ZTOF, charactervector(Q), 'X', false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, XperpTOF, ZTOF, charactervector(Q), 'X', false)
+            end
+        end
+    else
+        if Pauli == ' '
+            STOF = trellisorientedformQ(stabilizers(Q))
+            nTOF = trellisorientedformQ(normalizermatrix(Q))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, STOF, nTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, STOF, nTOF, charactervector(Q), Pauli, false)
+            end
+        elseif Pauli == 'X'
+            _, _, Zperp, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            X = hcat(Xstabilizers(Q), zero_matrix(field(Q), size(Xstabilizers(Q), 1), size(Xstabilizers(Q), 2)))
+            ZperpTOF = trellisorientedformQ(symplectictoquadratic(Zperp))
+            XTOF = trellisorientedformQ(symplectictoquadratic(X))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, XTOF, ZperpTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, XTOF, ZperpTOF, charactervector(Q), Pauli, false)
+            end
+        else
+            Xperp, _, _, _, _, _ = splitsymplecticstabilizers(quadratictosymplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
+            Z = hcat(zero_matrix(field(Q), size(Zstabilizers(Q), 1), size(Zstabilizers(Q), 2)), Zstabilizers(Q))
+            XperpTOF = trellisorientedformQ(symplectictoquadratic(Xperp))
+            ZTOF = trellisorientedformQ(symplectictoquadratic(Z))
+            if sect
+                profiles, opt = trellisprofiles(Q, type, Pauli, sect)
+                return _syndrometrellisQ(profiles, opt, ZTOF, XperpTOF, charactervector(Q), Pauli, false)
+            else
+                profiles = trellisprofiles(Q, type, Pauli)
+                return _syndrometrellisQ(profiles, missing, ZTOF, XperpTOF, charactervector(Q), Pauli, false)
             end
         end
     end

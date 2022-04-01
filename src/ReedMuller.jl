@@ -8,7 +8,7 @@ include("linearcode.jl")
 
 abstract type AbstractReedMullerCode <: AbstractLinearCode end
 
-struct ReedMullerCode <: AbstractReedMullerCode
+mutable struct ReedMullerCode <: AbstractReedMullerCode
     F::Union{FqNmodFiniteField, Nemo.GaloisField, AbstractAlgebra.GFField{Int64}}
     n::Integer
     k::Integer
@@ -21,6 +21,7 @@ struct ReedMullerCode <: AbstractReedMullerCode
     Horig::Union{gfp_mat, fq_nmod_mat, Missing}
     Gstand::Union{gfp_mat, fq_nmod_mat}
     Hstand::Union{gfp_mat, fq_nmod_mat}
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 r(C::ReedMullerCode) = C.r
@@ -75,28 +76,28 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
     q == 2 || error("Nonbinary Reed Muller codes have not yet been implemented.")
 
     G = ReedMullergeneratormatrix(q, r, m)
-    H = deepcopy(ReedMullergeneratormatrix(q, m - r - 1, m)')
+    H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = _standardform(G)
 
     if verify
         size(G, 2) == 2^m || error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(size(G, 2)), expected: $(BigInt(2)^m).")
         k = sum([binomial(m, i) for i in 0:r])
         size(G, 1) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
-        if size(H) == (n - k, k)
+        if size(H) == (2^m - k, k)
             H = deepcopy(H')
         end
         for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
+            iszero(Gstand[r, :] * H') || error("Column swap appeared in _standardform.")
         end
     end
 
     return ReedMullerCode(base_ring(G), size(G, 2), size(G, 1), 2^(m - r), r, m, G, missing,
-        H, missing, Gstand, Hstand)
+        H, missing, Gstand, Hstand, missing)
 end
 
 function dual(C::ReedMullerCode)
     # return ReedMullerCode(C.q, C.m - C.r - 1, C.m)
     return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(r(C) + 1),
         m(C) - r(C) - 1, m(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
-        originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true))
+        originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true), missing)
 end

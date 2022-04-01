@@ -9,16 +9,18 @@ ENV["NEMO_PRINT_BANNER"] = "false"
 using AbstractAlgebra
 using Nemo
 
-import Base: show, length, in, ⊆, /
-import AbstractAlgebra: quo
+import Base: show, length, in, ⊆, /, *
+import AbstractAlgebra: quo, VectorSpace
 
 include("utils.jl")
 
 abstract type AbstractCode end
 abstract type AbstractLinearCode <: AbstractCode end
 
+# can't get around including this here and not in weight_dist without modules
 struct WeightEnumerator
     polynomial::Vector{Vector{Int64}}
+    Type::String
 end
 
 mutable struct LinearCode <: AbstractLinearCode
@@ -32,43 +34,7 @@ mutable struct LinearCode <: AbstractLinearCode
     Horig::Union{gfp_mat, fq_nmod_mat, Missing}
     Gstand::Union{gfp_mat, fq_nmod_mat}
     Hstand::Union{gfp_mat, fq_nmod_mat}
-end
-
-function show(io::IO, W::WeightEnumerator)
-    for (i, term) in enumerate(W.polynomial)
-        if term == [1, 0, 0, 0]
-            print("1")
-        end
-        if term[1] != 1
-            print(io, term[1])
-        end
-        if term[2] != 0
-            if term[2] != 1
-                print(io, "x^", term[2])
-            else
-                print(io, "x")
-            end
-        end
-        if term[3] != 0
-            if term[3] != 1
-                print(io, "y^", term[3])
-            else
-                print(io, "y")
-            end
-        end
-        if term[4] != 0
-            if term[4] != 1
-                print(io, "z^", term[4])
-            else
-                print(io, "z")
-            end
-        end
-        if i != length(W.polynomial)
-            print(io, " + ")
-        else
-            print(io, "\n")
-        end
-    end
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 # need to make sure this isn't doing column swaps
@@ -157,18 +123,28 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
 
     if !parity
         return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, G, Gorig,
-            deepcopy(H'), missing, Gstand, Hstand)
+            deepcopy(H'), missing, Gstand, Hstand, missing)
     else
         return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, deepcopy(H'), missing,
-            G, Gorig, Hstand, Gstand)
+            G, Gorig, Hstand, Gstand, missing)
     end
 end
 
+# need to unify notation here to call minimumdistance but since this was removed
+# from this file and put into weight_dist, keep this until exporting
 function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, false)
-        println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
+        if ismissing(C.d)
+            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
+        else
+            println(io, "[$(length(C)), $(dimension(C)), $(C.d)]_$(order(field(C))) linear code.")
+        end
     else
-        println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
+        if ismissing(C.d)
+            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
+        else
+            println(io, "[$(length(C)), $(dimension(C)), $(C.d)]_$(order(field(C))) linear code.")
+        end
         println(io, "Generator matrix: $(dimension(C)) × $(length(C))")
         for i in 1:dimension(C)
             print(io, "\t")
@@ -224,12 +200,12 @@ Return the rate, `R = k/n', of the linear code.
 """
 rate(C::AbstractLinearCode) = dimension(C) / length(C)
 
-"""
-    minimumdistance(C::AbstractLinearCode)
-
-Return the minimum distance of the linear code if known, otherwise returns missing.
-"""
-minimumdistance(C::AbstractLinearCode) = C.d
+# """
+#     minimumdistance(C::AbstractLinearCode)
+#
+# Return the minimum distance of the linear code if known, otherwise returns missing.
+# """
+# minimumdistance(C::AbstractLinearCode) = C.d
 
 """
     setminimumdistance(C::AbstractLinearCode, d::Integer)
@@ -449,7 +425,7 @@ issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 Return the linear code `C2 / C1` given `C1 ⊆ C2`.
 
 Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke packages for help with
-debugging and providing the most elegant implementation used here.
+debugging and providing the most elegant implementation now used here.
 """
 function codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1 ⊆ C2 || error("Need C1 ⊆ C2 in codecomplement(C1, C2) or C2 / C1.")
@@ -485,8 +461,10 @@ doing any new computation.
 """
 function dual(C::AbstractLinearCode)
     return LinearCode(field(C), length(C), length(C) - dimension(C), missing,
-        deepcopy(paritycheckmatrix(C)), deepcopy(originalparitycheckmatrix(C)), deepcopy(generatormatrix(C)),
-        deepcopy(originalgeneratormatrix(C)), deepcopy(paritycheckmatrix(C, true)), deepcopy(generatormatrix(C, true)))
+        deepcopy(paritycheckmatrix(C)), deepcopy(originalparitycheckmatrix(C)),
+        deepcopy(generatormatrix(C)), deepcopy(originalgeneratormatrix(C)),
+        deepcopy(paritycheckmatrix(C, true)), deepcopy(generatormatrix(C, true)),
+        missing)
 end
 
 """
@@ -535,7 +513,7 @@ function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     # this should just be the direct sum of these variables as well
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C1), length(C1), dimension(C1), missing, G, missing,
-        directsum(C1.H, C2.H), missing, Gstand, Hstand)
+        directsum(C1.H, C2.H), missing, Gstand, Hstand, missing)
 end
 directsum(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊕ C2
 
@@ -560,7 +538,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C1), length(C1) * length(C2), dimension(C1) * dimension(C2),
         missing, G, missing, paritycheckmatrix(C1) ⊗ paritycheckmatrix(C2), missing,
-        Gstand, Hstand)
+        Gstand, Hstand, missing)
 end
 kron(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 tensorproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
@@ -603,7 +581,7 @@ function extend(C::AbstractLinearCode)
     H = vcat(toprow, H)
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), size(G, 2), size(G, 1), missing,
-        G, generatormatrix(C), H, paritycheckmatrix(C), Gstand, Hstand)
+        G, generatormatrix(C), H, paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -646,7 +624,7 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand)
+        H', paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -688,7 +666,7 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand)
+        H', paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -734,7 +712,7 @@ function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
     end
 
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand)
+        H', paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -799,7 +777,8 @@ function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=tr
                 dimension ($(size(G, 1))) and expected dimension ($(dimension(C1) + dimension(C2))) are not equal.")
     end
 
-    return LinearCode(field(C1), size(G, 2), size(G, 1), d, G, missing, H, missing, Gstand, Hstand)
+    return LinearCode(field(C1), size(G, 2), size(G, 1), d, G, missing, H, missing,
+        Gstand, Hstand, missing)
 end
 Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true) = uuplusv(C1, C2, verify)
 
@@ -917,3 +896,121 @@ end
 function expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     return LinearCode(expandmatrix(generatormatrix(C), K, basis))
 end
+
+# R.Pellikaan, On decoding by error location and dependent sets of error
+# positions, Discrete Mathematics, 106107 (1992), 369-381.
+# the Schur product of vector spaces is highly basis dependent and is often the
+# full vector space (an [n, n, 1] code)
+function entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
+    field(C) == field(D) || error("Codes must be over the same field in the Schur product.")
+    length(C) == length(D) || error("Codes must have the same length in the Schur product.")
+
+    GC = generatormatrix(C)
+    GD = generatormatrix(D)
+    indices = Vector{Tuple{Int, Int}}()
+    for i in 1:dimension(C)
+        for j in 1:dimension(D)
+            i <= j && push!(indices, (i, j))
+        end
+    end
+    return LinearCode(matrix(field(C), vcat([GC[i, :] .* GD[j, :] for (i, j) in indices]...)))
+
+    # verify C ⊂ it
+end
+*(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)
+Schurproductcode(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)
+Hadamardproductcode(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)
+componentwiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)
+
+function VectorSpace(C::AbstractLinearCode)
+    V = VectorSpace(field(C), length(C))
+    G = generatormatrix(C)
+    return sub(V, [V(G[i, :]) for i in 1:nrows(G)])
+end
+
+# needs significant testing, works in a very special case
+function evensubcode(C::AbstractLinearCode)
+    F = field(C)
+    # add checks here that this is only implemented for binary codes
+
+    VC, ψ = VectorSpace(C)
+    GFVS = VectorSpace(F, 1)
+    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
+    evensub, ϕ1 = kernel(homo1quad)
+    !iszero(dim(evensub)) && return LinearCode(vcat([ψ(ϕ1(g)).v for g in gens(evensub)]...))
+    return missing
+end
+
+# needs significant testing, works in a very special case
+function doublyevensubcode(C::AbstractLinearCode)
+    F = field(C)
+    # add checks here that this is only implemented for binary codes
+
+    VC, ψ = VectorSpace(C)
+    GFVS = VectorSpace(F, 1)
+
+    # first get the even subspace
+    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
+    evensub, ϕ1 = kernel(homo1quad)
+
+    if !iszero(dim(evensub))
+        # now control the overlap (Ward's divisibility theorem)
+        homo2bi = ModuleHomomorphism(evensub, evensub, matrix(F, dim(evensub), dim(evensub),
+            vcat([F(weight(matrix(F, 1, length(C), ψ(ϕ1(gens(evensub)[i])).v .* ψ(ϕ1(gens(evensub)[j])).v)) % 2)
+            for i in 1:dim(evensub), j in 1:dim(evensub)]...)))
+        evensubwoverlap, μ1 = kernel(homo2bi)
+
+        if !iszero(dim(evensubwoverlap))
+            # now apply the weight four condition
+            homo2quad = ModuleHomomorphism(evensubwoverlap, GFVS, matrix(F, dim(evensubwoverlap), 1,
+                vcat([F(div(weight(ψ(ϕ1(μ1(g))).v), 2) % 2) for g in gens(evensubwoverlap)]...)))
+            foursub, ϕ2 = kernel(homo2quad)
+
+            if !iszero(dim(foursub))
+                return LinearCode(vcat([ψ(ϕ1(μ1(ϕ2(g)))).v for g in gens(foursub)]...))
+            end
+        end
+    end
+    return missing
+end
+
+# currently incomplete
+# function triplyevensubcode(C::AbstractLinearCode)
+#     F = field(C)
+#     VC, ψ = VectorSpace(C)
+#     GFVS = VectorSpace(F, 1)
+#
+#     # first get the even subspace
+#     homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
+#     evensub, ϕ1 = kernel(homo1quad)
+#
+#     # now control the overlap (Ward's divisibility theorem)
+#     homo2bi = ModuleHomomorphism(evensub, evensub, matrix(F, dim(evensub), dim(evensub),
+#         vcat([F(weight(matrix(F, 1, length(C), ψ(ϕ1(gens(evensub)[i])).v .* ψ(ϕ1(gens(evensub)[j])).v)) % 2)
+#         for i in 1:dim(evensub), j in 1:dim(evensub)]...)))
+#     evensubwoverlap, μ1 = kernel(homo2bi)
+#
+#     # now apply the weight four condition
+#     homo2quad = ModuleHomomorphism(evensubwoverlap, GFVS, matrix(F, dim(evensubwoverlap), 1,
+#         vcat([F(div(weight(ψ(ϕ1(μ1(g))).v), 2) % 2) for g in gens(evensubwoverlap)]...)))
+#     foursub, ϕ2 = kernel(homo2quad)
+#
+#     # now control the triple overlap
+#     ###########
+#     # how do we actually represent this?
+#
+#
+#     # now apply the weight eight condition
+#     homo3 = ModuleHomomorphism(foursub, GFVS, matrix(F, dim(foursub), 1, vcat([F(div(weight(ψ(ϕ1(ϕ2(g))).v), 4) % 2) for g in gens(foursub)]...)))
+#     eightsub, ϕ3 = kernel(homo3)
+#     # # println(dim(eightsub))
+#     # # println(vcat([ψ(ϕ1(ϕ2(ϕ3(g)))).v for g in gens(eightsub)]...))
+#     #
+#     # q, γ = quo(foursub, eightsub)
+#     # println(dim(q))
+#     # # println([preimage(γ, g).v for g in gens(q)])
+#     # return LinearCode(vcat([ψ(ϕ1(ϕ2(preimage(γ, g)))).v for g in gens(q)]...))
+#     # # return LinearCode(vcat([ψ(ϕ1(ϕ2(ϕ3(g)))).v for g in gens(eightsub)]...))
+#
+#     return LinearCode(vcat([ψ(ϕ1(μ1(ϕ2(g)))).v for g in gens(foursub)]...))
+# end

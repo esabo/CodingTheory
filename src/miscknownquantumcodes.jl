@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 include("quantumcode.jl")
-include("tricolorcodes488trellis.jl")
-include("tricolorcodes666trellis.jl")
+# include("tricolorcodes488trellis.jl")
+# include("tricolorcodes666trellis.jl")
 
 #############################
         # Misc codes
@@ -60,6 +60,12 @@ function Q823()
     return QuantumCode(S, true)
 end
 
+function Q15RM()
+    return QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
+        "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
+        "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
+        "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+end
 
 #############################
 #  Triangular Surface Codes #
