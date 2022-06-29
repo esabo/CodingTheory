@@ -5,8 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 include("quantumcode.jl")
-# include("tricolorcodes488trellis.jl")
-# include("tricolorcodes666trellis.jl")
+include("tricolorcodes488trellis.jl")
+include("tricolorcodes666trellis.jl")
 
 #############################
         # Misc codes
@@ -65,6 +65,13 @@ function Q15RM()
         "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
         "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
         "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+end
+
+function Q1573()
+    return QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
+    "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
+    "ZIZIZIZIZIZIZIZ"])
+    # one can use a basis for this such that the first logical pair is transversal X, Z
 end
 
 #############################

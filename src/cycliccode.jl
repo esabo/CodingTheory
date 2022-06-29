@@ -446,7 +446,7 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     δ >= 2 || error("BCH codes require δ ≥ 2 but the constructor was given δ = $δ.")
     !(q <= 1 || n <= 1) || error("Invalid parameters past to BCHCode constructor: q = $q, n = $n.")
 
-    if !isprime(q)
+    if !Primes.isprime(q)
         factors = Primes.factor(q)
         if length(factors) != 1
             error("There is no finite field of order $(prod(factors)).")

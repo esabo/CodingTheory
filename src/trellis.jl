@@ -1479,7 +1479,8 @@ function shiftanddecodeQ!(T::Trellis, Ps::fq_nmod_mat, boundaries::Union{Vector{
     for i in 1:length(E)
         model = err_models[i]
         for (j, v) in enumerate(V[i + 1])
-            Threads.@threads for e in E[i][j]
+            # don't Threads.@threads the below loop or you get a >100x slow down due to locking
+            for e in E[i][j]
                 e.label += Ps[1, bds[i] + 1:bds[i + 1]]
                 if Pauli == 'X'
                     for k in e.label
@@ -1600,7 +1601,7 @@ function trellisprofiles(Q::AbstractQuantumCode, type::String="weight", Pauli::C
     sect::Bool=false)
 
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofiles.")
-    (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
+    # (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
     Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
 
     if type == "weight"

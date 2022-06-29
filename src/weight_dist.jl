@@ -393,18 +393,19 @@ function Pauliweightenumerator(Q::AbstractQuantumCode, Pauli::Char=' ',
 end
 
 function PWEtoHWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE)
+    poly = deepcopy(PWE.polynomial)
+    n = 7
     for term in poly
         tot = abs(term[2] + term[3] + term[4])
         term[2] = tot
-        term[3] = length(S) - tot
+        term[3] = 7 - tot
         term[4] = 0
     end
     return WeightEnumerator(_reducepolyQ(poly), "Hamming")
 end
 
 function PWEtoXWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE)
+    poly = deepcopy(PWE.polynomial)
     for term in poly
         tot = abs(term[2] + term[3])
         term[2] = tot
@@ -415,7 +416,7 @@ function PWEtoXWE(PWE::WeightEnumerator)
 end
 
 function PWEtoZWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE)
+    poly = deepcopy(PWE.polynomial)
     for term in poly
         tot = abs(term[3] + term[4])
         term[2] = length(S) - tot
