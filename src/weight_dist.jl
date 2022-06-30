@@ -136,7 +136,7 @@ end
 
 # for some reason this is broken?
 # sorting somehow changes all the elements
-function islessPolyC(a::Vector{Int64}, b::Vector{Int64})
+function _islessPolyC(a::Vector{Int64}, b::Vector{Int64})
     if isless(a[2:3], b[2:3])
         return true
     elseif a[2:3] == b[2:3]
@@ -175,7 +175,7 @@ function weightenumeratorC(T::Trellis, cleanV::Bool=true)
             v.polynomial = _reducepolyC(outer)
         end
     end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPolyC), "Hamming")
+    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessPolyC), "Hamming")
 
     if cleanV
         for i in 2:length(V)
@@ -259,7 +259,7 @@ end
 
 # for some reason this is broken?
 # sorting somehow changes all the elements
-function islessPolyQ(a::Vector{Int64}, b::Vector{Int64})
+function _islessPolyQ(a::Vector{Int64}, b::Vector{Int64})
     if isless(a[2:4], b[2:4])
         return true
     elseif a[2:4] == b[2:4]
@@ -364,7 +364,7 @@ function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
     end
     # sort is somehow broken
     # println(V[end][1].polynomial)
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPolyQ), "Pauli")
+    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessPolyQ), "Pauli")
     # W = WeightEnumerator(V[end][1].polynomial, "Pauli")
     # println(W)
 
@@ -456,7 +456,7 @@ function HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
             # println(v.polynomial)
         end
     end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=islessPolyQ), "Hamming")
+    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessPolyQ), "Hamming")
 
     if cleanV
         for i in 2:length(V)
@@ -612,7 +612,6 @@ end
 #     Q.d = Q.logsweightenum.polynomial[2][2]
 #     return Q.d
 # end
-
 
 minimumdistance(S::CSSCode) = S.d
 minimumdistanceX(S::CSSCode) = S.dx

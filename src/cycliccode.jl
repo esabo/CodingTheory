@@ -151,11 +151,11 @@ end
 # inverseMattsonSolomontransform
 
 """
-    basefield(C::AbstractCyclicCode)
+    field(C::AbstractCyclicCode)
 
 Return the base field of the generator matrix as a Nemo object.
 """
-basefield(C::AbstractCyclicCode) = C.F
+field(C::AbstractCyclicCode) = C.F
 
 """
     splittingfield(C::AbstractCyclicCode)
@@ -186,7 +186,6 @@ Return the offset of the cyclic code.
 offset(C::AbstractCyclicCode) = C.b
 
 # TODO does this only make sense for BCH codes?
-# need an ed?
 """
     designdistance(C::AbstractCyclicCode)
 

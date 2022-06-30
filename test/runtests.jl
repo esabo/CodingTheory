@@ -9,8 +9,8 @@ using Test
     @test AbstractBCHCode <: AbstractCyclicCode
     @test AbstractReedSolomonCode <: AbstractBCHCode
     @test AbstractAdditiveCode <: AbstractCode
-    @test AbstractQuantumCode <: AbstractAdditiveCode
-    @test AbstractCSSCode <: AbstractQuantumCode
+    @test AbstractStabilizerCode <: AbstractAdditiveCode
+    @test AbstractCSSCode <: AbstractStabilizerCode
 end
 
 @testset "utils.jl" begin

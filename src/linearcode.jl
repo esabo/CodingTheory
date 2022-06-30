@@ -309,7 +309,7 @@ function Singletonbound(C::AbstractLinearCode)
 end
 
 """
-    genus(C::AbstractLinearCode)
+    isMDS(C::AbstractLinearCode)
 
 Return `true` if code is maximum distance separable (MDS).
 
@@ -957,9 +957,11 @@ function evensubcode(C::AbstractLinearCode)
 
     VC, ψ = VectorSpace(C)
     GFVS = VectorSpace(F, 1)
-    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
+    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1,
+        vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
     evensub, ϕ1 = kernel(homo1quad)
-    !iszero(dim(evensub)) && return LinearCode(vcat([ψ(ϕ1(g)).v for g in gens(evensub)]...))
+    !iszero(dim(evensub)) && return LinearCode(vcat([ψ(ϕ1(g)).v for g in
+        gens(evensub)]...))
     return missing
 end
 
@@ -972,20 +974,24 @@ function doublyevensubcode(C::AbstractLinearCode)
     GFVS = VectorSpace(F, 1)
 
     # first get the even subspace
-    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
+    homo1quad = ModuleHomomorphism(VC, GFVS, matrix(F, dim(VC), 1,
+        vcat([F(weight(ψ(g).v) % 2) for g in gens(VC)]...)))
     evensub, ϕ1 = kernel(homo1quad)
 
     if !iszero(dim(evensub))
         # now control the overlap (Ward's divisibility theorem)
-        homo2bi = ModuleHomomorphism(evensub, evensub, matrix(F, dim(evensub), dim(evensub),
-            vcat([F(weight(matrix(F, 1, length(C), ψ(ϕ1(gens(evensub)[i])).v .* ψ(ϕ1(gens(evensub)[j])).v)) % 2)
+        homo2bi = ModuleHomomorphism(evensub, evensub, matrix(F, dim(evensub),
+            dim(evensub),
+            vcat([F(weight(matrix(F, 1, length(C), ψ(ϕ1(gens(evensub)[i])).v .*
+                ψ(ϕ1(gens(evensub)[j])).v)) % 2)
             for i in 1:dim(evensub), j in 1:dim(evensub)]...)))
         evensubwoverlap, μ1 = kernel(homo2bi)
 
         if !iszero(dim(evensubwoverlap))
             # now apply the weight four condition
-            homo2quad = ModuleHomomorphism(evensubwoverlap, GFVS, matrix(F, dim(evensubwoverlap), 1,
-                vcat([F(div(weight(ψ(ϕ1(μ1(g))).v), 2) % 2) for g in gens(evensubwoverlap)]...)))
+            homo2quad = ModuleHomomorphism(evensubwoverlap, GFVS, matrix(F,
+                dim(evensubwoverlap), 1, vcat([F(div(weight(ψ(ϕ1(μ1(g))).v),
+                2) % 2) for g in gens(evensubwoverlap)]...)))
             foursub, ϕ2 = kernel(homo2quad)
 
             if !iszero(dim(foursub))
