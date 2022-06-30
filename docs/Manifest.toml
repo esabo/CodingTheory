@@ -43,8 +43,8 @@ version = "0.400.102+0"
 
 [[deps.CodingTheory]]
 deps = ["AbstractAlgebra", "LinearAlgebra", "Nemo", "Primes", "Reexport"]
-git-tree-sha1 = "eab9791d1b7ddf270b79642890ba52bc4f4a38c9"
-repo-rev = "docs"
+git-tree-sha1 = "b8456329aa8a385db484a474dba9e56e1d221fc6"
+repo-rev = "master"
 repo-url = ".."
 uuid = "7ca085cf-10e4-43da-ad7d-8f62f68877b3"
 version = "0.1.0"
