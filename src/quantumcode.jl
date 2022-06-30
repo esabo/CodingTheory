@@ -9,10 +9,10 @@ using Plots
 
 include("linearcode.jl")
 
-# using additive over stabilizer
+# can one day do classical additive codes
 abstract type AbstractAdditiveCode <: AbstractCode end
-abstract type AbstractQuantumCode <: AbstractAdditiveCode end
-abstract type AbstractCSSCode <: AbstractQuantumCode end
+abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
+abstract type AbstractCSSCode <: AbstractStabilizerCode end
 # can also build a AbstractQuantumLinearCode if the additive code is also linear
 # will probably have to tweak all of these later
 
@@ -41,7 +41,7 @@ mutable struct CSSCode <: AbstractCSSCode
     Pauliweightenum::Union{WeightEnumerator, Missing}
 end
 
-mutable struct QuantumCode <: AbstractQuantumCode
+mutable struct QuantumCode <: AbstractStabilizerCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field
     n::Integer
@@ -58,85 +58,140 @@ mutable struct QuantumCode <: AbstractQuantumCode
     Pauliweightenum::Union{WeightEnumerator, Missing}
 end
 
-field(S::AbstractQuantumCode) = S.F
-quadraticfield(S::AbstractQuantumCode) = S.E
-length(S::AbstractQuantumCode) = S.n
-numqubits(S::AbstractQuantumCode) = S.n
-dimension(S::AbstractQuantumCode) = S.k
-signs(S::AbstractQuantumCode) = S.signs
+"""
+    field(S::AbstractStabilizerCode)
+
+Return the base ring of the code as a Nemo object.
+"""
+field(S::AbstractStabilizerCode) = S.F
+
+"""
+    quadraticfield(S::AbstractStabilizerCode)
+
+Return the quadratic field of the code as a Nemo object.
+"""
+quadraticfield(S::AbstractStabilizerCode) = S.E
+
+"""
+    length(S::AbstractStabilizerCode)
+    numqubits(S::AbstractStabilizerCode)
+
+Return the length of the code.
+"""
+length(S::AbstractStabilizerCode) = S.n
+numqubits(S::AbstractStabilizerCode) = S.n
+
+"""
+    dimension(S::AbstractStabilizerCode)
+
+Return the dimension of the code.
+"""
+dimension(S::AbstractStabilizerCode) = S.k
+
+"""
+    cardinality(S::AbstractStabilizerCode)
+
+Return the cardinality of the stabilizer group of the code.
+
+No size checking is done on the parameters of the code, returns a BitInt by default.
+"""
+cardinality(S::AbstractStabilizerCode) = BigInt(order(field(C)))^dimension(C)
+
+"""
+    rate(S::AbstractStabilizerCode)
+
+Return the rate, `R = k/n', of the code.
+"""
+rate(S::AbstractStabilizerCode) = dimension(S) / length(S)
+
+"""
+    signs(S::AbstractStabilizerCode)
+
+Return the signs of the stabilizers of the code.
+"""
+signs(S::AbstractStabilizerCode) = S.signs
+
+"""
+    Xsigns(S::CSSCode)
+
+Return the signs of the `X` stabilizers of the CSS code.
+"""
 Xsigns(S::CSSCode) = S.Xsigns
+
+"""
+    Zsigns(S::CSSCode)
+
+Return the signs of the `Z` stabilizers of the CSS code.
+"""
 Zsigns(S::CSSCode) = S.Zsigns
-stabilizers(S::AbstractQuantumCode) = S.stabs
+
+"""
+    stabilizers(S::AbstractStabilizerCode)
+
+Return the stabilizer matrix of the code.
+"""
+stabilizers(S::AbstractStabilizerCode) = S.stabs
+
+"""
+    symplecticstabilizers(S::AbstractStabilizerCode)
+
+Return the stabilizer matrix of the code in symplectic form.
+"""
+symplecticstabilizers(S::AbstractStabilizerCode) = quadratictosymplectic(stabilizers(S))
+
+"""
+    Xstabilizers(S::CSSCode)
+
+Return the `X` stabilizer matrix of the CSS code.
+"""
 Xstabilizers(S::CSSCode) = S.Xstabs
+
+"""
+    Zstabilizers(S::CSSCode)
+
+Return the `Z` stabilizer matrix of the CSS code.
+"""
 Zstabilizers(S::CSSCode) = S.Zstabs
+
 numXstabs(S::CSSCode) = size(S.Xstabs, 1)
 numZstabs(S::CSSCode) = size(S.Zstabs, 1)
-normalizermatrix(S::AbstractQuantumCode) = S.dualgens
-charactervector(S::AbstractQuantumCode) = S.charvec
-minimumdistanceX(S::CSSCode) = S.dx
-minimumdistanceZ(S::CSSCode) = S.dz
-minimumdistance(S::CSSCode) = S.d
 
-function quadratictosymplectic(M::fq_nmod_mat)
-    E = base_ring(M)
-    iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-    F, _ = FiniteField(Int64(characteristic(E)), div(degree(E), 2), "ω")
-    nrows = size(M, 1)
-    ncols = size(M, 2)
-    Msym = zero_matrix(F, nrows, 2 * ncols)
-    for r in 1:nrows
-        for c in 1:ncols
-            if !iszero(M[r, c])
-                Msym[r, c] = F(coeff(M[r, c], 0))
-                Msym[r, c + ncols] = F(coeff(M[r, c], 1))
-            end
-        end
-    end
-    return Msym
+"""
+    normalizermatrix(S::AbstractStabilizerCode)
+
+Return the normalizer matrix of the code.
+"""
+normalizermatrix(S::AbstractStabilizerCode) = S.dualgens
+
+"""
+    charactervector(S::AbstractStabilizerCode)
+
+Return the character vector of the code.
+"""
+charactervector(S::AbstractStabilizerCode) = S.charvec
+
+"""
+    setminimumdistance(S::AbstractStabilizerCode, d::Integer)
+
+Set the minimum distance of the code to `d`.
+
+The only check done on the value of `d` is that `1 ≤ d ≤ n`.
+"""
+function setminimumdistance!(S::AbstractStabilizerCode, d::Integer)
+    d > 0 && d <= length(S) || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
+    S.d = d
 end
 
-function symplectictoquadratic(M::fq_nmod_mat)
-    iseven(size(M, 2)) || error("Input to symplectictoquadratic is not of even length.")
-    nrows = size(M, 1)
-    ncols = div(size(M, 2), 2)
-    F = base_ring(M)
-    E, ω = FiniteField(Int64(characteristic(F)), 2 * degree(F), "ω")
-    ϕ = embed(F, E)
-    Mquad = zero_matrix(E, nrows, ncols)
-    for r in 1:nrows
-        for c in 1:ncols
-            Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + ncols]) * ω
-        end
-    end
-    return Mquad
+"""
+    relativedistance(S::AbstractStabilizerCode)
+
+Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
+otherwise errors.
+"""
+function relativedistance(S::AbstractStabilizerCode)
+    !ismissing(S.d) || error("Unknown minimum distance for this code.")
+    return S.d / S.n
 end
-
-function _Paulistringtosymplectic(str::T) where T <: Union{String, Vector{Char}}
-    n = length(str)
-    F, _ = FiniteField(2, 1, "ω")
-    sym = zero_matrix(F, 1, 2 * n)
-    for (i, c) in enumerate(str)
-        if c == 'X'
-            sym[1, i] = F(1)
-        elseif c == 'Z'
-            sym[1, i + n] = F(1)
-        elseif c == 'Y'
-            sym[1, i] = 1
-            sym[1, i + n] = F(1)
-        elseif c != 'I'
-            error("Encountered non-{I, X, Y, Z} character in Pauli string. This function is only defined for binary strings.")
-        end
-    end
-    return sym
-end
-_Paulistringtosymplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringtosymplectic(s) for s in A]...)
-_Paulistringstofield(str::T) where T <: Union{String, Vector{Char}} = symplectictoquadratic(_Paulistringtosymplectic(str))
-_Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringstofield(s) for s in A]...)
-
-# need symplectictoPaulistring
-# quadratictoPaulistring
-
-symplecticstabilizers(S::AbstractQuantumCode) = quadratictosymplectic(S)
 
 function _getsigns(A::fq_nmod_mat, charvec::Vector{Int64})
     if length(charvec) == 2 * size(A, 2)
@@ -160,52 +215,7 @@ function _getsigns(A::fq_nmod_mat, charvec::Vector{Int64})
     return signs
 end
 
-function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
-    Paulisigns = Vector{Int64}()
-    SPaulistripped = Vector{String}()
-    for (i, s) in enumerate(SPauli)
-        if s[1] ∈ ['I', 'X', 'Y', 'Z']
-            append!(Paulisigns, 1)
-            push!(SPaulistripped, s)
-        elseif s[1] == '+'
-            append!(Paulisigns, 1)
-            push!(SPaulistripped, s[2:end])
-        elseif s[1] == '-'
-            append!(Paulisigns, -1)
-            push!(SPaulistripped, s[2:end])
-        else
-            error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
-        end
-    end
-
-    for s in SPaulistripped
-        for i in s
-            if i ∉ ['I', 'X', 'Y', 'Z']
-                error("Element of provided Pauli string is not a Pauli character: $s.")
-            end
-        end
-    end
-
-    n = length(SPaulistripped[1])
-    for s in SPaulistripped
-        length(s) == n || error("Provided Pauli strings are not all of the same length.")
-    end
-
-    if isempty(charvec)
-        charvec = ones(Int64, 2 * n)
-    else
-        if length(charvec) != 2 * n
-            error("Unexpected length of character vector. Expected: $(2 * n), received: $(length(charvec)).")
-        end
-
-        for s in charvec
-            (s == 1 || s == -1) || error("Qubit phases must be +/- 1; received: $s")
-        end
-    end
-    return SPaulistripped, charvec
-end
-
-function splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
+function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
     Xstabs = []
     Xsigns = Vector{Int64}()
     Zstabs = []
@@ -247,8 +257,19 @@ function splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
     return Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
 end
 
-function isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
-    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = splitsymplecticstabilizers(S, signs)
+"""
+    splitstabilizers(S::AbstractStabilizerCode)
+
+Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
+stabilizers and their signs, and the remaining stabilizers and their signs.
+"""
+function splitstabilizers(S::AbstractStabilizerCode)
+    return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
+end
+
+#TODO remove this function and make this a parameter in the structs
+function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
+    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if isempty(mixedstabs)
         if trim
             half = div(size(Xstabs, 2), 2)
@@ -266,7 +287,39 @@ function isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=tru
     end
 end
 
-function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+"""
+    splitstabilizers(S::AbstractStabilizerCode)
+
+Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
+stabilizers and their signs, and the remaining stabilizers and their signs.
+"""
+function isCSS(S::AbstractStabilizerCode)
+    return
+end
+
+"""
+    CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
+Return a CSS code using the CSS construction on two linear codes `C1 = [n, k1, d1]`
+and `C2 = [n, k2, d2]` with `C2 ⊆ C1`.
+
+The resulting code has dimension `k = k1 - k2` and minimum distance
+`d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
+of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
+
+# Arguments
+* `C1`: a linear code
+* `C2`: a subcode of `C1`
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+"""
+function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
+    charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
     length(C1) ==  length(C2) || error("Both codes must have the same length in the CSS construction.")
     field(C1) == field(C2) || error("Both codes must be over the same base field in the CSS construction.")
     C2 ⊆ C1 || error("The second argument must be a subset of the first in the CSS construction.")
@@ -301,6 +354,25 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{
         missing, charvec, missing, missing, missing)
 end
 
+"""
+    CSSCode(C::AbstractLinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
+Return a CSS code using the CSS construction on a self-orthogonal linear code
+`C`, i.e., `C ⊆ C^⟂`.
+
+Setting `C1 = C^⟂` and `C2 = C`, the resulting code has dimension `k = k1 - k2`
+and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the
+parity-check matrix of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
+
+# Arguments
+* `C`: a self-orthogonal linear code
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+"""
 function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
     # this should have Xstabs = Zstabs
     D = dual(C)
@@ -336,7 +408,27 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
         missing, missing)
 end
 
-function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+"""
+    CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
+Return a CSS code using the matrix `Xmatrix` as the `X` stabilizer matrix
+and `Zmatrix` as the `Z` stabilizer matrix.
+
+# Arguments
+* `Xmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
+* `Zmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+* The orthogonality of the `X` and `Z` stabilizers are automatically checked and
+  will error upon failure.
+"""
+function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
+    charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
     # this should have Zstabs * Xstabs' = 0
     # set dual containing if Xstabs == Zstabs, else not
     size(Xmatrix, 2) ==  size(Zmatrix, 2) || error("Both matrices must have the same length in the CSS construction.")
@@ -378,7 +470,28 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vect
         missing)
 end
 
-function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+"""
+    CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+
+Return a CSS code using the vector of Pauli strings `SPauli` as stabilizers.
+
+# Arguments
+* `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+* The orthogonality of the `X` and `Z` stabilizers are automatically checked and
+  will error upon failure.
+* Any +/- 1 characters in front of each stabilizer are stripped. No check is done
+  to make sure these signs agree with the ones computed using the character vector.
+* Will error when the provided strings are not CSS.
+"""
+function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    where T <: Union{String, Vector{Char}}
+
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
@@ -402,11 +515,6 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
         signs = signs[setdiff(1:size(Sq2, 1), del)]
     end
 
-    ###############
-    # need to figure out how to track signs as it drops rank
-    # would be easier to reassign given character vector instead of stabilizer signs
-    ###############
-
     # if rank(Sq2) != size(Sq2, 1)
     # rk = rank(G)
     # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
@@ -422,7 +530,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
     !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
     dualgens = symplectictoquadratic(H')
 
-    args = isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 2) - size(Sq2, 1),
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
@@ -434,7 +542,27 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
 end
 
 # entanglement-assisted is not symplectic orthogonal
-function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+"""
+    QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+
+Return a stabilizer code using the vector of Pauli strings `SPauli` as stabilizers.
+
+# Arguments
+* `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+* The orthogonality of the stabilizers are automatically checked and will error
+  upon failure.
+* Any +/- 1 characters in front of each stabilizer are stripped. No check is done
+  to make sure these signs agree with the ones computed using the character vector.
+"""
+function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    where T <: Union{String, Vector{Char}}
+
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
@@ -482,7 +610,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
         dimcode = Int64(log(Int64(characteristic(base_ring(S))), Int64(dimcode)))
     end
 
-    args = isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
@@ -495,6 +623,27 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
     end
 end
 
+"""
+    QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+
+Return a stabilizer code using the matrix `Sq2` as the stabilizer matrix.
+
+The matrix `Sq2` is assumed to be an `n` column matrix over the quadratic extension.
+If the optional parameter `symp` is set to `true`, `Sq2` is assumed to be a `2n`
+column matrix over the base field.
+
+# Arguments
+* `Sq2`: a matrix over a finite field of type `FqNmodFiniteField`
+* `symp`: a boolean
+* `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
+  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
+  will be set to the all-ones vector
+
+# Notes
+* Stabilizer signs are automatically computed given the character vector.
+* The orthogonality of the stabilizers are automatically checked and will error
+  upon failure.
+"""
 function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
     if symp
         iseven(size(Sq2, 2)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
@@ -556,7 +705,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{I
         dimcode = Int64(log(Int64(characteristic(base_ring(S))), Int64(dimcode)))
     end
 
-    args = isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
@@ -569,113 +718,125 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{I
     end
 end
 
-# this returns a basis for the space S^⟂ / S
-# work would need to be done to extract appropriate X_i, Z_i pairs from this
-# can implement Gottesman algorithm later
-function logicalspace(S::AbstractQuantumCode, alg::String="quotient")
+"""
+    logicalspace(S::AbstractStabilizerCode)
+
+Return a basis for the space `S^⟂ / S`.
+
+Note that this is not necessarily a symplectic basis with `{X_L, Z_L}` pairs.
+"""
+function logicalspace(S::AbstractStabilizerCode)
     if !ismissing(S.logspace)
         return S.logspace
     end
 
-    alg ∈ ["quotient"] || error("Algorithm '$alg' not specified in logicalspace.")
-    if alg == "quotient"
-        F = quadraticfield(S)
-        G = stabilizers(S)
-        Gdual = normalizermatrix(S)
-        V = VectorSpace(F, length(S))
-        U, UtoV = sub(V, [V(G[i, :]) for i in 1:size(G, 1)])
-        W, WtoV = sub(V, [V(Gdual[i, :]) for i in 1:size(Gdual, 1)])
-        gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
-        UinW, UinWtoW = sub(W, gensofUinW)
-        Q, WtoQ = quo(W, UinW)
-        C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
-        Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-        G2 = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
+    F = quadraticfield(S)
+    G = stabilizers(S)
+    Gdual = normalizermatrix(S)
+    V = VectorSpace(F, length(S))
+    U, UtoV = sub(V, [V(G[i, :]) for i in 1:size(G, 1)])
+    W, WtoV = sub(V, [V(Gdual[i, :]) for i in 1:size(Gdual, 1)])
+    gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
+    UinW, UinWtoW = sub(W, gensofUinW)
+    Q, WtoQ = quo(W, UinW)
+    C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
+    Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
+    G2 = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 
-        # returns linear object, make additive if necessary
-        if size(G2, 1) == dimension(S)
-            S.logspace = vcat(G2, gen(F) * G2)
-            return S.logspace
-        elseif size(G2, 1) == 2 * dimension(S)
-            S.logspace = G2
-            return S.logspace
-        else
-            error("Logical space produced of incorrect dimension; expected: ", 2 * dimension(S), ", received: ", size(G2, 1))
-        end
+    # returns linear object, make additive if necessary
+    if size(G2, 1) == dimension(S)
+        S.logspace = vcat(G2, gen(F) * G2)
+        return S.logspace
+    elseif size(G2, 1) == 2 * dimension(S)
+        S.logspace = G2
+        return S.logspace
+    else
+        error("Logical space produced of incorrect dimension; expected: ",
+            2 * dimension(S), ", received: ", size(G2, 1))
     end
 end
 
-# need a canonical phase to set Weyl pairs to
-# does not check which elements in Weyl pair are X or Z
-function logicaloperators(Q::AbstractQuantumCode)
-    logspace = logicalspace(Q)
-    Weylpairs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
-    todo = [quadratictosymplectic(logspace)[i, :] for i in 1:size(logspace, 1)]
-
-    count = 1
-    while !isempty(todo)
-        curr1 = popfirst!(todo)
-        commutes = Vector{fq_nmod_mat}()
-        doesnt = Vector{Tuple{fq_nmod_mat, fq_nmod}}()
-        for i in 1:length(todo)
-            SIP = symplecticinnerproduct(curr1, todo[i])
-            if iszero(SIP)
-                push!(commutes, todo[i])
-            else
-                push!(doesnt, (todo[i], SIP))
-            end
-        end
-
-        if !isempty(doesnt)
-            curr2 = popfirst!(doesnt)
-            curr2, curr2SIP = curr2[1], curr2[2]
-        else
-            error("Logical basis element anti-commutes with no elements.")
-        end
-
-        todo = Vector{fq_nmod_mat}()
-        for i in 1:length(doesnt)
-            elm, SIP = doesnt[i]
-            elm .-= SIP * inv(curr2SIP) * curr2
-            push!(todo, elm)
-        end
-
-        push!(Weylpairs, [symplectictoquadratic(curr1), symplectictoquadratic(curr2)])
-        count < 50 ||error("Logical operator loop has gone through 50 iterations. Increase if more than this many logical qudits.")
-        count += 1
-    end
-
-    length(Weylpairs) == dimension(Q) || error("Completed symplectic Gram-Schmidt without generating all logicals.")
-    # isempty(todo) || error("Completed symplectic Gram-Schmidt without using all basis elements.")
-
-    Q.logicals = Weylpairs
-    return Weylpairs
-end
+# # need a canonical phase to set Weyl pairs to
+# # does not check which elements in Weyl pair are X or Z
+# function logicaloperators(Q::AbstractStabilizerCode)
+#     logspace = logicalspace(Q)
+#     Weylpairs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+#     todo = [quadratictosymplectic(logspace)[i, :] for i in 1:size(logspace, 1)]
+#
+#     count = 1
+#     while !isempty(todo)
+#         curr1 = popfirst!(todo)
+#         commutes = Vector{fq_nmod_mat}()
+#         doesnt = Vector{Tuple{fq_nmod_mat, fq_nmod}}()
+#         for i in 1:length(todo)
+#             SIP = symplecticinnerproduct(curr1, todo[i])
+#             if iszero(SIP)
+#                 push!(commutes, todo[i])
+#             else
+#                 push!(doesnt, (todo[i], SIP))
+#             end
+#         end
+#
+#         if !isempty(doesnt)
+#             curr2 = popfirst!(doesnt)
+#             curr2, curr2SIP = curr2[1], curr2[2]
+#         else
+#             error("Logical basis element anti-commutes with no elements.")
+#         end
+#
+#         todo = Vector{fq_nmod_mat}()
+#         for i in 1:length(doesnt)
+#             elm, SIP = doesnt[i]
+#             elm .-= SIP * inv(curr2SIP) * curr2
+#             push!(todo, elm)
+#         end
+#
+#         push!(Weylpairs, [symplectictoquadratic(curr1), symplectictoquadratic(curr2)])
+#         count < 50 ||error("Logical operator loop has gone through 50 iterations. Increase if more than this many logical qudits.")
+#         count += 1
+#     end
+#
+#     length(Weylpairs) == dimension(Q) || error("Completed symplectic Gram-Schmidt without generating all logicals.")
+#     # isempty(todo) || error("Completed symplectic Gram-Schmidt without using all basis elements.")
+#
+#     Q.logicals = Weylpairs
+#     return Weylpairs
+# end
 
 # can't check rank here because a self-dual code will have half rank since function is not additive
 # need to think about what this means for an irrational dimension
 # should check commutation relations
-function setlogicals!(Q::AbstractQuantumCode, L::fq_nmod_mat)
-    size(L) == (2 * dimension(Q), length(Q)) || error("Provided matrix is of incorrect size for the logical space.")
+# TODO process this heavily and don't put this in logspace
+"""
+    setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat)
+
+Set the logical operators of `S` to `L`.
+"""
+function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat)
+    size(L) == (2 * dimension(S), length(S)) || error("Provided matrix is of incorrect size for the logical space.")
     # rank(L) == size(L, 1) || error("Provided matrix is not of full rank.")
-    # aresymplecticorthogonal(stabilizers(Q), L) || error("Provided matrix does not commute with the code.")
+    # aresymplecticorthogonal(stabilizers(S), L) || error("Provided matrix does not commute with the code.")
     # !aresymplecticorthogonal(L, L) || error("Provided matrix should not be symplectic self-orthogonal.")
-    Q.logspace = L
+    S.logspace = L
 end
 
 # update for roots of unity
-function changesigns!(Q::AbstractQuantumCode, charvec::Vector{Int64})
-    length(charvec) == 2 * length(Q) || error("Characteristic vector is of improper length for the code.")
+"""
+    changesigns!(S::AbstractStabilizerCode, charvec::Vector{Int64})
+
+Set the character vector of `S` to `charvec` and update the signs.
+"""
+function changesigns!(S::AbstractStabilizerCode, charvec::Vector{Int64})
+    length(charvec) == 2 * length(S) || error("Characteristic vector is of improper length for the code.")
     for s in charvec
         (s == 1 || s == -1) || error("Qubit phases must be +/- 1; received: $s")
     end
-    Q.signs = _getsigns(stabilizers(Q), charvec)
-    Q.charvec = charvec
+    S.signs = _getsigns(stabilizers(S), charvec)
+    S.charvec = charvec
 end
 
-
 # add for minimum distance check
-function show(io::IO, S::AbstractQuantumCode)
+function show(io::IO, S::AbstractStabilizerCode)
     if get(io, :compact, false)
         if typeof(S) <: CSSCode
             if typeof(dimension(S)) <: Integer
@@ -746,6 +907,12 @@ function show(io::IO, S::AbstractQuantumCode)
     end
 end
 
+"""
+    Xsyndrome(S::CSSCode, v::fq_nmod_mat)
+
+Return the syndrome of the vector `v` with respect to the `X` stabilizers of the
+CSS code.
+"""
 function Xsyndrome(S::CSSCode, v::fq_nmod_mat)
     n = length(S)
     if length(v) == 2 * n
@@ -759,6 +926,12 @@ function Xsyndrome(S::CSSCode, v::fq_nmod_mat)
     return Xstabilizers(S) * v
 end
 
+"""
+    Zsyndrome(S::CSSCode, v::fq_nmod_mat)
+
+Return the syndrome of the vector `v` with respect to the `Z` stabilizers of the
+CSS code.
+"""
 function Zsyndrome(S::CSSCode, v::fq_nmod_mat)
     n = length(S)
     if length(v) == 2 * n
@@ -772,7 +945,12 @@ function Zsyndrome(S::CSSCode, v::fq_nmod_mat)
     return Zstabilizers(S) * v
 end
 
-function syndrome(S::AbstractQuantumCode, v::fq_nmod_mat)
+"""
+    syndrome(S::AbstractStabilizerCode, v::fq_nmod_mat)
+
+Return the syndrome of the vector `v` with respect to the stabilizers of `S`.
+"""
+function syndrome(S::AbstractStabilizerCode, v::fq_nmod_mat)
     n = length(S)
     !(size(v) != (2 * n, 1) && size(v) != (1, 2 * n)) ||
         error("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v)).")
@@ -791,7 +969,12 @@ end
 # using Combinatorics
 # iter = combinations(1:size(stabs, 2))
 # but this only in base 2
-function allstabilizers(Q::AbstractQuantumCode)
+"""
+    allstabilizers(S::AbstractStabilizerCode)
+
+Return the set of all stabilizers using brute-force.
+"""
+function allstabilizers(Q::AbstractStabilizerCode)
     E = quadraticfield(Q)
     all = Vector{fq_nmod_mat}()
     stabs = stabilizers(Q)
@@ -817,7 +1000,7 @@ end
 # # need clarification on general stabilizer codes
 # # need to process Pauli here
 # # sum of syndrome and logical?
-# function generatorcoefficients(Q::AbstractQuantumCode, θ::Union{Float64, Missing},
+# function generatorcoefficients(Q::AbstractStabilizerCode, θ::Union{Float64, Missing},
 #     Paui::Char=' ')
 #
 #     synlen = size(stabilizers(Q), 1)

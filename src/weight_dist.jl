@@ -378,9 +378,9 @@ function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
     return W
 end
 
-# function Pauliweightenumerator(Q::AbstractQuantumCode, Pauli::Char=' ',
+# function Pauliweightenumerator(Q::AbstractStabilizerCode, Pauli::Char=' ',
 #     keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
-function Pauliweightenumerator(Q::AbstractQuantumCode, Pauli::Char=' ',
+function Pauliweightenumerator(Q::AbstractStabilizerCode, Pauli::Char=' ',
     sect::Bool=false)
 
     !ismissing(Q.Pauliweightenum) && return Q.Pauliweightenum
@@ -468,9 +468,9 @@ function HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
     return W
 end
 
-# function HammingweightenumeratorQ(Q::AbstractQuantumCode, Paui::Char=' ',
+# function HammingweightenumeratorQ(Q::AbstractStabilizerCode, Paui::Char=' ',
 #     keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
-function Hammingweightenumerator(Q::AbstractQuantumCode, Paui::Char=' ',
+function Hammingweightenumerator(Q::AbstractStabilizerCode, Paui::Char=' ',
     sect::Bool=false)
 
     !ismissing(Q.Pauliweightenum) && return PWEtoHWE(Q.Pauliweightenum)
@@ -482,12 +482,12 @@ function Hammingweightenumerator(Q::AbstractQuantumCode, Paui::Char=' ',
     return HammingweightenumeratorQ(T, false)
 end
 
-# function weightenumerator(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false,
+# function weightenumerator(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
 #     Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=false)
 
 
 # we can organize the S⟂ \ S any way we want as long as we have these elements on the
-function weightenumerator(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false,
+function weightenumerator(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
     Pauli::Char=' ', verbose::Bool=true)
 
     alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
@@ -517,7 +517,7 @@ function weightenumerator(Q::AbstractQuantumCode, alg::String="trellis", sect::B
     return [Q.dualweightenum, Q.logsweightenum, Q.Pauliweightenum]
 end
 
-function weightdistribution(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false,
+function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
     Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=true)
 
     weightenumerator(Q, alg, sect, Pauli, false)
@@ -545,7 +545,7 @@ function weightdistribution(Q::AbstractQuantumCode, alg::String="trellis", sect:
     return [temp1, temp2, temp3]
 end
 
-# function weightdistribution(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false)
+# function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false)
 #     alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
 #     T = syndrometrellis(Q, "weight", ' ', sect)
 #     W = PauliweightenumeratorQ(T, true)
@@ -582,12 +582,12 @@ end
 #############################
 
 """
-    minimumdistance(Q::AbstractQuantumCode, alg::String="trellis", sect::Bool=false)
+    minimumdistance(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false)
 
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimumdistance(Q::AbstractQuantumCode)
+function minimumdistance(Q::AbstractStabilizerCode)
     !ismissing(Q.d) && return Q.d
     if ismissing(Q.logsweightenum)
         logspace = logicalspace(Q)
@@ -612,3 +612,8 @@ end
 #     Q.d = Q.logsweightenum.polynomial[2][2]
 #     return Q.d
 # end
+
+
+minimumdistance(S::CSSCode) = S.d
+minimumdistanceX(S::CSSCode) = S.dx
+minimumdistanceZ(S::CSSCode) = S.dz

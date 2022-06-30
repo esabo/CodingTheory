@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import Base: show
+
 include("linearcode.jl")
 
 abstract type AbstractReedMullerCode <: AbstractLinearCode end
@@ -24,14 +26,27 @@ mutable struct ReedMullerCode <: AbstractReedMullerCode
     weightenum::Union{WeightEnumerator, Missing}
 end
 
-r(C::ReedMullerCode) = C.r
-m(C::ReedMullerCode) = C.m
+"""
+    order(C::ReedMullerCode)
+    RMr(C::ReedMullerCode)
+
+Return the order, `r`, of the `RM(r, m)` Reed-Muller code.
+"""
+order(C::ReedMullerCode) = C.r
+RMr(C::ReedMullerCode) = order(C)
+
+"""
+    RMm(C::ReedMullerCode)
+
+Return the parameter `m` of the `RM(r, m)` Reed-Muller code.
+"""
+RMm(C::ReedMullerCode) = C.m
 
 function show(io::IO, C::AbstractReedMullerCode)
     if get(io, :compact, false)
-        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed Muller code RM($(r(C)), $(m(C))).")
+        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed-Muller code RM($(r(C)), $(m(C))).")
     else
-        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed Muller code RM($(r(C)), $(m(C))).")
+        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed-Muller code RM($(r(C)), $(m(C))).")
         println(io, "Generator matrix: $(dimension(C)) × $(length(C))")
         for i in 1:dimension(C)
             print(io, "\t")
@@ -48,8 +63,14 @@ function show(io::IO, C::AbstractReedMullerCode)
     end
 end
 
+"""
+    ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
+
+Return the recursive form of the generator matrix for the `RM(r, m)` Reed-Muller
+code over `GF(q)`.
+"""
 function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
-    (0 ≤ r ≤ m) || error("Reed Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m.")
+    (0 ≤ r ≤ m) || error("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m.")
 
     if q == 2
         F, _ = FiniteField(2, 1, "α")
@@ -66,14 +87,22 @@ function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
             return vcat(hcat(Grm1, Grm1), hcat(M(0), Gr1m1))
         end
     else
-        error("Nonbinary Reed Muller codes have not yet been implemented.")
+        error("Nonbinary Reed-Muller codes have not yet been implemented.")
     end
 end
 
+"""
+    ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
+
+Return the `RM(r, m)` Reed-Muller code over `GF(q)`.
+
+If the optional parameter `verify` is set to `true`, basic checks are done to
+ensure correctness.
+"""
 function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
-    (1 ≤ r < m) || error("Reed Muller codes require 1 ≤ r < m, received r = $r and m = $m.")
-    m < 64 || error("This Reed Muller code requires the implmentation of BigInts. Change if necessary.")
-    q == 2 || error("Nonbinary Reed Muller codes have not yet been implemented.")
+    (1 ≤ r < m) || error("Reed-Muller codes require 1 ≤ r < m, received r = $r and m = $m.")
+    m < 64 || error("This Reed-Muller code requires the implmentation of BigInts. Change if necessary.")
+    q == 2 || error("Nonbinary Reed-Muller codes have not yet been implemented.")
 
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
@@ -95,9 +124,13 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
         H, missing, Gstand, Hstand, missing)
 end
 
+"""
+    dual(C::ReedMullerCode)
+
+Return the dual of the Reed-Muller code `C`.
+"""
 function dual(C::ReedMullerCode)
-    # return ReedMullerCode(C.q, C.m - C.r - 1, C.m)
-    return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(r(C) + 1),
-        m(C) - r(C) - 1, m(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
+    return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(order(C) + 1),
+        RMm(C) - order(C) - 1, RMm(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
         originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true), missing)
 end

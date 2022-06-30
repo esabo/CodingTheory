@@ -12,30 +12,45 @@ include("tricolorcodes666trellis.jl")
         # Misc codes
 #############################
 
-# miscellaneous small codes useful for testing functions
+"""
+    fivequbitcode()
+    Q513()
 
+Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
+"""
 function fivequbitcode()
     # is a perfect code
     return QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
 end
-
-function Q513()
-    return fivequbitcode()
-end
+Q513() = fivequbitcode()
 
 # should also do a test for other CSS construction via Hamming code and actually make that one default
-function Steanecode()
-    # standard
-    return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+"""
+    Steanecode()
+    Q713()
 
-    # trellis numbering
-    # return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
+Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
+"""
+function Steanecode()
+    return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+end
+Q713() = Steanecode()
+
+function _Steanecodetrellis()
+    return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
     # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
 end
 
+"""
+    Shorcode()
+    Q913()
+
+Return the `[[9, 1, 3]]` Shor code.
+"""
 function Shorcode()
     return CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
 end
+Q913() = Shorcode()
 
 function Q412()
     return CSSCode(["XXXX", "ZZII", "IIZZ"])
@@ -60,13 +75,26 @@ function Q823()
     return QuantumCode(S, true)
 end
 
+"""
+    Q15RM()
+    Q1513()
+
+Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
+ordering.
+"""
 function Q15RM()
     return QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
         "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
         "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
         "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
 end
+Q1513() = Q15RM()
 
+"""
+    Q1573()
+
+Return the `[[15, 7, 3]]` quantum Hamming code.
+"""
 function Q1573()
     return QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
     "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
@@ -346,6 +374,11 @@ end
 # 226.128107 seconds (1.73 G allocations: 80.659 GiB, 18.33% gc time, 0.09% compilation time)
 # julia> Base.summarysize(Q)
 # 16872
+"""
+    rotatedsurfacecode(d::Int)
+
+Return the `[[d^2, 1, d]]` rotated surface code.
+"""
 function rotatedsurfacecode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
@@ -440,6 +473,11 @@ function _XZZXstabslogs(d::Int)
     return S, logs
 end
 
+"""
+    XZZXsurfacecode(d::Int)
+
+Return the `[[d^2, 1, d]]` XZZX surface code.
+"""
 function XZZXsurfacecode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
@@ -453,6 +491,11 @@ end
 # Triangular Color Codes 4.8.8 #
 ################################
 
+"""
+    tricolorcode488(d::Int)
+
+Return the 4.8.8 triangular color code of distance `d` with trellis numbering.
+"""
 function tricolorcode488(d::Int)
     3 <= d <= 21 || error("Current implementation requires 3 ≤ d ≤ 21.")
 
@@ -513,6 +556,11 @@ end
 # Triangular Color Codes 6.6.6 #
 ################################
 
+"""
+    tricolorcode666(d::Int)
+
+Return the 6.6.6 triangular color code of distance `d` with trellis numbering.
+"""
 function tricolorcode666(d::Int)
     3 <= d <= 21 || error("Current implementation requires 3 ≤ d ≤ 21.")
 

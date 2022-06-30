@@ -1597,7 +1597,7 @@ end
 
 # think of more scenarios
 # could allow general trellises given partial stabilizers for use in trellis product
-function trellisprofiles(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+function trellisprofiles(Q::AbstractStabilizerCode, type::String="weight", Pauli::Char=' ',
     sect::Bool=false)
 
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellisprofiles.")
@@ -1667,7 +1667,7 @@ function trellisprofiles(Q::AbstractQuantumCode, type::String="weight", Pauli::C
     end
 end
 
-function syndrometrellis(Q::AbstractQuantumCode, type::String="weight", Pauli::Char=' ',
+function syndrometrellis(Q::AbstractStabilizerCode, type::String="weight", Pauli::Char=' ',
     sect::Bool=false)
 
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in syndrometrellis.")

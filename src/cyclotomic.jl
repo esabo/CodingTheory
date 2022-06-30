@@ -4,6 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+"""
+    ord(n::Integer, q::Integer)
+
+Return the order of `n` mod `q`.
+"""
 function ord(n::Integer, q::Integer)
     if q <= 0 || n <= 0
         error("q and n both need to be positive. Passed: q = $q, n = $n")
@@ -16,9 +21,18 @@ function ord(n::Integer, q::Integer)
         end
     end
 
-    error("Unable to compute order($q, $n).")
+    error("Unable to compute ord($n, $q).")
 end
 
+#TODO make sorting optional
+"""
+    cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false)
+
+Return the sorted `q`-cyclotomic coset of `x` modulo `n`.
+
+If the optional parameter `verbose` is set to `true`, the result will pretty
+print.
+"""
 function cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false)
     # keep small order assumption for now
     temp = [mod(x, n)]
@@ -47,6 +61,15 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false
     return temp
 end
 
+#TODO make sorting optional
+"""
+    allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
+
+Return all sorted `q`-cyclotomic cosets modulo `n`.
+
+If the optional parameter `verbose` is set to `true`, the result will pretty
+print.
+"""
 function allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
     if n % q == 0
         error("Cyclotomic coset requires gcd(n, q) = 1")
@@ -91,6 +114,11 @@ function allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
     return arr
 end
 
+"""
+    complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+
+Return the complement of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
+"""
 function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
     all = allcyclotomiccosets(q, n)
     compcosets = Vector{Vector{Int64}}()
@@ -113,6 +141,11 @@ function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}
     return compcosets
 end
 
+"""
+    qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
+
+Return the .
+"""
 function qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
     cosetreplist = Vector{Tuple{Int64, Int64}}()
     cosetpairlist = Vector{Tuple{Vector{Int64}, Vector{Int64}}}()
@@ -159,6 +192,11 @@ function qcosettable(a::Integer, b::Integer, q::Integer)
     end
 end
 
+"""
+    dualqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+
+Return the dual of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
+"""
 function dualqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
     compcosets = complementqcosets(q, n, qcosets)
     for a in compcosets
