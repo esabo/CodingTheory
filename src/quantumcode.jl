@@ -478,8 +478,7 @@ Return a CSS code using the vector of Pauli strings `SPauli` as stabilizers.
   to make sure these signs agree with the ones computed using the character vector.
 * Will error when the provided strings are not CSS.
 """
-function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[])
-    where T <: Union{String, Vector{Char}}
+function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
@@ -549,8 +548,7 @@ Return a stabilizer code using the vector of Pauli strings `SPauli` as stabilize
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[])
-    where T <: Union{String, Vector{Char}}
+function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)

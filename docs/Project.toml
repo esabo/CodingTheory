@@ -1,0 +1,3 @@
+[deps]
+CodingTheory = "7ca085cf-10e4-43da-ad7d-8f62f68877b3"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
