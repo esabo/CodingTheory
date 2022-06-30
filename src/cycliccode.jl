@@ -4,18 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# I want to remove this dependence
-using Primes
-
-import Base: show, ==, ∩, +
-import Primes: factor
-
-include("cyclotomic.jl")
-include("linearcode.jl")
-
-abstract type AbstractCyclicCode <: AbstractLinearCode end
-abstract type AbstractBCHCode <: AbstractCyclicCode end
-abstract type AbstractReedSolomonCode <: AbstractBCHCode end
 
 mutable struct CyclicCode <: AbstractCyclicCode
     F::FqNmodFiniteField # base field

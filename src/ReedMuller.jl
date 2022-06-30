@@ -4,11 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import Base: show
-
-include("linearcode.jl")
-
-abstract type AbstractReedMullerCode <: AbstractLinearCode end
 
 mutable struct ReedMullerCode <: AbstractReedMullerCode
     F::Union{FqNmodFiniteField, Nemo.GaloisField, AbstractAlgebra.GFField{Int64}}
