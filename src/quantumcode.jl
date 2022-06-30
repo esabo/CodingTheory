@@ -4,17 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# using SymPy
-using Plots
-
-include("linearcode.jl")
-
-# can one day do classical additive codes
-abstract type AbstractAdditiveCode <: AbstractCode end
-abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
-abstract type AbstractCSSCode <: AbstractStabilizerCode end
-# can also build a AbstractQuantumLinearCode if the additive code is also linear
-# will probably have to tweak all of these later
 
 mutable struct CSSCode <: AbstractCSSCode
     F::FqNmodFiniteField # base field (symplectic)
@@ -267,7 +256,7 @@ function splitstabilizers(S::AbstractStabilizerCode)
     return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
 end
 
-#TODO remove this function and make this a parameter in the structs
+# TODO: remove this function and make this a parameter in the structs
 function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if isempty(mixedstabs)

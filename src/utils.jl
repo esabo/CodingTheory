@@ -4,10 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-using AbstractAlgebra
-using Nemo
-
-import LinearAlgebra: tr
 
 """
     ⊕(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}

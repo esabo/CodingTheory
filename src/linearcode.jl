@@ -4,18 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-ENV["NEMO_PRINT_BANNER"] = "false"
-
-using AbstractAlgebra
-using Nemo
-
-import Base: show, length, in, ⊆, /, *
-import AbstractAlgebra: quo, VectorSpace
-
-include("utils.jl")
-
-abstract type AbstractCode end
-abstract type AbstractLinearCode <: AbstractCode end
 
 # can't get around including this here and not in weight_dist without modules
 struct WeightEnumerator
