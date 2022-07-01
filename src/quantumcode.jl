@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 mutable struct CSSCode <: AbstractCSSCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field

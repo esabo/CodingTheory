@@ -1,5 +1,3 @@
-include("linearcode.jl")
-
 """
     repetitioncode(q::Integer, n::Integer)
 

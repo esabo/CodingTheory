@@ -1,156 +1,214 @@
 module CodingTheory
+    # change environment variable so that banner doesn't print
+    ENV["NEMO_PRINT_BANNER"] = "false"
 
+    using AbstractAlgebra
+    using Nemo
+    using Primes
+    using Reexport
+    # using SymPy
+    # using Plots
 
-####################
-# LOAD PACKAGES
-####################
+    # import Base: show, length, in, ⊆, /, *, ==, ∩, +
+    # import AbstractAlgebra: quo, VectorSpace
+    # import Primes: factor
+    # import LinearAlgebra: tr
+    #
+    # export fq_nmod_mat
 
-using AbstractAlgebra
+    #############################
+             # utils.jl
+    #############################
 
-# change environment variable so that banner doesn't print
-ENV["NEMO_PRINT_BANNER"] = "false"
-using Nemo
+    module UtilsMod
+        using AbstractAlgebra
+        using Nemo
 
-import Base: show, length, in, ⊆, /, *, ==, ∩, +
-import AbstractAlgebra: quo, VectorSpace
+        import LinearAlgebra: tr
 
-# I want to remove this dependence
-using Primes
-import Primes: factor
+        include("utils.jl")
+        export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
+            dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
+            Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
+            printstringarray, printchararray, printsymplecticarray, pseudoinverse,
+            quadratictosymplectic, symplectictoquadratic
+    end
+    @reexport using CodingTheory.UtilsMod
 
-import LinearAlgebra: tr
+    #############################
+           # cyclotomic.jl
+    #############################
 
-using Reexport
+    module CyclotomicMod
+        using AbstractAlgebra
+        using Nemo
 
-# using SymPy
-# using Plots
+        include("cyclotomic.jl")
+        export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
+            qcosetpairings, qcosetpairings, qcosettable, dualqcosets
+    end
+    @reexport using CodingTheory.CyclotomicMod
 
+    #############################
+           # linearcode.jl
+    #############################
 
-#####################
-# TYPE STRUCTURE
-#####################
+    module LinearCodeMod
+        using AbstractAlgebra
+        using Nemo
 
-abstract type AbstractCode end
-abstract type AbstractLinearCode <: AbstractCode end
-abstract type AbstractCyclicCode <: AbstractLinearCode end
-abstract type AbstractBCHCode <: AbstractCyclicCode end
-abstract type AbstractReedSolomonCode <: AbstractBCHCode end
-abstract type AbstractReedMullerCode <: AbstractLinearCode end
+        import Base: show, length, in, ⊆, /, *, ==, ∩, +
+        import AbstractAlgebra: quo, VectorSpace
 
-# can one day do classical additive codes
-abstract type AbstractAdditiveCode <: AbstractCode end
-abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
-abstract type AbstractCSSCode <: AbstractStabilizerCode end
-# can also build a AbstractQuantumLinearCode if the additive code is also linear
-# will probably have to tweak all of these later
+        abstract type AbstractCode end
+        abstract type AbstractLinearCode <: AbstractCode end
+        export AbstractCode, AbstractLinearCode
 
-export AbstractCode, AbstractLinearCode, AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode, AbstractReedMullerCode, AbstractAdditiveCode, AbstractStabilizerCode, AbstractCSSCode
+        include("linearcode.jl")
+        export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate, setminimumdistance,
+            relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
+            originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
+            encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
+            Hermitiandual, isequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
+            directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
+            expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
+            juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
+            expandedcode, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
+            componentwiseproductcode, VectorSpace
+    end
+    @reexport using CodingTheory.LinearCodeMod
 
+    #############################
+          # ReedMuller.jl
+    #############################
 
-######################
-# LOAD FILES
-######################
-# module Utils
-include("utils.jl")
-# export asdf
-# end
-# @reexport using CodingTheory.Utils
+    module ReedMullerMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
 
-include("cyclotomic.jl")
-include("linearcode.jl")
-include("ReedMuller.jl")
-include("cycliccode.jl")
-include("miscknowncodes.jl")
-include("quantumcode.jl")
-include("miscknownquantumcodes.jl")
-include("trellis.jl")
-include("weight_dist.jl")
+        abstract type AbstractReedMullerCode <: AbstractLinearCode end
+        export AbstractReedMullerCode
 
-# TODO: should be in a better place
-export fq_nmod_mat
+        include("ReedMuller.jl")
+        export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode
+    end
+    @reexport using CodingTheory.ReedMullerMod
 
-#######################
-# EXPORTS
-#######################
+    #############################
+           # cycliccode.jl
+    #############################
 
-#############################
-       # linearcode.jl
-#############################
+    module CyclicCodeMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
 
-export LinearCode, field, length, dimension, cardinality, rate, setminimumdistance,
-relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
-originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
-encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
-Hermitiandual, isequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
-directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
-expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
-juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
-expandedcode, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
-componentwiseproductcode, VectorSpace
+        import Base: show, length, in, ⊆, /, *, ==, ∩, +
 
-#############################
-       # cycliccode.jl
-#############################
+        abstract type AbstractCyclicCode <: AbstractLinearCode end
+        abstract type AbstractBCHCode <: AbstractCyclicCode end
+        abstract type AbstractReedSolomonCode <: AbstractBCHCode end
+        export AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode
 
-export definingset, splittingfield, polynomialring, primitiveroot, offset,
-designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
-idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
-CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +
+        include("cycliccode.jl")
+        export definingset, splittingfield, polynomialring, primitiveroot, offset,
+            designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
+            idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
+            CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +
+    end
+    @reexport using CodingTheory.CyclicCodeMod
 
-#############################
-       # cyclotomic.jl
-#############################
+    #############################
+         # miscknowncodes.jl
+    #############################
 
-export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
-qcosetpairings, qcosetpairings, qcosettable, dualqcosets
+    module MiscKnownCodesMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
 
-#############################
-     # miscknowncodes.jl
-#############################
+        include("miscknowncodes.jl")
+        export repetitioncode
+    end
+    @reexport using CodingTheory.MiscKnownCodesMod
 
-export repetitioncode
+    #############################
+          # quantumcode.jl
+    #############################
 
-#############################
- # miscknownquantumcodes.jl
-#############################
+    module QuantumCodeMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
 
-export fivequbitcode, Q513, Steanecode, Q713, _Steanecodetrellis, Shorcode, Q913,
-Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, triangularsurfacecode,
-rotatedsurfacecode, XZZXsurfacecode, tricolorcode488, tricolorcode666
+        import Base: show, length, in, ⊆, /, *, ==, ∩, +
 
-#############################
-      # ReedMuller.jl
-#############################
+        abstract type AbstractAdditiveCode <: AbstractCode end
+        abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
+        abstract type AbstractCSSCode <: AbstractStabilizerCode end
+        export AbstractAdditiveCode, AbstractStabilizerCode, AbstractCSSCode
 
-export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode
+        include("quantumcode.jl")
+        export field, quadraticfield, length, numqubits, dimension, cardinality,
+            rate, signs, Xsigns, Zsigns, stabilizers, symplecticstabilizers,
+            Xstabilizers, Zstabilizers, numXstabs, numZstabs, normalizermatrix,
+            charactervector, setminimumdistance, relativedistance, splitstabilizers,
+            isCSS, CSSCode, QuantumCode, logicalspace, setlogicals!, changesigns!,
+            Xsyndrome, Zsyndrome, syndrome, allstabilizers
+    end
+    @reexport using CodingTheory.QuantumCodeMod
 
-#############################
-        # trellis.jl
-#############################
+    #############################
+     # miscknownquantumcodes.jl
+    #############################
 
-export vertices, edges, isisomorphic, isequal, loadbalancedecode,
-trellisorientedformC,trellisprofiles, syndrometrellis, trellisorientedformQ,
-optimalsectionalizationQ, weightQ!, shiftandweightQ!, shiftanddecodeQ!,
-shift!
+    module MiscKnownQuantumCodesMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.QuantumCodeMod
 
-#############################
-     # weight_dist.jl
-#############################
+        include("miscknownquantumcodes.jl")
+        export fivequbitcode, Q513, Steanecode, Q713, _Steanecodetrellis, Shorcode, Q913,
+            Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, triangularsurfacecode,
+            rotatedsurfacecode, XZZXsurfacecode, tricolorcode488, tricolorcode666
+    end
+    @reexport using CodingTheory.MiscKnownQuantumCodesMod
 
-export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
-Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
-HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-weightdistribution
+    #############################
+            # trellis.jl
+    #############################
 
-#############################
-         # utils.jl
-#############################
+    module TrellisMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
+        using CodingTheory.QuantumCodeMod
 
-export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
-dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
-Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
-printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-quadratictosymplectic, symplectictoquadratic
+        include("trellis.jl")
+        export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
+            trellisorientedformC,trellisprofiles, syndrometrellis, trellisorientedformQ,
+            optimalsectionalizationQ, weightQ!, shiftandweightQ!, shiftanddecodeQ!,
+            shift!
+    end
+    @reexport using CodingTheory.TrellisMod
 
+    #############################
+         # weight_dist.jl
+    #############################
 
-end # module
+    module WeightDistMod
+        using AbstractAlgebra
+        using Nemo
+        using CodingTheory.LinearCodeMod
+        using CodingTheory.QuantumCodeMod
+        using CodingTheory.TrellisMod
+
+        include("weight_dist.jl")
+        export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
+            Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
+            HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
+            weightdistribution
+    end
+    @reexport using CodingTheory.WeightDistMod
+end
