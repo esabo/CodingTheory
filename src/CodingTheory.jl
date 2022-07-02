@@ -4,7 +4,7 @@ module CodingTheory
 
     using AbstractAlgebra
     using Nemo
-    using Primes
+    # using Primes
     using Reexport
     # using SymPy
     # using Plots
@@ -59,6 +59,7 @@ module CodingTheory
 
         import Base: show, length, in, ⊆, /, *, ==, ∩, +
         import AbstractAlgebra: quo, VectorSpace
+        import Nemo: isprime, factor
 
         abstract type AbstractCode end
         abstract type AbstractLinearCode <: AbstractCode end
@@ -74,7 +75,7 @@ module CodingTheory
             expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
             juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
             expandedcode, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
-            componentwiseproductcode, VectorSpace
+            componentwiseproductcode, VectorSpace, _standardform
     end
     @reexport using CodingTheory.LinearCodeMod
 
@@ -103,6 +104,7 @@ module CodingTheory
         using AbstractAlgebra
         using Nemo
         using CodingTheory.LinearCodeMod
+        using CodingTheory.CyclotomicMod
 
         import Base: show, length, in, ⊆, /, *, ==, ∩, +
 

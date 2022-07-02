@@ -103,8 +103,8 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
 
     Gstand, Hstand = _standardform(G)
     if verify
-        size(H', 1) == size(G, 2) - size(G, 1) || error("Parity check matrix is not size n - k.")
-        !(!iszero(G * H) || !iszero(H' * G')) || error("Generator and parity check matrices are not transpose orthogonal.")
+        size(transpose(H), 1) == size(G, 2) - size(G, 1) || error("Parity check matrix is not size n - k.")
+        !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
         for r in 1:size(Gstand, 1)
             iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
         end
@@ -112,9 +112,9 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
 
     if !parity
         return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, G, Gorig,
-            deepcopy(H'), missing, Gstand, Hstand, missing)
+            deepcopy(transpose(H)), missing, Gstand, Hstand, missing)
     else
-        return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, deepcopy(H'), missing,
+        return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, deepcopy(transpose(H)), missing,
             G, Gorig, Hstand, Gstand, missing)
     end
 end
@@ -334,13 +334,13 @@ function encode(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
     base_ring(v) == field(C) || error("Vector must have the same base ring as the generator matrix.")
 
     size(v, 1) != 1 || return v * generatormatrix(C)
-    return v' * generatormatrix(C)
+    return transpose(v) * generatormatrix(C)
 end
 
 function encode(v::Vector{Int64}, C::AbstractLinearCode)
     length(v) == dimension(C) ||
         error("Vector to be encoded is of incorrect length; expected length $(C.k), received: $(size(v)).")
-    return encode(matrix(field(C), v'), C)
+    return encode(matrix(field(C), transpose(v)), C)
 end
 
 """
@@ -356,14 +356,14 @@ function syndrome(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
         error("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")
     base_ring(v) == field(C) || error("Vector must have the same base ring as the generator matrix.")
 
-    size(v, 1) != 1 || return paritycheckmatrix(C) * v'
+    size(v, 1) != 1 || return paritycheckmatrix(C) * transpose(v)
     return paritycheckmatrix(C) * v
 end
 
 function syndrome(v::Vector{Int64}, C::AbstractLinearCode)
     length(v) == length(C) ||
         error("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")
-    return syndrome(matrix(field(C), v'), C)
+    return syndrome(matrix(field(C), transpose(v)), C)
 end
 
 """
@@ -605,12 +605,12 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
     _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
 
-    !(!iszero(G * H) || !iszero(H' * G')) ||
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand, missing)
+        transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -647,12 +647,12 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
     _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
 
-    !(!iszero(G * H) || !iszero(H' * G')) ||
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand, missing)
+        transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -689,7 +689,7 @@ function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
     _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
 
-    !(!iszero(G * H) || !iszero(H' * G')) ||
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
@@ -698,7 +698,7 @@ function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
     end
 
     return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
-        H', paritycheckmatrix(C), Gstand, Hstand, missing)
+        transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -724,7 +724,7 @@ Return the lengthened code of `C`.
 This augments the all 1's row and then extends.
 """
 function lengthen(C::AbstractLinearCode)
-    row = matrix(field(C), [1 for _ in 1:length(C)]')
+    row = matrix(field(C), transpose([1 for _ in 1:length(C)]))
     newcode = augment(C, row)
     return extend(newcode)
 end

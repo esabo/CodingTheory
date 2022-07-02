@@ -255,7 +255,6 @@ function splitstabilizers(S::AbstractStabilizerCode)
     return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
 end
 
-# TODO: remove this function and make this a parameter in the structs
 function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if isempty(mixedstabs)
@@ -417,11 +416,11 @@ and `Zmatrix` as the `Z` stabilizer matrix.
 function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     charvec::Union{Vector{Int64}, Vector{Any}}=[])
 
-    # this should have Zstabs * Xstabs' = 0
+    # this should have Zstabs * Xstabtranspose(S) = 0
     # set dual containing if Xstabs == Zstabs, else not
     size(Xmatrix, 2) ==  size(Zmatrix, 2) || error("Both matrices must have the same length in the CSS construction.")
     base_ring(Xmatrix) == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
-    # TODO can remove rank check now that we have full character vector
+    # TODO: can remove rank check now that we have full character vector
     rank(Xmatrix) == size(Xmatrix, 1) || error("Provided X-stabilizer matrix is not full rank.")
     rank(Zmatrix) == size(Zmatrix, 1) || error("Provided Z-stabilizer matrix is not full rank.")
     if !isempty(charvec)
@@ -446,10 +445,10 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
 
     G = hcat(S[:, size(Xmatrix, 2) + 1:end], -S[:, 1:size(Xmatrix, 2)])
     _, H = right_kernel(G)
-    size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
-    dualgens = symplectictoquadratic(H')
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(H))
 
     return CSSCode(base_ring(Xmatrix), base_ring(Sq2), size(Xmatrix, 2),
         size(Xmatrix, 2) - size(Xmatrix, 1) - size(Zmatrix, 1),
@@ -512,10 +511,10 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
     # find dual
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
-    dualgens = symplectictoquadratic(H')
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(H))
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
@@ -585,10 +584,10 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
     # find dual
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
-    dualgens = symplectictoquadratic(H')
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
     dimcode = Int64(order(base_ring(S)))^size(Sq2, 2) // Int64(characteristic(base_ring(S)))^(size(Sq2, 1))
@@ -615,8 +614,8 @@ end
 Return a stabilizer code using the matrix `Sq2` as the stabilizer matrix.
 
 The matrix `Sq2` is assumed to be an `n` column matrix over the quadratic extension.
-If the optional parameter `symp` is set to `true`, `Sq2` is assumed to be a `2n`
-column matrix over the base field.
+If the optional parameter `symp` is set to `true`, `Sq2` is assumed to be in
+symplectic form over the base field.
 
 # Arguments
 * `Sq2`: a matrix over a finite field of type `FqNmodFiniteField`
@@ -675,10 +674,10 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{I
     # find dual
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(H', 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(H' * G')) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
-    dualgens = symplectictoquadratic(H')
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(H))
 
     try
         temp = div(Int64(order(base_ring(Sq2))), Int64(characteristic(base_ring(Sq2))))
@@ -789,24 +788,71 @@ end
 #     return Weylpairs
 # end
 
-# can't check rank here because a self-dual code will have half rank since function is not additive
-# need to think about what this means for an irrational dimension
-# should check commutation relations
-# TODO process this heavily and don't put this in logspace
 """
-    setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat)
+    setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
 
 Set the logical operators of `S` to `L`.
+
+If the optional parameter `symp` is set to `true`, `L` is assumed to be in
+symplectic form over the base field of `S`.
 """
-function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat)
-    size(L) == (2 * dimension(S), length(S)) || error("Provided matrix is of incorrect size for the logical space.")
-    # rank(L) == size(L, 1) || error("Provided matrix is not of full rank.")
-    # aresymplecticorthogonal(stabilizers(S), L) || error("Provided matrix does not commute with the code.")
-    # !aresymplecticorthogonal(L, L) || error("Provided matrix should not be symplectic self-orthogonal.")
-    S.logspace = L
+function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
+    F = base_ring(L)
+    if symp
+        size(L) == (2 * dimension(S), 2 * length(S)) || error("Provided matrix is of incorrect size for the logical space.")
+        iseven(size(L, 2)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
+        field(S) == F || error("The logicals must be over the same field as the code.")
+    else
+        size(L) == (2 * dimension(S), length(S)) || error("Provided matrix is of incorrect size for the logical space.")
+        quadraticfield(Sq2) == F || error("The logicals must be over the same field as the code.")
+        iseven(F) || error("The base ring of the given matrix is not a quadratic extension.")
+        L = quadratictosymplectic(L)
+    end
+    aresymplecticorthogonal(symplecticstabilizers(S), L) || error("Provided logicals do not commute with the code.")
+
+    # the columns in prod give the commutation relationships between the provided
+    # logical operators; they ideally should only consist of {X_1, Z_i} pairs
+    # so there should only be one nonzero element in each column
+    prod = hcat(A[:, length(S) + 1:end], -A[:, 1:length(S)]) * transpose(L)
+    iszero(prod) || error("Provided logical should not be symplectic self-orthogonal.")
+    cols = sum(prod, 2)
+    sum(cols) == length(cols) || error("Incorrect commutation relationships between provided logicals.")
+
+    # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
+    logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+    while size(L, 1) >= 2
+        y = findfirst(x->x>0, prod[:, 1])
+        if y[1] != F(1)
+            push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
+        else
+            push!(logs, (L[1, :], L[y[2], :]))
+        end
+        L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
+    end
+
+    # # can actually do this via the matrix multiplication above
+    # logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+    # while !iszero(size(L, 1))
+    #     rows = []
+    #     X1 = L[1, :]
+    #     for i in 2:size(L, 1)
+    #         SIP = sympecticinnerproduct(Xi, L[i, :])
+    #         if !iszero(SIP)
+    #             if SIP != typeof(SIP)(1)
+    #                 L[i, :] *= SIP^-1
+    #                 push!(rows, i)
+    #                 length(rows) == 1 || error("Incorrect commutation relationships between provided logicals.")
+    #             end
+    #         end
+    #     end
+    #     push!(logs, (X1, L[rows[1], :]))
+    #     L = L[setdiff(1:size(L, 1), [1, rows[1]]), :]
+    # end
+
+    S.logicals = logs
 end
 
-# update for roots of unity
+# TODO: update for roots of unity
 """
     changesigns!(S::AbstractStabilizerCode, charvec::Vector{Int64})
 
@@ -908,7 +954,7 @@ function Xsyndrome(S::CSSCode, v::fq_nmod_mat)
         error("Vector to be tested is of incorrect dimension; expected length $n, received: $(size(v)).")
     base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
 
-    size(v, 1) != 1 || return Xstabilizers(S) * v'
+    size(v, 1) != 1 || return Xstabilizers(S) * transpose(v)
     return Xstabilizers(S) * v
 end
 
@@ -927,7 +973,7 @@ function Zsyndrome(S::CSSCode, v::fq_nmod_mat)
         error("Vector to be tested is of incorrect dimension; expected length $n, received: $(size(v)).")
     base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
 
-    size(v, 1) != 1 || return Zstabilizers(S) * v'
+    size(v, 1) != 1 || return Zstabilizers(S) * transpose(v)
     return Zstabilizers(S) * v
 end
 
@@ -942,7 +988,7 @@ function syndrome(S::AbstractStabilizerCode, v::fq_nmod_mat)
         error("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v)).")
     # base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
 
-    size(v, 1) != 1 || return symplecticstabilizers(S) * v'
+    size(v, 1) != 1 || return symplecticstabilizers(S) * transpose(v)
     return symplecticstabilizers(S) * v
 end
 

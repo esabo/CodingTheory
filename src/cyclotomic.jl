@@ -24,17 +24,18 @@ function ord(n::Integer, q::Integer)
     error("Unable to compute ord($n, $q).")
 end
 
-#TODO make sorting optional
 """
-    cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false)
+    cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true, verbose::Bool=false)
 
-Return the sorted `q`-cyclotomic coset of `x` modulo `n`.
+Return the `q`-cyclotomic coset of `x` modulo `n`.
 
-If the optional parameter `verbose` is set to `true`, the result will pretty
-print.
+If the optional parameter `tosort` is set to `false`, the result will not be
+sorted. If the optional parameter `verbose` is set to `true`, the result will
+pretty print.
 """
-function cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false)
-    # keep small order assumption for now
+function cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true,
+    verbose::Bool=false)
+
     temp = [mod(x, n)]
     for i = 0:(n - 1)
         y = mod(temp[end] * q, n)
@@ -44,7 +45,9 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false
             break
         end
     end
-    sort!(temp)
+    if tosort
+        sort!(temp)
+    end
     len = length(temp)
 
     if verbose
@@ -61,16 +64,18 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, verbose::Bool=false
     return temp
 end
 
-#TODO make sorting optional
 """
-    allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
+    allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true, verbose::Bool=false)
 
-Return all sorted `q`-cyclotomic cosets modulo `n`.
+Return all `q`-cyclotomic cosets modulo `n`.
 
-If the optional parameter `verbose` is set to `true`, the result will pretty
-print.
+If the optional parameter `tosort` is set to `false`, the result will not be
+sorted. If the optional parameter `verbose` is set to `true`, the result will
+pretty print.
 """
-function allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
+function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
+    verbose::Bool=false)
+
     if n % q == 0
         error("Cyclotomic coset requires gcd(n, q) = 1")
     end
@@ -86,7 +91,7 @@ function allcyclotomiccosets(q::Integer, n::Integer, verbose::Bool=false)
         end
 
         if !found
-            Cx = cyclotomiccoset(x, q, n, false)
+            Cx = cyclotomiccoset(x, q, n, tosort, false)
             push!(arr, Cx)
         end
     end

@@ -128,13 +128,26 @@ function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
     return sum([u[i + ncols] * v[i] - v[i + ncols] * u[i] for i in 1:ncols])
 end
 
-# since changed method here, need to add error checks on dimensions
 """
-    aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat)
+    aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=false)
 
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
+
+If the optional parameter `symp` is set to `true`, `A` and `B` are assumed to be
+in symplectic form over the base field.
 """
-function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat)
+function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=false)
+    E = base_ring(A)
+    E == base_ring(B) || error("Matices in product must both be over the same base ring.")
+    if symp
+        iseven(size(A, 2)) || error("Expected a symplectic input but the first input matrix has an odd number of columns.")
+        iseven(size(B, 2)) || error("Expected a symplectic input but the second input matrix has an odd number of columns.")
+    else
+        iseven(degree(E)) || error("The base ring of the given matrices are not a quadratic extension.")
+        A = quadratictosymplectic(A)
+        B = quadratictosymplectic(B)
+    end
+
     AEuc = hcat(A[:, div(size(A, 2), 2) + 1:end], -A[:, 1:div(size(A, 2), 2)])
     iszero(AEuc * transpose(B)) || return false
     return true
@@ -309,9 +322,9 @@ Note that this is not the Penrose-Moore pseudoinverse.
 function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
     # let this fail elsewhere if not actually over a quadratic extension
     if degree(base_ring(M)) != 1
-        M = deepcopy(quadratictosymplectic(M)')
+        M = transpose(quadratictosymplectic(M))
     else
-        M = deepcopy(M')
+        M = transpose(M)
     end
 
     nr, nc = size(M)
@@ -328,8 +341,8 @@ function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
         Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
         iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
         pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
-        M' * pinv' == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
-        iszero(M' * dual') || error("Failed to correctly compute dual (rhs).")
+        transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
+        iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
         iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
     end
     return pinv
@@ -446,4 +459,24 @@ function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector
         end
     end
     return SPaulistripped, charvec
+end
+
+function largestconsecrun(arr::Vector{Int64})
+    n = length(arr)
+    maxlen = 1
+    for i = 1:n
+        mn = arr[i]
+        mx = arr[i]
+
+        for j = (i + 1):n
+            mn = min(mn, arr[j])
+            mx = max(mx, arr[j])
+
+            if (mx - mn) == (j - i)
+                maxlen = max(maxlen, mx - mn + 1)
+            end
+        end
+    end
+
+    return maxlen
 end

@@ -108,10 +108,10 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
         k = sum([binomial(m, i) for i in 0:r])
         size(G, 1) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
         if size(H) == (2^m - k, k)
-            H = deepcopy(H')
+            H = transpose(H)
         end
         for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * H') || error("Column swap appeared in _standardform.")
+            iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
         end
     end
 

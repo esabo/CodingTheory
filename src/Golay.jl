@@ -26,7 +26,7 @@ function Golay(p::Integer)
              1 1 0 1 1 0 1 1 1 0 0 0;
              1 0 1 1 0 1 1 1 0 0 0 1])
         G = hcat(M(1), A)
-        H = hcat(-A', M(1))
+        H = hcat(-transpose(A), M(1))
         return LinearCode(F, 24, 12, 8, G, G, H, H, G, H, missing)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
@@ -38,7 +38,7 @@ function Golay(p::Integer)
                1 -1 -1 1 0 1;
                1 1 -1 -1 1 0])
         G = hcat(M(1), A)
-        H = hcat(-A', M(1))
+        H = hcat(-transpose(A), M(1))
         return LinearCode(F, 12, 6, 6, G, G, H, H, G, H, missing)
     else
         error("Golay code not implemented for q = $q.")
