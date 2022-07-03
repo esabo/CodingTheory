@@ -131,7 +131,7 @@ module CodingTheory
         using CodingTheory.LinearCodeMod
 
         include("miscknowncodes.jl")
-        export repetitioncode
+        export RepetitionCode, SimplexCode, GolayCode, ExtendedGolayCode
     end
     @reexport using CodingTheory.MiscKnownCodesMod
 

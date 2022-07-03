@@ -22,8 +22,9 @@ At the moment, all functions work as intended for test cases but have not been u
 - Cyclic, BCH, Reed Solomon codes
 - BCH Bound with Hartmann-Tzeng Bound refinement
 - Complement, dual, intersection, and union of cyclic codes
-- Reed Muller code (currently just binary)
-- Extended binary and ternary Golay codes
+- Binary Reed Muller code
+- Golay codes
+- Binary simplex codes
 - Weight enumerators, distribution, and minimum distance
 
 ### Quantum

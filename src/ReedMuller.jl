@@ -98,6 +98,13 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
     m < 64 || error("This Reed-Muller code requires the implmentation of BigInts. Change if necessary.")
     q == 2 || error("Nonbinary Reed-Muller codes have not yet been implemented.")
 
+    if !isprime(q)
+        factors = factor(q)
+        if length(factors) != 1
+            error("There is no finite field of order $(prod(factors)).")
+        end
+    end
+
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = _standardform(G)
@@ -118,6 +125,7 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
         H, missing, Gstand, Hstand, missing)
 end
 
+# TODO: I'm hardcoding binary into this
 """
     dual(C::ReedMullerCode)
 

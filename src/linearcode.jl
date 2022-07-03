@@ -4,12 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
-# can't get around including this here and not in weight_dist without modules
 struct WeightEnumerator
     polynomial::Vector{Vector{Int64}}
     type::String
-    n::Int
 end
 
 mutable struct LinearCode <: AbstractLinearCode
@@ -548,6 +545,7 @@ productcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 #     return q^(n - k) * prod([1 - x / j for j in supD if j > 0])
 # end
 
+# TODO: need to write extend such that the ternay Golay codes come out
 """
     extend(C::AbstractLinearCode)
 

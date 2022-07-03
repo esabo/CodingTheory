@@ -412,7 +412,6 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     !(q <= 1 || n <= 1) ||error("Invalid parameters past to CyclicCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
-        # this used to work with just AbstractAlgebra
         factors = factor(q)
         if length(factors) != 1
             error("There is no finite field of order $(prod(factors)).")

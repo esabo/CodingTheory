@@ -69,10 +69,10 @@ function -(W1::WeightEnumerator, W2::WeightEnumerator)
     return WeightEnumerator(newpoly, W1.type)
 end
 
-```
+"""
 prints in order of collect(F) where F is the field of the code
 
-```
+"""
 function show(io::IO, W::WeightEnumerator)
     poly = W.polynomial
     if W.type == "complete"
@@ -87,7 +87,8 @@ function show(io::IO, W::WeightEnumerator)
                 end
                 for j in 2:len
                     if !iszero(term[j])
-                        print(io, "x\_${j - 1}^", term[j])
+                        print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
+                            "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
                     end
                 end
             end
@@ -150,7 +151,7 @@ function _weightenumeratorBF(G::fq_nmod_mat)
     end
 
     return WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex),
-        "complete", ncols(G))
+        "complete")
 end
 
 #############################
@@ -164,13 +165,18 @@ end
 # make private?
 function CWEtoHWE(CWE::WeightEnumerator)
     poly = Vector{Vector{Int64}}()
+    # is homogeneous
+    n = sum(CWE[1][2:end])
     for term in CWE
         # absolute value for quantum, signed CWEs?
-        tot = sum(term[2:end])
-        CWE.n >= tot || error("Total degree of term in complete weight enumerator is larger than the code length.")
-        push!(poly, [term[1], tot, CWE.n - tot])
+        # tot = sum(term[3:end])
+        # CWE.n >= tot || error("Total degree of term in complete weight enumerator is larger than the code length.")
+        # push!(poly, [term[1], tot, n - tot])
+
+        # actually can just do this since it's homogeneous
+        push!(poly, [term[1], n - term[2], term[2]])
     end
-    return WeightEnumerator(_reducepoly(poly), "Hamming", CWE.n)
+    return WeightEnumerator(_reducepoly(poly), "Hamming")
 end
 
 function weightenumeratorC(T::Trellis, type::String="complete")
@@ -205,7 +211,7 @@ function weightenumeratorC(T::Trellis, type::String="complete")
         end
     end
     T.CWE = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex),
-        "complete", length(T.code))
+        "complete")
 
     # currently Missing is not an option but how to implement dual trellis
     if !isshifted(T) && !ismissing(T.code)
