@@ -1,13 +1,13 @@
 #############################
-        # Repetition
+          # Misc
 #############################
 
 """
-    RepetitionCode(q::Integer, n::Integer)
+    RepetitionCode(q::Int, n::Int)
 
 Return the `[n, 1, n]` repetition code over `GF(q)`.
 """
-function RepetitionCode(q::Integer, n::Integer)
+function RepetitionCode(q::Int, n::Int)
     F, _ = FiniteField(q, 1, "α")
     G = matrix(F, 1, n, [1 for i in 1:n])
     M2 = MatrixSpace(F, n - 1, 1)
@@ -16,36 +16,70 @@ function RepetitionCode(q::Integer, n::Integer)
     return LinearCode(F, n, 1, n, G, G, H, H, G, H, missing)
 end
 
-#############################
-          # Tetra
-#############################
+# this is a Hamming code?
+"""
+    Hexacode()
 
-# function tetracode()
-#     return Hammingcode(3, 2)
-# end
+Return the `[6, 3, d]` hexacode over `GF(4)`.
+"""
+function Hexacode()
+    F, ω = FiniteField(2, 2, "α")
+    G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
+    return LinearCode(G)
+end
 
 #############################
          # Hamming
 #############################
 
-# function Hammingcode(p::Integer, r::Integer)
-#
-# end
+"""
+    HammingCode(q::Int, r::Int)
 
-# function construct_ham_matrix(r::Int, q::Int)
-#     ncols = Int(floor((q^r - 1) / (q - 1)))
-#     M = Matrix{Int}(undef, r, ncols)
-#
-#     for i in 1:ncols
-#         M[:, i] = reverse(digits(parse(Int, string(i, base = q)), pad = r), dims = 1)
-#     end
-#
-#     return M
-# end
+Return the `[(q^r - 1)/(q - 1), (q^r - 1)/(q - 1) - r, 3]` Hamming code over `GF(q)`.
 
+# Notes
+* This is currently only implemented for binary codes.
+"""
+function HammingCode(q::Int, r::Int)
+    2 ≤ r || error("Hamming codes require r ≥ 2; received r = $r.")
+    r < 64 || error("This Hamming code requires the implmentation of BigInts. Change if necessary.")
+    q == 2 || error("Nonbinary Hamming codes have not yet been implemented.")
 
+    if !isprime(q)
+        factors = factor(q)
+        if length(factors) != 1
+            error("There is no finite field of order $(prod(factors)).")
+        end
+    end
 
+    if q == 2
+        F, _ = FiniteField(2, 1, "α")
+        # there are faster ways to do this using trees, but the complexity and
+        # overhead is not worth it for the sizes required here
+        H = matrix(F, hcat([reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]...))
+        C = LinearCode(H, true)
+        setminimumdistance!(C, 3)
+        return C
+    end
 
+    # think for higher fields I can simply make a matrix whose columns are all
+    # nonzero m-tuples from GF(q) with first nonzero entry == 1
+end
+
+"""
+    TetraCode()
+
+Return the `[4, 2, 3]` tetra code over `GF(3)`.
+
+This is equiavlent to the `Hamming(3, 2, 3)` code, but the construction here is
+based on the commonly presented generator and parity-check matrices.
+"""
+function TetraCode()
+    F, _ = FiniteField(3, 1, "α")
+    G = matrix(F, [1 0 1 1; 0 1 1 -1])
+    H = matrix(F, [-1 -1 1 0; -1 1 0 1])
+    return LinearCode(F, 4, 2, 3, G, G, H, H, G, H, missing)
+end
 
 #############################
          # Simplex
@@ -117,7 +151,7 @@ end
 #############################
 
 """
-    ExtendedGolayCode(p::Integer)
+    ExtendedGolayCode(p::Int)
 
 Return the [24, 12, 8] extended binary Golay code if `p == 2` or the [12, 6, 6]
 extended ternary Golay code if `p == 3`.
@@ -130,7 +164,7 @@ any coordinate.
  by calling `puncture(ExtendedGolayCode(p), 1)`. All single punctures are
  equivalent.
 """
-function ExtendedGolayCode(p::Integer)
+function ExtendedGolayCode(p::Int)
     if p == 2
         F, _ = FiniteField(2, 1, "α")
         M = MatrixSpace(F, 12 , 12)
@@ -167,7 +201,7 @@ function ExtendedGolayCode(p::Integer)
 end
 
 """
-    GolayCode(p::Integer)
+    GolayCode(p::Int)
 
 Return the `[23, 12, 7]`` binary Golay code if `p == 2` or the `[11, 6, 5]`
 ternary Golay code if `p == 3`.
@@ -181,6 +215,6 @@ a `[12, 6, 6]` if punctured and extended in the first coordinate or a
 * These codes are constructed by calling `puncture(ExtendedGolayGode(p), 1)`.
  All single punctures are equivalent.
 """
-function GolayCode(p::Integer)
+function GolayCode(p::Int)
     return puncture(ExtendedGolayCode(p), 1)
 end

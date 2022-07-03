@@ -24,8 +24,9 @@ At the moment, all functions work as intended for test cases but have not been u
 - Complement, dual, intersection, and union of cyclic codes
 - Binary Reed Muller code
 - Golay codes
+- Binary Hamming codes
 - Binary simplex codes
-- Weight enumerators, distribution, and minimum distance
+- Weight enumerators (complete and Hamming), distribution, and minimum distance
 
 ### Quantum
 - General and CSS codes with auto CSS detection

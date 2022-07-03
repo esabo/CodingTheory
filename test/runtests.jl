@@ -29,14 +29,18 @@ end
            0 0 1 0 1 1 0;
            0 0 0 1 1 1 1]);
     C = LinearCode(G);
+    @test LinearCodeMod.field(C) == F
     @test length(C) == 7
     @test rank(G) == LinearCodeMod.dimension(C)
+    @test LinearCodeMod.cardinality(C) == BigInt(2)^4
     @test LinearCodeMod.dimension(C) == 4
+    @test LinearCodeMod.rate(C) == 4 / 7
     @test ismissing(C.d)
     LinearCodeMod.setminimumdistance!(C, 3)
     # cannot find below, don't want to provoke it just yet
     @test minimumdistance(C) == 3
     # @test !LinearCodeMod.isMDS(C)
+    # @test numbercorrectableerrors(C) == 1
     @test G == generatormatrix(C)
     @test G == originalgeneratormatrix(C)
     H = paritycheckmatrix(C)
@@ -47,6 +51,7 @@ end
     @test !(C ⊆ D)
     @test !issubcode(C, D)
     @test !isequivalent(C, D)
+    @test isequivalent(C, C)
     @test !isselfdual(C)
     @test !isselforthogonal(C)
     cw = matrix(F, [1 0 0 0 0 1 1]);
@@ -70,6 +75,45 @@ end
     @test G == generatormatrix(CGandG)
     # this fails, is of wrong size, probably a transpose mistake
     # @test GandG == originalgeneratormatrix(CGandG)
+
+    # puncturing examples from Huffman/Pless
+    G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
+    C = LinearCode(G)
+    @test generatormatrix(puncture(C, [1])) == matrix(F, [1 0 0 0; 0 1 1 1])
+    @test generatormatrix(puncture(C, [5])) == matrix(F, [1 1 0 0; 0 0 1 1])
+    G = matrix(F, [1 0 0 0; 0 1 1 1])
+    C = LinearCode(G)
+    @test generatormatrix(puncture(C, [1])) == matrix(F, [1 1 1])
+    @test generatormatrix(puncture(C, [4])) == matrix(F, [1 0 0; 0 1 1])
+
+    # extending examples from Huffman/Pless
+    C = TetraCode()
+    exC = extend(C)
+    @test generatormatrix(exC) == matrix(LinearCodeMod.field(C), [1 0 1 1 0; 0 1 1 -1 -1])
+    @test paritycheckmatrix(exC) == matrix(LinearCodeMod.field(C), [1 1 1 1 1; -1 -1 1 0 0; -1 1 0 1 0])
+    G = matrix(F, [1 1 0 0 1; 0 0 1 1 0])
+    C = LinearCode(G)
+    @test generatormatrix(extend(puncture(C, [5]))) == matrix(F, [1 1 0 0 0; 0 0 1 1 0])
+    G = matrix(F, [1 0 0 1 1 1; 0 1 0 1 1 1; 0 0 1 1 1 1])
+    C = LinearCode(G)
+    @test generatormatrix(puncture(C, [5, 6])) == matrix(F, [1 0 0 1; 0 1 0 1; 0 0 1 1])
+
+    # shortening examples from Huffman/Pless
+    shC = shorten(C, [5, 6])
+    shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
+    @test isequivalent(shC, shCtest)
+
+    # need to fix Hermitian stuff, can't find Hermitianconjugatematrix
+    # C = Hexacode()
+    # D = Hermitiandual(C)
+    # @test isequivalent(C, D)
+
+
+
+    # missing so far in tests:
+    # expurgate, augment, lengthen, uuplusv, subcode,
+    # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
+    # expandedcode, entrywiseproductcode, evensubcode
 end
 
 @testset "ReedMuller.jl" begin
@@ -102,6 +146,11 @@ end
 
 
 end
+
+# tests for Hamming codes
+# Tetra code is Hammingcode(3, 2)
+# columns are 1, 2, ... 2^r - 1 written as binary numerals
+# should be [2^r - 1, 2^r - 1 - r, 3]
 
 # tests for simplex codes
 # all nonzero codewords have weights q^{r - 1}
