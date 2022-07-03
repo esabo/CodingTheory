@@ -34,11 +34,11 @@ At the moment, all functions work as intended for test cases but have not been u
 - Characteristic vector/arbitrary phases for each bit (currently only +/- 1)
 - CSS construction from linear codes or matrices
 - General construction from Pauli strings or quadratic matrices
-- Logical space construction (S⟂ \ S) (some special cases exist which make this fail due to additive only nature of QECC while this is technically a classical code)
-- Logical operators - set manually and automated construction (untested - probably buggy)
+- Logical space construction (S⟂ \ S)
+- Logical operators - set manually (automated computation coming soon)
 - X-, Z-, and full syndrome computations
 - Generate all stabilizers
 - Weight enumerators (S⟂ temporarily disabled), distribution, and minimum distance
 - The [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes
 - Rotated surface/XZZX codes to any distance
-- 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21 (manual arrays - needs replacing)
+- 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21

@@ -8,6 +8,7 @@
          # General
 #############################
 
+# TODO: change poly to missing and then build them as going through the trellis if needed
 mutable struct Vertex
     label::BigInt
     prev::Int64
@@ -30,10 +31,16 @@ end
 mutable struct Trellis
     vertices::Vector{Vector{Vertex}}
     edges::Vector{Vector{Vector{Edge}}}
+    code::T where T <: AbstractCode
+    # complete weight enumerator
+    CWE::Union{WeightEnumerator, Missing}
+    # shifted::Bool
+    shift::Vector{fq_nmod_mat}
 end
 
 vertices(T::Trellis) = T.vertices
 edges(T::Trellis) = T.edges
+isshifted(T::Trellis) = !iszero(T.shift)
 
 function ==(a::Vertex, b::Vertex)
     return a.label == b.label && a.prev == b.prev && a.next == b.next &&

@@ -8,7 +8,8 @@
 # can't get around including this here and not in weight_dist without modules
 struct WeightEnumerator
     polynomial::Vector{Vector{Int64}}
-    Type::String
+    type::String
+    n::Int
 end
 
 mutable struct LinearCode <: AbstractLinearCode
@@ -22,6 +23,7 @@ mutable struct LinearCode <: AbstractLinearCode
     Horig::Union{gfp_mat, fq_nmod_mat, Missing}
     Gstand::Union{gfp_mat, fq_nmod_mat}
     Hstand::Union{gfp_mat, fq_nmod_mat}
+    # convert to CWE
     weightenum::Union{WeightEnumerator, Missing}
 end
 
