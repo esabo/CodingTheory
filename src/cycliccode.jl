@@ -390,7 +390,7 @@ function dualdefiningset(defset::Vector{Int64}, n::Integer)
     return sort!([mod(n - i, n) for i in temp])
 end
 
-# TODO this example actually segfaults
+# TODO: this example actually segfaults
 """
     CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verify::Bool=true)
 

@@ -430,7 +430,7 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     S = directsum(Xmatrix, Zmatrix)
-    aresymplecticorthogonal(S, S) || error("The given matrices are not symplectic orthogonal.")
+    aresymplecticorthogonal(S, S, true) || error("The given matrices are not symplectic orthogonal.")
     Sq2 = symplectictoquadratic(S)
     if isempty(charvec)
         charvec = ones(Int64, size(S, 2))
@@ -480,7 +480,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
-    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
     if isempty(charvec)
         charvec = ones(Int64, size(S, 2))
     end
@@ -550,7 +550,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
-    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
     if isempty(charvec)
         charvec = ones(Int64, size(S, 2))
     end
@@ -645,7 +645,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{I
     if isempty(charvec)
         charvec = ones(Int64, size(S, 2))
     end
-    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    aresymplecticorthogonal(S, S, symp) || error("The given stabilizers are not symplectic orthogonal.")
     signs = _getsigns(S, charvec)
     # make del zero rows, cols helper functions
     # which will return a flag if this was ever done

@@ -76,6 +76,7 @@ for compatibility.
 """
 function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
     L = parent(x)
+    q = order(K)
     if verify
         # shouldn't need Int casting here but just in case...
         Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
@@ -89,8 +90,12 @@ function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}
     return [tr(x * i, K, verify) for i in basis]
 end
 
-function _expandrow(row::Vector{fq_nmod}, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
-    return hcat([_expandelement(row[i], K, basis, verify)]...)
+function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+    new_row = _expandelement(row[1], K, basis, verify)
+    for i in 2:ncols(row)
+        new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
+    end
+    return matrix(K, 1, length(new_row), new_row)
 end
 
 """
@@ -103,14 +108,13 @@ No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     L = base_ring(M)
-    L != K || return M
-    # shouldn't need Int casting here but just in case...
+    L == K && return M
     Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
     degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
     n = div(degree(L), degree(K))
     n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
     # should really check if it is a basis
-    return vcat([_expandrow(M[r, :], K, basis) for r in 1:size(M, 1)])
+    return vcat([_expandrow(M[r, :], K, basis) for r in 1:size(M, 1)]...)
 end
 
 """

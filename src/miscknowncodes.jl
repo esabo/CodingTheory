@@ -20,12 +20,14 @@ end
 """
     Hexacode()
 
-Return the `[6, 3, d]` hexacode over `GF(4)`.
+Return the `[6, 3, 4]` hexacode over `GF(4)`.
 """
 function Hexacode()
-    F, ω = FiniteField(2, 2, "α")
+    F, ω = FiniteField(2, 2, "ω")
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
-    return LinearCode(G)
+    # it auto-computes this H anyway but might as well skip that step
+    H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
+    return LinearCode(F, 6, 3, 4, G, G, H, H, G, H, missing)
 end
 
 #############################

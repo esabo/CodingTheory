@@ -87,8 +87,10 @@ function show(io::IO, W::WeightEnumerator)
                 end
                 for j in 2:len
                     if !iszero(term[j])
-                        print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
-                            "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
+                        # TODO: fix this
+                        # print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
+                        #     "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
+                        println(io, "x_$(j - 1)^$(term[j])")
                     end
                 end
             end
@@ -133,7 +135,7 @@ function _weightenumeratorBF(G::fq_nmod_mat)
             end
         end
 
-        term = zeros(UInt, length(elms) + 1)
+        term = zeros(Int, 1, Int(order(E)) + 1)
         for x in row
             term[lookup[x]] += 1
         end
@@ -147,11 +149,10 @@ function _weightenumeratorBF(G::fq_nmod_mat)
                 break
             end
         end
-        flag && push!(poly, [1; term])
+        flag && push!(poly, vcat([1], vec(term)))
     end
 
-    return WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex),
-        "complete")
+    return WeightEnumerator(sort!(poly, lt=_islessLex), "complete")
 end
 
 #############################
@@ -193,6 +194,7 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     V = vertices(T)
     E = edges(T)
     V[1][1].polynomial = zeros(UInt, length(elms) + 1)
+    V[1][1].polynomial[1] = 1
     for i in 2:length(V)
         for (j, v) in enumerate(V[i])
             outer = Vector{Vector{Int64}}()
@@ -246,7 +248,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 
     if alg == "auto"
-        if BigInt(characteristic(field(C)))^dimension(C) <= 1e6 # random cutoff
+        if BigInt(characteristic(LinearCodeMod.field(C)))^LinearCodeMod.dimension(C) <= 1e6 # random cutoff
             C.weightenum = _weightenumeratorBF(generatormatrix(C))
             type == "Hamming" && return CWEtoHWE(C.weightenum)
             return C.weightenum
@@ -272,7 +274,7 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
     alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
     format ∈ ["full", "compact"] || error("Unknown value for parameter format: $format; expected `full` or `compact`.")
 
-    ismissing(C.weightenum) && weightenumerator(C, alg)
+    ismissing(C.weightenum) && weightenumerator(C, "trellis")
     wtdist = zeros(Int64, 1, length(C) + 1)
     for term in C.weightenum.polynomial
         wtdist[term[2] + 1] = term[1]

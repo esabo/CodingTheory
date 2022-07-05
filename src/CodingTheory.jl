@@ -31,7 +31,7 @@ module CodingTheory
             dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
             Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
             printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-            quadratictosymplectic, symplectictoquadratic
+            quadratictosymplectic, symplectictoquadratic, _processstrings, _Paulistringtosymplectic
     end
     @reexport using CodingTheory.UtilsMod
 
@@ -56,10 +56,11 @@ module CodingTheory
     module LinearCodeMod
         using AbstractAlgebra
         using Nemo
+        using CodingTheory.UtilsMod
 
         import Base: show, length, in, ⊆, /, *, ==, ∩, +
         import AbstractAlgebra: quo, VectorSpace
-        import Nemo: isprime, factor
+        import Nemo: isprime, factor, transpose
 
         abstract type AbstractCode end
         abstract type AbstractLinearCode <: AbstractCode end
@@ -74,8 +75,9 @@ module CodingTheory
             directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
             expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
             juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
-            expandedcode, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
-            componentwiseproductcode, VectorSpace, _standardform
+            entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
+            componentwiseproductcode, VectorSpace, _standardform,
+            expandedcode, subfieldsubcode, tracecode
     end
     @reexport using CodingTheory.LinearCodeMod
 
@@ -143,6 +145,7 @@ module CodingTheory
     module QuantumCodeMod
         using AbstractAlgebra
         using Nemo
+        using CodingTheory.UtilsMod
         using CodingTheory.LinearCodeMod
 
         import Base: show, length, in, ⊆, /, *, ==, ∩, +
@@ -185,14 +188,17 @@ module CodingTheory
     module TrellisMod
         using AbstractAlgebra
         using Nemo
+        using CodingTheory.UtilsMod
         using CodingTheory.LinearCodeMod
         using CodingTheory.QuantumCodeMod
 
+        import Base: ==
+
         include("trellis.jl")
         export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
-            trellisorientedformC,trellisprofiles, syndrometrellis, trellisorientedformQ,
-            optimalsectionalizationQ, weightQ!, shiftandweightQ!, shiftanddecodeQ!,
-            shift!
+            trellisorientedformlinear,trellisprofiles, syndrometrellis,
+            trellisorientedformadditive, optimalsectionalizationQ, weightQ!,
+            shiftandweightQ!, shiftanddecodeQ!, shift!
     end
     @reexport using CodingTheory.TrellisMod
 
@@ -206,6 +212,8 @@ module CodingTheory
         using CodingTheory.LinearCodeMod
         using CodingTheory.QuantumCodeMod
         using CodingTheory.TrellisMod
+
+        import Base: -, show
 
         include("weight_dist.jl")
         export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,

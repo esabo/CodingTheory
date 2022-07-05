@@ -95,7 +95,7 @@ function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
             push!(arr, Cx)
         end
     end
-    #
+    
     # sort!(arr, by=x->x[1])
 
     if verbose

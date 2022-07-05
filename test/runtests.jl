@@ -114,6 +114,18 @@ end
     # expurgate, augment, lengthen, uuplusv, subcode,
     # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
     # expandedcode, entrywiseproductcode, evensubcode
+
+    # subfield subcode example from Huffman/Pless
+    # using Nemo, CodingTheory
+    # F, _ = FiniteField(2, 1, "α");
+    K, ω = FiniteField(2, 2, "ω");
+    C = Hexacode();
+    dualbasis = [ω^2, K(1)]; # dual?
+    CF2 = subfieldsubcode(C, F, dualbasis)
+    @test isequivalent(CF2, RepetitionCode(2, 6))
+
+    # # test Delsarte's theorem
+    # @test isequivalent(CF2, dual(tracecode(dual(C), F)))
 end
 
 @testset "ReedMuller.jl" begin
@@ -166,3 +178,12 @@ end
 # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
 # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
 # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)
+
+
+@testset "cyclotomic.jl" begin
+    using CodingTheory
+
+    @test allcyclotomiccosets(2, 15, false) == [[0], [1, 2, 4, 8], [3, 6, 12, 9],
+        [5, 10], [7, 14, 13, 11]]
+
+end

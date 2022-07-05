@@ -111,10 +111,10 @@ function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::
 
     if !parity
         return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, G, Gorig,
-            deepcopy(transpose(H)), missing, Gstand, Hstand, missing)
+            transpose(H), missing, Gstand, Hstand, missing)
     else
-        return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, deepcopy(transpose(H)), missing,
-            G, Gorig, Hstand, Gstand, missing)
+        return LinearCode(base_ring(G), size(H, 1), size(H, 2), missing,
+            transpose(H), missing, G, Gorig, Hstand, Gstand, missing)
     end
 end
 
@@ -883,12 +883,58 @@ end
     expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
 
 Return the expanded code of `C` constructed by exapnding the generator matrix
-to the subfield `K` using the provided `basis` for the base ring of `M` over `K`.
+to the subfield `K` using the provided dual `basis` for the field of `C`
+over `K`.
 
 No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 function expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     return LinearCode(expandmatrix(generatormatrix(C), K, basis))
+end
+
+# """
+#     subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField)
+#
+# Return the subfield subcode code of `C` over `K` using Delsarte's theorem.
+#
+# Use this method if you are unsure of the dual basis to the basis you which
+# to expand with.
+# """
+# function subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField)
+#     return dual(tracecode(dual(C), K))
+# end
+
+"""
+    subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return the subfield subcode code of `C` over `K` using the provided dual `basis`
+for the field of `C` over `K`.
+
+No check is done to ensure that `basis` is indeed a basis for the extension.
+"""
+function subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    return LinearCode(transpose(expandmatrix(transpose(paritycheckmatrix(C)), K, basis)), true)
+end
+
+"""
+    tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return the trace code of `C` over `K` using the provided dual `basis`
+for the field of `C` over `K` using Delsarte's theorem.
+
+No check is done to ensure that `basis` is indeed a basis for the extension.
+"""
+function tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    # G = generatormatrix(C)
+    # trG = zero_matrix(K, nrows(G), ncols(G))
+    # for c in 1:ncols(G)
+    #     for r in 1:nrows(G)
+    #         trG[r, c] = tr(G[r, c])
+    #     end
+    # end
+    # # println(trG)
+    # return LinearCode(trG)
+    return dual(subfieldsubcode(dual(C), K, basis))
 end
 
 # R.Pellikaan, On decoding by error location and dependent sets of error
