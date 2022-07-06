@@ -33,6 +33,7 @@ end
 #############################
          # Hamming
 #############################
+# unclear if this should be promoted to its own type so r can be extracted
 
 """
     HammingCode(q::Int, r::Int)
@@ -135,13 +136,13 @@ function SimplexCode(q::Int, r::Int)
             zs = matrix(F, 1, size(Grm1, 2), zeros(Int, 1, size(Grm1, 2)))
             os = matrix(F, 1, size(Grm1, 2) + 1, ones(Int, 1, size(Grm1, 2) + 1))
             top = hcat(zs, os)
-            Grm1 = vcat(top, bom)
+            Grm1 = vcat(top, bot)
         end
         C = LinearCode(Grm1)
         # all nonzero codewords have weights q^{r - 1}
         # should have q^r - 1 nonzero codewords
         # coeff, 0's, 1's
-        C.weightenum = WeightEnumerator([[1, 2^r, 0], [2^r - 1, 2^r - 2^(r - 1) - 1,
+        C.weightenum = WeightEnumerator([[1, 2^r - 1, 0], [2^r - 1, 2^r - 2^(r - 1) - 1,
             2^(r - 1)]], "complete")
         setminimumdistance!(C, 2^(r - 1))
         return C
@@ -214,9 +215,9 @@ a `[12, 6, 6]` if punctured and extended in the first coordinate or a
 `[12, 6, 5]` code otherwise.
 
 # Notes
-* These codes are constructed by calling `puncture(ExtendedGolayGode(p), 1)`.
+* These codes are constructed by calling `puncture(ExtendedGolayGode(p), [1])`.
  All single punctures are equivalent.
 """
 function GolayCode(p::Int)
-    return puncture(ExtendedGolayCode(p), 1)
+    return puncture(ExtendedGolayCode(p), [1])
 end

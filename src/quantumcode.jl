@@ -166,6 +166,7 @@ Set the minimum distance of the code to `d`.
 The only check done on the value of `d` is that `1 ≤ d ≤ n`.
 """
 function setminimumdistance!(S::AbstractStabilizerCode, d::Integer)
+    # TODO: should check bounds like Singleton for possibilities
     d > 0 && d <= length(S) || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
     S.d = d
 end
@@ -177,7 +178,7 @@ Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
 otherwise errors.
 """
 function relativedistance(S::AbstractStabilizerCode)
-    !ismissing(S.d) || error("Unknown minimum distance for this code.")
+    !ismissing(S.d) || error("Missing minimum distance for this code.")
     return S.d / S.n
 end
 
@@ -1002,11 +1003,14 @@ end
 # iter = combinations(1:size(stabs, 2))
 # but this only in base 2
 """
-    allstabilizers(S::AbstractStabilizerCode)
+    allstabilizers(Q::AbstractStabilizerCode, print::Bool=false)
+    elements(Q::AbstractStabilizerCode, print::Bool=false)
 
-Return the set of all stabilizers using brute-force.
+Return the elements of `S`.
+
+If `print` is `true`, the elements are only printed to the console and not returned.
 """
-function allstabilizers(Q::AbstractStabilizerCode)
+function allstabilizers(Q::AbstractStabilizerCode, print::Bool=false)
     E = quadraticfield(Q)
     all = Vector{fq_nmod_mat}()
     stabs = stabilizers(Q)
@@ -1017,10 +1021,19 @@ function allstabilizers(Q::AbstractStabilizerCode)
                 stab += E(iter[r]) * stabs[r, :]
             end
         end
-        push!(all, stab)
+        if print
+            println(stab)
+        else
+            push!(all, stab)
+        end
     end
-    return all
+    if print
+        return
+    else
+        return all
+    end
 end
+elements(Q::AbstractStabilizerCode, print::Bool=false)
 
 #############################
 #   Generator Coefficients  #

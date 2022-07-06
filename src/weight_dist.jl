@@ -69,6 +69,19 @@ function -(W1::WeightEnumerator, W2::WeightEnumerator)
     return WeightEnumerator(newpoly, W1.type)
 end
 
+function ==(W1::WeightEnumerator, W2::WeightEnumerator)
+    W1.type == W2.type || return false
+    a = WeightEnumerator(sort!(_reducepoly(W1.polynomial), lt=_islessLex), W1.type)
+    b = WeightEnumerator(sort!(_reducepoly(W2.polynomial), lt=_islessLex), W2.type)
+    length(a.polynomial) == length(b.polynomial) || return false
+    # for i in 1:length(a.polynomial)
+    #     a.polynomial[i] == b.polynomial[i] || return false
+    # end
+    # return true
+    a.polynomial == b.polynomial && return true
+    return false
+end
+
 """
 prints in order of collect(F) where F is the field of the code
 
@@ -76,7 +89,7 @@ prints in order of collect(F) where F is the field of the code
 function show(io::IO, W::WeightEnumerator)
     poly = W.polynomial
     if W.type == "complete"
-        println(io, "A complete weight enumerator for a classical code.")
+        # println(io, "A complete weight enumerator for a classical code.")
         len = length(poly[1])
         for (i, term) in enumerate(poly)
             if !iszero(term[1]) && iszero(term[2:end])
@@ -90,7 +103,7 @@ function show(io::IO, W::WeightEnumerator)
                         # TODO: fix this
                         # print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
                         #     "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
-                        println(io, "x_$(j - 1)^$(term[j])")
+                        print(io, "x_$(j - 1)^$(term[j])")
                     end
                 end
             end
@@ -99,7 +112,7 @@ function show(io::IO, W::WeightEnumerator)
             end
         end
     elseif W.type == "Hamming"
-        println(io, "A Hamming weight enumerator for a classical code.")
+        # println(io, "A Hamming weight enumerator for a classical code.")
         for (i, term) in enumerate(poly)
             if !iszero(term[1]) && iszero(term[2:end])
                 print(io, term[1])
@@ -110,7 +123,7 @@ function show(io::IO, W::WeightEnumerator)
                 if !iszero(term[2])
                     print(io, "x^", term[2])
                 end
-                if !iszero(term[2])
+                if !iszero(term[3])
                     print(io, "y^", term[3])
                 end
             end
@@ -124,6 +137,7 @@ end
 # TODO: test with other iterator
 function _weightenumeratorBF(G::fq_nmod_mat)
     E = base_ring(G)
+    ordE = Int(order(E))
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
     poly = Vector{Vector{Int}}()
     # Nemo.AbstractAlgebra.ProductIterator
@@ -135,7 +149,7 @@ function _weightenumeratorBF(G::fq_nmod_mat)
             end
         end
 
-        term = zeros(Int, 1, Int(order(E)) + 1)
+        term = zeros(Int, 1, ordE + 1)
         for x in row
             term[lookup[x]] += 1
         end
@@ -152,7 +166,7 @@ function _weightenumeratorBF(G::fq_nmod_mat)
         flag && push!(poly, vcat([1], vec(term)))
     end
 
-    return WeightEnumerator(sort!(poly, lt=_islessLex), "complete")
+    return WeightEnumerator(sort!(_reducepoly(poly), lt=_islessLex), "complete")
 end
 
 #############################
@@ -167,8 +181,8 @@ end
 function CWEtoHWE(CWE::WeightEnumerator)
     poly = Vector{Vector{Int64}}()
     # is homogeneous
-    n = sum(CWE[1][2:end])
-    for term in CWE
+    n = sum(CWE.polynomial[1][2:end])
+    for term in CWE.polynomial
         # absolute value for quantum, signed CWEs?
         # tot = sum(term[3:end])
         # CWE.n >= tot || error("Total degree of term in complete weight enumerator is larger than the code length.")
@@ -177,7 +191,7 @@ function CWEtoHWE(CWE::WeightEnumerator)
         # actually can just do this since it's homogeneous
         push!(poly, [term[1], n - term[2], term[2]])
     end
-    return WeightEnumerator(_reducepoly(poly), "Hamming")
+    return WeightEnumerator(sort!(_reducepoly(poly), lt=_islessLex), "Hamming")
 end
 
 function weightenumeratorC(T::Trellis, type::String="complete")
@@ -190,11 +204,13 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     end
 
     # if this ever changes or permutes will have to store with T
-    elms = collect(field(T.code))
+    # TODO: fix this
+    # elms = collect(field(T.code))
+    elms = collect(T.code.F)
     V = vertices(T)
     E = edges(T)
-    V[1][1].polynomial = zeros(UInt, length(elms) + 1)
-    V[1][1].polynomial[1] = 1
+    V[1][1].polynomial = [zeros(Int, length(elms) + 1)]
+    V[1][1].polynomial[1][1] = 1
     for i in 2:length(V)
         for (j, v) in enumerate(V[i])
             outer = Vector{Vector{Int64}}()
@@ -220,11 +236,10 @@ function weightenumeratorC(T::Trellis, type::String="complete")
         T.code.weightenum = T.CWE
     end
 
-    if cleanV
-        for i in 1:length(V)
-            for v in V[i]
-                v.polynomial = missing
-            end
+    # clean up vertices
+    for i in 1:length(V)
+        for v in V[i]
+            v.polynomial = missing
         end
     end
 
@@ -253,14 +268,10 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
             type == "Hamming" && return CWEtoHWE(C.weightenum)
             return C.weightenum
         else
-            C.weightenum = weightenumeratorC(syndrometrellis(C, true), true)
-            type == "Hamming" && return CWEtoHWE(C.weightenum)
-            return C.weightenum
+            return weightenumeratorC(syndrometrellis(C, "primal", false), type)
         end
     elseif alg == "trellis"
-        C.weightenum = weightenumeratorC(syndrometrellis(C, true), true)
-        type == "Hamming" && return CWEtoHWE(C.weightenum)
-        return C.weightenum
+        return weightenumeratorC(syndrometrellis(C, "primal", false), type)
     elseif alg == "bruteforce"
         C.weightenum = _weightenumeratorBF(generatormatrix(C))
         type == "Hamming" && return CWEtoHWE(C.weightenum)

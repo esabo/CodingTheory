@@ -67,7 +67,7 @@ module CodingTheory
         export AbstractCode, AbstractLinearCode
 
         include("linearcode.jl")
-        export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate, setminimumdistance,
+        export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate, setminimumdistance!,
             relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
             originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
             encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
@@ -77,7 +77,8 @@ module CodingTheory
             juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
             entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
             componentwiseproductcode, VectorSpace, _standardform,
-            expandedcode, subfieldsubcode, tracecode
+            expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
+            words, codewords, elements
     end
     @reexport using CodingTheory.LinearCodeMod
 
@@ -161,7 +162,7 @@ module CodingTheory
             Xstabilizers, Zstabilizers, numXstabs, numZstabs, normalizermatrix,
             charactervector, setminimumdistance, relativedistance, splitstabilizers,
             isCSS, CSSCode, QuantumCode, logicalspace, setlogicals!, changesigns!,
-            Xsyndrome, Zsyndrome, syndrome, allstabilizers
+            Xsyndrome, Zsyndrome, syndrome, allstabilizers, elements
     end
     @reexport using CodingTheory.QuantumCodeMod
 
@@ -198,7 +199,7 @@ module CodingTheory
         export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
             trellisorientedformlinear,trellisprofiles, syndrometrellis,
             trellisorientedformadditive, optimalsectionalizationQ, weightQ!,
-            shiftandweightQ!, shiftanddecodeQ!, shift!
+            shiftandweightQ!, shiftanddecodeQ!, shift!, isshifted
     end
     @reexport using CodingTheory.TrellisMod
 
@@ -213,13 +214,13 @@ module CodingTheory
         using CodingTheory.QuantumCodeMod
         using CodingTheory.TrellisMod
 
-        import Base: -, show
+        import Base: -, ==, show
 
         include("weight_dist.jl")
         export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
             Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
             HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-            weightdistribution
+            weightdistribution, CWEtoHWE, _islessLex
     end
     @reexport using CodingTheory.WeightDistMod
 end

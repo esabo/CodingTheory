@@ -94,7 +94,7 @@ If the optional parameter `verify` is set to `true`, basic checks are done to
 ensure correctness.
 """
 function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
-    (1 ≤ r < m) || error("Reed-Muller codes require 1 ≤ r < m, received r = $r and m = $m.")
+    (0 ≤ r < m) || error("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m.")
     m < 64 || error("This Reed-Muller code requires the implmentation of BigInts. Change if necessary.")
     q == 2 || error("Nonbinary Reed-Muller codes have not yet been implemented.")
 
@@ -104,7 +104,7 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
             error("There is no finite field of order $(prod(factors)).")
         end
     end
-
+    
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = _standardform(G)

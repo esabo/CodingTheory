@@ -1076,3 +1076,57 @@ end
 #
 #     return LinearCode(vcat([ψ(ϕ1(μ1(ϕ2(g)))).v for g in gens(foursub)]...))
 # end
+
+"""
+    permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Integer
+
+Return the code whose generator matrix is `C`'s with the columns permuted by `σ`.
+
+If `σ` is a vector, it is interpreted as the desired column order for the
+generator matrix of `C`.
+"""
+function permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Integer
+    F = LinearCodeMod.field(C)
+    if typeof(σ) <: Perm
+        return LinearCode(generatormatrix(C) * matrix(F, Array(matrix_repr(σ))))
+    else
+        length(unique(σ)) == LinearCodeMod.length(C) || error("Incorrect number of digits in permutation.")
+        (1 == minimum(σ) && LinearCodeMod.length(C) == maximum(σ)) || error("Digits are not in the range `1:n`.")
+        return LinearCode(generatormatrix(C)[:, σ])
+    end
+end
+
+"""
+    words(C::AbstractLinearCode, print::Bool=false)
+    codewords(C::AbstractLinearCode, print::Bool=false)
+    elements(C::AbstractLinearCode, print::Bool=false)
+
+Return the elements of `C`.
+
+If `print` is `true`, the elements are only printed to the console and not returned.
+"""
+function words(C::AbstractLinearCode, print::Bool=false)
+    words = Vector{fq_nmod_mat}()
+    E = base_ring(G)
+    # Nemo.AbstractAlgebra.ProductIterator
+    for iter in Base.Iterators.product([0:(Int64(characteristic(E)) - 1) for _ in 1:nrows(G)]...)
+        row = E(iter[1]) * G[1, :]
+        for r in 2:nrows(G)
+            if !iszero(iter[r])
+                row += E(iter[r]) * G[r, :]
+            end
+        end
+        if !print
+            push!(words, row)
+        else
+            println(row)
+        end
+    end
+    if !print
+        return words
+    else
+        return
+    end
+end
+codewords(C::AbstractLinearCode, print::Bool=false) = words(C, print)
+elements(C::AbstractLinearCode, print::Bool=false) = words(C, print)
