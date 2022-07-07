@@ -8,7 +8,7 @@ mutable struct CSSCode <: AbstractCSSCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field
     n::Integer
-    k::Integer
+    k::Union{Integer, Rational{BigInt}}
     d::Union{Integer, Missing}
     dx::Union{Integer, Missing}
     dz::Union{Integer, Missing}
@@ -24,16 +24,16 @@ mutable struct CSSCode <: AbstractCSSCode
     logspace::Union{fq_nmod_mat, Missing}
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
     charvec::Vector{Int64} # make bools, uint8's?
-    dualweightenum::Union{WeightEnumerator, Missing}
-    logsweightenum::Union{WeightEnumerator, Missing}
-    Pauliweightenum::Union{WeightEnumerator, Missing}
+    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
+    overcomplete::Bool
 end
 
 mutable struct QuantumCode <: AbstractStabilizerCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field
     n::Integer
-    k::Union{Integer, Rational{Int64}}
+    k::Union{Integer, Rational{BigInt}}
     d::Union{Integer, Missing}
     stabs::fq_nmod_mat
     dualgens::fq_nmod_mat
@@ -41,9 +41,9 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
     charvec::Vector{Int64} # make bools, uint8's?
     signs::Vector{Int64}
-    dualweightenum::Union{WeightEnumerator, Missing}
-    logsweightenum::Union{WeightEnumerator, Missing}
-    Pauliweightenum::Union{WeightEnumerator, Missing}
+    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
+    overcomplete::Bool
 end
 
 """
@@ -182,6 +182,13 @@ function relativedistance(S::AbstractStabilizerCode)
     return S.d / S.n
 end
 
+"""
+    isovercomplete(S::AbstractStabilizerCode)
+
+Return `true` if `S` has an overcomplete set of stabilizers.
+"""
+isovercomplete(S::AbstractStabilizerCode) = return S.overcomplete
+
 function _getsigns(A::fq_nmod_mat, charvec::Vector{Int64})
     if length(charvec) == 2 * size(A, 2)
         A = quadratictosymplectic(A)
@@ -205,11 +212,11 @@ function _getsigns(A::fq_nmod_mat, charvec::Vector{Int64})
 end
 
 function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
-    Xstabs = []
+    Xstabs = Vector{fq_nmod_mat}()
     Xsigns = Vector{Int64}()
-    Zstabs = []
+    Zstabs = Vector{fq_nmod_mat}()
     Zsigns = Vector{Int64}()
-    mixedstabs = []
+    mixedstabs = Vector{fq_nmod_mat}()
     mixedsigns = Vector{Int64}()
 
     half = div(size(S, 2), 2)
@@ -251,6 +258,10 @@ end
 
 Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
 stabilizers and their signs, and the remaining stabilizers and their signs.
+
+This function returns six objevts of alternating types `fq_nmod_mat` and
+`Vector{Int}` for the three sets of stabilizers and signs, respectively.
+An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
 """
 function splitstabilizers(S::AbstractStabilizerCode)
     return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
@@ -258,7 +269,7 @@ end
 
 function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
-    if isempty(mixedstabs)
+    if typeof(mixedstabs) <: Vector{fq_nmod_mat}
         if trim
             half = div(size(Xstabs, 2), 2)
             return true, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns
@@ -276,17 +287,23 @@ function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=tr
 end
 
 """
-    splitstabilizers(S::AbstractStabilizerCode)
+    isCSS(S::AbstractStabilizerCode)
 
-Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
-stabilizers and their signs, and the remaining stabilizers and their signs.
+Return `true` is `S` is CSS.
+
+# Notes
+* This is intended to be a simple function wrapper for `typeof(S)` since the
+ constructor for `QuantumCode` automatically returns a `CSSCode` if possible.
+ Manually changing the elements of the struct `S` without using the helper
+ functions provided here is not recommended.
 """
 function isCSS(S::AbstractStabilizerCode)
-    return
+    typeof(S) <: AbstractCSSCode && return true
+    return false
 end
 
 """
-    CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{Int64}, Missing}=missing)
 
 Return a CSS code using the CSS construction on two linear codes `C1 = [n, k1, d1]`
 and `C2 = [n, k2, d2]` with `C2 ⊆ C1`.
@@ -299,23 +316,26 @@ of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 * `C1`: a linear code
 * `C2`: a subcode of `C1`
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
 """
 function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    charvec::Union{Vector{Int64}, Missing}=missing)
 
-    length(C1) ==  length(C2) || error("Both codes must have the same length in the CSS construction.")
-    field(C1) == field(C2) || error("Both codes must be over the same base field in the CSS construction.")
     C2 ⊆ C1 || error("The second argument must be a subset of the first in the CSS construction.")
-    if !isempty(charvec)
+    # here I'm assuming all of this is over the prime subfield
+    if !ismissing(charvec)
+        2 * length(C1) == length(charvec) || error("The characteristic value is of incorrect length.")
         for s in charvec
-            (s == 1 || s == -1) || error("X-stabilizer signs must be +/- 1; received: $s")
+            # in other roots of unity here
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
         end
     end
+    # can check base ring of linear code, apply formula for roots of unity group
+    # construct that group, check if s ∈ that group
 
     # C2 ⊆ C1
     # k = k1 - k2
@@ -324,7 +344,7 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     D2 = dual(C2)
     S = directsum(paritycheckmatrix(D2), paritycheckmatrix(C1))
     Sq2 = symplectictoquadratic(S)
-    if isempty(charvec)
+    if ismissing(charvec)
         charvec = ones(Int64, 2 * length(C1))
         signs = ones(Int64, size(S, 1))
         Xsigns = ones(Int64, size(paritycheckmatrix(D2), 1))
@@ -336,14 +356,20 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     end
     dualgens = directsum(generatormatrix(C1), generatormatrix(D2))
 
-    return CSSCode(field(C1), base_ring(Sq2), length(C1), dimension(C1) - dimension(C2),
-        missing, minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2),
+    # q^n / p^k but rows is n - k
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^rank(S)
+    if isinteger(dimcode)
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
+    end
+
+    return CSSCode(field(C1), base_ring(Sq2), length(C1), dimcode, missing,
+        minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2),
         paritycheckmatrix(C1), C2, C1, signs, Xsigns, Zsigns, dualgens, missing,
-        missing, charvec, missing, missing, missing)
+        missing, charvec, missing, missing, false)
 end
 
 """
-    CSSCode(C::AbstractLinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    CSSCode(C::AbstractLinearCode, charvec::Union{Vector{Int64}, Missing}=missing)
 
 Return a CSS code using the CSS construction on a self-orthogonal linear code
 `C`, i.e., `C ⊆ C^⟂`.
@@ -352,22 +378,30 @@ Setting `C1 = C^⟂` and `C2 = C`, the resulting code has dimension `k = k1 - k2
 and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the
 parity-check matrix of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 
+It is often desirable in quantum error correction to work with a set of
+overcomplete stabilizers. Therefore this constructor does not simplify any
+provided set of stabilizers. The dimension of the code is computed based on the
+rank, and the user should not use the matrix dimension of the stabilizers to
+determine such quantities. Use `isovercomplete` to determine if an
+`AbstractStabilizerCode` is overcomplete.
+
 # Arguments
 * `C`: a self-orthogonal linear code
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
 """
-function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Missing}=missing)
     # this should have Xstabs = Zstabs
     D = dual(C)
     C ⊆ D || error("The single code CSS construction requires C ⊆ C^⟂.")
-    if !isempty(charvec)
+    if !ismissing(charvec)
+        2 * length(C) == length(charvec) || error("The characteristic value is of incorrect length.")
         for s in charvec
-            (s == 1 || s == -1) || error("X-stabilizer signs must be +/- 1; received: $s")
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
         end
     end
 
@@ -377,8 +411,7 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
     # X - H(C2^⟂), Z - H(C1)
     S = directsum(paritycheckmatrix(D), paritycheckmatrix(D))
     Sq2 = symplectictoquadratic(S)
-    k = dimension(D) - dimension(C)
-    if isempty(charvec)
+    if ismissing(charvec)
         charvec = ones(Int64, 2 * length(C))
         signs = ones(Int64, size(S, 1))
         Xsigns = ones(Int64, size(paritycheckmatrix(D), 1))
@@ -390,24 +423,37 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{Int64}, Vector{Any}}=[])
     end
     dualgens = directsum(generatormatrix(D), generatormatrix(D))
 
-    return CSSCode(field(C), base_ring(Sq2), length(C), k, missing, minimumdistance(D),
-        minimumdistance(D), Sq2, paritycheckmatrix(D), paritycheckmatrix(D), C, D,
-        signs, Xsigns, Zsigns, dualgens, missing, missing, charvec, missing,
-        missing, missing)
+    # q^n / p^k but rows is n - k
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^rank(S)
+    if isinteger(dimcode)
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
+    end
+
+    return CSSCode(field(C), base_ring(Sq2), length(C), dimcode, missing,
+        minimumdistance(D), minimumdistance(D), Sq2, paritycheckmatrix(D),
+        paritycheckmatrix(D), C, D, signs, Xsigns, Zsigns, dualgens, missing,
+        missing, charvec, missing, missing, overcomp)
 end
 
 """
-    CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{Int64}, Missing}=missing)
 
 Return a CSS code using the matrix `Xmatrix` as the `X` stabilizer matrix
 and `Zmatrix` as the `Z` stabilizer matrix.
+
+It is often desirable in quantum error correction to work with a set of
+overcomplete stabilizers. Therefore this constructor does not simplify any
+provided set of stabilizers. The dimension of the code is computed based on the
+rank, and the user should not use the matrix dimension of the stabilizers to
+determine such quantities. Use `isovercomplete` to determine if an
+`AbstractStabilizerCode` is overcomplete.
 
 # Arguments
 * `Xmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
 * `Zmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
@@ -415,26 +461,56 @@ and `Zmatrix` as the `Z` stabilizer matrix.
   will error upon failure.
 """
 function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
-    charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    charvec::Union{Vector{Int64}, Missing}=missing)
 
-    # this should have Zstabs * Xstabtranspose(S) = 0
-    # set dual containing if Xstabs == Zstabs, else not
-    size(Xmatrix, 2) ==  size(Zmatrix, 2) || error("Both matrices must have the same length in the CSS construction.")
+    iszero(Xmatrix) && error("The `X` stabilizer matrix is empty.")
+    iszero(Zmatrix) && error("The `Z` stabilizer matrix is empty.")
+    n = size(Xmatrix, 2)
+    n ==  size(Zmatrix, 2) || error("Both matrices must have the same length in the CSS construction.")
     base_ring(Xmatrix) == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
-    # TODO: can remove rank check now that we have full character vector
-    rank(Xmatrix) == size(Xmatrix, 1) || error("Provided X-stabilizer matrix is not full rank.")
-    rank(Zmatrix) == size(Zmatrix, 1) || error("Provided Z-stabilizer matrix is not full rank.")
-    if !isempty(charvec)
+    iszero(Zmatrix * transpose(Xmatrix)) || error("The given matrices are not symplectic orthogonal.")
+    if !ismissing(charvec)
+        2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
         for s in charvec
-            (s == 1 || s == -1) || error("X-stabilizer signs must be +/- 1; received: $s")
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
         end
     end
 
+    # remove any empty rows
+    del = Vector{Int64}()
+    for r in 1:size(Xmatrix, 1)
+        if iszero(Xmatrix[r, :])
+            append!(del, r)
+        end
+    end
+    if !isempty(del)
+        Xmatrix = Xmatrix[setdiff(1:size(Xmatrix, 1), del), :]
+    end
+    del = Vector{Int64}()
+    for r in 1:size(Zmatrix, 1)
+        if iszero(Zmatrix[r, :])
+            append!(del, r)
+        end
+    end
+    if !isempty(del)
+        Zmatrix = Zmatrix[setdiff(1:size(Zmatrix, 1), del), :]
+    end
+
+    # determine if the provided set of stabilizers are redundant
+    Xrank = rank(Xmatrix)
+    Zrank = rank(Zmatrix)
+    if size(Xmatrix, 1) > Xrank || size(Zmatrix, 1) > Zrank
+        overcomp = true
+    else
+        overcomp = false
+    end
+
     S = directsum(Xmatrix, Zmatrix)
-    aresymplecticorthogonal(S, S, true) || error("The given matrices are not symplectic orthogonal.")
+    # aresymplecticorthogonal(S, S, true) || error("The given matrices are not symplectic orthogonal.")
     Sq2 = symplectictoquadratic(S)
-    if isempty(charvec)
-        charvec = ones(Int64, size(S, 2))
+
+    if ismissing(charvec)
+        charvec = ones(Int64, 2 * n)
         signs = ones(Int64, size(S, 1))
         Xsigns = ones(Int64, size(Xmatrix, 1))
         Zsigns = ones(Int64, size(Zmatrix, 1))
@@ -444,30 +520,42 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
         Zsigns = signs[size(Xmatrix, 1) + 1:end, :]
     end
 
-    G = hcat(S[:, size(Xmatrix, 2) + 1:end], -S[:, 1:size(Xmatrix, 2)])
+    # find generators for S^⟂
+    G = hcat(S[:, n + 1:end], -S[:, 1:n])
     _, H = right_kernel(G)
-    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    size(H, 2) == n + k || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
     dualgens = symplectictoquadratic(transpose(H))
 
-    return CSSCode(base_ring(Xmatrix), base_ring(Sq2), size(Xmatrix, 2),
-        size(Xmatrix, 2) - size(Xmatrix, 1) - size(Zmatrix, 1),
-        missing, missing, missing, Sq2, Xmatrix, Zmatrix, missing, missing, signs,
-        Xsigns, Zsigns, dualgens, missing, missing, charvec, missing, missing,
-        missing)
+    # q^n / p^k but rows is n - k
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^(Xrank + Zrank)
+    if isinteger(dimcode)
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
+    end
+
+    return CSSCode(base_ring(Xmatrix), base_ring(Sq2), n, dimcode, missing,
+        missing, missing, Sq2, Xmatrix, Zmatrix, missing, missing, signs, Xsigns,
+        Zsigns, dualgens, missing, missing, charvec, missing, missing, overcomp)
 end
 
 """
-    CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+    CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
 Return a CSS code using the vector of Pauli strings `SPauli` as stabilizers.
+
+It is often desirable in quantum error correction to work with a set of
+overcomplete stabilizers. Therefore this constructor does not simplify any
+provided set of stabilizers. The dimension of the code is computed based on the
+rank, and the user should not use the matrix dimension of the stabilizers to
+determine such quantities. Use `isovercomplete` to determine if an
+`AbstractStabilizerCode` is overcomplete.
 
 # Arguments
 * `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
@@ -477,52 +565,66 @@ Return a CSS code using the vector of Pauli strings `SPauli` as stabilizers.
   to make sure these signs agree with the ones computed using the character vector.
 * Will error when the provided strings are not CSS.
 """
-function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{Int64},
+    Missing}=missing) where T <: Union{String, Vector{Char}}
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
+    iszero(S) && error("The processed Pauli strings returned a set of empty stabilizers.")
     aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
-    if isempty(charvec)
+    if !ismissing(charvec)
+        size(S, 2) == length(charvec) || error("The characteristic value is of incorrect length.")
+        for s in charvec
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
+        end
+    else
         charvec = ones(Int64, size(S, 2))
     end
-    signs = _getsigns(S, charvec)
-    Sq2 = symplectictoquadratic(S)
 
+    # remove any empty rows
+    # TODO: this function should probably actually do this in the S call
     del = Vector{Int64}()
-    for r in 1:size(Sq2, 1)
-        if iszero(Sq2[r, :])
+    for r in 1:size(S, 1)
+        if iszero(S[r, :])
             append!(del, r)
         end
     end
-
-    # not necessary but faster to skip
     if !isempty(del)
-        Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
-        S = S[setdiff(1:size(Sq2, 1), del), :]
-        signs = signs[setdiff(1:size(Sq2, 1), del)]
+        S = S[setdiff(1:size(S, 1), del), :]
     end
 
-    # if rank(Sq2) != size(Sq2, 1)
-    # rk = rank(G)
-    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
-    # if rk < size(G, 1)
-    #     _, G = rref(G)
-    # end
+    signs = _getsigns(S, charvec)
+    Sq2 = symplectictoquadratic(S)
 
-    # find dual
+    # determine if the provided set of stabilizers are redundant
+    Srank = rank(S)
+    if size(S, 1) > Srank
+        overcomp = true
+    else
+        overcomp = false
+    end
+
+    # find generators for S^⟂
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    # why'd I do 2n - k instead of n + k here?
+    size(H, 2) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
     dualgens = symplectictoquadratic(transpose(H))
+
+    # q^n / p^k but rows is n - k
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^Srank
+    if isinteger(dimcode)
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
+    end
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), size(Sq2, 2) - size(Sq2, 1),
-            missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, missing, charvec, missing, missing,
-            missing)
+        return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), k, missing,
+            missing, missing, Sq2, args[2], args[4], missing, missing, signs,
+            args[3], args[5], dualgens, missing, missing, charvec, missing,
+            missing, overcomp)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -530,15 +632,22 @@ end
 
 # entanglement-assisted is not symplectic orthogonal
 """
-    QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
+    QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
 Return a stabilizer code using the vector of Pauli strings `SPauli` as stabilizers.
+
+It is often desirable in quantum error correction to work with a set of
+overcomplete stabilizers. Therefore this constructor does not simplify any
+provided set of stabilizers. The dimension of the code is computed based on the
+rank, and the user should not use the matrix dimension of the stabilizers to
+determine such quantities. Use `isovercomplete` to determine if an
+`AbstractStabilizerCode` is overcomplete.
 
 # Arguments
 * `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
@@ -551,49 +660,52 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
 
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
+    iszero(S) && error("The processed Pauli strings returned a set of empty stabilizers.")
     aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
-    if isempty(charvec)
+    if !ismissing(charvec)
+        for s in charvec
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
+        end
+    else
         charvec = ones(Int64, size(S, 2))
     end
-    signs = _getsigns(S, charvec)
-    Sq2 = symplectictoquadratic(S)
 
-    # make del zero rows, cols helper functions
-    # which will return a flag if this was ever done
+    # remove any empty rows
+    # TODO: this function should probably actually do this in the S call
     del = Vector{Int64}()
-    for r in 1:size(Sq2, 1)
-        if iszero(Sq2[r, :])
+    for r in 1:size(S, 1)
+        if iszero(S[r, :])
             append!(del, r)
         end
     end
-
-    # not necessary but faster to skip
     if !isempty(del)
-        Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
-        S = S[setdiff(1:size(Sq2, 1), del), :]
-        signs = signs[setdiff(1:size(Sq2, 1), del)]
+        S = S[setdiff(1:size(S, 1), del), :]
     end
 
-    # need to code an additive only rref but then apply _getsigns
-    # if rank(Sq2) != size(Sq2, 1)
-    # rk = rank(G)
-    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
-    # if rk < size(G, 1)
-    #     _, G = rref(G)
-    # end
+    signs = _getsigns(S, charvec)
+    Sq2 = symplectictoquadratic(S)
 
-    # find dual
+    # determine if the provided set of stabilizers are redundant
+    Srank = rank(S)
+    if size(S, 1) > Srank
+        overcomp = true
+    else
+        overcomp = false
+    end
+
+    # find generators for S^⟂
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    # why'd I do 2n - k instead of n + k here?
+    size(H, 2) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
     dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
-    dimcode = Int64(order(base_ring(S)))^size(Sq2, 2) // Int64(characteristic(base_ring(S)))^(size(Sq2, 1))
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^Srank
     if isinteger(dimcode)
-        dimcode = Int64(log(Int64(characteristic(base_ring(S))), Int64(dimcode)))
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
     end
 
     args = _isCSSsymplectic(S, signs, true)
@@ -601,16 +713,19 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
             args[3], args[5], dualgens, missing, missing, charvec, missing, missing,
-            missing)
+            overcomp)
     else
         return QuantumCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, Sq2, dualgens, missing, missing, charvec, signs, missing,
-            missing, missing)
+            missing, overcomp)
     end
 end
 
+# TODO: # make del zero rows, cols helper functions
+# which will return a flag if this was ever done
+
 """
-    QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Vector{Any}}=[])
+    QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Missing}=missing)
 
 Return a stabilizer code using the matrix `Sq2` as the stabilizer matrix.
 
@@ -618,77 +733,84 @@ The matrix `Sq2` is assumed to be an `n` column matrix over the quadratic extens
 If the optional parameter `symp` is set to `true`, `Sq2` is assumed to be in
 symplectic form over the base field.
 
+It is often desirable in quantum error correction to work with a set of
+overcomplete stabilizers. Therefore this constructor does not simplify any
+provided set of stabilizers. The dimension of the code is computed based on the
+rank, and the user should not use the matrix dimension of the stabilizers to
+determine such quantities. Use `isovercomplete` to determine if an
+`AbstractStabilizerCode` is overcomplete.
+
 # Arguments
 * `Sq2`: a matrix over a finite field of type `FqNmodFiniteField`
 * `symp`: a boolean
 * `charvec`: a length `2n` vector with elements in {+/-1} whose first `n` elements
-  specify the `X` phases and second `n` the `Z` phases; a missing or empty argument
-  will be set to the all-ones vector
+  specify the `X` phases and second `n` the `Z` phases; a missing argument will
+  be set to the all-ones vector
 
 # Notes
 * Stabilizer signs are automatically computed given the character vector.
 * The orthogonality of the stabilizers are automatically checked and will error
   upon failure.
 """
-function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
-    if symp
-        iseven(size(Sq2, 2)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
-        if !isempty(charvec)
-            size(Sq2, 2) == length(charvec) || error("The characteristic value is of incorrect length.")
-        end
-        S = Sq2
-        Sq2 = symplectictoquadratic(Sq2)
-    else
-        E = base_ring(Sq2)
-        iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-        S = quadratictosymplectic(Sq2)
-    end
-    if isempty(charvec)
-        charvec = ones(Int64, size(S, 2))
-    end
-    aresymplecticorthogonal(S, S, symp) || error("The given stabilizers are not symplectic orthogonal.")
-    signs = _getsigns(S, charvec)
-    # make del zero rows, cols helper functions
-    # which will return a flag if this was ever done
+function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
+    charvec::Union{Vector{Int64}, Missing}=missing) where T <: Union{String, Vector{Char}}
+
+    iszero(Sq2) && error("The stabilizer matrix is empty.")
+    # remove any empty rows
+    # get this done before converting it
     del = Vector{Int64}()
     for r in 1:size(Sq2, 1)
         if iszero(Sq2[r, :])
             append!(del, r)
         end
     end
-
-    # not necessary but faster to skip
     if !isempty(del)
         Sq2 = Sq2[setdiff(1:size(Sq2, 1), del), :]
-        S = S[setdiff(1:size(Sq2, 1), del), :]
-        signs = signs[setdiff(1:size(Sq2, 1), del)]
     end
 
-    # need to code an additive only rref but then apply _getsigns
-    # if rank(Sq2) != size(Sq2, 1)
-    # rk = rank(G)
-    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
-    # if rk < size(G, 1)
-    #     _, G = rref(G)
-    # end
+    if symp
+        S = Sq2
+        # this will error properly if not correct
+        Sq2 = symplectictoquadratic(Sq2)
+    else
+        E = base_ring(Sq2)
+        iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
+        S = quadratictosymplectic(Sq2)
+    end
 
-    # find dual
+    if !missing(charvec)
+        size(S, 2) == length(charvec) || error("The characteristic value is of incorrect length.")
+        for s in charvec
+            (s == 1 || s == -1) || error("Stabilizer signs must be +/- 1; received: $s")
+        end
+    else
+        charvec = ones(Int64, size(S, 2))
+    end
+
+    aresymplecticorthogonal(S, S, symp) || error("The given stabilizers are not symplectic orthogonal.")
+    signs = _getsigns(S, charvec)
+
+    # determine if the provided set of stabilizers are redundant
+    Srank = rank(S)
+    if size(S, 1) > Srank
+        overcomp = true
+    else
+        overcomp = false
+    end
+
+    # find generators for S^⟂
     G = hcat(S[:, size(Sq2, 2) + 1:end], -S[:, 1:size(Sq2, 2)])
     _, H = right_kernel(G)
-    size(transpose(H), 1) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
+    # why'd I do 2n - k instead of n + k here?
+    size(H, 2) == 2 * size(Sq2, 2) - size(Sq2, 1) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Normalizer matrix is not transpose, symplectic orthogonal.")
+    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
     dualgens = symplectictoquadratic(transpose(H))
 
-    try
-        temp = div(Int64(order(base_ring(Sq2))), Int64(characteristic(base_ring(Sq2))))
-        dimcode = temp^(size(Sq2, 2) - size(Sq2, 1))
-    catch
-        # over flows hard here - make rational{BigInt}?
-        dimcode = Int64(order(base_ring(Sq2)))^size(Sq2, 2) // Int64(characteristic(base_ring(Sq2)))^(size(Sq2, 1))
-    end
+    # q^n / p^k but rows is n - k
+    dimcode = BigInt(order(base_ring(S)))^size(Sq2, 2) // BigInt(characteristic(base_ring(S)))^Srank
     if isinteger(dimcode)
-        dimcode = Int64(log(Int64(characteristic(base_ring(S))), Int64(dimcode)))
+        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
     end
 
     args = _isCSSsymplectic(S, signs, true)
@@ -696,11 +818,11 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{I
         return CSSCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
             args[3], args[5], dualgens, missing, missing, charvec, missing, missing,
-            missing)
+            overcomp)
     else
         return QuantumCode(base_ring(S), base_ring(Sq2), size(Sq2, 2), dimcode,
             missing, Sq2, dualgens, missing, missing, charvec, signs, missing,
-            missing, missing)
+            missing, overcomp)
     end
 end
 
@@ -868,7 +990,8 @@ function changesigns!(S::AbstractStabilizerCode, charvec::Vector{Int64})
     S.charvec = charvec
 end
 
-# add for minimum distance check
+# TODO: add for minimum distance check
+# TODO: add overcomp check
 function show(io::IO, S::AbstractStabilizerCode)
     if get(io, :compact, false)
         if typeof(S) <: CSSCode
@@ -1003,14 +1126,14 @@ end
 # iter = combinations(1:size(stabs, 2))
 # but this only in base 2
 """
-    allstabilizers(Q::AbstractStabilizerCode, print::Bool=false)
-    elements(Q::AbstractStabilizerCode, print::Bool=false)
+    allstabilizers(Q::AbstractStabilizerCode, onlyprint::Bool=false)
+    elements(Q::AbstractStabilizerCode, onlyprint::Bool=false)
 
 Return the elements of `S`.
 
-If `print` is `true`, the elements are only printed to the console and not returned.
+If `onlyprint` is `true`, the elements are only printed to the console and not returned.
 """
-function allstabilizers(Q::AbstractStabilizerCode, print::Bool=false)
+function allstabilizers(Q::AbstractStabilizerCode, onlyprint::Bool=false)
     E = quadraticfield(Q)
     all = Vector{fq_nmod_mat}()
     stabs = stabilizers(Q)
@@ -1021,19 +1144,19 @@ function allstabilizers(Q::AbstractStabilizerCode, print::Bool=false)
                 stab += E(iter[r]) * stabs[r, :]
             end
         end
-        if print
+        if onlyprint
             println(stab)
         else
             push!(all, stab)
         end
     end
-    if print
+    if onlyprint
         return
     else
         return all
     end
 end
-elements(Q::AbstractStabilizerCode, print::Bool=false)
+elements(Q::AbstractStabilizerCode, onlyprint::Bool=false) = allstabilizers(Q, onlyprint)
 
 #############################
 #   Generator Coefficients  #

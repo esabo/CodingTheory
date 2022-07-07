@@ -1097,15 +1097,16 @@ function permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where
 end
 
 """
-    words(C::AbstractLinearCode, print::Bool=false)
-    codewords(C::AbstractLinearCode, print::Bool=false)
-    elements(C::AbstractLinearCode, print::Bool=false)
+    words(C::AbstractLinearCode, onlyprint::Bool=false)
+    codewords(C::AbstractLinearCode, onlyprint::Bool=false)
+    elements(C::AbstractLinearCode, onlyprint::Bool=false)
 
 Return the elements of `C`.
 
-If `print` is `true`, the elements are only printed to the console and not returned.
+If `onlyprint` is `true`, the elements are only printed to the console and not
+returned.
 """
-function words(C::AbstractLinearCode, print::Bool=false)
+function words(C::AbstractLinearCode, onlyprint::Bool=false)
     words = Vector{fq_nmod_mat}()
     E = base_ring(G)
     # Nemo.AbstractAlgebra.ProductIterator
@@ -1116,17 +1117,17 @@ function words(C::AbstractLinearCode, print::Bool=false)
                 row += E(iter[r]) * G[r, :]
             end
         end
-        if !print
+        if !onlyprint
             push!(words, row)
         else
             println(row)
         end
     end
-    if !print
+    if !onlyprint
         return words
     else
         return
     end
 end
-codewords(C::AbstractLinearCode, print::Bool=false) = words(C, print)
-elements(C::AbstractLinearCode, print::Bool=false) = words(C, print)
+codewords(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)
+elements(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)

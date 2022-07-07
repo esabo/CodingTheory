@@ -29,18 +29,18 @@ At the moment, all functions work as intended for test cases but have not been u
 - Weight enumerators (complete and Hamming), distribution, and minimum distance
 
 ### Quantum
-- General and CSS codes with auto CSS detection
+- Stabilizer codes over $\F_p$ with auto CSS detection ($\F_q$ code still requires testing)
+- CSS constructions over $\F_p$ from linear codes or matrices
+- Qubit ($\F_2$) code constructions using Pauli strings
+- Able to keep an over complete set of stabilizers
+- Keeps track of signs of elements (currently only +/- 1)
 - Quadratic to symplectic, symplectic to quadratic functions
 - Symplectic and trace inner product
-- Pauli strings to numerical vector (qubit only)
-- Characteristic vector/arbitrary phases for each bit (currently only +/- 1)
-- CSS construction from linear codes or matrices
-- General construction from Pauli strings or quadratic matrices
 - Logical space construction (S⟂ \ S)
 - Logical operators - set manually (automated computation coming soon)
 - X-, Z-, and full syndrome computations
-- Generate all stabilizers
-- Weight enumerators (S⟂ temporarily disabled), distribution, and minimum distance
-- The [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes
+- Generate all elements and their signs
+- Weight enumerators (signed complete and Hamming), distribution, and minimum distance
+- Hardcoded [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes
 - Rotated surface/XZZX codes to any distance
 - 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21
