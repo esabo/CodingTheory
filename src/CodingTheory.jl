@@ -31,7 +31,8 @@ module CodingTheory
             dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
             Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
             printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-            quadratictosymplectic, symplectictoquadratic, _processstrings, _Paulistringtosymplectic
+            quadratictosymplectic, symplectictoquadratic, _processstrings,
+            _Paulistringtosymplectic, _removeempty!
     end
     @reexport using CodingTheory.UtilsMod
 

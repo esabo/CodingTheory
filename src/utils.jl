@@ -484,3 +484,29 @@ function largestconsecrun(arr::Vector{Int64})
 
     return maxlen
 end
+
+function _removeempty!(A::fq_nmod_mat, type::String)
+    type ∈ ["rows", "cols"] || error("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type")
+    del = Vector{Int64}()
+    if type == "rows"
+        for r in 1:nrows(A)
+            if iszero(A[r, :])
+                append!(del, r)
+            end
+        end
+        if !isempty(del)
+            A = A[setdiff(1:nrows(A), del), :]
+        end
+        return
+    else
+        for c in 1:ncols(A)
+            if iszero(A[:, c])
+                append!(del, c)
+            end
+        end
+        if !isempty(del)
+            A = A[:, setdiff(1:ncols(A), del)]
+        end
+        return
+    end
+end
