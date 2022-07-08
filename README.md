@@ -1,6 +1,6 @@
 # CodingTheory
 
-[![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/esabo/CodingTheory/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml/badge.svg?branch=master)](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml?query=branch%3Amaster)
 
 A basic coding theory library for Julia.
 
