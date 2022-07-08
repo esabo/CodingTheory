@@ -4,17 +4,7 @@ module CodingTheory
 
     using AbstractAlgebra
     using Nemo
-    # using Primes
     using Reexport
-    # using SymPy
-    # using Plots
-
-    # import Base: show, length, in, ⊆, /, *, ==, ∩, +
-    # import AbstractAlgebra: quo, VectorSpace
-    # import Primes: factor
-    # import LinearAlgebra: tr
-    #
-    # export fq_nmod_mat
 
     #############################
              # utils.jl
