@@ -154,14 +154,14 @@ end
 
 Return the base ring of the generator matrix.
 """
-field(C::AbstractCode) = C.F
+field(C::AbstractLinearCode) = C.F
 
 """
     length(C::AbstractLinearCode)
 
 Return the length of the code.
 """
-length(C::AbstractCode) = C.n
+length(C::AbstractLinearCode) = C.n
 
 """
     dimension(C::AbstractLinearCode)
@@ -1086,12 +1086,12 @@ If `σ` is a vector, it is interpreted as the desired column order for the
 generator matrix of `C`.
 """
 function permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Integer
-    F = LinearCodeMod.field(C)
+    F = field(C)
     if typeof(σ) <: Perm
         return LinearCode(generatormatrix(C) * matrix(F, Array(matrix_repr(σ))))
     else
-        length(unique(σ)) == LinearCodeMod.length(C) || error("Incorrect number of digits in permutation.")
-        (1 == minimum(σ) && LinearCodeMod.length(C) == maximum(σ)) || error("Digits are not in the range `1:n`.")
+        length(unique(σ)) == length(C) || error("Incorrect number of digits in permutation.")
+        (1 == minimum(σ) && length(C) == maximum(σ)) || error("Digits are not in the range `1:n`.")
         return LinearCode(generatormatrix(C)[:, σ])
     end
 end

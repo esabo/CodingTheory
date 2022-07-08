@@ -151,6 +151,8 @@ module CodingTheory
         using CodingTheory.LinearCodeMod
 
         import Base: show, length, in, ⊆, /, *, ==, ∩, +
+        import CodingTheory.LinearCodeMod: field, dimension, rate, syndrome,
+            cardinality
 
         abstract type AbstractAdditiveCode <: AbstractCode end
         abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
@@ -194,7 +196,7 @@ module CodingTheory
         using CodingTheory.LinearCodeMod
         using CodingTheory.QuantumCodeMod
 
-        import Base: ==
+        import Base: ==, length
 
         include("trellis.jl")
         export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,

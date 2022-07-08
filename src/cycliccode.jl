@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 mutable struct CyclicCode <: AbstractCyclicCode
     F::FqNmodFiniteField # base field
     E::FqNmodFiniteField # splitting field
@@ -172,6 +171,13 @@ primitiveroot(C::AbstractCyclicCode) = C.β
 Return the offset of the cyclic code.
 """
 offset(C::AbstractCyclicCode) = C.b
+
+"""
+    designdistance(C::AbstractCyclicCode)
+
+Return the design distance of the cyclic code.
+"""
+designdistance(C::AbstractCyclicCode) = C.δ
 
 """
     mindistlowerbound(C::AbstractCyclicCode)
@@ -390,7 +396,6 @@ function dualdefiningset(defset::Vector{Int64}, n::Integer)
     return sort!([mod(n - i, n) for i in temp])
 end
 
-# TODO: this example actually segfaults
 """
     CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verify::Bool=true)
 

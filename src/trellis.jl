@@ -858,21 +858,18 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
 
 
     if ismissing(boundaries)
-        # TODO: bds = [0:length(C)...]
-        bds = [0:C.n...]
+        bds = [0:length(C)...]
     else
         bds = deepcopy(boundaries)
     end
 
-    # TODO: K = field(C)
     if typeof(C) <: AbstractLinearCode
-        K = C.F
+        K = field(C)
     else
         K = quadraticfield(C)
     end
     p = Int64(characteristic(K))
-    # TODO: n = length(C)
-    n = C.n
+    n = length(C)
     V = Vector{Vertex}[Vertex[] for i = 1:n + 1]
     Threads.@threads for i = 1:n + 1
         V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for j = 1:profiles[1][i]]
