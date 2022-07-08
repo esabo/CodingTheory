@@ -1,4 +1,7 @@
 # CodingTheory
+
+[![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/esabo/CodingTheory/actions/workflows/CI.yml?query=branch%3Amaster)
+
 A basic coding theory library for Julia.
 
 The goal of this package is to develop a classical and quantum error-correcting codes package in as much pure Julia as possible, eliminating the need for external libraries such as GAP typically used in the backend of other libraries. The library is built around the AbstractAlgebra and Nemo packages, and many thanks to Tommy Hofmann of these packages for helping this repo get off the ground. Anyone is welcome to contribute, although the final form of any accepted code may be standardized to maintain intra-package consistency.
