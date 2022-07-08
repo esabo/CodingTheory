@@ -420,49 +420,43 @@ _Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat
 # need symplectictoPaulistring
 # quadratictoPaulistring
 
-function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{Int64}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
-    Paulisigns = Vector{Int64}()
-    SPaulistripped = Vector{String}()
+function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+    # Paulisigns = Vector{Int64}()
+    StrPaulistripped = Vector{String}()
     for (i, s) in enumerate(SPauli)
         if s[1] ∈ ['I', 'X', 'Y', 'Z']
-            append!(Paulisigns, 1)
-            push!(SPaulistripped, s)
+            # append!(Paulisigns, 1)
+            push!(StrPaulistripped, s)
         elseif s[1] == '+'
-            append!(Paulisigns, 1)
-            push!(SPaulistripped, s[2:end])
+            # append!(Paulisigns, 1)
+            push!(StrPaulistripped, s[2:end])
         elseif s[1] == '-'
-            append!(Paulisigns, -1)
-            push!(SPaulistripped, s[2:end])
+            # append!(Paulisigns, -1)
+            push!(StrPaulistripped, s[2:end])
         else
             error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
         end
     end
 
-    for s in SPaulistripped
+    n = length(StrPaulistripped[1])
+    for s in StrPaulistripped
         for i in s
-            if i ∉ ['I', 'X', 'Y', 'Z']
-                error("Element of provided Pauli string is not a Pauli character: $s.")
-            end
+            i ∈ ['I', 'X', 'Y', 'Z'] || error("Element of provided Pauli string is not a Pauli character: $s.")
         end
+        length(s) == n || error("Not all Pauli strings are the same length.")
     end
 
-    n = length(SPaulistripped[1])
-    for s in SPaulistripped
-        length(s) == n || error("Provided Pauli strings are not all of the same length.")
-    end
-
-    if isempty(charvec)
-        charvec = ones(Int64, 2 * n)
-    else
-        if length(charvec) != 2 * n
-            error("Unexpected length of character vector. Expected: $(2 * n), received: $(length(charvec)).")
-        end
-
+    if !ismissing(charvec)
+        2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
+        R = ResidueRing(Nemo.ZZ, 4)
         for s in charvec
-            (s == 1 || s == -1) || error("Qubit phases must be +/- 1; received: $s")
+            modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
+    else
+        R = ResidueRing(Nemo.ZZ, 4)
+        charvec = [R(0) for _ in 1:2 * n]
     end
-    return SPaulistripped, charvec
+    return StrPaulistripped, charvec
 end
 
 function largestconsecrun(arr::Vector{Int64})
@@ -509,4 +503,50 @@ function _removeempty!(A::fq_nmod_mat, type::String)
         end
         return
     end
+end
+
+function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+    isempty(rowrange) && error("The row range cannot be empty in _rref_no_col_swap.")
+    isempty(colrange) && error("The column range cannot be empty in _rref_no_col_swap.")
+    A = deepcopy(M)
+
+    i = rowrange.start
+    j = colrange.start
+    nr = rowrange.stop
+    nc = colrange.stop
+    while i <= nr && j <= nc
+        # find first pivot
+        ind = 0
+        for k in i:nr
+            if !iszero(A[k, j])
+                ind = k
+                break
+            end
+        end
+
+        if !iszero(ind)
+            # normalize pivot
+            if !isone(A[ind, j])
+                A[ind, :] *= inv(A[ind, j])
+            end
+
+            # swap to put the pivot in the next row
+            if ind != i
+                A[i, :], A[ind, :] = A[ind, :], A[i, :]
+            end
+
+            # eliminate
+            for k = rowrange.start:nr
+                if k != i
+                    d = A[k, j]
+                    @simd for l = j:nc
+                        A[k, l] = (A[k, l] - d * A[i, l])
+                    end
+                end
+            end
+            i += 1
+        end
+        j += 1
+    end
+    return A
 end

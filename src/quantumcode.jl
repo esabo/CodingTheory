@@ -189,36 +189,34 @@ Return `true` if `S` has an overcomplete set of stabilizers.
 """
 isovercomplete(S::AbstractStabilizerCode) = return S.overcomplete
 
-# TODO: fix with new charvecs
-function _getsigns(A::fq_nmod_mat, charvec::Vector{Int64})
+function _getsigns(A::fq_nmod_mat, charvec::Vector{nmod})
+    R = base_ring(charvec[1])
     if length(charvec) == 2 * ncols(A)
         A = quadratictosymplectic(A)
     end
     length(charvec) == ncols(A) || error("Input to _getsigns is expected to be in symplectic form and of the same length as the characteristic vector.")
-    if charvec == ones(ncols(A))
-        return ones(Int64, div(ncols(A), 2))
+    if iszero(charvec)
+        return [R(0) for _ in 1:div(ncols(A), 2)]
     end
 
     signs = Vector{Int64}()
     for r in 1:nrows(A)
-        parity = 1
+        parity = R(0)
         for c = 1:ncols(A)
-            if !iszero(A[r, c]) && charvec[c] == -1
-                parity *= -1
-            end
+            parity += charvec[c]
         end
         append!(signs, parity)
     end
     return signs
 end
 
-function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
+function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{nmod})
     Xstabs = Vector{fq_nmod_mat}()
-    Xsigns = Vector{Int64}()
+    Xsigns = Vector{nmod}()
     Zstabs = Vector{fq_nmod_mat}()
-    Zsigns = Vector{Int64}()
+    Zsigns = Vector{nmod}()
     mixedstabs = Vector{fq_nmod_mat}()
-    mixedsigns = Vector{Int64}()
+    mixedsigns = Vector{nmod}()
 
     half = div(ncols(S), 2)
     for r in 1:nrows(S)
@@ -231,13 +229,13 @@ function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{Int64})
             sz = iszero(s[1, half + 1:end])
             if (sx && !sz)
                 push!(Zstabs, s)
-                append!(Zsigns, signs[r])
+                push!(Zsigns, signs[r])
             elseif !sx && sz
                 push!(Xstabs, s)
-                append!(Xsigns, signs[r])
+                push!(Xsigns, signs[r])
             elseif !sx && !sz
                 push!(mixedstabs, s)
-                append!(mixedsigns, signs[r])
+                push!(mixedsigns, signs[r])
             end
         end
     end
@@ -268,7 +266,7 @@ function splitstabilizers(S::AbstractStabilizerCode)
     return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
 end
 
-function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{Int64}=[], trim::Bool=true)
+function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{nmod}, trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if typeof(mixedstabs) <: Vector{fq_nmod_mat}
         if trim
@@ -302,7 +300,6 @@ function isCSS(S::AbstractStabilizerCode)
     typeof(S) <: AbstractCSSCode && return true
     return false
 end
-
 """
     CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
@@ -334,9 +331,9 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
         2 * length(C1) == length(charvec) || error("The characteristic value is of incorrect length.")
         p = Int(characteristic(field(C1)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -344,9 +341,9 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     else
         p = Int(characteristic(field(C1)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:2 * length(C1)]
     end
@@ -420,9 +417,9 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
         2 * length(C) == length(charvec) || error("The characteristic value is of incorrect length.")
         p = Int(characteristic(field(C)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -430,9 +427,9 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     else
         p = Int(characteristic(field(C1)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:2 * length(C)]
     end
@@ -507,11 +504,11 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     iszero(Zmatrix * transpose(Xmatrix)) || error("The given matrices are not symplectic orthogonal.")
     if !ismissing(charvec)
         2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(base_ring(Xmatrix))
+        p = Int(characteristic(base_ring(Xmatrix)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -519,9 +516,9 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     else
         p = Int(characteristic(base_ring(Xmatrix)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:2 * n]
     end
@@ -613,9 +610,9 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
         ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
         p = Int(characteristic(base_ring(S)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -623,9 +620,9 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     else
         p = Int(characteristic(base_ring(S)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:ncols(S)]
     end
@@ -666,7 +663,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(base_ring(S), base_ring(Sq2), ncols(Sq2), k, missing,
+        return CSSCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode, missing,
             missing, missing, Sq2, args[2], args[4], missing, missing, signs,
             args[3], args[5], dualgens, missing, missing, charvec, missing,
             missing, overcomp)
@@ -714,9 +711,9 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
         ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
         p = Int(characteristic(base_ring(S)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -724,9 +721,9 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
     else
         p = Int(characteristic(base_ring(S)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:ncols(S)]
     end
@@ -777,9 +774,6 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
             missing, overcomp)
     end
 end
-
-# TODO: # make del zero rows, cols helper functions
-# which will return a flag if this was ever done
 
 """
     QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{nmod}, Missing}=missing)
@@ -834,9 +828,9 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
         ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
         p = Int(characteristic(base_ring(Sq2)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
@@ -844,9 +838,9 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     else
         p = Int(characteristic(base_ring(Sq2)))
         if p == 2
-            R = ResidueRing(ZZ, 4)
+            R = ResidueRing(Nemo.ZZ, 4)
         else
-            R = ResidueRing(ZZ, p)
+            R = ResidueRing(Nemo.ZZ, p)
         end
         charvec = [R(0) for _ in 1:ncols(S)]
     end
@@ -932,53 +926,6 @@ function logicalspace(S::AbstractStabilizerCode)
     end
 end
 
-# # need a canonical phase to set Weyl pairs to
-# # does not check which elements in Weyl pair are X or Z
-# function logicaloperators(Q::AbstractStabilizerCode)
-#     logspace = logicalspace(Q)
-#     Weylpairs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
-#     todo = [quadratictosymplectic(logspace)[i, :] for i in 1:size(logspace, 1)]
-#
-#     count = 1
-#     while !isempty(todo)
-#         curr1 = popfirst!(todo)
-#         commutes = Vector{fq_nmod_mat}()
-#         doesnt = Vector{Tuple{fq_nmod_mat, fq_nmod}}()
-#         for i in 1:length(todo)
-#             SIP = symplecticinnerproduct(curr1, todo[i])
-#             if iszero(SIP)
-#                 push!(commutes, todo[i])
-#             else
-#                 push!(doesnt, (todo[i], SIP))
-#             end
-#         end
-#
-#         if !isempty(doesnt)
-#             curr2 = popfirst!(doesnt)
-#             curr2, curr2SIP = curr2[1], curr2[2]
-#         else
-#             error("Logical basis element anti-commutes with no elements.")
-#         end
-#
-#         todo = Vector{fq_nmod_mat}()
-#         for i in 1:length(doesnt)
-#             elm, SIP = doesnt[i]
-#             elm .-= SIP * inv(curr2SIP) * curr2
-#             push!(todo, elm)
-#         end
-#
-#         push!(Weylpairs, [symplectictoquadratic(curr1), symplectictoquadratic(curr2)])
-#         count < 50 ||error("Logical operator loop has gone through 50 iterations. Increase if more than this many logical qudits.")
-#         count += 1
-#     end
-#
-#     length(Weylpairs) == dimension(Q) || error("Completed symplectic Gram-Schmidt without generating all logicals.")
-#     # isempty(todo) || error("Completed symplectic Gram-Schmidt without using all basis elements.")
-#
-#     Q.logicals = Weylpairs
-#     return Weylpairs
-# end
-
 """
     setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
 
@@ -1043,21 +990,22 @@ function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=fals
     S.logicals = logs
 end
 
-# TODO: update for roots of unity
 """
     changesigns!(S::AbstractStabilizerCode, charvec::Vector{nmod})
 
 Set the character vector of `S` to `charvec` and update the signs.
 """
 function changesigns!(S::AbstractStabilizerCode, charvec::Vector{nmod})
+    R = base_ring(charactervector(S))
     length(charvec) == 2 * length(S) || error("Characteristic vector is of improper length for the code.")
     for s in charvec
-        (s == 1 || s == -1) || error("Qubit phases must be +/- 1; received: $s")
+        modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
     end
     S.signs = _getsigns(stabilizers(S), charvec)
     S.charvec = charvec
 end
 
+# TODO: add signs
 # TODO: add for minimum distance check
 # TODO: add overcomp check
 function show(io::IO, S::AbstractStabilizerCode)
