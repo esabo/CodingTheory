@@ -100,9 +100,6 @@ function show(io::IO, W::WeightEnumerator)
                 end
                 for j in 2:len
                     if !iszero(term[j])
-                        # TODO: fix this
-                        # print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
-                        #     "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
                         print(io, "x_$(j - 1)^$(term[j])")
                     end
                 end
