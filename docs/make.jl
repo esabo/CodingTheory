@@ -23,3 +23,5 @@ Documenter.makedocs(
 		"Utilies" => "utils.md",
       "Index" => "index.md"]
 )
+
+deploydocs(repo = "github.com/esabo/CodingTheory.git")
