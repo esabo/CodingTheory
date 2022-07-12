@@ -122,16 +122,16 @@ end
 # from this file and put into weight_dist, keep this until exporting
 function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, false)
-        if ismissing(C.d)
+        if ismissing(minimumdistance(C))
             println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
         else
-            println(io, "[$(length(C)), $(dimension(C)), $(C.d)]_$(order(field(C))) linear code.")
+            println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) linear code.")
         end
     else
-        if ismissing(C.d)
+        if ismissing(minimumdistance(C))
             println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
         else
-            println(io, "[$(length(C)), $(dimension(C)), $(C.d)]_$(order(field(C))) linear code.")
+            println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) linear code.")
         end
         println(io, "Generator matrix: $(dimension(C)) × $(length(C))")
         for i in 1:dimension(C)
@@ -941,6 +941,9 @@ end
 # positions, Discrete Mathematics, 106107 (1992), 369-381.
 # the Schur product of vector spaces is highly basis dependent and is often the
 # full vector space (an [n, n, 1] code)
+# might be a cyclic code special case in
+# "On the Schur Product of Vector Spaces over Finite Fields"
+# Christiaan Koster
 """
     entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
     *(C::AbstractLinearCode, D::AbstractLinearCode)

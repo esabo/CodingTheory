@@ -1005,34 +1005,59 @@ function changesigns!(S::AbstractStabilizerCode, charvec::Vector{nmod})
     S.charvec = charvec
 end
 
-# TODO: add signs
-# TODO: add for minimum distance check
-# TODO: add overcomp check
 function show(io::IO, S::AbstractStabilizerCode)
     if get(io, :compact, false)
         if typeof(S) <: CSSCode
             if typeof(dimension(S)) <: Integer
-                println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
+                else
+                    println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) CSS code.")
+                end
             else # don't think this can ever be reached
-                println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
+                else
+                    println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) CSS code.")
+                end
             end
         else
             if typeof(dimension(S)) <: Integer
-                println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) quantum (additive) code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) stabilizer code.")
+                else
+                    println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) stabilizer code.")
+                end
             else
-                println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) quantum (additive) code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) stabilizer code.")
+                else
+                    println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) stabilizer code.")
+                end
             end
         end
     else
         if typeof(S) <: CSSCode
             if typeof(dimension(S)) <: Integer
-                println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
+                else
+                    println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) CSS code.")
+                end
             else # don't think this can ever be reached
-                println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
+                else
+                    println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) CSS code.")
+                end
             end
-            println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(length(S))")
+            if isovercomplete(S)
+                println(io, "X-stabilizer matrix (overcomplete): $(numXstabs(S)) × $(length(S))")
+            else
+                println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(length(S))")
+            end
             for i in 1:numXstabs(S)
-                print(io, "\t")
+                print(io, "\t \chi($(Xsigns[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.Xstabs[i, j]) ")
@@ -1043,9 +1068,13 @@ function show(io::IO, S::AbstractStabilizerCode)
                     end
                 end
             end
-            println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(length(S))")
+            if isovercomplete(S)
+                println(io, "Z-stabilizer matrix (overcomplete): $(numZstabs(S)) × $(length(S))")
+            else
+                println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(length(S))")
+            end
             for i in 1:numZstabs(S)
-                print(io, "\t")
+                print(io, "\t \chi($(Zsigns[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.Zstabs[i, j]) ")
@@ -1058,13 +1087,25 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
         else
             if typeof(dimension(S)) <: Integer
-                println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) quantum (additive) code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) stabilizer code.")
+                else
+                    println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) stabilizer code.")
+                end
             else
-                println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) quantum (additive) code.")
+                if ismissing(minimumdistance(S))
+                    println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) stabilizer code.")
+                else
+                    println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) stabilizer code.")
+                end
             end
-            println(io, "Stabilizer matrix: $(size(S.stabs, 1)) × $(length(S))")
+            if isovercomplete(S)
+                println(io, "Stabilizer matrix (overcomplete): $(nrows(S.stabs)) × $(length(S))")
+            else
+                println(io, "Stabilizer matrix: $(nrows(S.stabs)) × $(length(S))")
+            end
             for i in 1:nrows(S.stabs)
-                print(io, "\t")
+                print(io, "\t \chi($(signs[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.stabs[i, j]) ")
@@ -1074,6 +1115,14 @@ function show(io::IO, S::AbstractStabilizerCode)
                         print(io, "$(S.stabs[i, j])")
                     end
                 end
+            end
+            if !ismissing(S.sCWEstabs)
+                println(io, "Signed complete weight enumerator for the stabilizer:")
+                println(io, S.sCWEstabs)
+            end
+            if !ismissing(S.sCWEdual)
+                println(io, "Signed complete weight enumerator for the normalizer:")
+                println(io, S.sCWEdual)
             end
         end
     end

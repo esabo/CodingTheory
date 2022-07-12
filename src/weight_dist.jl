@@ -100,9 +100,6 @@ function show(io::IO, W::WeightEnumerator)
                 end
                 for j in 2:len
                     if !iszero(term[j])
-                        # TODO: fix this
-                        # print(io, "x$(Base.REPLCompletions.latex_symbols["\\_$(j - 1)"])",
-                        #     "$(Base.REPLCompletions.latex_symbols["\\^$term[j]"])")
                         print(io, "x_$(j - 1)^$(term[j])")
                     end
                 end
@@ -204,9 +201,7 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     end
 
     # if this ever changes or permutes will have to store with T
-    # TODO: fix this
-    # elms = collect(field(T.code))
-    elms = collect(T.code.F)
+    elms = collect(field(T.code))
     V = vertices(T)
     E = edges(T)
     V[1][1].polynomial = [zeros(Int, length(elms) + 1)]
@@ -248,6 +243,11 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     end
     return T.CWE
 end
+
+# function MacWilliamsIdentity(W::WeightEnumerator)
+#     W.type == "Hamming" || error("")
+#
+# end
 
 # TODO: MacWilliams identities, check size of dual, if small just bruteforce
 function weightenumerator(C::AbstractLinearCode, type::String="complete",

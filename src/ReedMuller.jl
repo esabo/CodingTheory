@@ -30,10 +30,12 @@ order(C::ReedMullerCode) = C.r
 RMr(C::ReedMullerCode) = order(C)
 
 """
+    numberofvariables(C::ReedMullerCode)
     RMm(C::ReedMullerCode)
 
-Return the parameter `m` of the `RM(r, m)` Reed-Muller code.
+Return the number of variables, `m`, of the `RM(r, m)` Reed-Muller code.
 """
+numberofvariables(C::ReedMullerCode) = C.m
 RMm(C::ReedMullerCode) = C.m
 
 function show(io::IO, C::AbstractReedMullerCode)
@@ -104,7 +106,7 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
             error("There is no finite field of order $(prod(factors)).")
         end
     end
-    
+
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = _standardform(G)
@@ -125,14 +127,46 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
         H, missing, Gstand, Hstand, missing)
 end
 
-# TODO: I'm hardcoding binary into this
 """
     dual(C::ReedMullerCode)
 
 Return the dual of the Reed-Muller code `C`.
 """
 function dual(C::ReedMullerCode)
-    return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(order(C) + 1),
-        RMm(C) - order(C) - 1, RMm(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
-        originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true), missing)
+    # really only put this here to remind me later that I hardcoded binary
+    if Int(characteristic(field(C))) == 2
+        return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(order(C) + 1),
+            RMm(C) - order(C) - 1, RMm(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
+            originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true), missing)
+    end
+
 end
+
+# "On products and powers of linear codes under componentwise multiplication"
+# Hugues Randriambololona
+"""
+    entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
+    *(C::ReedMullerCode, D::ReedMullerCode)
+    Schurproductcode(C::ReedMullerCode, D::ReedMullerCode)
+    Hadamardproductcode(C::ReedMullerCode, D::ReedMullerCode)
+    componentwiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
+
+Return the entrywise product of `C` and `D`.
+
+Note that this is known to often be the full ambient space.
+"""
+function entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
+    field(C) == field(D) || error("Codes must be over the same field in the Schur product.")
+    length(C) == length(D) || error("Codes must have the same length in the Schur product.")
+
+    r = order(C) + order(D)
+    if r <= length(C)
+        return ReedMullerCode(Int(characteristic(field(C))), r, RMm(C))
+    else
+        return ReedMullerCode(Int(characteristic(field(C))), RMm(C), RMm(C))
+    end
+end
+*(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
+Schurproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
+Hadamardproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
+componentwiseproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)

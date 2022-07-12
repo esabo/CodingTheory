@@ -85,6 +85,9 @@ module CodingTheory
         abstract type AbstractReedMullerCode <: AbstractLinearCode end
         export AbstractReedMullerCode
 
+        import CodingTheory.LinearCodeMod: dual, entrywiseproductcode, *,
+            Schurproductcode, Hadamardproductcode, componentwiseproductcode
+
         include("ReedMuller.jl")
         export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode
     end

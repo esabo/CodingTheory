@@ -132,6 +132,14 @@ end
     # permutecode(C, σ)
     # # or
     # permutecode(C, [1, 3, 2, 4, 5, 6, 7])
+
+
+    # "On the Schur Product of Vector Spaces over Finite Fields"
+    # Christiaan Koster
+    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
+
+    # simplex code itself has dimension k(k + 1)/2
+    # 
 end
 
 @testset "ReedMuller.jl" begin

@@ -166,18 +166,18 @@ Return the primitive root of the splitting field as a Nemo object.
 primitiveroot(C::AbstractCyclicCode) = C.β
 
 """
-    offset(C::AbstractCyclicCode)
+    offset(C::AbstractBCHCode)
 
-Return the offset of the cyclic code.
+Return the offset of the BCH code.
 """
-offset(C::AbstractCyclicCode) = C.b
+offset(C::AbstractBCHCode) = C.b
 
 """
-    designdistance(C::AbstractCyclicCode)
+    designdistance(C::AbstractBCHCode)
 
-Return the design distance of the cyclic code.
+Return the design distance of the BCH code.
 """
-designdistance(C::AbstractCyclicCode) = C.δ
+designdistance(C::AbstractBCHCode) = C.δ
 
 """
     mindistlowerbound(C::AbstractCyclicCode)
@@ -232,18 +232,18 @@ Return the idempotent (polynomial) of the cyclic code as a Nemo object.
 idempotent(C::AbstractCyclicCode) = C.e
 
 """
-    isprimitive(C::AbstractCyclicCode)
+    isprimitive(C::AbstractBCHCode)
 
-Return `true` if the cyclic code is primitive.
+Return `true` if the BCH code is primitive.
 """
-isprimitive(C::AbstractCyclicCode) = length(n) == order(basefield(C)) - 1
+isprimitive(C::AbstractBCHCode) = length(n) == order(basefield(C)) - 1
 
 """
-    isnarrowsense(C::AbstractCyclicCode)
+    isnarrowsense(C::AbstractBCHCode)
 
-Return `true` if the cyclic code is narrowsense.
+Return `true` if the BCH code is narrowsense.
 """
-isnarrowsense(C::AbstractCyclicCode) = iszero(offset(C)) # should we define this as b = 1 instead?
+isnarrowsense(C::AbstractBCHCode) = iszero(offset(C)) # should we define this as b = 1 instead?
 
 """
     isreversible(C::AbstractCyclicCode)
@@ -838,3 +838,34 @@ function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
         error("Cannot add two codes over different base fields or lengths.")
     end
 end
+
+# "Schur products of linear codes: a study of parameters"
+# Diego Mirandola
+# """
+#     entrywiseproductcode(C::AbstractCyclicCode)
+#     *(C::AbstractCyclicCode)
+#     Schurproductcode(C::AbstractCyclicCode)
+#     Hadamardproductcode(C::AbstractCyclicCode)
+#     componentwiseproductcode(C::AbstractCyclicCode)
+#
+# Return the entrywise product of `C` with itself, which is also a cyclic code.
+#
+# Note that this is known to often be the full ambient space.
+# """
+# function entrywiseproductcode(C::AbstractCyclicCode)
+#     # generator polynomial is gcd(g*g, g*g*x, g*g*x^{k - 1})
+#     R = parent(g)
+#     g = generatorpolynomial(C)
+#     coefsg = collect(coefficients(g))
+#     n = length(coefsg)
+#     cur = R([coefsg[i] * coefsg[i] for i in 1:n])
+#     for i in 1:dimension(C) - 1
+#         coefsgx = collect(coefficents(g * x^i))
+#         cur = gcd(cur, R([coefsg[i] * coefsgx[i] for i in 1:n]))
+#     end
+#     return CyclicCode(cur)
+# end
+# *(C::AbstractCyclicCode) = entrywiseproductcode(C)
+# Schurproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
+# Hadamardproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
+# componentwiseproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
