@@ -263,7 +263,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 
     if alg == "auto"
-        if BigInt(characteristic(LinearCodeMod.field(C)))^LinearCodeMod.dimension(C) <= 1e6 # random cutoff
+        if BigInt(characteristic(field(C)))^dimension(C) <= 1e6 # random cutoff
             C.weightenum = _weightenumeratorBF(generatormatrix(C))
             type == "Hamming" && return CWEtoHWE(C.weightenum)
             return C.weightenum
