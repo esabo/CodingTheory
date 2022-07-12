@@ -1,7 +1,7 @@
 # Reed-Muller Codes
 
 ```@autodocs
-Modules = [ReedMullerMod]
+Modules = [CodingTheory]
 Pages = ["ReedMuller.jl"]
-Public = true
+Private = false
 ```

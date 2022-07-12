@@ -1,7 +1,7 @@
 # Stabilizer Codes
 
 ```@autodocs
-Modules = [QuantumCodeMod]
+Modules = [CodingTheory]
 Pages = ["quantumcode.jl"]
-Public = true
+Private = false
 ```

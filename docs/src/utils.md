@@ -1,7 +1,7 @@
 # Utilies
 
 ```@autodocs
-Modules = [UtilsMod]
+Modules = [CodingTheory]
 Pages = ["utils.jl"]
-Public = true
+Private = false
 ```

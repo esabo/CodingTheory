@@ -1,15 +1,15 @@
 # Cyclotomic Cosets
 
 ```@autodocs
-Modules = [CyclotomicMod]
+Modules = [CodingTheory]
 Pages = ["cyclotomic.jl"]
-Public = true
+Private = false
 ```
 
 # Cyclic Codes
 
 ```@autodocs
-Modules = [CyclicCodeMod]
+Modules = [CodingTheory]
 Pages = ["cycliccode.jl"]
-Public = true
+Private = false
 ```

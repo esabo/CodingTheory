@@ -1,7 +1,7 @@
 # Linear Codes
 
 ```@autodocs
-Modules = [LinearCodeMod]
+Modules = [CodingTheory]
 Pages = ["linearcode.jl"]
-Public = true
+Private = false
 ```

@@ -1,7 +1,7 @@
 # Miscellaneous Known Stabilizer Codes
 
 ```@autodocs
-Modules = [MiscKnownQuantumCodesMod]
+Modules = [CodingTheory]
 Pages = ["miscknownquantumcodes.jl"]
-Public = true
+Private = false
 ```

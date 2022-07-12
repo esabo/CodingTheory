@@ -1,7 +1,7 @@
 # Weight Enumerators, Distributions, And Minimum Distances
 
 ```@autodocs
-Modules = [WeightDistMod]
+Modules = [CodingTheory]
 Pages = ["weight_dist.jl"]
-Public = true
+Private = false
 ```

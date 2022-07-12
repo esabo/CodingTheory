@@ -1,7 +1,7 @@
 # Trellises
 
 ```@autodocs
-Modules = [TrellisMod]
+Modules = [CodingTheory]
 Pages = ["trellis.jl"]
-Public = true
+Private = false
 ```

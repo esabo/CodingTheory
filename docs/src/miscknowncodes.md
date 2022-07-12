@@ -1,7 +1,7 @@
 # Miscellaneous Known Codes
 
 ```@autodocs
-Modules = [MiscKnownCodesMod]
+Modules = [CodingTheory]
 Pages = ["miscknowncodes.jl"]
-Public = true
+Private = false
 ```
