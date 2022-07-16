@@ -524,8 +524,8 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     # remove any empty rows
-    _removeempty(Xmatrix, "rows")
-    _removeempty(Zmatrix, "rows")
+    Xmatrix = _removeempty(Xmatrix, "rows")
+    Zmatrix = _removeempty(Zmatrix, "rows")
 
     # determine if the provided set of stabilizers are redundant
     Xrank = rank(Xmatrix)
@@ -628,7 +628,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     end
 
     # remove any empty rows
-    _removeempty!(S, "rows")
+    S = _removeempty(S, "rows")
     Sq2 = symplectictoquadratic(S)
 
     # determine if the provided set of stabilizers are redundant
@@ -729,7 +729,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
     end
 
     # remove any empty rows
-    _removeempty!(S, "rows")
+    S = _removeempty(S, "rows")
     Sq2 = symplectictoquadratic(S)
 
     # determine if the provided set of stabilizers are redundant
@@ -811,7 +811,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
 
     iszero(Sq2) && error("The stabilizer matrix is empty.")
     # remove any empty rows
-    _removeempty!(Sq2, "rows")
+    Sq2 = _removeempty(Sq2, "rows")
 
     if symp
         S = Sq2

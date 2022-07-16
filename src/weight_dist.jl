@@ -281,7 +281,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
                 weightenumeratorC(syndrometrellis(D, "primal", false), type)
             end
             C.weightenum = MacWilliamsIdentity(D, D.weightenum)
-            if type == "Hamming" && return CWEtoHWE(C.weightenum)
+            type == "Hamming" && return CWEtoHWE(C.weightenum)
             return C.weightenum
         else
             if cardinality(C) <= 1e6 # random cutoff

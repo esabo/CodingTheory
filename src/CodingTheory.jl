@@ -98,7 +98,7 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     printstringarray, printchararray, printsymplecticarray, pseudoinverse,
     quadratictosymplectic, symplectictoquadratic
     #, _processstrings,
-    #_Paulistringtosymplectic, _removeempty!
+    #_Paulistringtosymplectic, _removeempty
 
 #############################
        # cyclotomic.jl

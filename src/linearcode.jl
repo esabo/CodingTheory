@@ -76,13 +76,13 @@ function LinearCode(G::fq_nmod_mat, parity::Bool=false)
     end
 
     # should write a non-column swapping row reduction which auto returns pivots
-    _removeempty!(G, "rows")
+    G = _removeempty(G, "rows")
     Gorig = G
     rk = rank(G)
     !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
     if rk < size(G, 1)
         _, G = rref(G)
-        _removeempty!(G, "rows")
+        G = _removeempty(G, "rows")
     end
 
     # note the H here is transpose of the standard definition
@@ -579,7 +579,7 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
     if rank(G) < nrows(G)
         _, G = rref(G)
     end
-    _removeempty!(G, "rows")
+    G = _removeempty(G, "rows")
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
@@ -610,7 +610,7 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
     if rank(G) < nrows(G)
         _, G = rref(G)
     end
-    _removeempty!(G, "rows")
+    G = _removeempty(G, "rows")
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
@@ -634,14 +634,14 @@ function augment(C::AbstractLinearCode, M::fq_nmod_mat)
     length(C) == ncols(M) || error("Rows to augment must have the same number of columns as the generator matrix.")
     field(C) == base_ring(M) || error("Rows to augment must have the same base field as the code.")
 
-    _removeempty!(M, "rows")
+    M = _removeempty(M, "rows")
     G = vcat(generatormatrix(C), M)
     # instead of calling LinearCode(G) here I want to keep C.G has Gorig so I am
     # repeating this constructor here such that I have more control over that
     if rank(G) < nrows(G)
         _, G = rref(G)
     end
-    _removeempty!(G, "rows")
+    G = _removeempty(G, "rows")
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
