@@ -57,8 +57,8 @@ function show(io::IO, C::AbstractReedMullerCode)
             end
         end
         if !ismissing(C.weightenum)
-            println(io, "Complete weight enumerator:")
-            println(io, C.weightenum)
+            println(io, "\nComplete weight enumerator:")
+            println(io, "\t", C.weightenum)
         end
     end
 end

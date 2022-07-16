@@ -252,6 +252,7 @@ Return `true` if the cyclic code is reversible.
 """
 isreversible(C::AbstractCyclicCode) = [length(C) - i for i in defset] ⊆ defset
 
+# TODO: why doesn't this check C.d like the other shows?
 function show(io::IO, C::AbstractCyclicCode)
     if get(io, :compact, false)
         # to use type "show(IOContext(stdout, :compact=>true), C)" instead
@@ -298,8 +299,8 @@ function show(io::IO, C::AbstractCyclicCode)
             end
         end
         if !ismissing(C.weightenum)
-            println(io, "Complete weight enumerator:")
-            println(io, C.weightenum)
+            println(io, "\nComplete weight enumerator:")
+            println(io, "\t", C.weightenum)
         end
     end
 end

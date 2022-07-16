@@ -524,8 +524,13 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     # remove any empty rows
+<<<<<<< Updated upstream
     Xmatrix = _removeempty(Xmatrix, "rows")
     Zmatrix = _removeempty(Zmatrix, "rows")
+=======
+    _removeempty!(Xmatrix, "rows")
+    _removeempty!(Zmatrix, "rows")
+>>>>>>> Stashed changes
 
     # determine if the provided set of stabilizers are redundant
     Xrank = rank(Xmatrix)
@@ -734,7 +739,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
 
     # determine if the provided set of stabilizers are redundant
     Srank = rank(S)
-    if size(S, 1) > Srank
+    if nrows(S) > Srank
         overcomp = true
     else
         overcomp = false
@@ -1009,13 +1014,13 @@ function show(io::IO, S::AbstractStabilizerCode)
     if get(io, :compact, false)
         if typeof(S) <: CSSCode
             if typeof(dimension(S)) <: Integer
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
                 else
                     println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) CSS code.")
                 end
             else # don't think this can ever be reached
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
                 else
                     println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) CSS code.")
@@ -1023,13 +1028,13 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
         else
             if typeof(dimension(S)) <: Integer
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) stabilizer code.")
                 else
                     println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) stabilizer code.")
                 end
             else
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) stabilizer code.")
                 else
                     println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) stabilizer code.")
@@ -1039,13 +1044,13 @@ function show(io::IO, S::AbstractStabilizerCode)
     else
         if typeof(S) <: CSSCode
             if typeof(dimension(S)) <: Integer
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) CSS code.")
                 else
                     println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) CSS code.")
                 end
             else # don't think this can ever be reached
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) CSS code.")
                 else
                     println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) CSS code.")
@@ -1085,15 +1090,23 @@ function show(io::IO, S::AbstractStabilizerCode)
                     end
                 end
             end
+            if !ismissing(S.sCWEstabs)
+                println(io, "\nSigned complete weight enumerator for the stabilizer:")
+                print(io, "\t", S.sCWEstabs)
+            end
+            if !ismissing(S.sCWEdual)
+                println(io, "\nSigned complete weight enumerator for the normalizer:")
+                println(io, "\t", S.sCWEdual)
+            end
         else
             if typeof(dimension(S)) <: Integer
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "[[$(length(S)), $(dimension(S))]]_$(order(field(S))) stabilizer code.")
                 else
                     println(io, "[[$(length(S)), $(dimension(S)), $(minimumdistance(S))]]_$(order(field(S))) stabilizer code.")
                 end
             else
-                if ismissing(minimumdistance(S))
+                if ismissing(S.d)
                     println(io, "(($(length(S)), $(dimension(S))))_$(order(field(S))) stabilizer code.")
                 else
                     println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) stabilizer code.")
@@ -1117,12 +1130,12 @@ function show(io::IO, S::AbstractStabilizerCode)
                 end
             end
             if !ismissing(S.sCWEstabs)
-                println(io, "Signed complete weight enumerator for the stabilizer:")
-                println(io, S.sCWEstabs)
+                println(io, "\nSigned complete weight enumerator for the stabilizer:")
+                print(io, "\t", S.sCWEstabs)
             end
             if !ismissing(S.sCWEdual)
-                println(io, "Signed complete weight enumerator for the normalizer:")
-                println(io, S.sCWEdual)
+                println(io, "\nSigned complete weight enumerator for the normalizer:")
+                println(io, "\t", S.sCWEdual)
             end
         end
     end

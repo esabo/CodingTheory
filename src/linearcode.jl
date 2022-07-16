@@ -80,7 +80,7 @@ function LinearCode(G::fq_nmod_mat, parity::Bool=false)
     Gorig = G
     rk = rank(G)
     !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
-    if rk < size(G, 1)
+    if rk < nrows(G)
         _, G = rref(G)
         G = _removeempty(G, "rows")
     end
@@ -108,13 +108,13 @@ end
 
 function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, false)
-        if ismissing(minimumdistance(C))
+        if ismissing(C.d)
             println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
         else
             println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) linear code.")
         end
     else
-        if ismissing(minimumdistance(C))
+        if ismissing(C.d)
             println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) linear code.")
         else
             println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) linear code.")
@@ -133,8 +133,8 @@ function show(io::IO, C::AbstractLinearCode)
             end
         end
         if !ismissing(C.weightenum)
-            println(io, "Complete weight enumerator:")
-            println(io, C.weightenum)
+            println(io, "\nComplete weight enumerator:")
+            println(io, "\t", C.weightenum)
         end
     end
 end
