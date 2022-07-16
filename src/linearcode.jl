@@ -14,43 +14,40 @@ mutable struct LinearCode <: AbstractLinearCode
     n::Integer
     k::Integer
     d::Union{Integer, Missing}
-    G::Union{gfp_mat, fq_nmod_mat}
-    Gorig::Union{gfp_mat, fq_nmod_mat, Missing}
-    H::Union{gfp_mat, fq_nmod_mat}
-    Horig::Union{gfp_mat, fq_nmod_mat, Missing}
-    Gstand::Union{gfp_mat, fq_nmod_mat}
-    Hstand::Union{gfp_mat, fq_nmod_mat}
-    # convert to CWE
+    G::fq_nmod_mat
+    Gorig::Union{fq_nmod_mat, Missing}
+    H::fq_nmod_mat
+    Horig::Union{fq_nmod_mat, Missing}
+    Gstand::fq_nmod_mat
+    Hstand::fq_nmod_mat
     weightenum::Union{WeightEnumerator, Missing}
 end
 
 # need to make sure this isn't doing column swaps
-function _standardform(G::Union{gfp_mat, fq_nmod_mat})
+# this does an LU decomp so can do a column swap
+function _standardform(G::fq_nmod_mat)
     # hnf(C.G) shoud also work in most situations
     _, Gstand = rref(G) # breaks on this line
-    A = Gstand[:, (size(Gstand, 1) + 1):size(Gstand, 2)]
-    T = MatrixSpace(base_ring(Gstand), size(Gstand, 2) - size(Gstand, 1),
-        size(Gstand, 2) - size(Gstand, 1))
+    A = Gstand[:, (nrows(Gstand) + 1):ncols(Gstand)]
+    T = MatrixSpace(base_ring(Gstand), ncols(Gstand) - nrows(Gstand),
+        ncols(Gstand) - nrows(Gstand))
     Hstand = hcat(-transpose(A), T(1))
     return Gstand, Hstand
 end
 
 """
-    LinearCode(G::fq_nmod_mat, parity::Bool=false, verify::Bool=true)
+    LinearCode(G::fq_nmod_mat, parity::Bool=false)
 
 Return the linear code constructed with generator matrix `G`.
 
 If `G` is not full rank, a row-reduced form is computed for the generator matrix.
 The dimension of the code is the number of rows of the full-rank matrix, and the
 length the number of columns. If the optional paramater `parity` is set to `true`,
-a LinearCode is built with `G` as the parity check matrix. If the optional parameter
-`verify` is set to `true`, basic checks, such as checking `GH == 0` and checking
-for column swaps in the standard form, are done to ensure correctness.
+a LinearCode is built with `G` as the parity check matrix.
 
 # Arguments
 * `G`: a matrix over a finite field of type `FqNmodFiniteField`
 * `parity`: a boolean
-* `verify`: a boolean
 
 # Notes
 * At the moment, no convention is used for G = 0 and an error is thrown.
@@ -71,55 +68,44 @@ Generator matrix: 4 × 7
         0 0 0 1 1 1 1
 ```
 """
-function LinearCode(G::Union{gfp_mat, fq_nmod_mat}, parity::Bool=false, verify::Bool=true)
+function LinearCode(G::fq_nmod_mat, parity::Bool=false)
     # if passed a VS, just ask for the basis
     !iszero(G) || error("Zero matrix passed into LinearCode constructor.")
     if typeof(base_ring(G)) != FqNmodFiniteField && typeof(base_ring(G)) != Nemo.GaloisField && typeof(base_ring(G)) != AbstractAlgebra.GFField{Int64}
         error("Codes over general rings are currently not supported, only fields.")
     end
 
+    # should write a non-column swapping row reduction which auto returns pivots
+    _removeempty!(G, "rows")
     Gorig = G
     rk = rank(G)
     !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
     if rk < size(G, 1)
         _, G = rref(G)
-    end
-
-    del = Vector{Int64}()
-    for r in 1:size(G, 1)
-        if iszero(G[r, :])
-            append!(del, r)
-        end
-    end
-
-    # not necessary but faster to skip
-    if !isempty(del)
-        G = G[setdiff(1:size(G, 1), del), :]
+        _removeempty!(G, "rows")
     end
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
-
     Gstand, Hstand = _standardform(G)
-    if verify
-        size(transpose(H), 1) == size(G, 2) - size(G, 1) || error("Parity check matrix is not size n - k.")
-        !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
-        end
+
+    # nrows(transpose(H)) == ncols(G) - nrows(G) || error("Parity check matrix is not size n - k.")
+    # can this ever actually happen?
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    # should remove need for using my own rref in utils.jl
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
     end
 
     if !parity
-        return LinearCode(base_ring(G), size(G, 2), size(G, 1), missing, G, Gorig,
+        return LinearCode(base_ring(G), ncols(G), nrows(G), missing, G, Gorig,
             transpose(H), missing, Gstand, Hstand, missing)
     else
-        return LinearCode(base_ring(G), size(H, 1), size(H, 2), missing,
+        return LinearCode(base_ring(G), nrows(H), ncols(H), missing,
             transpose(H), missing, G, Gorig, Hstand, Gstand, missing)
     end
 end
 
-# need to unify notation here to call minimumdistance but since this was removed
-# from this file and put into weight_dist, keep this until exporting
 function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, false)
         if ismissing(minimumdistance(C))
@@ -145,6 +131,10 @@ function show(io::IO, C::AbstractLinearCode)
                     print(io, "$(C.G[i, j])")
                 end
             end
+        end
+        if !ismissing(C.weightenum)
+            println(io, "Complete weight enumerator:")
+            println(io, C.weightenum)
         end
     end
 end
@@ -327,15 +317,15 @@ Return `v * G`, where `G` is the generator matrix of `C`.
 # Arguments
 * `v`: Either a `1 × k` or a `k × 1` vector.
 """
-function encode(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
+function encode(v::fq_nmod_mat, C::AbstractLinearCode)
     !(size(v) != (1, dimension(C)) && size(v) != (dimension(C), 1)) ||
         error("Vector to be encoded is of incorrect dimension; expected length $(C.k), received: $(size(v)).")
     base_ring(v) == field(C) || error("Vector must have the same base ring as the generator matrix.")
 
-    size(v, 1) != 1 || return v * generatormatrix(C)
+    nrows(v) != 1 || return v * generatormatrix(C)
     return transpose(v) * generatormatrix(C)
 end
-
+# combine these two functions
 function encode(v::Vector{Int64}, C::AbstractLinearCode)
     length(v) == dimension(C) ||
         error("Vector to be encoded is of incorrect length; expected length $(C.k), received: $(size(v)).")
@@ -350,15 +340,15 @@ Return `H * v`, where `H` is the parity check matrix of `C`.
 # Arguments
 * `v`: Either a `1 × k` or a `k × 1` vector.
 """
-function syndrome(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode)
+function syndrome(v::fq_nmod_mat, C::AbstractLinearCode)
     !(size(v) != (length(C), 1) && size(v) != (1, length(C))) ||
         error("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")
     base_ring(v) == field(C) || error("Vector must have the same base ring as the generator matrix.")
 
-    size(v, 1) != 1 || return paritycheckmatrix(C) * transpose(v)
+    nrows(v) != 1 || return paritycheckmatrix(C) * transpose(v)
     return paritycheckmatrix(C) * v
 end
-
+# combine these two functions
 function syndrome(v::Vector{Int64}, C::AbstractLinearCode)
     length(v) == length(C) ||
         error("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")
@@ -372,7 +362,7 @@ Return whether or not `v` is a codeword of `C`.
 
 The vector `v` is a valid codeword of `C` if and only if the syndrome of `v` is zero.
 """
-in(v::Union{gfp_mat, fq_nmod_mat}, C::AbstractLinearCode) = iszero(syndrome(v, C))
+in(v::fq_nmod_mat, C::AbstractLinearCode) = iszero(syndrome(v, C))
 in(v::Vector{Int64}, C::AbstractLinearCode) = iszero(syndrome(v, C))
 
 """
@@ -396,7 +386,6 @@ function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
             return false
         end
     end
-
     return true
 end
 ⊂(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
@@ -566,8 +555,8 @@ function extend(C::AbstractLinearCode)
     H = hcat(paritycheckmatrix(C), rightcol)
     H = vcat(toprow, H)
     Gstand, Hstand = _standardform(G)
-    return LinearCode(field(C), size(G, 2), size(G, 1), missing,
-        G, generatormatrix(C), H, paritycheckmatrix(C), Gstand, Hstand, missing)
+    return LinearCode(field(C), ncols(G), nrows(G), missing, G,
+        generatormatrix(C), H, paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
 """
@@ -587,29 +576,18 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
     length(cols) != length(C) || error("Cannot puncture all columns of a generator matrix.")
 
     G = C.G[:, setdiff(1:length(C), cols)]
-    if rank(G) < size(G, 1)
+    if rank(G) < nrows(G)
         _, G = rref(G)
     end
+    _removeempty!(G, "rows")
 
-    del = Vector{Int64}()
-    for r in 1:size(G, 1)
-        if iszero(G[r, :])
-            append!(del, r)
-        end
-    end
-
-    # not necessary but faster to skip
-    if !isempty(del)
-        G = G[setdiff(1:dimension(C), del), :]
-    end
-    _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
-
+    _, H = right_kernel(G)
     !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
-    return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
+    return LinearCode(field(C), ncols(G), nrows(G), missing, G, generatormatrix(C),
         transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
@@ -629,29 +607,18 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
     G = C.G[setdiff(1:dimension(C), rows), :]
     # instead of calling LinearCode(G) here I want to keep C.G has Gorig so I am
     # repeating this constructor here such that I have more control over that
-    if rank(G) < size(G, 1)
+    if rank(G) < nrows(G)
         _, G = rref(G)
     end
+    _removeempty!(G, "rows")
 
-    del = Vector{Int64}()
-    for r in 1:size(G, 1)
-        if iszero(G[r, :])
-            append!(del, r)
-        end
-    end
-
-    # not necessary but faster to skip
-    if !isempty(del)
-        G = G[setdiff(1:dimension(C), del), :]
-    end
-    _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
-
+    _, H = right_kernel(G)
     !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
-    return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
+    return LinearCode(field(C), ncols(G), nrows(G), missing, G, generatormatrix(C),
         transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
@@ -662,42 +629,31 @@ Return the code of `C` whose generator matrix is augmented with `M`.
 
 Vertically joins the matrix `M` to the bottom of the generator matrix of `C`.
 """
-function augment(C::AbstractLinearCode, M::Union{gfp_mat, fq_nmod_mat})
-    length(C) == size(M, 2) || error("Rows to augment must have the same number of columns as the generator matrix.")
+function augment(C::AbstractLinearCode, M::fq_nmod_mat)
+    iszero(M) && error("Zero matrix passed to augment.")
+    length(C) == ncols(M) || error("Rows to augment must have the same number of columns as the generator matrix.")
     field(C) == base_ring(M) || error("Rows to augment must have the same base field as the code.")
 
+    _removeempty!(M, "rows")
     G = vcat(generatormatrix(C), M)
     # instead of calling LinearCode(G) here I want to keep C.G has Gorig so I am
     # repeating this constructor here such that I have more control over that
-    rk = rank(G)
-    !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
-    if rk < size(G, 1)
+    if rank(G) < nrows(G)
         _, G = rref(G)
     end
+    _removeempty!(G, "rows")
 
-    del = Vector{Int64}()
-    for r in 1:size(G, 1)
-        if iszero(G[r, :])
-            append!(del, r)
-        end
-    end
-
-    # not necessary but faster to skip
-    if !isempty(del)
-        G = G[setdiff(1:dimension(C), del), :]
-    end
-    _, H = right_kernel(G)
     # note the H here is transpose of the standard definition
-
+    _, H = right_kernel(G)
     !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
         error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
-    for r in 1:size(Gstand, 1)
+    for r in 1:nrows(Gstand)
         iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
     end
 
-    return LinearCode(field(C), size(G, 2), size(G, 1), missing, G, generatormatrix(C),
+    return LinearCode(field(C), ncols(G), nrows(G), missing, G, generatormatrix(C),
         transpose(H), paritycheckmatrix(C), Gstand, Hstand, missing)
 end
 
@@ -730,16 +686,12 @@ function lengthen(C::AbstractLinearCode)
 end
 
 """
-    uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
-    Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
+    uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
 Return the Plotkin- or so-called (u | u + v)-construction with `u ∈ C1` and `v ∈ C2`.
-
-# Arguments
-* `verify`: Runs a verification step on the sizes of the constructed code versus the
-theoretically guarenteed values.
 """
-function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true)
+function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
     # Returns the Plotkin `(u|u+v)`-construction with u = C1 and v = C2
     field(C1) == field(C2) || error("Base field must be the same in the Plotkin (u|u + v)-construction.")
     length(C1) == length(C2) || error("Both codes must have the same length in the Plotkin (u|u + v)-construction.")
@@ -754,19 +706,18 @@ function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=tr
         d = minimum([2 * minimumdistance(C1), minimumdistance(C2)])
     end
 
-    if verify
-        size(G, 2) == 2 * length(C1) ||
-            error("Something went wrong in the Plotkin (u|u + v)-construction;
-                length ($(size(G, 2))) and expected length ($(2 * length(C1))) are not equal.")
-        size(G, 1) == dimension(C1) + dimension(C2) ||
-            error("Something went wrong in the Plotkin (u|u + v)-construction;
-                dimension ($(size(G, 1))) and expected dimension ($(dimension(C1) + dimension(C2))) are not equal.")
-    end
+    ncols(G) == 2 * length(C1) ||
+        error("Something went wrong in the Plotkin (u|u + v)-construction;
+            length ($(ncols(G))) and expected length ($(2 * length(C1))) are not equal.")
+    nrows(G) == dimension(C1) + dimension(C2) ||
+        error("Something went wrong in the Plotkin (u|u + v)-construction;
+            dimension ($(nrows(G))) and expected dimension ($(dimension(C1) +
+            dimension(C2))) are not equal.")
 
-    return LinearCode(field(C1), size(G, 2), size(G, 1), d, G, missing, H, missing,
+    return LinearCode(field(C1), ncols(G), nrows(G), d, G, missing, H, missing,
         Gstand, Hstand, missing)
 end
-Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, verify::Bool=true) = uuplusv(C1, C2, verify)
+Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode) = uuplusv(C1, C2)
 
 """
     subcode(C::AbstractLinearCode, k::Integer)

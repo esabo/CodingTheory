@@ -56,6 +56,10 @@ function show(io::IO, C::AbstractReedMullerCode)
                 end
             end
         end
+        if !ismissing(C.weightenum)
+            println(io, "Complete weight enumerator:")
+            println(io, C.weightenum)
+        end
     end
 end
 
@@ -79,7 +83,7 @@ function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
         else
             Grm1 = ReedMullergeneratormatrix(q, r, m - 1)
             Gr1m1 = ReedMullergeneratormatrix(q, r - 1, m - 1)
-            M = MatrixSpace(F, size(Gr1m1, 1), size(Gr1m1, 2))
+            M = MatrixSpace(F, nrows(Gr1m1), ncols(Gr1m1))
             return vcat(hcat(Grm1, Grm1), hcat(M(0), Gr1m1))
         end
     else
@@ -88,42 +92,36 @@ function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
 end
 
 """
-    ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
+    ReedMullerCode(q::Integer, r::Integer, m::Integer)
 
 Return the `RM(r, m)` Reed-Muller code over `GF(q)`.
-
-If the optional parameter `verify` is set to `true`, basic checks are done to
-ensure correctness.
 """
-function ReedMullerCode(q::Integer, r::Integer, m::Integer, verify::Bool=true)
+function ReedMullerCode(q::Integer, r::Integer, m::Integer)
     (0 ≤ r < m) || error("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m.")
     m < 64 || error("This Reed-Muller code requires the implmentation of BigInts. Change if necessary.")
     q == 2 || error("Nonbinary Reed-Muller codes have not yet been implemented.")
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
     end
 
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)
     Gstand, Hstand = _standardform(G)
 
-    if verify
-        size(G, 2) == 2^m || error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(size(G, 2)), expected: $(BigInt(2)^m).")
-        k = sum([binomial(m, i) for i in 0:r])
-        size(G, 1) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(size(G, 1)), expected: $k.")
-        if size(H) == (2^m - k, k)
-            H = transpose(H)
-        end
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
-        end
+    # verify
+    ncols(G) == 2^m || error("Generator matrix computed in ReedMuller has the wrong number of columns; received: $(ncols(G)), expected: $(BigInt(2)^m).")
+    k = sum([binomial(m, i) for i in 0:r])
+    nrows(G) == k || error("Generator matrix computed in ReedMuller has the wrong number of rows; received: $(nrows(G)), expected: $k.")
+    if size(H) == (2^m - k, k)
+        H = transpose(H)
+    end
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
     end
 
-    return ReedMullerCode(base_ring(G), size(G, 2), size(G, 1), 2^(m - r), r, m, G, missing,
+    return ReedMullerCode(base_ring(G), ncols(G), nrows(G), 2^(m - r), r, m, G, missing,
         H, missing, Gstand, Hstand, missing)
 end
 

@@ -162,7 +162,6 @@ function _weightenumeratorBF(G::fq_nmod_mat)
         end
         flag && push!(poly, vcat([1], vec(term)))
     end
-
     return WeightEnumerator(sort!(_reducepoly(poly), lt=_islessLex), "complete")
 end
 
@@ -244,12 +243,23 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     return T.CWE
 end
 
-# function MacWilliamsIdentity(W::WeightEnumerator)
-#     W.type == "Hamming" || error("")
-#
-# end
+# untested, likely errors
+function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator)
+    if W.type == "Hamming"
+        dualHWE = Vector{Vector{Int}}()
+        for term in W.polynomial
+            push!(dualHWE, [term[1], term[3] - term[2], term[3] + term[2]])
+        end
+        dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
+        cardC = cardinality(C)
+        for term in dualHWE
+            term[1] = div(term[1], cardC)
+        end
+        return WeightEnumerator(dualHWE, "Hamming")
+    end
 
-# TODO: MacWilliams identities, check size of dual, if small just bruteforce
+end
+
 function weightenumerator(C::AbstractLinearCode, type::String="complete",
     alg::String="auto")
 
@@ -263,12 +273,24 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 
     if alg == "auto"
-        if BigInt(characteristic(field(C)))^dimension(C) <= 1e6 # random cutoff
-            C.weightenum = _weightenumeratorBF(generatormatrix(C))
-            type == "Hamming" && return CWEtoHWE(C.weightenum)
+        if rate(C) > 0.5
+            D = dual(C)
+            if cardinality(D) <= 1e6 # random cutoff
+                D.weightenum = _weightenumeratorBF(generatormatrix(D))
+            else
+                weightenumeratorC(syndrometrellis(D, "primal", false), type)
+            end
+            C.weightenum = MacWilliamsIdentity(D, D.weightenum)
+            if type == "Hamming" && return CWEtoHWE(C.weightenum)
             return C.weightenum
         else
-            return weightenumeratorC(syndrometrellis(C, "primal", false), type)
+            if cardinality(C) <= 1e6 # random cutoff
+                C.weightenum = _weightenumeratorBF(generatormatrix(C))
+                type == "Hamming" && return CWEtoHWE(C.weightenum)
+                return C.weightenum
+            else
+                return weightenumeratorC(syndrometrellis(C, "primal", false), type)
+            end
         end
     elseif alg == "trellis"
         return weightenumeratorC(syndrometrellis(C, "primal", false), type)

@@ -20,7 +20,6 @@ function ord(n::Integer, q::Integer)
             return i
         end
     end
-
     error("Unable to compute ord($n, $q).")
 end
 
@@ -60,7 +59,6 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true,
             end
         end
     end
-
     return temp
 end
 
@@ -95,7 +93,7 @@ function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
             push!(arr, Cx)
         end
     end
-    
+
     # sort!(arr, by=x->x[1])
 
     if verbose
@@ -115,7 +113,6 @@ function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
     if sort!(vcat(arr...)) != [i for i in 0:(n - 1)]
         error("Missed some")
     end
-
     return arr
 end
 
@@ -142,7 +139,6 @@ function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}
             end
         # end
     end
-
     return compcosets
 end
 
@@ -178,7 +174,6 @@ function qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
             end
         end
     end
-
     return cosetpairlist, cosetreplist
 end
 
@@ -210,6 +205,5 @@ function dualqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
         end
         sort!(a)
     end
-
     return compcosets
 end

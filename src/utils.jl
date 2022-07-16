@@ -4,46 +4,45 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 """
-    ⊕(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
-    directsum(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
+    ⊕(A::fq_nmod_mat, B::fq_nmod_mat)
+    directsum(A::fq_nmod_mat, B::fq_nmod_mat)
 
 Return the direct sum of the two matrices `A` and `B`.
 """
-function ⊕(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
+function ⊕(A::fq_nmod_mat, B::fq_nmod_mat)
     base_ring(A) == base_ring(B) || error("Matrices must be over the same base ring in directsum.")
 
-    return vcat(hcat(A, zero_matrix(base_ring(B), size(A, 1), size(B, 2))),
-        hcat(zero_matrix(base_ring(A), size(B, 1), size(A, 2)), B))
+    return vcat(hcat(A, zero_matrix(base_ring(B), nrows(A), ncols(B))),
+        hcat(zero_matrix(base_ring(A), nrows(B), ncols(A)), B))
 end
-directsum(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = A ⊕ B
+directsum(A::fq_nmod_mat, B::fq_nmod_mat) = A ⊕ B
 
 """
-    ⊗(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
-    kron(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
-    tensorproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
-    kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat}
+    ⊗(A::fq_nmod_mat, B::fq_nmod_mat)
+    kron(A::fq_nmod_mat, B::fq_nmod_mat)
+    tensorproduct(A::fq_nmod_mat, B::fq_nmod_mat)
+    kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat)
 
 Return the Kronecker product of the two matrices `A` and `B`.
 """
-⊗(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_product(A, B)
-kron(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_product(A, B)
-tensorproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_product(A, B)
-kroneckerproduct(A::T, B::T) where T <: Union{fq_nmod_mat, gfp_mat} = kronecker_product(A, B)
+⊗(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
+kron(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
+tensorproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
+kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
 # nrows(A::T) where T = size(A, 1)
 # ncols(A::T) where T = size(A, 2)
 
 # I think we should avoid length checking here and return it for entire matrix if given
 # Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
 """
-    Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
-    weight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
-    wt(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
+    Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
+function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
     count = 0
     for i in 1:length(v)
         if !iszero(v[i])
@@ -52,19 +51,19 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} w
     end
     return count
 end
-weight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
-wt(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
 
 """
-    Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
-    distance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
-    dist(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer
+    Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
 
 Return the Hamming distance between `u` and `v`.
 """
-Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
-distance(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
-dist(u::T, v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
 
 """
     tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
@@ -114,7 +113,7 @@ function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmo
     n = div(degree(L), degree(K))
     n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
     # should really check if it is a basis
-    return vcat([_expandrow(M[r, :], K, basis) for r in 1:size(M, 1)]...)
+    return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
 end
 
 """
@@ -123,8 +122,8 @@ end
 Return the symplectic inner product of `u` and `v`.
 """
 function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
-    (size(u, 1) == 1 || size(u, 2) == 1) || error("First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).")
-    (size(v, 1) == 1 || size(v, 2) == 1) || error("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).")
+    (nrows(u) == 1 || ncols(u) == 1) || error("First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).")
+    (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).")
     length(u) == length(v) || error("Vectors must be the same length in symplectic inner product.")
     iseven(length(u)) || error("Vectors must have even length in symplectic inner product.")
     base_ring(u) == base_ring(v) || error("Vectors must be over the same field in symplectic inner product.")
@@ -144,15 +143,15 @@ function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=fals
     E = base_ring(A)
     E == base_ring(B) || error("Matices in product must both be over the same base ring.")
     if symp
-        iseven(size(A, 2)) || error("Expected a symplectic input but the first input matrix has an odd number of columns.")
-        iseven(size(B, 2)) || error("Expected a symplectic input but the second input matrix has an odd number of columns.")
+        iseven(ncols(A)) || error("Expected a symplectic input but the first input matrix has an odd number of columns.")
+        iseven(ncols(B)) || error("Expected a symplectic input but the second input matrix has an odd number of columns.")
     else
         iseven(degree(E)) || error("The base ring of the given matrices are not a quadratic extension.")
         A = quadratictosymplectic(A)
         B = quadratictosymplectic(B)
     end
 
-    AEuc = hcat(A[:, div(size(A, 2), 2) + 1:end], -A[:, 1:div(size(A, 2), 2)])
+    AEuc = hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)])
     iszero(AEuc * transpose(B)) || return false
     return true
 end
@@ -167,8 +166,8 @@ end
 Return the Hermitian inner product of `u` and `v`.
 """
 function Hermitianinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
-    (size(u, 1) == 1 || size(u, 2) == 1) || error("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).")
-    (size(v, 1) == 1 || size(v, 2) == 1) || error("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).")
+    (nrows(u) == 1 || ncols(u) == 1) || error("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).")
+    (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).")
     length(u) == length(v) || error("Vectors must be the same length in Hermitian inner product.")
     base_ring(u) == base_ring(v) || error("Vectors must be over the same field in Hermitian inner product.")
     q2 = order(base_ring(u))
@@ -213,8 +212,8 @@ function FpmattoJulia(M::fq_nmod_mat)
     degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the integers.")
     # Fp = [i for i in 0:Int64(characteristic(base_ring(M)))]
     A = zeros(Int64, size(M))
-    for r in 1:size(M, 1)
-        for c in 1:size(M, 2)
+    for c in 1:ncols(M)
+        for r in 1:nrows(M)
             # A[r, c] = Fp[findfirst(x->x==M[r, c], Fp)]
             A[r, c] = coeff(M[r, c], 0)
         end
@@ -314,16 +313,13 @@ printchararray(A::Vector{Vector{Char}}, withoutIs=false) = printstringarray(setc
 printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Integer = printstringarray(setsymplectictostringarray(A), withoutIs)
 
 """
-    pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
+    pseudoinverse(M::fq_nmod_mat)
 
 Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
 
-If the optional parameter `verify` is set to `true`, basic checks are done to
-ensure correctness.
-
 Note that this is not the Penrose-Moore pseudoinverse.
 """
-function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
+function pseudoinverse(M::fq_nmod_mat)
     # let this fail elsewhere if not actually over a quadratic extension
     if degree(base_ring(M)) != 1
         M = transpose(quadratictosymplectic(M))
@@ -338,17 +334,16 @@ function pseudoinverse(M::fq_nmod_mat, verify::Bool=true)
     pinv = E[1:nc, :]
     dual = E[nc + 1:nr, :]
 
-    if verify
-        _, Mrref = rref(M)
-        MScols = MatrixSpace(base_ring(M), nc, nc)
-        E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
-        Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
-        iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-        pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
-        transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
-        iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
-        iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
-    end
+    # verify
+    _, Mrref = rref(M)
+    MScols = MatrixSpace(base_ring(M), nc, nc)
+    E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
+    Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
+    iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
+    pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
+    transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
+    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
+    iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
     return pinv
 end
 
@@ -361,11 +356,11 @@ function quadratictosymplectic(M::fq_nmod_mat)
     E = base_ring(M)
     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
     F, _ = FiniteField(Int64(characteristic(E)), div(degree(E), 2), "ω")
-    nrows = size(M, 1)
-    ncols = size(M, 2)
-    Msym = zero_matrix(F, nrows, 2 * ncols)
-    for r in 1:nrows
-        for c in 1:ncols
+    nr = nrows(M)
+    nc = ncols(M)
+    Msym = zero_matrix(F, nr, 2 * nc)
+    for c in 1:nc
+        for r in 1:nr
             if !iszero(M[r, c])
                 Msym[r, c] = F(coeff(M[r, c], 0))
                 Msym[r, c + ncols] = F(coeff(M[r, c], 1))
@@ -381,16 +376,16 @@ end
 Return the matrix `M` converted from the symplectic to the quadratic form.
 """
 function symplectictoquadratic(M::fq_nmod_mat)
-    iseven(size(M, 2)) || error("Input to symplectictoquadratic is not of even length.")
-    nrows = size(M, 1)
-    ncols = div(size(M, 2), 2)
+    iseven(ncols(M)) || error("Input to symplectictoquadratic is not of even length.")
+    nr = nrows(M)
+    nc = div(ncols(M), 2)
     F = base_ring(M)
     E, ω = FiniteField(Int64(characteristic(F)), 2 * degree(F), "ω")
     ϕ = embed(F, E)
-    Mquad = zero_matrix(E, nrows, ncols)
-    for r in 1:nrows
-        for c in 1:ncols
-            Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + ncols]) * ω
+    Mquad = zero_matrix(E, nr, nc)
+    for c in 1:nc
+        for r in 1:nr
+            Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + nc]) * ω
         end
     end
     return Mquad
@@ -489,9 +484,12 @@ function _removeempty!(A::fq_nmod_mat, type::String)
             end
         end
         if !isempty(del)
+            println(del)
+            println(A)
             A = A[setdiff(1:nrows(A), del), :]
+            println(A)
         end
-        return
+        # return
     else
         for c in 1:ncols(A)
             if iszero(A[:, c])
@@ -501,7 +499,7 @@ function _removeempty!(A::fq_nmod_mat, type::String)
         if !isempty(del)
             A = A[:, setdiff(1:ncols(A), del)]
         end
-        return
+        # return
     end
 end
 

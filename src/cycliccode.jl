@@ -297,6 +297,10 @@ function show(io::IO, C::AbstractCyclicCode)
                 end
             end
         end
+        if !ismissing(C.weightenum)
+            println(io, "Complete weight enumerator:")
+            println(io, C.weightenum)
+        end
     end
 end
 
@@ -392,19 +396,16 @@ function dualdefiningset(defset::Vector{Int64}, n::Integer)
             append!(temp, i)
         end
     end
-
     return sort!([mod(n - i, n) for i in temp])
 end
 
 """
-    CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verify::Bool=true)
+    CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
 
 Return the CyclicCode of length `n` over `GF(q)` with `q`-cyclotomic cosets `cosets`.
 
 This function will auto determine if the constructed code is BCH or Reed-Solomon
-and call the appropriate constructor. If the optional parameter `verify` is set
-to `true`, basic checks, such as checking g(x)h(x) == x^n - 1` and checking for
-column swaps in the standard form, are done to ensure correctness.
+and call the appropriate constructor.
 
 # Examples
 ```julia
@@ -413,14 +414,12 @@ julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
 julia> C = CyclicCode(q, n, cosets)
 ```
 """
-function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verify::Bool=true)
+function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
     !(q <= 1 || n <= 1) ||error("Invalid parameters past to CyclicCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
         (p, t), = factors
     else
         p = q
@@ -432,48 +431,31 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
     E, α = FiniteField(p, t * deg, "α")
     R, _ = PolynomialRing(E, "x")
     β = α^(div(q^deg - 1, n))
-    # println("here so far")
 
     defset = sort!(vcat(cosets...))
     k = n - length(defset)
-    # println(k)
     comcosets = complementqcosets(q, n, cosets)
-    # println("here 2")
     g = _generatorpolynomial(R, β, defset)
     h = _generatorpolynomial(R, β, vcat(comcosets...))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    # println("here 3")
-    # println(G)
     Gstand, Hstand = _standardform(G)
-    # println("here 4")
     δ, b, HT = finddelta(n, cosets)
-    # println("here 5")
 
-    if verify
-        # println("above")
-        flag, htest = divides(gen(R)^n - 1, g)
-        # println(flag)
-        # println(htest)
-        flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-        # println(htest, parent(h))
-        # println(h, parent(h))
-        htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
-        # if htest != h
-        #     println("sucks")
-        #     # error("test")
-        # end
-        if size(H) == (n - k, k)
-            H = transpose(H)
-        end
-        !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
-        end
-
-        # check e=e^2
+    # verify
+    flag, htest = divides(gen(R)^n - 1, g)
+    flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
+    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    if size(H) == (n - k, k)
+        H = transpose(H)
     end
+    !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
+    end
+
+    # check e=e^2
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
@@ -493,15 +475,13 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}}, verif
 end
 
 # currently untested - not fully fixed yet
-function CyclicCode(q::Integer, n::Integer, g::fq_nmod_poly, verify::Bool=true)
+function CyclicCode(q::Integer, n::Integer, g::fq_nmod_poly)
     flag, htest = divides(gen(R)^n - 1, g)
     flag || error("Given polynomial does not divide x^$n - 1.")
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
         (q, n), = factors
     end
 
@@ -526,16 +506,15 @@ function CyclicCode(q::Integer, n::Integer, g::fq_nmod_poly, verify::Bool=true)
     Gstand, Hstand = _standardform(G)
     _, _, HT = finddelta(n, qcosets)
 
-    if verify
-        h, _, _, _ = _generatorpolynomial(q, n, vcat(comcosets...))
-        htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
-        if size(H) == (n - k, k)
-            H = transpose(H)
-        end
-        !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
-        end
+    # verify
+    h, _, _, _ = _generatorpolynomial(q, n, vcat(comcosets...))
+    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    if size(H) == (n - k, k)
+        H = transpose(H)
+    end
+    !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, HT, qcosets,
@@ -547,15 +526,13 @@ end
 # does this require them too have even minimum distance?
 # self orthogonal code must contain all of its self orthogonal q-cosets and at least one of every q-coset pair
 """
-    BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
+    BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
 
 Return the BCHCode of length `n` over `GF(q)` with design distance `δ` and offset
 `b`.
 
 This function will auto determine if the constructed code is Reed-Solomon
-and call the appropriate constructor. If the optional parameter `verify` is set
-to `true`, basic checks, such as checking g(x)h(x) == x^n - 1` and checking for
-column swaps in the standard form, are done to ensure correctness.
+and call the appropriate constructor.
 
 # Examples
 ```julia
@@ -575,15 +552,13 @@ Generator matrix: 5 × 15
         0 0 0 0 1 1 1 0 1 1 0 0 1 0 1
 ```
 """
-function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
+function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
     δ >= 2 || error("BCH codes require δ ≥ 2 but the constructor was given δ = $δ.")
     !(q <= 1 || n <= 1) || error("Invalid parameters past to BCHCode constructor: q = $q, n = $n.")
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
         (p, t), = factors
     else
         p = q
@@ -608,17 +583,16 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
     Gstand, Hstand = _standardform(G)
     δ, b, HT = finddelta(n, cosets)
 
-    if verify
-        flag, htest = divides(gen(R)^n - 1, g)
-        flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-        htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
-        if size(H) == (n - k, k)
-            H = transpose(H)
-        end
-        !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
-        end
+    # verify
+    flag, htest = divides(gen(R)^n - 1, g)
+    flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
+    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    if size(H) == (n - k, k)
+        H = transpose(H)
+    end
+    !(!iszero(G * transpose(H)) || !iszero(H * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
     end
 
     if deg == 1 && n == q - 1
@@ -633,13 +607,9 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0, verify::Bool
 end
 
 """
-    ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0, verify::Bool=true)
+    ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0)
 
 Return the ReedSolomonCode over `GF(q)` with distance `d` and offset `b`.
-
-If the optional parameter `verify` is set to `true`, basic checks, such as
-checking g(x)h(x) == x^n - 1` and checking for column swaps in the standard form,
-are done to ensure correctness.
 
 # Examples
 ```julia
@@ -673,7 +643,7 @@ Generator matrix: 8 × 12
         0 0 0 0 0 0 0 10 2 7 9 1
 ```
 """
-function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0, verify::Bool=true)
+function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0)
     d >= 2 || error("Reed Solomon codes require δ ≥ 2 but the constructor was given d = $d.")
     q > 4 || error("Invalid or too small parameters past to ReedSolomonCode constructor: q = $q.")
 
@@ -684,9 +654,7 @@ function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0, verify::Bool=true
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
         (p, t), = factors
     else
         p = q
@@ -708,17 +676,16 @@ function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0, verify::Bool=true
     H = _generatormatrix(F, n, n - k, reverse(h))
     Gstand, Hstand = _standardform(G)
 
-    if verify
-        flag, htest = divides(gen(R)^n - 1, g)
-        flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-        htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
-        if size(H) != (n - k, k)
-            H = transpose(H)
-        end
-        !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
-        for r in 1:size(Gstand, 1)
-            iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
-        end
+    # verify
+    flag, htest = divides(gen(R)^n - 1, g)
+    flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
+    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    if size(H) != (n - k, k)
+        H = transpose(H)
+    end
+    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    for r in 1:nrows(Gstand)
+        iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
     end
 
     return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, d, cosets,
@@ -727,22 +694,15 @@ function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0, verify::Bool=true
 end
 
 """
-    complement(C::AbstractCyclicCode, verify::Bool=true)
+    complement(C::AbstractCyclicCode)
 
 Return the cyclic code whose cyclotomic cosets are the completement of `C`'s.
-
-If the optional parameter `verify` is set to `true`, basic checks, are done
-to ensure correctness.
 """
-function complement(C::AbstractCyclicCode, verify::Bool=true)
+function complement(C::AbstractCyclicCode)
     D = CyclicCode(Int64(order(field(C))), length(C),
         complementqcosets(Int64(order(field(C))), length(C), qcosets(C)))
-    if verify
-        if paritycheckpolynomial(C) != generatorpolynomial(D) || idempotent(D) != (1 - idempotent(C))
-            error("Error constructing the complement cyclic code.")
-        end
-    end
-
+    (paritycheckpolynomial(C) != generatorpolynomial(D) || idempotent(D) != (1 -
+        idempotent(C))) && error("Error constructing the complement cyclic code.")
     return D
 end
 
@@ -812,7 +772,8 @@ function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
 
     if field(C1) == field(C2) && length(C1) == length(C2)
         return CyclicCode(Int64(order(field(C1))), length(C1),
-            definingset(definingset(C1) ∪ definingset(C2), Int64(order(field(C1))), length(C1), false))
+            definingset(definingset(C1) ∪ definingset(C2), Int64(order(field(C1))),
+            length(C1), false))
     else
         error("Cannot intersect two codes over different base fields or lengths.")
     end

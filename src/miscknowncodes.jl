@@ -2,6 +2,8 @@
           # Misc
 #############################
 
+# TODO: add CWE here
+# generator matrix should be all 1's so this should be 1 of 1's, 1 of 2's, etc up to p - 1
 """
     RepetitionCode(q::Int, n::Int)
 
@@ -50,9 +52,7 @@ function HammingCode(q::Int, r::Int)
 
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
     end
 
     if q == 2
@@ -65,8 +65,6 @@ function HammingCode(q::Int, r::Int)
         return C
     end
 
-    # think for higher fields I can simply make a matrix whose columns are all
-    # nonzero m-tuples from GF(q) with first nonzero entry == 1
 end
 
 """
@@ -109,9 +107,7 @@ function SimplexCode(q::Int, r::Int)
     # actually really need to check here that q^r is not over sizeof(Int)
     if !isprime(q)
         factors = factor(q)
-        if length(factors) != 1
-            error("There is no finite field of order $(prod(factors)).")
-        end
+        length(factors) == 1 || error("There is no finite field of order $q.")
     end
 
     # the known weight distribution is Hamming and not complete
@@ -131,10 +127,10 @@ function SimplexCode(q::Int, r::Int)
     else
         Grm1 = G2
         for i in 3:r
-            zs = matrix(F, size(Grm1, 1), 1, zeros(Int, size(Grm1, 1), 1))
+            zs = matrix(F, nrows(Grm1), 1, zeros(Int, nrows(Grm1), 1))
             bot = hcat(Grm1, zs, Grm1)
-            zs = matrix(F, 1, size(Grm1, 2), zeros(Int, 1, size(Grm1, 2)))
-            os = matrix(F, 1, size(Grm1, 2) + 1, ones(Int, 1, size(Grm1, 2) + 1))
+            zs = matrix(F, 1, ncols(Grm1), zeros(Int, 1, ncols(Grm1)))
+            os = matrix(F, 1, ncols(Grm1) + 1, ones(Int, 1, ncols(Grm1) + 1))
             top = hcat(zs, os)
             Grm1 = vcat(top, bot)
         end
