@@ -8,7 +8,7 @@ using Nemo
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
-import Nemo: isprime, factor, transpose, order
+import Nemo: isprime, factor, transpose, order, polynomial
 import Base: show, length, in, ⊆, /, *, ==, ∩, +, -
 
 #############################
@@ -190,7 +190,7 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
     Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
     HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-    weightdistribution, CWEtoHWE
-    #, _islessLex
+    weightdistribution, CWEtoHWE, support, polynomial, type
+    # _weightenumeratorBF
 
 end

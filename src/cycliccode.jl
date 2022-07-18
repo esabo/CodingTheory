@@ -300,7 +300,7 @@ function show(io::IO, C::AbstractCyclicCode)
         end
         if !ismissing(C.weightenum)
             println(io, "\nComplete weight enumerator:")
-            println(io, "\t", C.weightenum)
+            println(io, "\t", polynomial(C.weightenum))
         end
     end
 end

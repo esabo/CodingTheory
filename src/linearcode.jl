@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 struct WeightEnumerator
-    polynomial::Vector{Vector{Int64}}
+    polynomial::fmpz_mpoly
     type::String
 end
 
@@ -134,7 +134,7 @@ function show(io::IO, C::AbstractLinearCode)
         end
         if !ismissing(C.weightenum)
             println(io, "\nComplete weight enumerator:")
-            println(io, "\t", C.weightenum)
+            println(io, "\t", polynomial(C.weightenum))
         end
     end
 end

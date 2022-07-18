@@ -14,7 +14,7 @@ mutable struct Vertex
     next::Int64
     value::Float64
     edgeloc::Int64
-    polynomial::Union{Vector{Vector{Int64}}, Missing}
+    polynomial::Union{fmpz_mpoly, Missing}
 end
 
 # could redo this for classical to remove sign
@@ -870,7 +870,7 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
     end
     p = Int64(characteristic(K))
     n = length(C)
-    V = Vector{Vertex}[Vertex[] for i = 1:n + 1]
+    V = Vector{Vertex}[Vertex[] for i = 1:n + 1] # TODO: why am I using = and not in throughout this function
     Threads.@threads for i = 1:n + 1
         V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for j = 1:profiles[1][i]]
     end

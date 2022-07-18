@@ -139,7 +139,7 @@ end
     # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
 
     # simplex code itself has dimension k(k + 1)/2
-    # 
+    #
 end
 
 @testset "ReedMuller.jl" begin
@@ -212,8 +212,9 @@ end
     @test HWEbf == HWEtrellis
     # all nonzero codewords have weights q^{r - 1}
     flag = true
-    for term in HWEtrellis.polynomial
-        if !iszero(term[2] % 2^(4 - 1))
+    for exps in [collect(exponent_vectors(polynomial(HWEtrellis)))[i][1]
+            for i in 1:length(polynomial(HWEtrellis))]
+        if !iszero(exps % 2^(4 - 1))
             flag = false
             break
         end
@@ -223,11 +224,13 @@ end
     @test dimension(C) == 4
 
     # Golay codes
+    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
     C = ExtendedGolayCode(3)
     # well-known weight enumerators
-    @test weightenumerator(C, "Hamming").polynomial == [[1, 0, 12], [264, 6, 6], [440, 9, 3], [24, 12, 0]]
+    C.weightenum = missing
+    @test polynomial(weightenumerator(C, "Hamming")) == y^12 + 264 * x^6 * y^6 + 440 * x^9 * y^3 + 24 * x^12
     C = GolayCode(3)
-    @test weightenumerator(C, "Hamming").polynomial == [[1, 0, 11], [132, 5, 6], [132, 6, 5], [330, 8, 3], [110, 9, 2], [24, 11, 0]]
+    @test polynomial(weightenumerator(C, "Hamming", "bruteforce")) == y^11 + 132 * x^5 * y^6 + 132 * x^6 * y^5 + 330 * x^8 * y^3 + 110 * x^9 * y^2 + 24 * x^11
     # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
     # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
     # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)

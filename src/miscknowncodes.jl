@@ -138,8 +138,9 @@ function SimplexCode(q::Int, r::Int)
         # all nonzero codewords have weights q^{r - 1}
         # should have q^r - 1 nonzero codewords
         # coeff, 0's, 1's
-        C.weightenum = WeightEnumerator([[1, 2^r - 1, 0], [2^r - 1, 2^r - 2^(r - 1) - 1,
-            2^(r - 1)]], "complete")
+        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        C.weightenum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1) *
+            vars[1]^(2^r - 2^(r - 1) - 1) * vars[2]^(2^(r - 1)), "complete")
         setminimumdistance!(C, 2^(r - 1))
         return C
     end
@@ -181,7 +182,10 @@ function ExtendedGolayCode(p::Int)
              1 0 1 1 0 1 1 1 0 0 0 1])
         G = hcat(M(1), A)
         H = hcat(-transpose(A), M(1))
-        return LinearCode(F, 24, 12, 8, G, G, H, H, G, H, missing)
+        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        wtenum = vars[1]^12 + 264 * vars[2]^6 * vars[1]^6 + 440 * vars[2]^9 *
+            vars[1]^3 + 24 * vars[2]^12
+        return LinearCode(F, 24, 12, 8, G, G, H, H, G, H, wtenum)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
         M = MatrixSpace(F, 6 , 6)

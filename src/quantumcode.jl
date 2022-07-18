@@ -1087,11 +1087,11 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
             if !ismissing(S.sCWEstabs)
                 println(io, "\nSigned complete weight enumerator for the stabilizer:")
-                print(io, "\t", S.sCWEstabs)
+                print(io, "\t", polynomial(S.sCWEstabs))
             end
             if !ismissing(S.sCWEdual)
                 println(io, "\nSigned complete weight enumerator for the normalizer:")
-                println(io, "\t", S.sCWEdual)
+                println(io, "\t", polynomial(S.sCWEdual))
             end
         else
             if typeof(dimension(S)) <: Integer
@@ -1126,11 +1126,11 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
             if !ismissing(S.sCWEstabs)
                 println(io, "\nSigned complete weight enumerator for the stabilizer:")
-                print(io, "\t", S.sCWEstabs)
+                print(io, "\t", polynomial(S.sCWEstabs))
             end
             if !ismissing(S.sCWEdual)
                 println(io, "\nSigned complete weight enumerator for the normalizer:")
-                println(io, "\t", S.sCWEdual)
+                println(io, "\t", polynomial(S.sCWEdual))
             end
         end
     end

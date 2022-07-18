@@ -8,127 +8,13 @@
          # General
 #############################
 
-function _islessLex(a::Vector{Int64}, b::Vector{Int64})
-    if a[2:end] == b[2:end] && a[1] < b[1]
-        return true
-    elseif a[2:end] == b[2:end] && a[1] > b[1]
-        return false
-    end
-    for i = 2:length(a)
-        if a[i] < b[i]
-            return true
-        elseif a[i] > b[i]
-            return false
-        end
-    end
-    return false
-end
-
-function _reducepoly(poly::Vector{Vector{Int64}})
-    reducedpoly = Vector{Vector{Int64}}()
-    processed = trues(length(poly))
-    for (i, term) in enumerate(poly)
-        if processed[i]
-            for j in (i + 1):length(poly)
-                if processed[j]
-                    if term[2:end] == poly[j][2:end]
-                        term[1] += poly[j][1]
-                        processed[j] = false
-                    end
-                end
-            end
-            push!(reducedpoly, term)
-            processed[i] = false
-        end
-    end
-    return reducedpoly
-end
-
-# things should enter this reduced and sorted, so no need to do this here? -
-function -(W1::WeightEnumerator, W2::WeightEnumerator)
-    W1.type == W2.type || error("Cannot subtract two weight enumerators of different types.")
-    polyW1 = W1.polynomial
-    n = length(W1.polynomial[1])
-    n == length(W2.polynomial[1]) || error("Cannot subtract two weight enumerators with a different number of variables.")
-
-    n -= 1
-    newpoly = Vector{Vector{Int}}()
-    for termW1 in polyW1
-        flag = false
-        for termW2 in W2.polynomial
-            if termW1[2:n] == termW2[2:n]
-                push!(newpoly, [termW1[1] - termW2[1]; termW1[2:n]])
-                flag = true
-                break
-            end
-        end
-        if !flag
-            push!(newpoly, termW1)
-        end
-    end
-    return WeightEnumerator(newpoly, W1.type)
-end
+polynomial(f::WeightEnumerator) = f.polynomial
+type(f::WeightEnumerator) = f.type
 
 function ==(W1::WeightEnumerator, W2::WeightEnumerator)
-    W1.type == W2.type || return false
-    a = WeightEnumerator(sort!(_reducepoly(W1.polynomial), lt=_islessLex), W1.type)
-    b = WeightEnumerator(sort!(_reducepoly(W2.polynomial), lt=_islessLex), W2.type)
-    length(a.polynomial) == length(b.polynomial) || return false
-    # for i in 1:length(a.polynomial)
-    #     a.polynomial[i] == b.polynomial[i] || return false
-    # end
-    # return true
-    a.polynomial == b.polynomial && return true
+    type(W1) == type(W2) || return false
+    polynomial(W1) == polynomial(W2) && return true
     return false
-end
-
-"""
-prints in order of collect(F) where F is the field of the code
-
-"""
-function show(io::IO, W::WeightEnumerator)
-    poly = W.polynomial
-    if W.type == "complete"
-        # println(io, "A complete weight enumerator for a classical code.")
-        len = length(poly[1])
-        for (i, term) in enumerate(poly)
-            if !iszero(term[1]) && iszero(term[2:end])
-                print(io, term[1])
-            else
-                if term[1] != 1
-                    print(io, term[1])
-                end
-                for j in 2:len
-                    if !iszero(term[j])
-                        print(io, "x_$(j - 1)^$(term[j])")
-                    end
-                end
-            end
-            if i != length(poly)
-                print(io, " + ")
-            end
-        end
-    elseif W.type == "Hamming"
-        # println(io, "A Hamming weight enumerator for a classical code.")
-        for (i, term) in enumerate(poly)
-            if !iszero(term[1]) && iszero(term[2:end])
-                print(io, term[1])
-            else
-                if term[1] != 1
-                    print(io, term[1])
-                end
-                if !iszero(term[2])
-                    print(io, "x^", term[2])
-                end
-                if !iszero(term[3])
-                    print(io, "y^", term[3])
-                end
-            end
-            if i != length(poly)
-                print(io, " + ")
-            end
-        end
-    end
 end
 
 # TODO: test with other iterator
@@ -136,7 +22,9 @@ function _weightenumeratorBF(G::fq_nmod_mat)
     E = base_ring(G)
     ordE = Int(order(E))
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
-    poly = Vector{Vector{Int}}()
+    R, vars = PolynomialRing(Nemo.ZZ, ordE)
+    poly = R(0)
+
     # Nemo.AbstractAlgebra.ProductIterator
     for iter in Base.Iterators.product([0:(Int64(characteristic(E)) - 1) for _ in 1:nrows(G)]...)
         row = E(iter[1]) * G[1, :]
@@ -146,23 +34,18 @@ function _weightenumeratorBF(G::fq_nmod_mat)
             end
         end
 
-        term = zeros(Int, 1, ordE + 1)
+        # can probably do this in one step
+        term = zeros(Int, 1, ordE)
         for x in row
             term[lookup[x]] += 1
         end
-
-        # this is slow but keeps the memory down of reducing afterwares
-        flag = true
-        for x in poly
-            if term == x[2:end]
-                x[1] += 1
-                flag = false
-                break
-            end
+        termpoly = R(1)
+        for i in 1:ordE
+            termpoly *= vars[i]^term[i]
         end
-        flag && push!(poly, vcat([1], vec(term)))
+        poly += termpoly
     end
-    return WeightEnumerator(sort!(_reducepoly(poly), lt=_islessLex), "complete")
+    return WeightEnumerator(poly, "complete")
 end
 
 #############################
@@ -175,19 +58,13 @@ end
 
 # make private?
 function CWEtoHWE(CWE::WeightEnumerator)
-    poly = Vector{Vector{Int64}}()
-    # is homogeneous
-    n = sum(CWE.polynomial[1][2:end])
-    for term in CWE.polynomial
-        # absolute value for quantum, signed CWEs?
-        # tot = sum(term[3:end])
-        # CWE.n >= tot || error("Total degree of term in complete weight enumerator is larger than the code length.")
-        # push!(poly, [term[1], tot, n - tot])
-
-        # actually can just do this since it's homogeneous
-        push!(poly, [term[1], n - term[2], term[2]])
+    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+    poly = R(0)
+    for i in 1:length(CWE.polynomial)
+        exps = exponent_vector(CWE.polynomial, i)
+        poly += coeff(CWE.polynomial, i) * x^sum(exps[2:end]) * y^exps[1]
     end
-    return WeightEnumerator(sort!(_reducepoly(poly), lt=_islessLex), "Hamming")
+    return WeightEnumerator(poly, "Hamming")
 end
 
 function weightenumeratorC(T::Trellis, type::String="complete")
@@ -201,33 +78,34 @@ function weightenumeratorC(T::Trellis, type::String="complete")
 
     # if this ever changes or permutes will have to store with T
     elms = collect(field(T.code))
+    lookup = Dict(value => key for (key, value) in enumerate(elms))
+    R, vars = PolynomialRing(Nemo.ZZ, length(elms))
+
     V = vertices(T)
     E = edges(T)
-    V[1][1].polynomial = [zeros(Int, length(elms) + 1)]
-    V[1][1].polynomial[1][1] = 1
+    V[1][1].polynomial = R(1)
+    # V[1][1].polynomial[1][1] = 1
     for i in 2:length(V)
         for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
+            outer = R(0)
             for e in E[i - 1][j]
                 inner = deepcopy(V[i - 1][e.outvertex].polynomial)
                 for k in e.label
-                    # probably a better way to do this
-                    # TODO: dictionary it for faster lookup?
-                    for term in inner
-                        term[findfirst(x->x==k, elms) + 1] += 1
-                    end
+                    inner *= vars[lookup[k]]
                 end
-                append!(outer, inner)
+                outer += inner
             end
-            v.polynomial = _reducepoly(outer)
+            v.polynomial = outer
         end
     end
-    T.CWE = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex),
-        "complete")
+    T.CWE = WeightEnumerator(V[end][1].polynomial, "complete")
 
     # currently Missing is not an option but how to implement dual trellis
     if !isshifted(T) && !ismissing(T.code)
         T.code.weightenum = T.CWE
+        HWE = CWEtoHWE(T.CWE)
+        T.code.d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
+            for i in 1:length(polynomial(HWE))])
     end
 
     # clean up vertices
@@ -245,81 +123,61 @@ end
 
 # ah, there's nothing about this function which is correct. I've been changing the
 # exponents while I need to evaluate the functions then expand using the same exponents
-# function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
-#     dual ∈ ["Euclidean", "Hermitian"] ||
-#         error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
-#     (dual == "Hermitian" && Int(order(C.field)) != 4) &&
-#         error("The MacWilliams identity for the Hermitian dual is only programmed for GF(4).")
-#
-#     if W.type == "Hamming"
-#         # (1/|C|)W(y - x, y + (q - 1)x)
-#         dualHWE = Vector{Vector{Int}}()
-#         for term in W.polynomial
-#             push!(dualHWE, [term[1], term[3] - term[2], term[3] + (Int(order(C.field)) - 1) * term[2]])
-#         end
-#         dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
-#         cardC = cardinality(C)
-#         for term in dualHWE
-#             term[1] = div(term[1], cardC)
-#         end
-#         return WeightEnumerator(dualHWE, "Hamming")
-#     end
-#
-#     # complete weight enumerators
-#     if Int(order(C.field)) == 2
-#         # the complete and Hamming weight enumerators are the same in binary
-#         # (1/|C|)W(x_0 + (q - 1)x_1, x_0 - x_1)
-#         dualHWE = Vector{Vector{Int}}()
-#         for term in W.polynomial
-#             push!(dualHWE, [term[1], term[2] + term[3], term[2] - term[3]])
-#         end
-#         dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
-#         cardC = cardinality(C)
-#         for term in dualHWE
-#             term[1] = div(term[1], cardC)
-#         end
-#         return WeightEnumerator(dualHWE, "complete")
-#     elseif Int(order(C.field)) == 3
-#         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
-#
-#     elseif Int(order(C.field)) == 4
-#         if dual == "Euclidean"
-#             # for Euclidean dual
-#             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
-#             dualHWE = Vector{Vector{Int}}()
-#             for term in W.polynomial
-#                 push!(dualHWE, [term[1], term[2] + term[3] + term[4] + term[5],
-#                     term[2] + term[3] - term[4] - term[5],
-#                     term[2] - term[3] - term[4] + term[5],
-#                     term[2] - term[3] + term[4] - term[5]])
-#             end
-#             dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
-#             cardC = cardinality(C)
-#             for term in dualHWE
-#                 term[1] = div(term[1], cardC)
-#             end
-#             return WeightEnumerator(dualHWE, "complete")
-#         else
-#             # for Hermitian dual
-#             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
-#             dualHWE = Vector{Vector{Int}}()
-#             for term in W.polynomial
-#                 push!(dualHWE, [term[1], term[2] + term[3] + term[4] + term[5],
-#                     term[2] + term[3] - term[4] - term[5],
-#                     term[2] - term[3] + term[4] - term[5],
-#                     term[2] - term[3] - term[4] + term[5]])
-#             end
-#             dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
-#             cardC = cardinality(C)
-#             for term in dualHWE
-#                 term[1] = div(term[1], cardC)
-#             end
-#             return WeightEnumerator(dualHWE, "complete")
-#         end
-#     else
-#         # do the full manual thing here
-#     end
-# end
+function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
+    dual ∈ ["Euclidean", "Hermitian"] ||
+        error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
+    (dual == "Hermitian" && Int(order(field(C))) != 4) &&
+        error("The MacWilliams identity for the Hermitian dual is only programmed for GF(4).")
+
+    if W.type == "Hamming"
+        # (1/|C|)W(y - x, y + (q - 1)x)
+        R = parent(W.polynomial)
+        vars = gens(R)
+        return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
+            (Int(order(field(C))) - 1) * vars[1]), cardinality(C)), "Hamming")
+    end
+
+    # complete weight enumerators
+    if Int(order(field(C))) == 2
+        # the complete and Hamming weight enumerators are the same in binary
+        # (1/|C|)W(x_0 + (q - 1)x_1, x_0 - x_1)
+        R = parent(W.polynomial)
+        vars = gens(R)
+        return WeightEnumerator(divexact(W.polynomial(vars[1] +
+            (Int(order(field(C))) - 1) * vars[1], vars[1] - vars[2]),
+            cardinality(C)), "complete")
+    elseif Int(order(field(C))) == 3
+        # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
+        error("still to implement over 𝔽_3")
+    elseif Int(order(field(C))) == 4
+        if dual == "Euclidean"
+            # for Euclidean dual
+            # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
+            R = parent(W.polynomial)
+            vars = gens(R)
+            return WeightEnumerator(divexact(W.polynomial(
+                vars[1] + vars[2] + vars[3] + vars[4],
+                vars[1] + vars[2] - vars[3] - vars[4],
+                vars[1] - vars[2] - vars[3] + vars[4],
+                vars[1] - vars[2] + vars[3] - vars[4]), cardinality(C)),
+                "complete")
+        else
+            # for Hermitian dual
+            # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
+            R = parent(W.polynomial)
+            vars = gens(R)
+            return WeightEnumerator(divexact(W.polynomial(
+                vars[1] + vars[2] + vars[3] + vars[4],
+                vars[1] + vars[2] - vars[3] - vars[4],
+                vars[1] - vars[2] + vars[3] - vars[4],
+                vars[1] - vars[2] - vars[3] + vars[4]), cardinality(C)),
+                "complete")
+        end
+    else
+        # do the full manual thing here
+        error("still to implement over higher fields")
+    end
+end
 
 function weightenumerator(C::AbstractLinearCode, type::String="complete",
     alg::String="auto")
@@ -334,30 +192,39 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 
     if alg == "auto"
-        # if rate(C) > 0.5
-        #     D = dual(C)
-        #     if cardinality(D) <= 1e6 # random cutoff
-        #         D.weightenum = _weightenumeratorBF(generatormatrix(D))
-        #     else
-        #         weightenumeratorC(syndrometrellis(D, "primal", false), type)
-        #     end
-        #     C.weightenum = MacWilliamsIdentity(D, D.weightenum)
-        #     type == "Hamming" && return CWEtoHWE(C.weightenum)
-        #     return C.weightenum
-        # else
+        if rate(C) > 0.5
+            D = dual(C)
+            if cardinality(D) <= 1e6 # random cutoff
+                D.weightenum = _weightenumeratorBF(generatormatrix(D))
+            else
+                weightenumeratorC(syndrometrellis(D, "primal", false), type)
+            end
+            C.weightenum = MacWilliamsIdentity(D, D.weightenum)
+            HWE = CWEtoHWE(C.weightenum)
+            C.d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
+                for i in 1:length(polynomial(HWE))])
+            type == "Hamming" && return HWE
+            return C.weightenum
+        else
             if cardinality(C) <= 1e6 # random cutoff
                 C.weightenum = _weightenumeratorBF(generatormatrix(C))
-                type == "Hamming" && return CWEtoHWE(C.weightenum)
+                HWE = CWEtoHWE(C.weightenum)
+                C.d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
+                    for i in 1:length(polynomial(HWE))])
+                type == "Hamming" && return HWE
                 return C.weightenum
             else
                 return weightenumeratorC(syndrometrellis(C, "primal", false), type)
             end
-        # end
+        end
     elseif alg == "trellis"
         return weightenumeratorC(syndrometrellis(C, "primal", false), type)
     elseif alg == "bruteforce"
         C.weightenum = _weightenumeratorBF(generatormatrix(C))
-        type == "Hamming" && return CWEtoHWE(C.weightenum)
+        HWE = CWEtoHWE(C.weightenum)
+        C.d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
+            for i in 1:length(polynomial(HWE))])
+        type == "Hamming" && return HWE
         return C.weightenum
     end
 end
@@ -369,20 +236,24 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
     format ∈ ["full", "compact"] || error("Unknown value for parameter format: $format; expected `full` or `compact`.")
 
     ismissing(C.weightenum) && weightenumerator(C, "trellis")
-    wtdist = zeros(Int64, 1, length(C) + 1)
-    for term in C.weightenum.polynomial
-        wtdist[term[2] + 1] = term[1]
-    end
+    HWE = CWEtoHWE(C.weightenum)
 
     if format == "compact"
-        compact = Vector{Tuple}()
-        for (i, x) in enumerate(wtdist)
-            !iszero(x) && push!(compact, (i, x))
+        wtdist = Vector{Tuple}()
+        for i in 1:length(polynomial(HWE))
+            push!(wtdist, (exponent_vector(polynomial(HWE), i)[1],
+                coeff(polynomial(HWE), i)))
         end
-        return compact
+    else
+        wtdist = zeros(Int, 1, length(C) + 1)
+        for i in 1:length(polynomial(HWE))
+            wtdist[exponent_vector(polynomial(HWE), i)[1]] = coeff(polynomial(HWE), i)
+        end
     end
     return wtdist
 end
+
+support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "compact")]
 
 #############################
      # Minimum Distance
@@ -397,9 +268,9 @@ using the algorithm of `alg`. If `alg = "trellis"`, the sectionalization flag
 """
 function minimumdistance(C::AbstractLinearCode, alg::String="trellis")
     !ismissing(C.d) && return C.d
-    weightenumerator(C, alg)
-    # first element is always the identity y^n, want power of first x term
-    C.d = C.weightenum.polynomial[2][2]
+    HWE = CWEtoHWE(weightenumerator(C, alg))
+    # ordering here can be a bit weird
+    C.d = minimum([collect(exponent_vectors(HWE))[i][1] for i in 1:length(HWE)])
     return C.d
 end
 
