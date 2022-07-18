@@ -79,7 +79,7 @@ function LinearCode(G::fq_nmod_mat, parity::Bool=false)
     G = _removeempty(G, "rows")
     Gorig = G
     rk = rank(G)
-    !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
+    # !iszero(rk) || error("Rank zero matrix passed into LinearCode constructor.")
     if rk < nrows(G)
         _, G = rref(G)
         G = _removeempty(G, "rows")
@@ -91,7 +91,7 @@ function LinearCode(G::fq_nmod_mat, parity::Bool=false)
 
     # nrows(transpose(H)) == ncols(G) - nrows(G) || error("Parity check matrix is not size n - k.")
     # can this ever actually happen?
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
+    # !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) || error("Generator and parity check matrices are not transpose orthogonal.")
     # should remove need for using my own rref in utils.jl
     for r in 1:nrows(Gstand)
         iszero(Gstand[r, :] * H) || error("Column swap appeared in _standardform.")
@@ -583,8 +583,8 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int64})
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
-        error("Generator and parity check matrices are not transpose orthogonal.")
+    # !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
+    #     error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), ncols(G), nrows(G), missing, G, generatormatrix(C),
@@ -614,8 +614,8 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int64})
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
-        error("Generator and parity check matrices are not transpose orthogonal.")
+    # !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
+    #     error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
     return LinearCode(field(C), ncols(G), nrows(G), missing, G, generatormatrix(C),
@@ -645,8 +645,8 @@ function augment(C::AbstractLinearCode, M::fq_nmod_mat)
 
     # note the H here is transpose of the standard definition
     _, H = right_kernel(G)
-    !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
-        error("Generator and parity check matrices are not transpose orthogonal.")
+    # !(!iszero(G * H) || !iszero(transpose(H) * transpose(G))) ||
+    #     error("Generator and parity check matrices are not transpose orthogonal.")
 
     Gstand, Hstand = _standardform(G)
     for r in 1:nrows(Gstand)

@@ -524,13 +524,8 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     # remove any empty rows
-<<<<<<< Updated upstream
     Xmatrix = _removeempty(Xmatrix, "rows")
     Zmatrix = _removeempty(Zmatrix, "rows")
-=======
-    _removeempty!(Xmatrix, "rows")
-    _removeempty!(Zmatrix, "rows")
->>>>>>> Stashed changes
 
     # determine if the provided set of stabilizers are redundant
     Xrank = rank(Xmatrix)
@@ -561,8 +556,8 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     _, H = right_kernel(G)
     ncols(H) == n + k || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
-    dualgens = symplectictoquadratic(transpose(H))
+    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^(Xrank + Zrank)
@@ -657,8 +652,8 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     # why'd I do 2n - k instead of n + k here?
     ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
-    dualgens = symplectictoquadratic(transpose(H))
+    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank
@@ -758,8 +753,8 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
     # why'd I do 2n - k instead of n + k here?
     ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
-    dualgens = symplectictoquadratic(transpose(H))
+    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank
@@ -871,8 +866,8 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     # why'd I do 2n - k instead of n + k here?
     ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
-    dualgens = symplectictoquadratic(transpose(H))
+    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank

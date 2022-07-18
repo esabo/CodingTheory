@@ -243,22 +243,83 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     return T.CWE
 end
 
-# untested, likely errors
-function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator)
-    if W.type == "Hamming"
-        dualHWE = Vector{Vector{Int}}()
-        for term in W.polynomial
-            push!(dualHWE, [term[1], term[3] - term[2], term[3] + term[2]])
-        end
-        dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
-        cardC = cardinality(C)
-        for term in dualHWE
-            term[1] = div(term[1], cardC)
-        end
-        return WeightEnumerator(dualHWE, "Hamming")
-    end
-
-end
+# ah, there's nothing about this function which is correct. I've been changing the
+# exponents while I need to evaluate the functions then expand using the same exponents
+# function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
+#     dual ∈ ["Euclidean", "Hermitian"] ||
+#         error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
+#     (dual == "Hermitian" && Int(order(C.field)) != 4) &&
+#         error("The MacWilliams identity for the Hermitian dual is only programmed for GF(4).")
+#
+#     if W.type == "Hamming"
+#         # (1/|C|)W(y - x, y + (q - 1)x)
+#         dualHWE = Vector{Vector{Int}}()
+#         for term in W.polynomial
+#             push!(dualHWE, [term[1], term[3] - term[2], term[3] + (Int(order(C.field)) - 1) * term[2]])
+#         end
+#         dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
+#         cardC = cardinality(C)
+#         for term in dualHWE
+#             term[1] = div(term[1], cardC)
+#         end
+#         return WeightEnumerator(dualHWE, "Hamming")
+#     end
+#
+#     # complete weight enumerators
+#     if Int(order(C.field)) == 2
+#         # the complete and Hamming weight enumerators are the same in binary
+#         # (1/|C|)W(x_0 + (q - 1)x_1, x_0 - x_1)
+#         dualHWE = Vector{Vector{Int}}()
+#         for term in W.polynomial
+#             push!(dualHWE, [term[1], term[2] + term[3], term[2] - term[3]])
+#         end
+#         dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
+#         cardC = cardinality(C)
+#         for term in dualHWE
+#             term[1] = div(term[1], cardC)
+#         end
+#         return WeightEnumerator(dualHWE, "complete")
+#     elseif Int(order(C.field)) == 3
+#         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
+#
+#     elseif Int(order(C.field)) == 4
+#         if dual == "Euclidean"
+#             # for Euclidean dual
+#             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
+#             dualHWE = Vector{Vector{Int}}()
+#             for term in W.polynomial
+#                 push!(dualHWE, [term[1], term[2] + term[3] + term[4] + term[5],
+#                     term[2] + term[3] - term[4] - term[5],
+#                     term[2] - term[3] - term[4] + term[5],
+#                     term[2] - term[3] + term[4] - term[5]])
+#             end
+#             dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
+#             cardC = cardinality(C)
+#             for term in dualHWE
+#                 term[1] = div(term[1], cardC)
+#             end
+#             return WeightEnumerator(dualHWE, "complete")
+#         else
+#             # for Hermitian dual
+#             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
+#             dualHWE = Vector{Vector{Int}}()
+#             for term in W.polynomial
+#                 push!(dualHWE, [term[1], term[2] + term[3] + term[4] + term[5],
+#                     term[2] + term[3] - term[4] - term[5],
+#                     term[2] - term[3] + term[4] - term[5],
+#                     term[2] - term[3] - term[4] + term[5]])
+#             end
+#             dualHWE = sort!(_reducepoly(dualHWE), lt=_islessLex)
+#             cardC = cardinality(C)
+#             for term in dualHWE
+#                 term[1] = div(term[1], cardC)
+#             end
+#             return WeightEnumerator(dualHWE, "complete")
+#         end
+#     else
+#         # do the full manual thing here
+#     end
+# end
 
 function weightenumerator(C::AbstractLinearCode, type::String="complete",
     alg::String="auto")
@@ -273,17 +334,17 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 
     if alg == "auto"
-        if rate(C) > 0.5
-            D = dual(C)
-            if cardinality(D) <= 1e6 # random cutoff
-                D.weightenum = _weightenumeratorBF(generatormatrix(D))
-            else
-                weightenumeratorC(syndrometrellis(D, "primal", false), type)
-            end
-            C.weightenum = MacWilliamsIdentity(D, D.weightenum)
-            type == "Hamming" && return CWEtoHWE(C.weightenum)
-            return C.weightenum
-        else
+        # if rate(C) > 0.5
+        #     D = dual(C)
+        #     if cardinality(D) <= 1e6 # random cutoff
+        #         D.weightenum = _weightenumeratorBF(generatormatrix(D))
+        #     else
+        #         weightenumeratorC(syndrometrellis(D, "primal", false), type)
+        #     end
+        #     C.weightenum = MacWilliamsIdentity(D, D.weightenum)
+        #     type == "Hamming" && return CWEtoHWE(C.weightenum)
+        #     return C.weightenum
+        # else
             if cardinality(C) <= 1e6 # random cutoff
                 C.weightenum = _weightenumeratorBF(generatormatrix(C))
                 type == "Hamming" && return CWEtoHWE(C.weightenum)
@@ -291,7 +352,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
             else
                 return weightenumeratorC(syndrometrellis(C, "primal", false), type)
             end
-        end
+        # end
     elseif alg == "trellis"
         return weightenumeratorC(syndrometrellis(C, "primal", false), type)
     elseif alg == "bruteforce"
