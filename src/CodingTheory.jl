@@ -9,7 +9,7 @@ using Nemo
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
 import Nemo: isprime, factor, transpose, order, polynomial
-import Base: show, length, in, ⊆, /, *, ==, ∩, +, -
+import Base: show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 
 #############################
         # utils.jl
@@ -124,7 +124,7 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
     componentwiseproductcode, VectorSpace, setminimumdistance!,
     expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
-    words, codewords, elements
+    words, codewords, elements, isMDS
     # _standardform,
 
 #############################
@@ -190,7 +190,7 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
     Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
     HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-    weightdistribution, CWEtoHWE, support, polynomial, type
+    weightdistribution, CWEtoHWE, support, polynomial, type, MacWilliamsIdentity
     # _weightenumeratorBF
 
 end

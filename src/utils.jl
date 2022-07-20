@@ -542,92 +542,92 @@ end
 
 
 
-#=
-Example of using the repeated iterator inside of product.
-
-It turns out that this is faster than the Nemo iterator and doesn't allocate.
-
-julia> @benchmark for i in Base.Iterators.product(Base.Iterators.repeated(0:1, 10)...) i end
-BenchmarkTools.Trial: 10000 samples with 137 evaluations.
- Range (min … max):  713.022 ns …  1.064 μs  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     755.949 ns              ┊ GC (median):    0.00%
- Time  (mean ± σ):   760.380 ns ± 24.121 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
-
- Memory estimate: 0 bytes, allocs estimate: 0.
-
-julia> @benchmark for i in Nemo.AbstractAlgebra.ProductIterator([0:1 for _ in 1:10]) i end
-BenchmarkTools.Trial: 10000 samples with 1 evaluation.
- Range (min … max):  34.064 μs …   2.604 ms  ┊ GC (min … max):  0.00% … 97.51%
- Time  (median):     36.970 μs               ┊ GC (median):     0.00%
- Time  (mean ± σ):   46.342 μs ± 124.916 μs  ┊ GC (mean ± σ):  16.57% ±  6.04%
-
- Memory estimate: 176.50 KiB, allocs estimate: 2051.
-
-julia> @benchmark for i in Base.Iterators.product([0:1 for _ in 1:10]...) i end
-BenchmarkTools.Trial: 10000 samples with 1 evaluation.
- Range (min … max):  53.741 μs …   1.465 ms  ┊ GC (min … max):  0.00% … 87.86%
- Time  (median):     63.790 μs               ┊ GC (median):     0.00%
- Time  (mean ± σ):   76.919 μs ± 104.655 μs  ┊ GC (mean ± σ):  12.40% ±  8.59%
-
- Memory estimate: 432.88 KiB, allocs estimate: 2061.
-=#
-
-
-# Gray code iterator, naive formula, gives Ints instead of vectors
-
-struct GrayCodeNaive
-    n::Int
-end
-
-Base.iterate(G::GrayCodeNaive) = G.n < 64 ? (0, 1) : error("Don't handle cases this large")
-
-function Base.iterate(G::GrayCodeNaive, k)
-    k == 2^G.n && return nothing
-    return (k ⊻ (k >> 1), k + 1)
-end
-
-Base.length(G::GrayCodeNaive) = 2^G.n
-
-#=
-Benchmark result:
-
-julia> @benchmark for g in GrayCodeNaive(25) g end
-BenchmarkTools.Trial: 25 samples with 1 evaluation.
- Range (min … max):  200.014 ms … 202.460 ms  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     200.305 ms               ┊ GC (median):    0.00%
- Time  (mean ± σ):   200.626 ms ± 659.369 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
-
- Memory estimate: 0 bytes, allocs estimate: 0.
-=#
-
-
-
-# Gray code iterator, chooses next based on previous, gives Ints instead of vectors
-
-struct GrayCode
-    n::Int
-end
-
-Base.iterate(G::GrayCode) = G.n < 64 ? (0, (0,1)) : error("Don't handle cases this large")
-
-function Base.iterate(G::GrayCode, state)
-    prev, k = state
-    k == 2 ^ G.n && return nothing
-    j = isodd(k) ? 0 : trailing_zeros(prev) + 1
-    next = prev ⊻ (1 << j)
-    return (next, (next, k+1))
-end
-
-Base.length(G::GrayCode) = 2^G.n
-
-#=
-Benchmark result:
-
-julia> @benchmark for g in GrayCode(25) g end
-BenchmarkTools.Trial: 15 samples with 1 evaluation.
- Range (min … max):  348.661 ms … 349.411 ms  ┊ GC (min … max): 0.00% … 0.00%
- Time  (median):     349.050 ms               ┊ GC (median):    0.00%
- Time  (mean ± σ):   349.048 ms ± 225.710 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
-
- Memory estimate: 0 bytes, allocs estimate: 0.
-=#
+# #=
+# Example of using the repeated iterator inside of product.
+#
+# It turns out that this is faster than the Nemo iterator and doesn't allocate.
+#
+# julia> @benchmark for i in Base.Iterators.product(Base.Iterators.repeated(0:1, 10)...) i end
+# BenchmarkTools.Trial: 10000 samples with 137 evaluations.
+#  Range (min … max):  713.022 ns …  1.064 μs  ┊ GC (min … max): 0.00% … 0.00%
+#  Time  (median):     755.949 ns              ┊ GC (median):    0.00%
+#  Time  (mean ± σ):   760.380 ns ± 24.121 ns  ┊ GC (mean ± σ):  0.00% ± 0.00%
+#
+#  Memory estimate: 0 bytes, allocs estimate: 0.
+#
+# julia> @benchmark for i in Nemo.AbstractAlgebra.ProductIterator([0:1 for _ in 1:10]) i end
+# BenchmarkTools.Trial: 10000 samples with 1 evaluation.
+#  Range (min … max):  34.064 μs …   2.604 ms  ┊ GC (min … max):  0.00% … 97.51%
+#  Time  (median):     36.970 μs               ┊ GC (median):     0.00%
+#  Time  (mean ± σ):   46.342 μs ± 124.916 μs  ┊ GC (mean ± σ):  16.57% ±  6.04%
+#
+#  Memory estimate: 176.50 KiB, allocs estimate: 2051.
+#
+# julia> @benchmark for i in Base.Iterators.product([0:1 for _ in 1:10]...) i end
+# BenchmarkTools.Trial: 10000 samples with 1 evaluation.
+#  Range (min … max):  53.741 μs …   1.465 ms  ┊ GC (min … max):  0.00% … 87.86%
+#  Time  (median):     63.790 μs               ┊ GC (median):     0.00%
+#  Time  (mean ± σ):   76.919 μs ± 104.655 μs  ┊ GC (mean ± σ):  12.40% ±  8.59%
+#
+#  Memory estimate: 432.88 KiB, allocs estimate: 2061.
+# =#
+#
+#
+# # Gray code iterator, naive formula, gives Ints instead of vectors
+#
+# struct GrayCodeNaive
+#     n::Int
+# end
+#
+# Base.iterate(G::GrayCodeNaive) = G.n < 64 ? (0, 1) : error("Don't handle cases this large")
+#
+# function Base.iterate(G::GrayCodeNaive, k)
+#     k == 2^G.n && return nothing
+#     return (k ⊻ (k >> 1), k + 1)
+# end
+#
+# Base.length(G::GrayCodeNaive) = 2^G.n
+#
+# #=
+# Benchmark result:
+#
+# julia> @benchmark for g in GrayCodeNaive(25) g end
+# BenchmarkTools.Trial: 25 samples with 1 evaluation.
+#  Range (min … max):  200.014 ms … 202.460 ms  ┊ GC (min … max): 0.00% … 0.00%
+#  Time  (median):     200.305 ms               ┊ GC (median):    0.00%
+#  Time  (mean ± σ):   200.626 ms ± 659.369 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+#
+#  Memory estimate: 0 bytes, allocs estimate: 0.
+# =#
+#
+#
+#
+# # Gray code iterator, chooses next based on previous, gives Ints instead of vectors
+#
+# struct GrayCode
+#     n::Int
+# end
+#
+# Base.iterate(G::GrayCode) = G.n < 64 ? (0, (0,1)) : error("Don't handle cases this large")
+#
+# function Base.iterate(G::GrayCode, state)
+#     prev, k = state
+#     k == 2 ^ G.n && return nothing
+#     j = isodd(k) ? 0 : trailing_zeros(prev) + 1
+#     next = prev ⊻ (1 << j)
+#     return (next, (next, k+1))
+# end
+#
+# Base.length(G::GrayCode) = 2^G.n
+#
+# #=
+# Benchmark result:
+#
+# julia> @benchmark for g in GrayCode(25) g end
+# BenchmarkTools.Trial: 15 samples with 1 evaluation.
+#  Range (min … max):  348.661 ms … 349.411 ms  ┊ GC (min … max): 0.00% … 0.00%
+#  Time  (median):     349.050 ms               ┊ GC (median):    0.00%
+#  Time  (mean ± σ):   349.048 ms ± 225.710 μs  ┊ GC (mean ± σ):  0.00% ± 0.00%
+#
+#  Memory estimate: 0 bytes, allocs estimate: 0.
+# =#

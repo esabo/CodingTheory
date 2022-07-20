@@ -20,8 +20,7 @@ end
 # end
 
 @testset "linearcode.jl" begin
-    using Nemo
-    using CodingTheory
+    using Nemo, CodingTheory
 
     F, _ = FiniteField(2, 1, "α");
     G = matrix(F, [1 0 0 0 0 1 1;
@@ -44,8 +43,8 @@ end
     @test G == generatormatrix(C)
     @test G == originalgeneratormatrix(C)
     H = paritycheckmatrix(C)
-    @test iszero(G * transpose(H))
-    @test iszero(H * transpose(G))
+    @test iszero(G*transpose(H))
+    @test iszero(H*transpose(G))
     @test C ⊆ C
     D = dual(C)
     @test !(C ⊆ D)
@@ -136,15 +135,14 @@ end
 
     # "On the Schur Product of Vector Spaces over Finite Fields"
     # Christiaan Koster
-    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
+    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C*C = F^n
 
     # simplex code itself has dimension k(k + 1)/2
     #
 end
 
 @testset "ReedMuller.jl" begin
-    using Nemo
-    using CodingTheory
+    using Nemo, CodingTheory
 
     F, _ = FiniteField(2, 1, "α");
     @test generatormatrix(ReedMullerCode(2, 1, 2)) == matrix(F,
@@ -183,8 +181,9 @@ end
 end
 
 @testset "miscknowncodes.jl" begin
-    using Nemo
-    using CodingTheory
+    using Nemo, CodingTheory
+
+    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
 
     # Hamming codes
     # Tetra code is Hammingcode(3, 2)
@@ -198,7 +197,14 @@ end
     # should be [2^r - 1, 2^r - 1 - r, 3]
     @test length(C) == 2^7 - 1
     @test dimension(C) == 2^7 - 1 - 7
+    C.d = missing
     @test minimumdistance(C) == 3
+    C = HammingCode(2, 3)
+    hamWE = weightenumerator(C, "Hamming")
+    @test polynomial(hamWE) == x^7 + 7*x^3*y^4 + 7*x^4*y^3 + y^7
+    n = length(C)
+    C.weightenum = missing
+    @test polynomial(hamWE) == divexact((x + y)^n + n*(x + y)^div(n - 1, 2)*(y - x)^div(n + 1, 2), n + 1)
 
     # simplex codes
     # random simplex code
@@ -222,18 +228,48 @@ end
     @test flag == true
     @test length(C) == 2^4 - 1
     @test dimension(C) == 4
+    C = SimplexCode(2, 3)
+    @test MacWilliamsIdentity(C, weightenumerator(C, "Hamming", "bruteforce")) == hamWE
 
     # Golay codes
-    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+    C = ExtendedGolayCode(2)
+    @test isselfdual(C)
+    C.weightenum = missing
+    @test polynomial(weightenumerator(C, "Hamming")) == y^24 + 759*x^8*y^16 + 2576*x^12*y^12 + 759*x^16*y^8 + x^24
+    C = GolayCode(2)
+    C.weightenum = missing
+    @test polynomial(weightenumerator(C, "Hamming")) == y^23 + 253*x^7*y^16 +
+        506*x^8*y^15 + 1288*x^11*y^12 + 1288*x^12*y^11 + 506*x^15*y^8 + 253*x^16*y^7 + x^23
     C = ExtendedGolayCode(3)
+    @test isselfdual(C)
     # well-known weight enumerators
     C.weightenum = missing
-    @test polynomial(weightenumerator(C, "Hamming")) == y^12 + 264 * x^6 * y^6 + 440 * x^9 * y^3 + 24 * x^12
+    @test polynomial(weightenumerator(C, "Hamming")) == y^12 + 264*x^6*y^6 + 440*x^9*y^3 + 24*x^12
     C = GolayCode(3)
-    @test polynomial(weightenumerator(C, "Hamming", "bruteforce")) == y^11 + 132 * x^5 * y^6 + 132 * x^6 * y^5 + 330 * x^8 * y^3 + 110 * x^9 * y^2 + 24 * x^11
+    @test polynomial(weightenumerator(C, "Hamming")) == y^11 + 132*x^5*y^6 + 132*x^6*y^5 + 330*x^8*y^3 + 110*x^9*y^2 + 24*x^11
     # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
     # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
     # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)
+
+    # tetra code
+    C = TetraCode()
+    C.weightenum = missing
+    CWE = polynomial(weightenumerator(C, "complete"))
+    vars = gens(parent(CWE))
+    @test CWE == vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
+        3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3
+    # MacWilliams & Sloane have a different generator matrix for this
+    # this test is false, as it makes sense to be, shoud be permutation equivalent though
+    # test this later when implemented
+    # F, _ = FiniteField(3, 1, "α")
+    # G = matrix(F, [1 0 2 2 ; 0 1 2 1])
+    # H = matrix(F, [1 1 1 0; 1 2 0 1])
+    # C2 = LinearCode(F, 4, 2, 3, G, G, H, H, G, H, missing)
+    # @test isequivalent(C, C2)
+
+    # Hadamard code
+    # the dual code of the Hamming code is the shortened Hadamard code
+    # equivalent to RM(1, m)
 
 end
 
@@ -242,5 +278,143 @@ end
 
     @test allcyclotomiccosets(2, 15, false) == [[0], [1, 2, 4, 8], [3, 6, 12, 9],
         [5, 10], [7, 14, 13, 11]]
+    @test allcyclotomiccosets(3, 13, true) == [[0], [1, 3, 9], [2, 5, 6], [4, 10, 12] , [7, 8, 11]]
+
+end
+
+@testset "cycliccode.jl" begin
+    using Nemo, CodingTheory
+
+    # examples: Huffman & Pless
+    cosets = definingset([1, 2, 3, 4, 5, 6], 2, 7, false)
+    C = CyclicCode(2, 7, cosets)
+    R = polynomialring(C)
+    x = gen(R)
+    @test dimension(C) == 1
+    @test generatorpolynomial(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
+    @test idempotent(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
+    cosets = definingset([0, 1, 2, 4], 2, 7, false)
+    C = CyclicCode(2, 7, cosets)
+    @test dimension(C) == 3
+    @test generatorpolynomial(C) == 1 + x^2 + x^3 + x^4
+    @test idempotent(C) == 1 + x^3 + x^5 + x^6
+    cosets = definingset([0, 3, 5, 6], 2, 7, false)
+    C = CyclicCode(2, 7, cosets)
+    @test dimension(C) == 3
+    @test generatorpolynomial(C) == 1 + x + x^2 + x^4
+    @test idempotent(C) == 1 + x + x^2 + x^4
+    cosets = definingset([1, 2, 4], 2, 7, false)
+    C = CyclicCode(2, 7, cosets)
+    @test dimension(C) == 4
+    @test generatorpolynomial(C) == 1 + x + x^3
+    @test idempotent(C) == x + x^2 + x^4
+    cosets = definingset([3, 5, 6], 2, 7, false)
+    C = CyclicCode(2, 7, cosets)
+    @test dimension(C) == 4
+    @test generatorpolynomial(C) == 1 + x^2 + x^3
+    @test idempotent(C) == x^3 + x^5 + x^6
+
+    # the dual of a cyclic code is the complement code with multiplier -1 (p.146)
+    # do Theorem 4.4.11 on page 147
+
+    # a self-orthogonal binary cyclic code is doubly-even
+
+    # example: Huffman & Pless
+    C = BCHCode(3, 13, 2, 1)
+    @test definingset(C) == [1, 3, 9]
+    R = polynomialring(C)
+    x = gen(R)
+    @test generatorpolynomial(C) == 2 + x + x^2 + x^3
+    @test dimension(C) == 10
+    @test minimumdistance(C) == 3
+    C = BCHCode(3, 13, 3, 1)
+    @test definingset(C) == [1, 2, 3, 5, 6, 9]
+    @test generatorpolynomial(C) == 1 + 2*x + x^2 + 2*x^3 + 2*x^4 + 2*x^5 + x^6
+    @test dimension(C) == 7
+    @test minimumdistance(C) == 4
+    C = BCHCode(3, 13, 5, 1)
+    @test definingset(C) == [1, 2, 3, 4, 5, 6, 9, 10, 12]
+    @test generatorpolynomial(C) == 2 + 2*x^2 + 2*x^3 + x^5 + 2*x^7 + x^8 + x^9
+    @test dimension(C) == 4
+    @test minimumdistance(C) == 7
+    @test dimension(C) >= length(C) - ord(length(C), 3)*(5 - 1)
+
+    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+
+    # example: MacWilliams & Sloane
+    # any cyclic code over GF(2^m) of length 2^m + 1 is reversible
+
+    # example: MacWilliams & Sloane
+    C = BCHCode(2, 31, 5, 1)
+    @test dimension(C) == 21
+    @test minimumdistance(C) == 5
+    @test polynomial(MacWilliamsIdentity(C, weightenumerator(C, "Hamming"))) == y^31 + 310*x^12*y^19 + 527*x^16*y^15 + 186*x^20*y^11
+
+    # example: Huffman & Pless
+    C = ReedSolomonCode(13, 5, 1)
+    @test length(C) == 12
+    @test dimension(C) == 8
+    @test minimumdistance(C) == 5
+    @test isMDS(C) == true
+    @test definingset(C) == [1, 2, 3, 4]
+    R = polynomialring(C)
+    x = gen(R)
+    @test generatorpolynomial(C) == 10 + 2*x + 7*x^2 + 9*x^3 + x^4
+    D = dual(C)
+    @test dimension(D) == 4
+    @test minimumdistance(D) == 9
+    @test isMDS(D) == true
+    @test definingset(D) == [0, 1, 2, 3, 4, 5, 6, 7]
+    @test generatorpolynomial(D) == 3 + 12*x + x^2 + 5*x^3 + 11*x^4 + 4*x^5 + 10*x^6 + 5*x^7 + x^8
+    Cc = complement(C)
+    @test length(Cc) == 12
+    @test dimension(Cc) == 4
+    @test minimumdistance(Cc) == 9
+    @test definingset(Cc) == [0, 5, 6, 7, 8, 9, 10, 11]
+    @test generatorpolynomial(Cc) == 9 + 6*x + 12*x^2 + 10*x^3 + 8*x^4 + 6*x^5 + 9*x^6 + 4*x^7 + x^8
+
+    # example: Huffman & Pless
+    C = ReedSolomonCode(16, 7, 1)
+    @test length(C) == 15
+    @test dimension(C) == 9
+    @test minimumdistance(C) == 7
+    @test definingset(C) == [1, 2, 3, 4, 5, 6]
+    R = polynomialring(C)
+    x = gen(R)
+    α = primitiveroot(C)
+    @test generatorpolynomial(C) == α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
+
+    # # example: MacWilliams & Sloane
+    # C = ReedSolomonCode(5, 3, 1)
+    # z = gen(polynomialring(C))
+    # @test generatorpolynomial(C) == z^2 + 4*z + 3
+    #
+    # # example: MacWilliams & Sloane
+    # C = ReedSolomonCode(8, 6, 1)
+    # println(C)
+    # @test dimension(C) == 2
+    # z = gen(polynomialring(C))
+    # α = primitiveroot(C)
+    # @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
+    #
+    # # example: MacWilliams & Sloane
+    # C = ReedSolomonCode(8, 3, 1)
+    # println(C)
+    # @test dimension(C) == 5
+    # z = gen(polynomialring(C))
+    # α = primitiveroot(C)
+    # @test generatorpolynomial(C) == α^4 + α*z + z^2
+    # # expand this code over F_2, is equivalent to the following BCH code
+    # # C2 = BCH(2, 21, 3, 1) # maybe not b = 1?
+    # # z2 = gen(polynomialring(C2))
+    # # @test generatorpolynomial(C2) == 1 + z2 + z2^2 + z2^4 + z2^6
+    # # @test isequivalent(expC, C2)
+    #
+    # # example: MacWilliams & Sloane
+    # # extended Reed-Solomon codes have distance d + 1
+    # # TODO: fix extend here
+    # # extC = extend(C)
+    # # @test minimumdistance(extC) == minimumdistance(C) + 1
+
 
 end

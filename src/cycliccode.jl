@@ -124,7 +124,7 @@ function definingset(nums::Vector{Int64}, q::Integer, n::Integer, flat::Bool=tru
         end
     end
 
-    !flat || return sort!(vcat(arr...))
+    flat && return sort!(vcat(arr...))
     return arr
 end
 
@@ -211,6 +211,21 @@ Return the defining set of the cyclic code.
 definingset(C::AbstractCyclicCode) = C.defset
 
 """
+    zeros(C::AbstractCyclicCode)
+
+Return the zeros of `C`.
+"""
+zeros(C::AbstractCyclicCode) = [primitiveroot(C)^i for i in definingset(C)]
+
+"""
+    nonzeros(C::AbstractCyclicCode)
+
+Return the nonzeros of `C`.
+"""
+nonzeros(C::AbstractCyclicCode) = [primitiveroot(C)^i for i in setdiff(0:length(C)
+    - 1, definingset(C))]
+
+"""
     generatorpolynomial(C::AbstractCyclicCode)
 
 Return the generator polynomial of the cyclic code as a Nemo object.
@@ -251,6 +266,23 @@ isnarrowsense(C::AbstractBCHCode) = iszero(offset(C)) # should we define this as
 Return `true` if the cyclic code is reversible.
 """
 isreversible(C::AbstractCyclicCode) = [length(C) - i for i in defset] ⊆ defset
+
+
+"""
+    isdegenerate(C::AbstractCyclicCode)
+
+Return `true` if the cyclic code is degenerate.
+
+A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
+some `r` less than the length of the code.
+"""
+function isdegenerate(C::AbstractCyclicCode)
+    for r in 1:length(C) - 1
+        flag, _ = divides(gen(polynomialring(C))^n - 1, paritycheckpolynomial(C))
+        flag && return true
+    end
+    return false
+end
 
 # TODO: why doesn't this check C.d like the other shows?
 function show(io::IO, C::AbstractCyclicCode)
@@ -389,16 +421,7 @@ end
 
 Return the defining set of the dual code of length `n` and defining set `defset`.
 """
-function dualdefiningset(defset::Vector{Int64}, n::Integer)
-    full = [i for i in 0:(n - 1)]
-    temp = Vector{Int64}()
-    for i in full
-        if i ∉ defset
-            append!(temp, i)
-        end
-    end
-    return sort!([mod(n - i, n) for i in temp])
-end
+dualdefiningset(defset::Vector{Int64}, n::Integer) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
 
 """
     CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})

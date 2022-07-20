@@ -62,9 +62,21 @@ function HammingCode(q::Int, r::Int)
         H = matrix(F, hcat([reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]...))
         C = LinearCode(H, true)
         setminimumdistance!(C, 3)
+        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        n = length(C)
+        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^n + n *
+            (vars[2] + vars[1])^div(n - 1, 2) * (vars[1] - vars[2])^div(n + 1, 2),
+            n + 1), "complete")
         return C
     end
 
+    # will have to check this example much further in the book because maybe I need
+    # to staircase this 1 up from the bottom to the top
+
+    # for non-binary, let's try a ProductIterator over all tuples of size two smaller
+    # store them and then construct a matrix where we add 0 then 1 to the top of
+    # each computed tuple
+    # then compute all tuples the size larger and add a 1 to the top
 end
 
 """
@@ -79,7 +91,10 @@ function TetraCode()
     F, _ = FiniteField(3, 1, "α")
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
-    return LinearCode(F, 4, 2, 3, G, G, H, H, G, H, missing)
+    R, vars = PolynomialRing(Nemo.ZZ, 3)
+    CWE = WeightEnumerator(vars[1]^4 + vars[1] * vars[2]^3 + 3 * vars[1] * vars[2]^2 * vars[3] +
+        3 * vars[1] * vars[2] * vars[3]^2 + vars[1] * vars[3]^3, "complete")
+    return LinearCode(F, 4, 2, 3, G, G, H, H, G, H, CWE)
 end
 
 #############################
@@ -183,8 +198,8 @@ function ExtendedGolayCode(p::Int)
         G = hcat(M(1), A)
         H = hcat(-transpose(A), M(1))
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        wtenum = vars[1]^12 + 264 * vars[2]^6 * vars[1]^6 + 440 * vars[2]^9 *
-            vars[1]^3 + 24 * vars[2]^12
+        wtenum = WeightEnumerator(vars[1]^24 + 759 * vars[2]^8 * vars[1]^16 + 2576 * vars[2]^12 *
+            vars[1]^12 + 759 * vars[1]^8 * vars[2]^16 + vars[2]^24, "complete")
         return LinearCode(F, 24, 12, 8, G, G, H, H, G, H, wtenum)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
@@ -197,7 +212,10 @@ function ExtendedGolayCode(p::Int)
                1 1 -1 -1 1 0])
         G = hcat(M(1), A)
         H = hcat(-transpose(A), M(1))
-        return LinearCode(F, 12, 6, 6, G, G, H, H, G, H, missing)
+        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        wtenum = WeightEnumerator(vars[1]^12 + 264 * vars[2]^6 * vars[1]^6 +
+            440 * vars[2]^9 * vars[1]^3 + 24 * vars[2]^12, "complete")
+        return LinearCode(F, 12, 6, 6, G, G, H, H, G, H, wtenum)
     else
         error("Golay code not implemented for q = $q.")
     end
@@ -221,3 +239,39 @@ a `[12, 6, 6]` if punctured and extended in the first coordinate or a
 function GolayCode(p::Int)
     return puncture(ExtendedGolayCode(p), [1])
 end
+
+#############################
+        # Hadamard
+#############################
+
+# """
+#     HadamardCode(m)
+#     WalshHadamardCode(m)
+#     WalshCode(m)
+#
+# Return the `[2^m, m, 2^{m - 1}]` binary Hadamard code.
+#
+# Hadamard codes are generally constructed using Hadamard matrices `H_n`. When `n`
+# is a power of two, the codes are linear. Constructing `H_{2^m}` then mapping `+/- 1`
+# to `{0, 1}` gives a generator matrix which, up to permutation, is equivalent to
+# using all `2^m` binary strings as column vectors. The construction here uses this
+# later definition. These are of course equivalent to the first-order Reed-Muller
+# codes `RM(1, m)`, but we do not use that form of the generator matrix here.
+#
+# Note that some engineering fields define the Hadamard code to be the `[2^m, m +
+# 1, 2^{m - 1}]` augmented Hadamard code.
+# """
+# function HadamardCode(m)
+#     m < 64 || error("This Hadamard code requires the implmentation of BigInts. Change if necessary.")
+#
+#     F, _ = FiniteField(2, 1, "α")
+#     G ...
+#     C = LinearCode(G)
+#     R, vars = PolynomialRing(Nemo.ZZ, 2)
+#     # each non-zero codeword has a Hamming weight of exactly 2^{k-1}
+#     C.weightenum = WeightEnumerator(vars[1]^(2^m) + (2^m - 1) * vars[1]^2 *
+#         vars[2]^(2^m - 1), "complete")
+#     return C
+# end
+# WalshHadamardCode(m) = HadamardCode(m)
+# WalshCode(m) = HadamardCode(m)
