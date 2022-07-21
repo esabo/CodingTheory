@@ -57,6 +57,14 @@ include("cycliccode.jl")
 include("miscknowncodes.jl")
 
 #############################
+ # GeneralizedReedSolomon.jl
+#############################
+
+abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
+
+include("GeneralizedReedSolomon.jl")
+
+#############################
       # quantumcode.jl
 #############################
 
@@ -152,6 +160,14 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
 
 export RepetitionCode, Hexacode, HammingCode, TetraCode, SimplexCode,
     GolayCode, ExtendedGolayCode
+
+#############################
+ # GeneralizedReedSolomon.jl
+#############################
+
+export AbstractGeneralizedReedSolomonCode
+
+export GeneralizedReedSolomonCode, scalars, dualscalars, evaluationpoints
 
 #############################
       # quantumcode.jl

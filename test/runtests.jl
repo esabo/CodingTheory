@@ -7,9 +7,14 @@ using Test
     @test AbstractCyclicCode <: AbstractLinearCode
     @test AbstractBCHCode <: AbstractCyclicCode
     @test AbstractReedSolomonCode <: AbstractBCHCode
+    @test AbstractGeneralizedReedSolomonCode <: AbstractLinearCode
     @test AbstractAdditiveCode <: AbstractCode
     @test AbstractStabilizerCode <: AbstractAdditiveCode
     @test AbstractCSSCode <: AbstractStabilizerCode
+
+    # check the hierarchy
+    @test AbstractReedSolomonCode <: AbstractCyclicCode
+    @test AbstractReedSolomonCode <: AbstractLinearCode
 end
 
 # @testset "utils.jl" begin
@@ -36,15 +41,13 @@ end
     @test rate(C) == 4 / 7
     @test ismissing(C.d)
     setminimumdistance!(C, 3)
-    # cannot find below, don't want to provoke it just yet
     @test minimumdistance(C) == 3
-    # @test !isMDS(C)
-    # @test numbercorrectableerrors(C) == 1
+    @test numbercorrectableerrors(C) == 1
     @test G == generatormatrix(C)
     @test G == originalgeneratormatrix(C)
     H = paritycheckmatrix(C)
-    @test iszero(G*transpose(H))
-    @test iszero(H*transpose(G))
+    @test iszero(G * transpose(H))
+    @test iszero(H * transpose(G))
     @test C ⊆ C
     D = dual(C)
     @test !(C ⊆ D)
@@ -135,7 +138,7 @@ end
 
     # "On the Schur Product of Vector Spaces over Finite Fields"
     # Christiaan Koster
-    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C*C = F^n
+    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
 
     # simplex code itself has dimension k(k + 1)/2
     #
@@ -178,6 +181,48 @@ end
     epC = evensubcode(pC)
     S = SimplexCode(2, 4)
     @test isequivalent(epC, S)
+    C.d = missing
+    @test minimumdistance(C) == 8
+
+    # the weight distribution of RM(1, m) is [[0, 1], [2^(m - 1), 2^(m + 1) - 2], [2^m, 1]]
+    C.weightenum = missing
+    wtdist = weightdistribution(C, "auto", "compact")
+    @test wtdist == [(2^4, 1), (2^3, 2^5 - 2), (0, 1)]
+
+    # Reed-Muller codes are nested
+    m = rand(3:6)
+    r = rand(1:m - 2)
+    C = ReedMullerCode(2, r, m)
+    C2 = ReedMullerCode(2, r + 1, m)
+    @test C ⊆ C2
+
+    # all weights of RM(r, m) are multiples of 2^(Int(ceil(m / r) - 1)
+    sup = support(C)
+    flag = true
+    for i in sup
+        if !iszero(i % 2^(Int(ceil(m / r) - 1)))
+            flag = false
+            break
+        end
+    end
+    @test flag == true
+
+    # RM(m - 1, m) contains all vectors of even weight
+    C = ReedMullerCode(2, m - 1, m)
+    sup = support(C)
+    flag = true
+    for i in sup
+        if isodd(i)
+            flag = false
+            break
+        end
+    end
+    @test flag == true
+
+    C = ReedMullerCode(2, 2, 5)
+    @test weightdistribution(C, "auto", "compact") == [(32, 1), (24, 620),
+        (20, 13888), (16, 36518), (12, 13888), (8, 620), (0, 1)]
+
 end
 
 @testset "miscknowncodes.jl" begin
@@ -384,37 +429,53 @@ end
     α = primitiveroot(C)
     @test generatorpolynomial(C) == α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
 
-    # # example: MacWilliams & Sloane
-    # C = ReedSolomonCode(5, 3, 1)
-    # z = gen(polynomialring(C))
-    # @test generatorpolynomial(C) == z^2 + 4*z + 3
-    #
-    # # example: MacWilliams & Sloane
-    # C = ReedSolomonCode(8, 6, 1)
-    # println(C)
-    # @test dimension(C) == 2
-    # z = gen(polynomialring(C))
-    # α = primitiveroot(C)
-    # @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
-    #
-    # # example: MacWilliams & Sloane
-    # C = ReedSolomonCode(8, 3, 1)
-    # println(C)
-    # @test dimension(C) == 5
-    # z = gen(polynomialring(C))
-    # α = primitiveroot(C)
-    # @test generatorpolynomial(C) == α^4 + α*z + z^2
-    # # expand this code over F_2, is equivalent to the following BCH code
-    # # C2 = BCH(2, 21, 3, 1) # maybe not b = 1?
-    # # z2 = gen(polynomialring(C2))
-    # # @test generatorpolynomial(C2) == 1 + z2 + z2^2 + z2^4 + z2^6
-    # # @test isequivalent(expC, C2)
-    #
+    # example: MacWilliams & Sloane
+    C = ReedSolomonCode(5, 3, 1)
+    z = gen(polynomialring(C))
+    @test generatorpolynomial(C) == z^2 + 4*z + 3
+
+    # example: MacWilliams & Sloane
+    C = ReedSolomonCode(8, 6)
+    @test dimension(C) == 2
+    z = gen(polynomialring(C))
+    α = primitiveroot(C)
+    @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
+
+    # example: MacWilliams & Sloane
+    C = ReedSolomonCode(8, 3, 5)
+    @test dimension(C) == 5
+    z = gen(polynomialring(C))
+    α = primitiveroot(C)
+    @test generatorpolynomial(C) == α^4 + α*z + z^2
+    # expand this code over F_2, is equivalent to the following BCH code
+    # C2 = BCHCode(2, 21, 3, 1) # maybe not b = 1?
+    # z2 = gen(polynomialring(C2))
+    # @test generatorpolynomial(C2) == 1 + z2 + z2^2 + z2^4 + z2^6
+    # @test isequivalent(expC, C2)
+
     # # example: MacWilliams & Sloane
     # # extended Reed-Solomon codes have distance d + 1
     # # TODO: fix extend here
     # # extC = extend(C)
     # # @test minimumdistance(extC) == minimumdistance(C) + 1
 
+    # example: MacWilliams & Sloane
+    # some [15, 6, 6] binary BCH code with min polys (-1, 0, 1) is reversible
+    # C = BCHCode(2, 15, 6, 13)
+    # println(C)
+    # @test isreversible(C) == true
+
+    # RS codes contain BCH codes
+    C = ReedSolomonCode(16, 5)
+    C2 = BCHCode(2, 15, 5)
+    @test C2 ⊆ C
 
 end
+
+# @testset "GeneralizedReedSolomon.jl" begin
+#     using CodingTheory
+#
+#     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
+#
+#     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
+# end

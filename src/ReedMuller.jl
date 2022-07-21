@@ -121,6 +121,13 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer)
         iszero(Gstand[r, :] * transpose(H)) || error("Column swap appeared in _standardform.")
     end
 
+    if q == 2 && r == 1
+        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        poly = vars[1]^(2^m) + (2^(m + 1) - 2) * vars[1]^(2^m - 2^(m - 1))*vars[2]^(2^(m - 1)) + vars[2]^(2^m)
+        return ReedMullerCode(base_ring(G), ncols(G), nrows(G), 2^(m - r), r, m, G, missing,
+            H, missing, Gstand, Hstand, WeightEnumerator(poly, "complete"))
+    end
+
     return ReedMullerCode(base_ring(G), ncols(G), nrows(G), 2^(m - r), r, m, G, missing,
         H, missing, Gstand, Hstand, missing)
 end

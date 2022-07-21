@@ -265,7 +265,7 @@ isnarrowsense(C::AbstractBCHCode) = iszero(offset(C)) # should we define this as
 
 Return `true` if the cyclic code is reversible.
 """
-isreversible(C::AbstractCyclicCode) = [length(C) - i for i in defset] ⊆ defset
+isreversible(C::AbstractCyclicCode) = [length(C) - i for i in definingset(C)] ⊆ definingset(C)
 
 
 """

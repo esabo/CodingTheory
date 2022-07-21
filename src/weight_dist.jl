@@ -254,7 +254,7 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
     alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
     format ∈ ["full", "compact"] || error("Unknown value for parameter format: $format; expected `full` or `compact`.")
 
-    ismissing(C.weightenum) && weightenumerator(C, "trellis")
+    ismissing(C.weightenum) && weightenumerator(C, "complete", alg)
     HWE = CWEtoHWE(C.weightenum)
 
     if format == "compact"
@@ -280,7 +280,7 @@ Returns the support of `C`.
 The support of `C` is the collection of nonzero exponents of the Hamming
 weight enumerator of `C`.
 """
-support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "compact")]
+support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", "compact")]
 
 #############################
      # Minimum Distance

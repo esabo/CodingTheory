@@ -24,19 +24,22 @@ At the moment, all functions work as intended for test cases but have not been u
 - Plotkin-(u | u + v) construction, (u + w, v + w, u + v + w) construction, construction X, construction X3, juxtaposition
 - Expanding codes over field extensions
 - Cylotomic cosets, defining sets
-- Cyclic, BCH, Reed Solomon codes
+- Cyclic, BCH, Reed-Solomon codes
+- Generalized Reed-Solomon codes
 - BCH Bound with Hartmann-Tzeng Bound refinement
 - Complement, dual, intersection, and union of cyclic codes
-- Binary Reed Muller code
+- Binary Reed-Muller code
 - Golay codes
 - Binary Hamming codes
 - Binary simplex codes
+- Hadamard codes
 - Weight enumerators (complete and Hamming), distribution, and minimum distance
+- MacWilliams identities
 
 ### Quantum
-- Stabilizer codes over $\F_p$ with auto CSS detection ($\F_q$ code still requires testing)
-- CSS constructions over $\F_p$ from linear codes or matrices
-- Qubit ($\F_2$) code constructions using Pauli strings
+- Stabilizer codes over $\mathbb{F}_p$ with auto CSS detection ($\mathbb{F}_q$ code still requires testing)
+- CSS constructions over $\mathbb{F}_p$ from linear codes or matrices
+- Qubit ($\mathbb{F}_2$) code constructions using Pauli strings
 - Able to keep an over complete set of stabilizers
 - Keeps track of signs of elements (currently only +/- 1)
 - Quadratic to symplectic, symplectic to quadratic functions
