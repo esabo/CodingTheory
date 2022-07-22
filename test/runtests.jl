@@ -1,8 +1,9 @@
-using CodingTheory
 using Test
 
 # these are subject to change as they develop, let me know when it breaks
 @testset "Types" begin
+    using CodingTheory
+    
     @test AbstractLinearCode <: AbstractCode
     @test AbstractCyclicCode <: AbstractLinearCode
     @test AbstractBCHCode <: AbstractCyclicCode
@@ -330,6 +331,12 @@ end
 @testset "cycliccode.jl" begin
     using Nemo, CodingTheory
 
+    # @test_throws ErrorException("There is no finite field of order 6.") CyclicCode(6, 9, [[0]])
+
+    # this fails due to a column swap
+    # CyclicCode(9, 14, definingset([1, 2, 3], 9, 14, false))
+
+
     # examples: Huffman & Pless
     cosets = definingset([1, 2, 3, 4, 5, 6], 2, 7, false)
     C = CyclicCode(2, 7, cosets)
@@ -469,13 +476,20 @@ end
     C = ReedSolomonCode(16, 5)
     C2 = BCHCode(2, 15, 5)
     @test C2 ⊆ C
+    @test C2 ⊂ C
+    @test issubcode(C2, C)
+    @test C == CyclicCode(16, 15, definingset([i for i = 0:(0 + 5 - 2)], 16, 15, false))
+    @test C == BCHCode(16, 15, 5)
+    @test designdistance(C) == 5
+    @test isnarrowsense(C)
+    @test isprimitive(C)
 
 end
 
-# @testset "GeneralizedReedSolomon.jl" begin
-#     using CodingTheory
-#
-#     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
-#
-#     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
-# end
+@testset "GeneralizedReedSolomon.jl" begin
+    using CodingTheory
+
+    # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
+
+    # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
+end

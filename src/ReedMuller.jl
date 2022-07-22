@@ -100,11 +100,9 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer)
     (0 ≤ r < m) || error("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m.")
     m < 64 || error("This Reed-Muller code requires the implmentation of BigInts. Change if necessary.")
     q == 2 || error("Nonbinary Reed-Muller codes have not yet been implemented.")
-
-    if !isprime(q)
-        factors = factor(q)
-        length(factors) == 1 || error("There is no finite field of order $q.")
-    end
+    factors = factor(q)
+    length(factors) == 1 || error("There is no finite field of order $q.")
+    (p, t), = factors
 
     G = ReedMullergeneratormatrix(q, r, m)
     H = ReedMullergeneratormatrix(q, m - r - 1, m)

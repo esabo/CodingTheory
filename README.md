@@ -41,7 +41,7 @@ At the moment, all functions work as intended for test cases but have not been u
 - CSS constructions over $\mathbb{F}_p$ from linear codes or matrices
 - Qubit ($\mathbb{F}_2$) code constructions using Pauli strings
 - Able to keep an over complete set of stabilizers
-- Keeps track of signs of elements (currently only +/- 1)
+- Keeps track of signs of elements
 - Quadratic to symplectic, symplectic to quadratic functions
 - Symplectic and trace inner product
 - Logical space construction (S⟂ \ S)
