@@ -216,15 +216,14 @@ definingset(C::AbstractCyclicCode) = C.defset
 
 Return the zeros of `C`.
 """
-zeros(C::AbstractCyclicCode) = [primitiveroot(C)^i for i in definingset(C)]
+zeros(C::AbstractCyclicCode) = [C.β^i for i in C.defset]
 
 """
     nonzeros(C::AbstractCyclicCode)
 
 Return the nonzeros of `C`.
 """
-nonzeros(C::AbstractCyclicCode) = [primitiveroot(C)^i for i in setdiff(0:length(C)
-    - 1, definingset(C))]
+nonzeros(C::AbstractCyclicCode) = [C.β^i for i in setdiff(0:C.n - 1, C.defset)]
 
 """
     generatorpolynomial(C::AbstractCyclicCode)
@@ -252,25 +251,21 @@ idempotent(C::AbstractCyclicCode) = C.e
 
 Return `true` if the BCH code is primitive.
 """
-isprimitive(C::AbstractBCHCode) = length(C) == Int(order(field(C))) - 1
+isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
 
 """
     isnarrowsense(C::AbstractBCHCode)
 
 Return `true` if the BCH code is narrowsense.
 """
-isnarrowsense(C::AbstractBCHCode) = iszero(offset(C)) # should we define this as b = 1 instead?
+isnarrowsense(C::AbstractBCHCode) = iszero(C.b) # should we define this as b = 1 instead?
 
 """
     isreversible(C::AbstractCyclicCode)
 
 Return `true` if the cyclic code is reversible.
 """
-function isreversible(C::AbstractCyclicCode)
-    n = length(C)
-    defset = definingset(C)
-    return [n - i for i in defset] ⊆ defset
-end
+isreversible(C::AbstractCyclicCode) = return [C.n - i for i in C.defset] ⊆ C.defset
 
 """
     isdegenerate(C::AbstractCyclicCode)
@@ -281,11 +276,9 @@ A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
 some `r` less than the length of the code.
 """
 function isdegenerate(C::AbstractCyclicCode)
-    n = length(C)
-    h = paritycheckpolynomial(C)
-    x = gen(polynomialring(C))
-    for r in 1:n - 1
-        flag, _ = divides(x^r - 1, h)
+    x = gen(C.R)
+    for r in 1:C.n - 1
+        flag, _ = divides(x^r - 1, C.h)
         flag && return true
     end
     return false
@@ -361,8 +354,7 @@ function finddelta(n::Integer, cosets::Vector{Vector{Int64}})
         useddefset = Vector{Int64}()
         reps = Vector{Int64}()
         cosetnum = 0
-        n = length(cosets)
-        for i in 1:n
+        for i in 1:length(cosets)
             if x ∈ cosets[i]
                 cosetnum = i
                 append!(useddefset, cosets[i])
@@ -377,8 +369,7 @@ function finddelta(n::Integer, cosets::Vector{Vector{Int64}})
                 append!(reps, y)
             else
                 cosetnum = 0
-                n = length(cosets)
-                for i in 1:n
+                for i in 1:length(cosets)
                     if y ∈ cosets[i]
                         cosetnum = i
                         append!(useddefset, cosets[i])
@@ -703,11 +694,9 @@ end
 Return the cyclic code whose cyclotomic cosets are the completement of `C`'s.
 """
 function complement(C::AbstractCyclicCode)
-    ordC = Int64(order(field(C)))
-    n = length(C)
-    D = CyclicCode(ordC, n, complementqcosets(ordC, n, qcosets(C)))
-    (paritycheckpolynomial(C) != generatorpolynomial(D) || idempotent(D) != (1 -
-        idempotent(C))) && error("Error constructing the complement cyclic code.")
+    ordC = Int64(order(C.F))
+    D = CyclicCode(ordC, C.n, complementqcosets(ordC, C.n, C.qcosets))
+    (C.h != D.g || D.e != (1 - C.e)) && error("Error constructing the complement cyclic code.")
     return D
 end
 
@@ -728,10 +717,7 @@ issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 Return whether or not `C1` and `C2` have the same fields, lengths, and defining sets.
 """
-function ==(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
-    # should also check primitive root but so far the user is not given a choice here
-    return field(C1) == field(C2) && length(C1) == length(C2) && definingset(C1) == definingset(C2)
-end
+==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = return C1.F == C2.F && C1.n == C2.n && C1.defset == C2.defset && C1.β == C2.β
 
 """
     dual(C::AbstractCyclicCode)
@@ -743,9 +729,8 @@ polynomials and cyclotomic cosets are stored.
 """
 function dual(C::AbstractCyclicCode)
     # one is even-like and the other is odd-like
-    ordC = Int64(order(field(C)))
-    n = length(C)
-    return CyclicCode(ordC, n, dualqcosets(ordC, n, qcosets(C)))
+    ordC = Int64(order(C.F))
+    return CyclicCode(ordC, C.n, dualqcosets(ordC, C.n, C.qcosets))
 end
 
 # this checks def set, need to rewrite == for linear first
@@ -775,12 +760,10 @@ Return the intersection code of `C1` and `C2`.
 function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial lcm(g_1(x), g_2(x))
     # has generator idempotent e_1(x) e_2(x)
-    F1 = field(C1)
-    n1 = length(C1)
-    if F1 == field(C2) && n1 == length(C2)
-        ordC1 = Int64(order(F1))
-        return CyclicCode(ordC1, n1, definingset(definingset(C1) ∪ definingset(C2),
-            ordC1, n1, false))
+    if C1.F == C2.F && C1.n == C2.n
+        ordC1 = Int64(order(C1.F))
+        return CyclicCode(ordC1, C1.n, definingset(C1.defset ∪ C2.defset, ordC1,
+            C1.n, false))
     else
         error("Cannot intersect two codes over different base fields or lengths.")
     end
@@ -794,13 +777,11 @@ Return the addition code of `C1` and `C2`.
 function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial gcd(g_1(x), g_2(x))
     # has generator idempotent e_1(x) + e_2(x) - e_1(x) e_2(x)
-    F1 = field(C1)
-    n1 = length(C1)
-    if F1 == field(C2) && n1 == length(C2)
-        defset = definingset(C1) ∩ definingset(C2)
+    if C1.F == C2.F && C1.n == C2.n
+        defset = C1.defset ∩ C2.defset
         if length(defset) != 0
-            ordC1 = Int64(order(F1))
-            return CyclicCode(ordC1, n1, definingset(defset, ordC1, n1, false))
+            ordC1 = Int64(order(C1.F))
+            return CyclicCode(ordC1, C1.n, definingset(defset, ordC1, C1.n, false))
         else
             error("Addition of codes has empty defining set.")
         end

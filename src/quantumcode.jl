@@ -83,14 +83,14 @@ Return the cardinality of the stabilizer group of the code.
 
 No size checking is done on the parameters of the code, returns a BitInt by default.
 """
-cardinality(S::AbstractStabilizerCode) = BigInt(order(field(C)))^dimension(C)
+cardinality(S::AbstractStabilizerCode) = BigInt(order(S.F))^S.k
 
 """
     rate(S::AbstractStabilizerCode)
 
 Return the rate, `R = k/n', of the code.
 """
-rate(S::AbstractStabilizerCode) = dimension(S) / length(S)
+rate(S::AbstractStabilizerCode) = S.k / S.n
 
 """
     signs(S::AbstractStabilizerCode)
@@ -125,7 +125,7 @@ stabilizers(S::AbstractStabilizerCode) = S.stabs
 
 Return the stabilizer matrix of the code in symplectic form.
 """
-symplecticstabilizers(S::AbstractStabilizerCode) = quadratictosymplectic(stabilizers(S))
+symplecticstabilizers(S::AbstractStabilizerCode) = quadratictosymplectic(S.stabs)
 
 """
     Xstabilizers(S::CSSCode)
@@ -167,7 +167,7 @@ The only check done on the value of `d` is that `1 ≤ d ≤ n`.
 """
 function setminimumdistance!(S::AbstractStabilizerCode, d::Integer)
     # TODO: should check bounds like Singleton for possibilities
-    d > 0 && d <= length(S) || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
+    d > 0 && d <= S.n || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
     S.d = d
 end
 
@@ -191,18 +191,17 @@ isovercomplete(S::AbstractStabilizerCode) = return S.overcomplete
 
 function _getsigns(A::fq_nmod_mat, charvec::Vector{nmod})
     R = base_ring(charvec[1])
-    if length(charvec) == 2 * ncols(A)
+    nc = ncols(A)
+    if length(charvec) == 2 * nc
         A = quadratictosymplectic(A)
     end
-    length(charvec) == ncols(A) || error("Input to _getsigns is expected to be in symplectic form and of the same length as the characteristic vector.")
-    if iszero(charvec)
-        return [R(0) for _ in 1:div(ncols(A), 2)]
-    end
+    length(charvec) == nc || error("Input to _getsigns is expected to be in symplectic form and of the same length as the characteristic vector.")
+    iszero(charvec) && return [R(0) for _ in 1:div(nc, 2)]
 
     signs = Vector{Int64}()
     for r in 1:nrows(A)
         parity = R(0)
-        for c = 1:ncols(A)
+        for c = 1:nc
             parity += charvec[c]
         end
         append!(signs, parity)
@@ -262,23 +261,26 @@ This function returns six objevts of alternating types `fq_nmod_mat` and
 `Vector{Int}` for the three sets of stabilizers and signs, respectively.
 An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
 """
-function splitstabilizers(S::AbstractStabilizerCode)
-    return _splitsymplecticstabilizers(symplecticstabilizers(S), signs(S))
-end
+splitstabilizers(S::AbstractStabilizerCode) = return _splitsymplecticstabilizers(S.symplecticstabilizers, S.signs)
 
+# TODO: rethink how I'm returning all of this and the bottom trim stuff
+# probably need to simply redo the above to simply start with zero matrix
+# and then either set first or add to it (return matrix[2:end, L])
 function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{nmod}, trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if typeof(mixedstabs) <: Vector{fq_nmod_mat}
         if trim
-            half = div(ncols(Xstabs), 2)
+            half = div(ncols(S), 2)
             return true, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns
         else
             return true, Xstabs, Xsigns, Zstabs, Zsigns
         end
     else
         if trim
-            half = div(ncols(Xstabs), 2)
-            return false, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns, mixedstabs, mixedsigns
+            half = div(ncols(S), 2)
+            !(typeof(Xstabs) <: Vector{fq_nmod_mat}) && (Xstabs = Xstabs[:, 1:half];)
+            !(typeof(Zstabs) <: Vector{fq_nmod_mat}) && (Zstabs = Zstabs[:, half + 1:end];)
+            return false, Xstabs, Xsigns, Zstabs[:, half + 1:end], Zsigns, mixedstabs, mixedsigns
         else
             return false, Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
         end
@@ -327,9 +329,9 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     charvec::Union{Vector{nmod}, Missing}=missing)
 
     C2 ⊆ C1 || error("The second argument must be a subset of the first in the CSS construction.")
+    p = Int(characteristic(C1.F))
     if !ismissing(charvec)
-        2 * length(C1) == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(field(C1)))
+        2 * C1.n == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -339,13 +341,12 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(field(C1)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:2 * length(C1)]
+        charvec = [R(0) for _ in 1:2 * C1.n]
     end
 
     # C2 ⊆ C1
@@ -353,31 +354,32 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
     D2 = dual(C2)
-    S = directsum(paritycheckmatrix(D2), paritycheckmatrix(C1))
+    S = directsum(D2.H, C1.H)
     Sq2 = symplectictoquadratic(S)
-    dualgens = directsum(generatormatrix(C1), generatormatrix(D2))
+    dualgens = directsum(C1.G, D2.G)
+    E = base_ring(Sq2)
 
     # determine signs
+    nrD = nrows(D2.H)
     if iszero(charvec)
         signs = [R(0) for _ in 1:nrows(S)]
-        Xsigns = [R(0) for _ in 1:nrows(paritycheckmatrix(D2))]
-        Zsigns = [R(0) for _ in 1:nrows(paritycheckmatrix(C1))]
+        Xsigns = [R(0) for _ in 1:nr]
+        Zsigns = [R(0) for _ in 1:nrows(C1.H)]
     else
         signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nrows(paritycheckmatrix(D2)), :]
-        Zsigns = signs[nrows(paritycheckmatrix(D2)) + 1:end, :]
+        Xsigns = signs[1:nr, :]
+        Zsigns = signs[nr + 1:end, :]
     end
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^rank(S)
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(E))^ncols(Sq2) // BigInt(p)^rank(S)
+    println(dimcode)
+    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
+    println(dimcode)
 
-    return CSSCode(field(C1), base_ring(Sq2), length(C1), dimcode, missing,
-        minimumdistance(D2), minimumdistance(C1), Sq2, paritycheckmatrix(D2),
-        paritycheckmatrix(C1), C2, C1, signs, Xsigns, Zsigns, dualgens, missing,
-        missing, charvec, missing, missing, false)
+    return CSSCode(C1.F, E, C1.n, dimcode, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
+        C2, C1, signs, Xsigns, Zsigns, dualgens, missing, missing, charvec,
+        missing, missing, false)
 end
 
 """
@@ -413,9 +415,9 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     # this should have Xstabs = Zstabs
     D = dual(C)
     C ⊆ D || error("The single code CSS construction requires C ⊆ C^⟂.")
+    p = Int(characteristic(D.F))
     if !ismissing(charvec)
-        2 * length(C) == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(field(C)))
+        2 * D.n == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -425,44 +427,41 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(field(C1)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:2 * length(C)]
+        charvec = [R(0) for _ in 1:2 * D.n]
     end
 
     # C2 ⊆ C1
     # k = k1 - k2
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
-    S = directsum(paritycheckmatrix(D), paritycheckmatrix(D))
+    S = directsum(D.H, D.H)
     Sq2 = symplectictoquadratic(S)
-    dualgens = directsum(generatormatrix(D), generatormatrix(D))
+    dualgens = directsum(D.G, D.G)
 
     # determine signs
+    nr = nrows(D.H)
     if iszero(charvec)
         signs = [R(0) for _ in 1:nrows(S)]
-        Xsigns = [R(0) for _ in 1:nrows(paritycheckmatrix(D))]
-        Zsigns = [R(0) for _ in 1:nrows(paritycheckmatrix(D))]
+        Xsigns = [R(0) for _ in 1:nr]
+        Zsigns = [R(0) for _ in 1:nr]
     else
         signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nrows(paritycheckmatrix(D)), :]
-        Zsigns = signs[nrows(paritycheckmatrix(D)) + 1:end, :]
+        Xsigns = signs[1:nr, :]
+        Zsigns = signs[nr + 1:end, :]
     end
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^rank(S)
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rank(S)
+    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
 
-    return CSSCode(field(C), base_ring(Sq2), length(C), dimcode, missing,
-        minimumdistance(D), minimumdistance(D), Sq2, paritycheckmatrix(D),
-        paritycheckmatrix(D), C, D, signs, Xsigns, Zsigns, dualgens, missing,
-        missing, charvec, missing, missing, overcomp)
+    return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, D.d, D.d, Sq2,
+        D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, missing,
+        charvec, missing, missing, overcomp)
 end
 
 """
@@ -500,11 +499,12 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     iszero(Zmatrix) && error("The `Z` stabilizer matrix is empty.")
     n = ncols(Xmatrix)
     n ==  ncols(Zmatrix) || error("Both matrices must have the same length in the CSS construction.")
-    base_ring(Xmatrix) == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
+    F = base_ring(Xmatrix)
+    F == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
     iszero(Zmatrix * transpose(Xmatrix)) || error("The given matrices are not symplectic orthogonal.")
+    p = Int(characteristic(F))
     if !ismissing(charvec)
         2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(base_ring(Xmatrix)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -514,7 +514,6 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(base_ring(Xmatrix)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -523,7 +522,6 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
         charvec = [R(0) for _ in 1:2 * n]
     end
 
-    # remove any empty rows
     Xmatrix = _removeempty(Xmatrix, "rows")
     Zmatrix = _removeempty(Zmatrix, "rows")
 
@@ -537,37 +535,34 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     S = directsum(Xmatrix, Zmatrix)
-    # aresymplecticorthogonal(S, S, true) || error("The given matrices are not symplectic orthogonal.")
     Sq2 = symplectictoquadratic(S)
 
     # determine signs
+    nrX = nrows(Xmatrix)
     if iszero(charvec)
         signs = [R(0) for _ in 1:nrows(S)]
-        Xsigns = [R(0) for _ in 1:nrows(Xmatrix)]
+        Xsigns = [R(0) for _ in 1:nrX]
         Zsigns = [R(0) for _ in 1:nrows(Zmatrix)]
     else
         signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nrows(Xmatrix), :]
-        Zsigns = signs[nrows(Xmatrix) + 1:end, :]
+        Xsigns = signs[1:nr, :]
+        Zsigns = signs[nr + 1:end, :]
     end
 
     # find generators for S^⟂
-    G = hcat(S[:, n + 1:end], -S[:, 1:n])
-    _, H = right_kernel(G)
-    ncols(H) == n + k || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # n + (n - Srank)
+    ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^(Xrank + Zrank)
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(F))^n // BigInt(p)^(Xrank + Zrank)
+    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
 
-    return CSSCode(base_ring(Xmatrix), base_ring(Sq2), n, dimcode, missing,
-        missing, missing, Sq2, Xmatrix, Zmatrix, missing, missing, signs, Xsigns,
-        Zsigns, dualgens, missing, missing, charvec, missing, missing, overcomp)
+    return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
+        Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
+        missing, missing, charvec, missing, missing, overcomp)
 end
 
 """
@@ -606,9 +601,11 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     S = _Paulistringtosymplectic(SPaulistripped)
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizers.")
     aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
+    nsym = ncols(S)
+    F = base_ring(S)
+    p = Int(characteristic(F))
     if !ismissing(charvec)
-        ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(base_ring(S)))
+        nsym == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -618,18 +615,17 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(base_ring(S)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:ncols(S)]
+        charvec = [R(0) for _ in 1:nsym]
     end
 
-    # remove any empty rows
     S = _removeempty(S, "rows")
     Sq2 = symplectictoquadratic(S)
+    n = ncols(Sq2)
 
     # determine if the provided set of stabilizers are redundant
     Srank = rank(S)
@@ -641,32 +637,27 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
 
     # determine signs
     if iszero(charvec)
-        signs = [R(0) for _ in 1:ncols(S)]
+        signs = [R(0) for _ in 1:nrows(S)]
     else
         signs = _getsigns(S, charvec)
     end
 
     # find generators for S^⟂
-    G = hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)])
-    _, H = right_kernel(G)
-    # why'd I do 2n - k instead of n + k here?
-    ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # n + (n - Srank)
+    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
+    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode, missing,
-            missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, missing, charvec, missing,
-            missing, overcomp)
+        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+            dualgens, missing, missing, charvec, missing, missing, overcomp)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -701,15 +692,16 @@ determine such quantities. Use `isovercomplete` to determine if an
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}}=[]) where T <: Union{String, Vector{Char}}
-
+function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
     SPaulistripped, charvec = _processstrings(SPauli, charvec)
     S = _Paulistringtosymplectic(SPaulistripped)
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizers.")
     aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
+    nsym = ncols(S)
+    F = base_ring(S)
+    p = Int(characteristic(F))
     if !ismissing(charvec)
-        ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(base_ring(S)))
+        nsym == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -719,18 +711,17 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(base_ring(S)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:ncols(S)]
+        charvec = [R(0) for _ in 1:nsym]
     end
 
-    # remove any empty rows
     S = _removeempty(S, "rows")
     Sq2 = symplectictoquadratic(S)
+    n = ncols(Sq2)
 
     # determine if the provided set of stabilizers are redundant
     Srank = rank(S)
@@ -748,30 +739,25 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Vector{Any}
     end
 
     # find generators for S^⟂
-    G = hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)])
-    _, H = right_kernel(G)
-    # why'd I do 2n - k instead of n + k here?
-    ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # println("H: ", size(H), ", n: ", n, ", k: ", Srank)
+    # n + (n - Srank)
+    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
+    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode,
-            missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, missing, charvec, missing, missing,
-            overcomp)
+        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+            dualgens, missing, missing, charvec, missing, missing, overcomp)
     else
-        return QuantumCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode,
-            missing, Sq2, dualgens, missing, missing, charvec, signs, missing,
-            missing, overcomp)
+        return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
+            missing, missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
@@ -810,23 +796,23 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
     iszero(Sq2) && error("The stabilizer matrix is empty.")
-    # remove any empty rows
     Sq2 = _removeempty(Sq2, "rows")
-
     if symp
         S = Sq2
         # this will error properly if not correct
         Sq2 = symplectictoquadratic(Sq2)
     else
-        E = base_ring(Sq2)
-        iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
+        iseven(degree(base_ring(Sq2))) || error("The base ring of the given matrix is not a quadratic extension.")
         S = quadratictosymplectic(Sq2)
     end
-    aresymplecticorthogonal(S, S, symp) || error("The given stabilizers are not symplectic orthogonal.")
+    # TODO: remove this in this internal code?
+    aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
 
+    F = base_ring(S)
+    p = Int(characteristic(F))
+    n = ncols(Sq2)
     if !ismissing(charvec)
-        ncols(S) == length(charvec) || error("The characteristic value is of incorrect length.")
-        p = Int(characteristic(base_ring(Sq2)))
+        2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -836,13 +822,12 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
             modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
         end
     else
-        p = Int(characteristic(base_ring(Sq2)))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:ncols(S)]
+        charvec = [R(0) for _ in 1:2 * n]
     end
 
     # determine if the provided set of stabilizers are redundant
@@ -861,30 +846,24 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     end
 
     # find generators for S^⟂
-    G = hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)])
-    _, H = right_kernel(G)
-    # why'd I do 2n - k instead of n + k here?
-    ncols(H) == 2 * ncols(Sq2) - nrows(Sq2) || error("Normalizer matrix is not size n + k.")
     # note the H here is transpose of the standard definition
-    # iszero(G * H) || error("Normalizer matrix is not symplectic orthogonal.")
+    _, H = right_kernel(hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)]))
+    # n + (n - Srank)
+    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(base_ring(S)))^ncols(Sq2) // BigInt(characteristic(base_ring(S)))^Srank
-    if isinteger(dimcode)
-        dimcode = Int64(log(BigInt(characteristic(base_ring(S))), dimcode))
-    end
+    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
+    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode,
-            missing, missing, missing, Sq2, args[2], args[4], missing, missing, signs,
-            args[3], args[5], dualgens, missing, missing, charvec, missing, missing,
-            overcomp)
+        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+            dualgens, missing, missing, charvec, missing, missing, overcomp)
     else
-        return QuantumCode(base_ring(S), base_ring(Sq2), ncols(Sq2), dimcode,
-            missing, Sq2, dualgens, missing, missing, charvec, signs, missing,
-            missing, overcomp)
+        return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
+            missing, missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
@@ -896,14 +875,12 @@ Return a basis for the space `S^⟂ / S`.
 Note that this is not necessarily a symplectic basis with `{X_L, Z_L}` pairs.
 """
 function logicalspace(S::AbstractStabilizerCode)
-    if !ismissing(S.logspace)
-        return S.logspace
-    end
+    ismissing(S.logspace) || return S.logspace
 
-    F = quadraticfield(S)
-    G = stabilizers(S)
-    Gdual = normalizermatrix(S)
-    V = VectorSpace(F, length(S))
+    F = S.E
+    G = S.stabilizers
+    Gdual = S.dualgens
+    V = VectorSpace(F, S.n)
     U, UtoV = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
     W, WtoV = sub(V, [V(Gdual[i, :]) for i in 1:nrows(Gdual)])
     gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
@@ -914,15 +891,16 @@ function logicalspace(S::AbstractStabilizerCode)
     G2 = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 
     # returns linear object, make additive if necessary
-    if nrows(G2) == dimension(S)
+    n = nrows(G2)
+    if n == S.k
         S.logspace = vcat(G2, gen(F) * G2)
         return S.logspace
-    elseif nrows(G2) == 2 * dimension(S)
+    elseif n == 2 * S.k
         S.logspace = G2
         return S.logspace
     else
         error("Logical space produced of incorrect dimension; expected: ",
-            2 * dimension(S), ", received: ", nrows(G2))
+            2 * S.k, ", received: ", n)
     end
 end
 
@@ -935,31 +913,40 @@ If the optional parameter `symp` is set to `true`, `L` is assumed to be in
 symplectic form over the base field of `S`.
 """
 function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
-    F = base_ring(L)
     if symp
-        size(L) == (2 * dimension(S), 2 * length(S)) || error("Provided matrix is of incorrect size for the logical space.")
+        Lsym = L
+        size(L) == (2 * S.k, 2 * S.n) || error("Provided matrix is of incorrect size for the logical space.")
         iseven(ncols(L)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
-        field(S) == F || error("The logicals must be over the same field as the code.")
+        S.F == F || error("The logicals must be over the same field as the code.")
+        L = symplectictoquadratic(L)
     else
-        size(L) == (2 * dimension(S), length(S)) || error("Provided matrix is of incorrect size for the logical space.")
-        quadraticfield(Sq2) == F || error("The logicals must be over the same field as the code.")
-        iseven(F) || error("The base ring of the given matrix is not a quadratic extension.")
-        L = quadratictosymplectic(L)
+        F = base_ring(L)
+        size(L) == (2 * S.k, S.n) || error("Provided matrix is of incorrect size for the logical space.")
+        S.E == F || error("The logicals must be over the same field as the code.")
+        iseven(degree(F)) || error("The base ring of the given matrix is not a quadratic extension.")
+        Lsym = quadratictosymplectic(L)
     end
-    aresymplecticorthogonal(symplecticstabilizers(S), L) || error("Provided logicals do not commute with the code.")
+    aresymplecticorthogonal(symplecticstabilizers(S), Lsym, true) ||
+        error("Provided logicals do not commute with the code.")
 
     # the columns in prod give the commutation relationships between the provided
     # logical operators; they ideally should only consist of {X_1, Z_i} pairs
     # so there should only be one nonzero element in each column
-    prod = hcat(A[:, length(S) + 1:end], -A[:, 1:length(S)]) * transpose(L)
-    iszero(prod) || error("Provided logical should not be symplectic self-orthogonal.")
-    cols = sum(prod, 2)
-    sum(cols) == length(cols) || error("Incorrect commutation relationships between provided logicals.")
+    prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    iszero(prod) && error("Provided logical should not be symplectic self-orthogonal.")
+    ncpr = ncols(prod)
+    # need an integer sum and this is cheaper than Nemo.ZZ
+    prodJul = FpmattoJulia(prod)
+    cols = [sum(prodJul[:, i]) for i in 1:ncpr]
+    sum(cols) == ncpr || error("Incorrect commutation relationships between provided logicals.")
 
     # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
+    F = base_ring(L)
     logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+    # this does indeed grow smaller each iteration
     while nrows(L) >= 2
-        y = findfirst(x->x>0, prod[:, 1])
+        y = findfirst(x->x>0, prodJul[:, 1])
+        y = [F(prod[y, 1]), y]
         if y[1] != F(1)
             push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
         else
@@ -967,26 +954,6 @@ function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=fals
         end
         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
     end
-
-    # # can actually do this via the matrix multiplication above
-    # logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
-    # while !iszero(size(L, 1))
-    #     rows = []
-    #     X1 = L[1, :]
-    #     for i in 2:size(L, 1)
-    #         SIP = sympecticinnerproduct(Xi, L[i, :])
-    #         if !iszero(SIP)
-    #             if SIP != typeof(SIP)(1)
-    #                 L[i, :] *= SIP^-1
-    #                 push!(rows, i)
-    #                 length(rows) == 1 || error("Incorrect commutation relationships between provided logicals.")
-    #             end
-    #         end
-    #     end
-    #     push!(logs, (X1, L[rows[1], :]))
-    #     L = L[setdiff(1:size(L, 1), [1, rows[1]]), :]
-    # end
-
     S.logicals = logs
 end
 
@@ -997,11 +964,11 @@ Set the character vector of `S` to `charvec` and update the signs.
 """
 function changesigns!(S::AbstractStabilizerCode, charvec::Vector{nmod})
     R = base_ring(charactervector(S))
-    length(charvec) == 2 * length(S) || error("Characteristic vector is of improper length for the code.")
+    length(charvec) == 2 * S.n || error("Characteristic vector is of improper length for the code.")
     for s in charvec
         modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
     end
-    S.signs = _getsigns(stabilizers(S), charvec)
+    S.signs = _getsigns(S.stabilizers, charvec)
     S.charvec = charvec
 end
 
@@ -1057,7 +1024,7 @@ function show(io::IO, S::AbstractStabilizerCode)
                 println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(length(S))")
             end
             for i in 1:numXstabs(S)
-                print(io, "\t chi($(Xsigns[i])) ")
+                print(io, "\t chi($(S.Xsigns[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.Xstabs[i, j]) ")
@@ -1074,7 +1041,7 @@ function show(io::IO, S::AbstractStabilizerCode)
                 println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(length(S))")
             end
             for i in 1:numZstabs(S)
-                print(io, "\t chi($(Zsigns[i])) ")
+                print(io, "\t chi($(S.Zsigns[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.Zstabs[i, j]) ")
@@ -1113,7 +1080,7 @@ function show(io::IO, S::AbstractStabilizerCode)
                 println(io, "Stabilizer matrix: $(nrows(S.stabs)) × $(length(S))")
             end
             for i in 1:nrows(S.stabs)
-                print(io, "\t chi($(signs[i])) ")
+                print(io, "\t chi($(S.signs[i])) ")
                 for j in 1:length(S)
                     if j != length(S)
                         print(io, "$(S.stabs[i, j]) ")
@@ -1143,16 +1110,13 @@ Return the syndrome of the vector `v` with respect to the `X` stabilizers of the
 CSS code.
 """
 function Xsyndrome(S::CSSCode, v::fq_nmod_mat)
-    n = length(S)
-    if length(v) == 2 * n
-        v = v[n + 1:end]
-    end
-    !(size(v) != (n, 1) && size(v) != (1, n)) ||
+    length(v) == 2 * S.n && (v = v[S.n + 1:end];)
+    (size(v) != (S.n, 1) && size(v) != (1, S.n)) &&
         error("Vector to be tested is of incorrect dimension; expected length $n, received: $(size(v)).")
-    base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
+    base_ring(v) == S.F || error("Vector must have the same base ring as the stabilizers.")
 
-    nrows(v) != 1 || return Xstabilizers(S) * transpose(v)
-    return Xstabilizers(S) * v
+    nrows(v) != 1 || return S.Xstabs * transpose(v)
+    return S.Xstabs * v
 end
 
 """
@@ -1162,16 +1126,13 @@ Return the syndrome of the vector `v` with respect to the `Z` stabilizers of the
 CSS code.
 """
 function Zsyndrome(S::CSSCode, v::fq_nmod_mat)
-    n = length(S)
-    if length(v) == 2 * n
-        v = v[1:n]
-    end
-    !(size(v) != (n, 1) && size(v) != (1, n)) ||
+    length(v) == 2 * S.n && (v = v[1:S.n];)
+    (size(v) != (n, 1) && size(v) != (1, n)) &&
         error("Vector to be tested is of incorrect dimension; expected length $n, received: $(size(v)).")
-    base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
+    base_ring(v) == S.F || error("Vector must have the same base ring as the stabilizers.")
 
-    nrows(v) != 1 || return Zstabilizers(S) * transpose(v)
-    return Zstabilizers(S) * v
+    nrows(v) != 1 || return S.Zstabs * transpose(v)
+    return S.Zstabs * v
 end
 
 """
@@ -1180,8 +1141,7 @@ end
 Return the syndrome of the vector `v` with respect to the stabilizers of `S`.
 """
 function syndrome(S::AbstractStabilizerCode, v::fq_nmod_mat)
-    n = length(S)
-    !(size(v) != (2 * n, 1) && size(v) != (1, 2 * n)) ||
+    (size(v) != (2 * S.n, 1) && size(v) != (1, 2 * S.n)) &&
         error("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v)).")
     # base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
 
@@ -1199,18 +1159,18 @@ end
 # iter = combinations(1:size(stabs, 2))
 # but this only in base 2
 """
-    allstabilizers(Q::AbstractStabilizerCode, onlyprint::Bool=false)
-    elements(Q::AbstractStabilizerCode, onlyprint::Bool=false)
+    allstabilizers(S::AbstractStabilizerCode, onlyprint::Bool=false)
+    elements(S::AbstractStabilizerCode, onlyprint::Bool=false)
 
 Return the elements of `S`.
 
 If `onlyprint` is `true`, the elements are only printed to the console and not returned.
 """
-function allstabilizers(Q::AbstractStabilizerCode, onlyprint::Bool=false)
-    E = quadraticfield(Q)
+function allstabilizers(S::AbstractStabilizerCode, onlyprint::Bool=false)
+    E = quadraticfield(S)
     all = Vector{fq_nmod_mat}()
-    stabs = stabilizers(Q)
-    for iter in Base.Iterators.product([0:(Int64(characteristic(field(Q))) - 1) for _ in 1:nrows(stabs)]...)
+    stabs = S.stabs
+    for iter in Base.Iterators.product([0:(Int64(characteristic(S.F)) - 1) for _ in 1:nrows(stabs)]...)
         stab = E(iter[1]) * stabs[1, :]
         for r in 2:nrows(stabs)
             if !iszero(iter[r])

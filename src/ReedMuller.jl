@@ -40,16 +40,16 @@ RMm(C::ReedMullerCode) = C.m
 
 function show(io::IO, C::AbstractReedMullerCode)
     if get(io, :compact, false)
-        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed-Muller code RM($(r(C)), $(m(C))).")
+        println(io, "[$(C.n), $(C.k), $(minimumdistance(C))]_$(order(C.F)) Reed-Muller code RM($(C.r), $(C.m)).")
     else
-        println(io, "[$(length(C)), $(dimension(C)), $(minimumdistance(C))]_$(order(field(C))) Reed-Muller code RM($(r(C)), $(m(C))).")
-        println(io, "Generator matrix: $(dimension(C)) × $(length(C))")
-        for i in 1:dimension(C)
+        println(io, "[$(C.n), $(C.k), $(minimumdistance(C))]_$(order(C.F)) Reed-Muller code RM($(C.r), $(C.m)).")
+        println(io, "Generator matrix: $(C.k) × $(C.n)")
+        for i in 1:C.k
             print(io, "\t")
-            for j in 1:length(C)
-                if j != length(C)
+            for j in 1:C.n
+                if j != C.n
                     print(io, "$(C.G[i, j]) ")
-                elseif j == length(C) && i != dimension(C)
+                elseif j == C.n && i != C.k
                     println(io, "$(C.G[i, j])")
                 else
                     print(io, "$(C.G[i, j])")
@@ -58,7 +58,7 @@ function show(io::IO, C::AbstractReedMullerCode)
         end
         if !ismissing(C.weightenum)
             println(io, "\nComplete weight enumerator:")
-            println(io, "\t", polynomial(C.weightenum))
+            println(io, "\t", C.weightenum.polynomial)
         end
     end
 end
@@ -137,10 +137,10 @@ Return the dual of the Reed-Muller code `C`.
 """
 function dual(C::ReedMullerCode)
     # really only put this here to remind me later that I hardcoded binary
-    if Int(characteristic(field(C))) == 2
-        return ReedMullerCode(field(C), length(C), length(C) - dimension(C), 2^(order(C) + 1),
-            RMm(C) - order(C) - 1, RMm(C), paritycheckmatrix(C), originalparitycheckmatrix(C), generatormatrix(C),
-            originalgeneratormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true), missing)
+    if Int(characteristic(C.F)) == 2
+        return ReedMullerCode(C.F, C.n, C.n - C.k, 2^(C.r + 1),
+            C.m - C.r - 1, C.m, C.H, missing, C.G, missing, C.Hstand, C.Gstand,
+            missing)
     end
 
 end
@@ -159,14 +159,14 @@ Return the entrywise product of `C` and `D`.
 Note that this is known to often be the full ambient space.
 """
 function entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
-    field(C) == field(D) || error("Codes must be over the same field in the Schur product.")
-    length(C) == length(D) || error("Codes must have the same length in the Schur product.")
+    C.F == D.F || error("Codes must be over the same field in the Schur product.")
+    C.n == D.n || error("Codes must have the same length in the Schur product.")
 
-    r = order(C) + order(D)
-    if r <= length(C)
-        return ReedMullerCode(Int(characteristic(field(C))), r, RMm(C))
+    r = C.r + D.r
+    if r <= C.n
+        return ReedMullerCode(Int(characteristic(C.F)), r, C.m)
     else
-        return ReedMullerCode(Int(characteristic(field(C))), RMm(C), RMm(C))
+        return ReedMullerCode(Int(characteristic(C.F)), C.m, C.m)
     end
 end
 *(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)

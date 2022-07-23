@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# include("quantumcode.jl")
 include("tricolorcodes488trellis.jl")
 include("tricolorcodes666trellis.jl")
 
@@ -18,10 +17,8 @@ include("tricolorcodes666trellis.jl")
 
 Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
-function fivequbitcode()
-    # is a perfect code
-    return QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
-end
+# is a perfect code
+fivequbitcode() = return QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
 Q513() = fivequbitcode()
 
 # should also do a test for other CSS construction via Hamming code and actually make that one default
@@ -31,15 +28,10 @@ Q513() = fivequbitcode()
 
 Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
 """
-function Steanecode()
-    return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
-end
-Q713() = Steanecode()
-
-function _Steanecodetrellis()
-    return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
-    # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
-end
+SteaneCode() = return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+Q713() = SteaneCode()
+_SteaneCodetrellis() = return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
+# also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
 
 """
     Shorcode()
@@ -47,22 +39,12 @@ end
 
 Return the `[[9, 1, 3]]` Shor code.
 """
-function Shorcode()
-    return CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
-end
-Q913() = Shorcode()
+ShorCode() = return CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
+Q913() = ShorCode()
 
-function Q412()
-    return CSSCode(["XXXX", "ZZII", "IIZZ"])
-end
-
-function Q422()
-    return CSSCode(["XXXX", "ZZZZ"])
-end
-
-function Q511()
-    return QuantumCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
-end
+Q412() = return CSSCode(["XXXX", "ZZII", "IIZZ"])
+Q422() = return CSSCode(["XXXX", "ZZZZ"])
+Q511() = return QuantumCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
     F, _ = FiniteField(2, 1, "α")
@@ -82,12 +64,10 @@ end
 Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
 ordering.
 """
-function Q15RM()
-    return QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
-        "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
-        "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
-        "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
-end
+Q15RM() = return QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
+    "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
+    "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
+    "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
 Q1513() = Q15RM()
 
 """
@@ -95,12 +75,10 @@ Q1513() = Q15RM()
 
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
-function Q1573()
-    return QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
+Q1573() = return QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
     "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
     "ZIZIZIZIZIZIZIZ"])
     # one can use a basis for this such that the first logical pair is transversal X, Z
-end
 
 #############################
 #  Triangular Surface Codes #
@@ -453,7 +431,7 @@ function _XZZXstabslogs(d::Int)
         if count % 2 == 1
             logs[1, i] = X
         else
-            log[1, i] = ω
+            logs[1, i] = ω
         end
         i += d
         count += 1
@@ -462,9 +440,9 @@ function _XZZXstabslogs(d::Int)
     count = 1
     while i <= d
         if count % 2 == 1
-            log[2, i] = ω
+            logs[2, i] = ω
         else
-            log[2, i] = X
+            logs[2, i] = X
         end
         i += 1
         count += 1

@@ -189,19 +189,18 @@ function Hermitianconjugatematrix(A::fq_nmod_mat)
     return B .^ q
 end
 
-# does this actually make any sense?
-# """
-#     entropy(x::Real)
-#
-# Return the entropy of the real number `x`.
-# """
-# function entropy(x::Real)
-#     x != 0 || return 0
-#     (0 < x <= 1 - 1 / q) || error("Number should be in the range [0, 1 - 1/order(field)].")
-#     F = parent(x)
-#     q = order(F)
-#     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
-# end
+"""
+    entropy(x::Real)
+
+Return the entropy of the real number `x`.
+"""
+function entropy(x::Real)
+    x != 0 || return 0
+    (0 < x <= 1 - 1 / q) || error("Number should be in the range [0, 1 - 1/order(field)].")
+    F = parent(x)
+    q = order(F)
+    return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
+end
 
 """
     FpmattoJulia(M::fq_nmod_mat)
@@ -210,11 +209,9 @@ Return the `fq_nmod_mat` matrix `M` as a Julia Integer matrix.
 """
 function FpmattoJulia(M::fq_nmod_mat)
     degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the integers.")
-    # Fp = [i for i in 0:Int64(characteristic(base_ring(M)))]
     A = zeros(Int64, size(M))
     for c in 1:ncols(M)
         for r in 1:nrows(M)
-            # A[r, c] = Fp[findfirst(x->x==M[r, c], Fp)]
             A[r, c] = coeff(M[r, c], 0)
         end
     end
@@ -361,9 +358,10 @@ function quadratictosymplectic(M::fq_nmod_mat)
     Msym = zero_matrix(F, nr, 2 * nc)
     for c in 1:nc
         for r in 1:nr
+            # TODO: benchmark this without the branching
             if !iszero(M[r, c])
                 Msym[r, c] = F(coeff(M[r, c], 0))
-                Msym[r, c + ncols] = F(coeff(M[r, c], 1))
+                Msym[r, c + nc] = F(coeff(M[r, c], 1))
             end
         end
     end

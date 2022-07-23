@@ -62,10 +62,9 @@ function HammingCode(q::Int, r::Int)
         C = LinearCode(H, true)
         setminimumdistance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        n = length(C)
-        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^n + n*
-            (vars[2] + vars[1])^div(n - 1, 2)*(vars[1] - vars[2])^div(n + 1, 2),
-            n + 1), "complete")
+        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n*
+            (vars[2] + vars[1])^div(C.n - 1, 2)*(vars[1] - vars[2])^div(C.n + 1,
+            2), C.n + 1), "complete")
         return C
     end
 
@@ -131,12 +130,6 @@ function SimplexCode(q::Int, r::Int)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
         C = LinearCode(G2)
-        # all nonzero codewords have weights q^{r - 1}
-        # should have q^r - 1 nonzero codewords
-        # coeff, 0's, 1's
-        C.weightenum = WeightEnumerator([[1, 3, 0], [3, 1, 2]], "complete")
-        setminimumdistance!(C, 3)
-        return C
     else
         Grm1 = G2
         for i in 3:r
@@ -148,15 +141,14 @@ function SimplexCode(q::Int, r::Int)
             Grm1 = vcat(top, bot)
         end
         C = LinearCode(Grm1)
-        # all nonzero codewords have weights q^{r - 1}
-        # should have q^r - 1 nonzero codewords
-        # coeff, 0's, 1's
-        R, vars = PolynomialRing(Nemo.ZZ, 2)
-        C.weightenum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
-            vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), "complete")
-        setminimumdistance!(C, 2^(r - 1))
-        return C
     end
+    # all nonzero codewords have weights q^{r - 1}
+    # should have q^r - 1 nonzero codewords
+    R, vars = PolynomialRing(Nemo.ZZ, 2)
+    C.weightenum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
+        vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), "complete")
+    setminimumdistance!(C, 2^(r - 1))
+    return C
 end
 
 #############################

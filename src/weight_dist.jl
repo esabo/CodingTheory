@@ -9,22 +9,22 @@
 #############################
 
 """
-    polynomial(f::WeightEnumerator)
+    polynomial(W::WeightEnumerator)
 
-Returns the polynomial of the weight enumerator `f`.
+Returns the polynomial of the weight enumerator `W`.
 """
-polynomial(f::WeightEnumerator) = f.polynomial
+polynomial(W::WeightEnumerator) = W.polynomial
 
 """
-    type(f::WeightEnumerator)
+    type(W::WeightEnumerator)
 
-Returns the type of the weight enumerator `f`.
+Returns the type of the weight enumerator `W`.
 """
-type(f::WeightEnumerator) = f.type
+type(W::WeightEnumerator) = W.type
 
 function ==(W1::WeightEnumerator, W2::WeightEnumerator)
-    type(W1) == type(W2) || return false
-    polynomial(W1) == polynomial(W2) && return true
+    W1.type == W2.type || return false
+    W1.polynomial == W2.polynomial && return true
     return false
 end
 
@@ -35,11 +35,12 @@ function _weightenumeratorBF(G::fq_nmod_mat)
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
     R, vars = PolynomialRing(Nemo.ZZ, ordE)
     poly = R(0)
+    nr = nrows(G)
 
     # Nemo.AbstractAlgebra.ProductIterator
-    for iter in Base.Iterators.product([0:(Int64(characteristic(E)) - 1) for _ in 1:nrows(G)]...)
+    for iter in Base.Iterators.product([0:(Int64(characteristic(E)) - 1) for _ in 1:nr]...)
         row = E(iter[1]) * G[1, :]
-        for r in 2:nrows(G)
+        for r in 2:nr
             if !iszero(iter[r])
                 row += E(iter[r]) * G[r, :]
             end
@@ -92,8 +93,8 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     lookup = Dict(value => key for (key, value) in enumerate(elms))
     R, vars = PolynomialRing(Nemo.ZZ, length(elms))
 
-    V = vertices(T)
-    E = edges(T)
+    V = T.vertices
+    E = T.edges
     V[1][1].polynomial = R(1)
     # V[1][1].polynomial[1][1] = 1
     for i in 2:length(V)
@@ -137,44 +138,44 @@ end
 function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
     dual ∈ ["Euclidean", "Hermitian"] ||
         error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
-    (dual == "Hermitian" && Int(order(field(C))) != 4) &&
+    (dual == "Hermitian" && Int(order(C.F)) != 4) &&
         error("The MacWilliams identity for the Hermitian dual is only programmed for GF(4).")
 
     if W.type == "Hamming"
         # (1/|C|)W(y - x, y + (q - 1)x)
-        R = parent(polynomial(W))
+        R = parent(W.polynomial)
         vars = gens(R)
-        return WeightEnumerator(divexact(polynomial(W)(vars[2] - vars[1], vars[2] +
-            (Int(order(field(C))) - 1) * vars[1]), cardinality(C)), "Hamming")
+        return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
+            (Int(order(C.F)) - 1) * vars[1]), cardinality(C)), "Hamming")
     end
 
     # complete weight enumerators
-    if Int(order(field(C))) == 2
+    if Int(order(C.F)) == 2
         # the complete and Hamming weight enumerators are the same in binary
         # (1/|C|)W(x_0 + (q - 1)x_1, x_0 - x_1)
-        R = parent(polynomial(W))
+        R = parent(W.polynomial)
         vars = gens(R)
-        return WeightEnumerator(divexact(polynomial(W)(vars[1] +
-            (Int(order(field(C))) - 1) * vars[2], vars[1] - vars[2]),
+        return WeightEnumerator(divexact(W.polynomial(vars[1] +
+            (Int(order(C.F)) - 1)*vars[2], vars[1] - vars[2]),
             cardinality(C)), "complete")
-    elseif Int(order(field(C))) == 3
+    elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
         K, ζ = CyclotomicField(3, "ζ")
         R, vars = PolynomialRing(K, 3)
-        poly = divexact(polynomial(W)(
+        poly = divexact(W.polynomial(
             vars[1] + vars[2] + vars[3],
-            vars[1] + ζ*vars[2] + ζ^2 * vars[3],
-            vars[1] + ζ^2 * vars[2] + ζ * vars[3]), cardinality(C))
+            vars[1] + ζ*vars[2] + ζ^2*vars[3],
+            vars[1] + ζ^2*vars[2] + ζ*vars[3]), cardinality(C))
         # works so far but now needs to recast down to the integer ring
         return WeightEnumerator(map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
-            parent=parent(polynomial(W))), "complete")
-    elseif Int(order(field(C))) == 4
+            parent=parent(W.polynomial)), "complete")
+    elseif Int(order(C.F)) == 4
         if dual == "Euclidean"
             # for Euclidean dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
-            R = parent(polynomial(W))
+            R = parent(W.polynomial)
             vars = gens(R)
-            return WeightEnumerator(divexact(polynomial(W)(
+            return WeightEnumerator(divexact(W.polynomial(
                 vars[1] + vars[2] + vars[3] + vars[4],
                 vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] - vars[3] + vars[4],
@@ -183,9 +184,9 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         else
             # for Hermitian dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
-            R = parent(polynomial(W))
+            R = parent(W.polynomial)
             vars = gens(R)
-            return WeightEnumerator(divexact(polynomial(W)(
+            return WeightEnumerator(divexact(W.polynomial(
                 vars[1] + vars[2] + vars[3] + vars[4],
                 vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] + vars[3] - vars[4],
@@ -214,23 +215,23 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
 
     if alg == "auto"
         if cardinality(C) <= 1e6 # random cutoff
-            C.weightenum = _weightenumeratorBF(generatormatrix(C))
+            C.weightenum = _weightenumeratorBF(C.G)
             HWE = CWEtoHWE(C.weightenum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(polynomial(HWE)))[i][1]
-                for i in 1:length(polynomial(HWE))]))
+            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+                for i in 1:length(HWE.polynomial)]))
             type == "Hamming" && return HWE
             return C.weightenum
         elseif rate(C) > 0.5
             D = dual(C)
             if cardinality(D) <= 1e6 # random cutoff
-                D.weightenum = _weightenumeratorBF(generatormatrix(D))
+                D.weightenum = _weightenumeratorBF(D.G)
             else
                 weightenumeratorC(syndrometrellis(D, "primal", false), type)
             end
             C.weightenum = MacWilliamsIdentity(D, D.weightenum)
             HWE = CWEtoHWE(C.weightenum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(polynomial(HWE)))[i][1]
-                for i in 1:length(polynomial(HWE))]))
+            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+                for i in 1:length(HWE.polynomial)]))
             type == "Hamming" && return HWE
             return C.weightenum
         else
@@ -239,10 +240,10 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     elseif alg == "trellis"
         return weightenumeratorC(syndrometrellis(C, "primal", false), type)
     elseif alg == "bruteforce"
-        C.weightenum = _weightenumeratorBF(generatormatrix(C))
+        C.weightenum = _weightenumeratorBF(C.G)
         HWE = CWEtoHWE(C.weightenum)
-        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(polynomial(HWE)))[i][1]
-            for i in 1:length(polynomial(HWE))]))
+        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            for i in 1:length(HWE.polynomial)]))
         type == "Hamming" && return HWE
         return C.weightenum
     end
@@ -259,14 +260,14 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
 
     if format == "compact"
         wtdist = Vector{Tuple}()
-        for i in 1:length(polynomial(HWE))
-            push!(wtdist, (exponent_vector(polynomial(HWE), i)[1],
-                coeff(polynomial(HWE), i)))
+        for i in 1:length(HWE.polynomial)
+            push!(wtdist, (exponent_vector(HWE.polynomial, i)[1],
+                coeff(HWE.polynomial, i)))
         end
     else
-        wtdist = zeros(Int, 1, length(C) + 1)
-        for i in 1:length(polynomial(HWE))
-            wtdist[exponent_vector(polynomial(HWE), i)[1]] = coeff(polynomial(HWE), i)
+        wtdist = zeros(Int, 1, C.n + 1)
+        for i in 1:length(HWE.polynomial)
+            wtdist[exponent_vector(HWE.polynomial, i)[1]] = coeff(HWE.polynomial, i)
         end
     end
     return wtdist
@@ -300,8 +301,8 @@ function minimumdistance(C::AbstractLinearCode, alg::String="auto")
     # this line should only be needed to be run if the weight enumerator is known
     # but the minimum distance is intentionally set to missing
     # ordering here can be a bit weird
-    C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(polynomial(HWE)))[i][1]
-        for i in 1:length(polynomial(HWE))]))
+    C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+        for i in 1:length(HWE.polynomial)]))
     return C.d
 end
 
@@ -320,8 +321,8 @@ end
 
 # does this actually modify T in a way I don't want to keep? should always cleanV?
 function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
-    V = vertices(T)
-    E = edges(T)
+    V = T.vertices
+    E = T.edges
     Int(characteristic(base_ring(E[1][1][1].label))) > 2 &&
         error("The PWE is currently only valid for qubit codes. Run the standard Hamming weight enumerator for qudit codes.")
     for i in 2:length(V)
@@ -471,8 +472,8 @@ function PWEtoZWE(PWE::WeightEnumerator)
 end
 
 function HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
-    V = vertices(T)
-    E = edges(T)
+    V = T.vertices
+    E = T.edges
     for i in 2:length(V)
         for (j, v) in enumerate(V[i])
             outer = Vector{Vector{Int64}}()
@@ -562,21 +563,21 @@ function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", se
 
     weightenumerator(Q, alg, sect, Pauli, false)
     # S⟂
-    temp1 = zeros(Int64, 1, length(Q) + 1)
+    temp1 = zeros(Int64, 1, Q.n + 1)
     for term in Q.dualweightenum
         temp1[term[2] + 1] = term[1]
     end
     verbose && println("S⟂: ", temp1)
 
     # S⟂ \  S
-    temp2 = zeros(Int64, 1, length(Q) + 1)
+    temp2 = zeros(Int64, 1, Q.n + 1)
     for term in Q.logsweightenum
         temp2[term[2] + 1] = term[1]
     end
     verbose && println("S⟂ / S: ", temp2)
 
     # S
-    temp3 = zeros(Int64, 1, length(Q) + 1)
+    temp3 = zeros(Int64, 1, Q.n + 1)
     for term in Q.Pauliweightenum
         temp3[term[2] + 1] = term[1]
     end

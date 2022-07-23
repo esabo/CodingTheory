@@ -135,6 +135,8 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     words, codewords, elements, isMDS
     # _standardform,
 
+export dual1, dual2, dual3
+
 #############################
        # ReedMuller.jl
 #############################
@@ -186,7 +188,7 @@ export field, quadraticfield, length, numqubits, dimension, cardinality,
   # miscknownquantumcodes.jl
 #############################
 
-export fivequbitcode, Q513, Steanecode, Q713, _Steanecodetrellis, Shorcode, Q913,
+export fivequbitcode, Q513, SteaneCode, Q713, _SteaneCodetrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, triangularsurfacecode,
     rotatedsurfacecode, XZZXsurfacecode, tricolorcode488, tricolorcode666
 

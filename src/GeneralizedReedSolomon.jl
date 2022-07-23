@@ -100,9 +100,8 @@ evaluationpoints(C::GeneralizedReedSolomonCode) = C.γ
 Return the dual of the Generalized Reed-Solomon code.
 """
 function dual(C::GeneralizedReedSolomonCode)
-    return GeneralizedReedSolomonCode(field(C), length(C), length(C) - dimension(C),
-        dimension(C) + 1, dualscalars(C), scalars(C), evaluationpoints(C),
-        paritycheckmatrix(C), paritycheckmatrix(C), generatormatrix(C),
-        generatormatrix(C), paritycheckmatrix(C, true), generatormatrix(C, true),
-        missing)
+    return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, C.k + 1,
+        deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
+        deepcopy(C.H), missing, deepcopy(C.G), missing, deepcopy(C.Hstand),
+        deepcopy(C.Gstand), missing)
 end
