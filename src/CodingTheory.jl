@@ -165,7 +165,7 @@ export AbstractLDPCCode
 export Tannergraph, variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
-    checkdegreepolynomial
+    checkdegreepolynomial, columnrowbounds
 
 #############################
        # ReedMuller.jl
