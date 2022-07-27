@@ -14,6 +14,7 @@ Documenter.makedocs(
     pages = ["Table Of Contents" => "index.md",
 		     "Linear Codes" => "linearcode.md",
 		     "Cyclic Codes" => "cycliccode.md",
+			 "Generalized Reed-Solomon Codes" => "GeneralizedReedSolomon.md",
 		     "Reed-Muller Codes" => "ReedMuller.md",
 		     "Miscellaneous Known Codes" => "miscknowncodes.md",
 			 "LDPC Codes" => "LDPC.md",
