@@ -35,6 +35,7 @@ At the moment, all functions work as intended for test cases but have not been u
 - Hadamard codes
 - Weight enumerators (complete and Hamming), distribution, and minimum distance
 - MacWilliams identities
+- LDPC codes: degree distributions/polynomials, Tanner graph
 
 ### Quantum
 - Stabilizer codes over $\mathbb{F}_p$ with auto CSS detection ($\mathbb{F}_q$ code still requires testing)
@@ -52,3 +53,4 @@ At the moment, all functions work as intended for test cases but have not been u
 - Hardcoded [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes
 - Rotated surface/XZZX codes to any distance
 - 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21
+- Hypergraph product and generalized Shor code

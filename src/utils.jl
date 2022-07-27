@@ -538,8 +538,6 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
     return A
 end
 
-
-
 # #=
 # Example of using the repeated iterator inside of product.
 #

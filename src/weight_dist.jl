@@ -267,10 +267,27 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
     else
         wtdist = zeros(Int, 1, C.n + 1)
         for i in 1:length(HWE.polynomial)
-            wtdist[exponent_vector(HWE.polynomial, i)[1]] = coeff(HWE.polynomial, i)
+            wtdist[exponent_vector(HWE.polynomial, i)[1] + 1] = coeff(HWE.polynomial, i)
         end
     end
     return wtdist
+end
+
+"""
+    weighthplot(C::AbstractLinearCode, alg::String="auto")
+
+Return a bar plot of the weight distribution of `C`.
+"""
+function weightplot(C::AbstractLinearCode, alg::String="auto")
+    wtdist = weightdistribution(C, alg, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    ismissing(C.d) ? (title="Weight Distribution - [$(C.n), $(C.k)]";) :
+        title="Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
+    f = bar(0:length(C), wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms", title=title)
+    show(f)
+    return f
 end
 
 """

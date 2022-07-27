@@ -5,11 +5,14 @@ ENV["NEMO_PRINT_BANNER"] = "false"
 
 using AbstractAlgebra
 using Nemo
+using CairoMakie, Graphs
+using Plots
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
-import Nemo: isprime, factor, transpose, order, polynomial
+import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree
 import Base: show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import CairoMakie: save
 
 #############################
         # utils.jl
@@ -31,6 +34,14 @@ abstract type AbstractCode end
 abstract type AbstractLinearCode <: AbstractCode end
 
 include("linearcode.jl")
+
+#############################
+         # LDPC.jl
+#############################
+
+abstract type AbstractLDPCCode <: AbstractLinearCode end
+
+include("LDPC.jl")
 
 #############################
       # ReedMuller.jl
@@ -93,6 +104,14 @@ include("trellis.jl")
 include("weight_dist.jl")
 
 #############################
+    # hypergraphproduct.jl
+#############################
+
+abstract type AbstractHypergraphProductCode <: AbstractCSSCode end
+
+include("hypergraphproduct.jl")
+
+#############################
         # Exports
 #############################
 
@@ -104,9 +123,9 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
     Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
     printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-    quadratictosymplectic, symplectictoquadratic
+    quadratictosymplectic, symplectictoquadratic, _removeempty
     #, _processstrings,
-    #_Paulistringtosymplectic, _removeempty
+    #_Paulistringtosymplectic,
 
 #############################
        # cyclotomic.jl
@@ -136,6 +155,17 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     # _standardform,
 
 export dual1, dual2, dual3
+
+#############################
+         # LDPC.jl
+#############################
+
+export AbstractLDPCCode
+
+export Tannergraph, variabledegreedistribution, checkdegreedistribution,
+    degreedistributions, columnbound, rowbound, bounds, density, isregular,
+    LDPCCode, degreedistributionssplot, variabledegreepolynomial,
+    checkdegreepolynomial
 
 #############################
        # ReedMuller.jl
@@ -208,7 +238,14 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
     Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
     HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-    weightdistribution, CWEtoHWE, support, polynomial, type, MacWilliamsIdentity
+    weightdistribution, CWEtoHWE, support, polynomial, type, MacWilliamsIdentity,
+    weighthplot
     # _weightenumeratorBF
+
+#############################
+    # hypergraphproduct.jl
+#############################
+
+export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction
 
 end

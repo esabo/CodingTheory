@@ -1,4 +1,4 @@
-# Copyright (c) 2021, Eric Sabo
+# Copyright (c) 2021, 2022 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -17,16 +17,17 @@ mutable struct CSSCode <: AbstractCSSCode
     Zstabs::fq_nmod_mat
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
-    signs::Vector{nmod} # make bools, uint8's?
-    Xsigns::Vector{nmod} # make bools, uint8's?
-    Zsigns::Vector{nmod} # make bools, uint8's?
+    signs::Vector{nmod}
+    Xsigns::Vector{nmod}
+    Zsigns::Vector{nmod}
     dualgens::fq_nmod_mat
     logspace::Union{fq_nmod_mat, Missing}
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
-    charvec::Vector{nmod} # make bools, uint8's?
+    charvec::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
     overcomplete::Bool
+    Lsigns::Union{Vector{nmod}, Missing}
 end
 
 mutable struct QuantumCode <: AbstractStabilizerCode
@@ -39,7 +40,7 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     dualgens::fq_nmod_mat
     logspace::Union{fq_nmod_mat, Missing}
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
-    charvec::Vector{nmod} # make bools, uint8's?
+    charvec::Vector{nmod}
     signs::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
@@ -372,14 +373,12 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     end
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(E))^ncols(Sq2) // BigInt(p)^rank(S)
-    println(dimcode)
+    dimcode = BigInt(order(C1.F))^ncols(Sq2) // BigInt(p)^rank(S)
     isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
-    println(dimcode)
 
     return CSSCode(C1.F, E, C1.n, dimcode, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
         C2, C1, signs, Xsigns, Zsigns, dualgens, missing, missing, charvec,
-        missing, missing, false)
+        missing, missing, false, missing)
 end
 
 """
@@ -402,7 +401,7 @@ determine such quantities. Use `isovercomplete` to determine if an
 # Arguments
 * `C`: a self-orthogonal linear code
 * `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
+  `chracteristic(field(C))` is 2 and `Z/(p)` otherwise. The first `n` elements
   specify the exponents of the `X` phases and second `n` the exponents of the
   `Z` phases; a missing argument will be set to the all-zero vector
 
@@ -461,7 +460,7 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
     return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, D.d, D.d, Sq2,
         D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, missing,
-        charvec, missing, missing, overcomp)
+        charvec, missing, missing, overcomp, missing)
 end
 
 """
@@ -562,7 +561,7 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
 
     return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
         Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
-        missing, missing, charvec, missing, missing, overcomp)
+        missing, missing, charvec, missing, missing, overcomp, missing)
 end
 
 """
@@ -657,7 +656,8 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp)
+            dualgens, missing, missing, charvec, missing, missing, overcomp,
+            missing)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -754,10 +754,11 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp)
+            dualgens, missing, missing, charvec, missing, missing, overcomp,
+            missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp)
+            missing, missing, charvec, signs, missing, missing, overcomp, missing)
     end
 end
 
@@ -860,10 +861,11 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp)
+            dualgens, missing, missing, charvec, missing, missing, overcomp,
+            missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp)
+            missing, missing, charvec, signs, missing, missing, overcomp, missing)
     end
 end
 
@@ -955,6 +957,11 @@ function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=fals
         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
     end
     S.logicals = logs
+    logspace = vcat(logs[1][1], logs[1][2])
+    for i in 2:length(logs)
+        logspace = vcat(logspace, logs[i][1], logs[i][2])
+    end
+    S.logspace = logspace
 end
 
 """
@@ -1058,7 +1065,7 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
             if !ismissing(S.sCWEdual)
                 println(io, "\nSigned complete weight enumerator for the normalizer:")
-                println(io, "\t", polynomial(S.sCWEdual))
+                print(io, "\t", polynomial(S.sCWEdual))
             end
         else
             if typeof(dimension(S)) <: Integer
@@ -1097,7 +1104,7 @@ function show(io::IO, S::AbstractStabilizerCode)
             end
             if !ismissing(S.sCWEdual)
                 println(io, "\nSigned complete weight enumerator for the normalizer:")
-                println(io, "\t", polynomial(S.sCWEdual))
+                print(io, "\t", polynomial(S.sCWEdual))
             end
         end
     end

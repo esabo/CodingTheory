@@ -132,7 +132,7 @@ function show(io::IO, C::AbstractLinearCode)
         end
         if !ismissing(C.weightenum)
             println(io, "\nComplete weight enumerator:")
-            println(io, "\t", C.weightenum.polynomial)
+            print(io, "\t", C.weightenum.polynomial)
         end
     end
 end
