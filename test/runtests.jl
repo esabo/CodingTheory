@@ -1,6 +1,7 @@
 using Test
 
 # these are subject to change as they develop, let me know when it breaks
+# TODO: add hypergraph, LDPC
 @testset "Types" begin
     using CodingTheory
 
@@ -18,12 +19,20 @@ using Test
     @test AbstractReedSolomonCode <: AbstractLinearCode
 end
 
-# @testset "utils.jl" begin
+@testset "utils.jl" begin
+    using CodingTheory
 
+    # example: Betten et al
+    # Golay code G_23
+    qres, _ = quadraticresidues(2, 23)
+    @test qres == [1, 2, 3, 4, 6, 8, 9, 12, 13, 16, 18]
 
+    # example: Betten et al
+    # ternary Golary code G_11
+    qres, _ = quadraticresidues(3, 11)
+    @test qres == [1, 3, 4, 5, 9]
 
-
-# end
+end
 
 @testset "linearcode.jl" begin
     using Nemo, CodingTheory

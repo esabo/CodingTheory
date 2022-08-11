@@ -538,6 +538,23 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
     return A
 end
 
+function quadraticresidues(q::Int, n::Int)
+    isodd(n) && isprime(n) || error("n must be an odd prime in quadratic residues")
+    q^div(n - 1, 2) % n == 1 || error("q^(n - 1)/2 ≅ 1 mod n in quadratic residues")
+
+    # F, _ = FiniteField(n, 1, "α")
+    # elms = collect(F)
+    # # skip 0
+    # qres = unique!([i^2 for i in elms[2:end]])
+    # nqres = setdiff!(elms[2:end], qres)
+    # return qres, nqres
+
+    # don't want this returning in the field
+    qres = sort!(unique!([i^2 % n for i in 1:n - 1]))
+    nqres = setdiff(1:(n - 1), qres)
+    return qres, nqres
+end
+
 # #=
 # Example of using the repeated iterator inside of product.
 #

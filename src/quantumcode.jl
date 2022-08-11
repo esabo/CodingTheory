@@ -964,6 +964,9 @@ function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=fals
     S.logspace = logspace
 end
 
+
+# islogical() = !iszero(multiplication with logicalspace)
+
 """
     changesigns!(S::AbstractStabilizerCode, charvec::Vector{nmod})
 

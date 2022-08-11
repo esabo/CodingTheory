@@ -24,10 +24,10 @@ At the moment, all functions work as intended for test cases but have not been u
 - Plotkin-(u | u + v) construction, (u + w, v + w, u + v + w) construction, construction X, construction X3, juxtaposition
 - Expanding codes over field extensions
 - Cylotomic cosets, defining sets
-- Cyclic, BCH, Reed-Solomon codes
-- Generalized Reed-Solomon codes
+- Cyclic, BCH, Reed-Solomon, quadratic residue codes
 - BCH Bound with Hartmann-Tzeng Bound refinement
 - Complement, dual, intersection, and union of cyclic codes
+- Generalized Reed-Solomon codes
 - Binary Reed-Muller code
 - Golay codes
 - Binary Hamming codes
@@ -38,7 +38,7 @@ At the moment, all functions work as intended for test cases but have not been u
 - LDPC codes: degree distributions/polynomials, Tanner graph
 
 ### Quantum
-- Stabilizer codes over $\mathbb{F}_p$ with auto CSS detection ($\mathbb{F}_q$ code still requires testing)
+- Stabilizer codes over $\mathbb{F}_p$ with auto CSS detection
 - CSS constructions over $\mathbb{F}_p$ from linear codes or matrices
 - Qubit ($\mathbb{F}_2$) code constructions using Pauli strings
 - Able to keep an over complete set of stabilizers

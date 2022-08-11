@@ -12,14 +12,14 @@ include("tricolorcodes666trellis.jl")
 #############################
 
 """
-    fivequbitcode()
+    FiveQubitCode()
     Q513()
 
 Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
 # is a perfect code
-fivequbitcode() = return QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
-Q513() = fivequbitcode()
+FiveQubitCode() = QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
+Q513() = FiveQubitCode()
 
 # should also do a test for other CSS construction via Hamming code and actually make that one default
 """
@@ -28,9 +28,9 @@ Q513() = fivequbitcode()
 
 Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
 """
-SteaneCode() = return CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+SteaneCode() = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
 Q713() = SteaneCode()
-_SteaneCodetrellis() = return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
+_SteaneCodetrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
 # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
 
 """
@@ -39,12 +39,12 @@ _SteaneCodetrellis() = return CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII
 
 Return the `[[9, 1, 3]]` Shor code.
 """
-ShorCode() = return CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
+ShorCode() = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
 Q913() = ShorCode()
 
-Q412() = return CSSCode(["XXXX", "ZZII", "IIZZ"])
-Q422() = return CSSCode(["XXXX", "ZZZZ"])
-Q511() = return QuantumCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
+Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
+Q422() = CSSCode(["XXXX", "ZZZZ"])
+Q511() = QuantumCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
     F, _ = FiniteField(2, 1, "α")
@@ -64,7 +64,7 @@ end
 Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
 ordering.
 """
-Q15RM() = return QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
+Q15RM() = QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
     "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
     "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
     "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
@@ -75,13 +75,13 @@ Q1513() = Q15RM()
 
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
-Q1573() = return QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
+Q1573() = QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
     "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
     "ZIZIZIZIZIZIZIZ"])
     # one can use a basis for this such that the first logical pair is transversal X, Z
 
 #############################
-#  Triangular Surface Codes #
+ # Triangular Surface Codes
 #############################
 
 function _triangularlattice(L::Int)
@@ -245,7 +245,7 @@ function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
   return [logical1, logical2]
 end
 
-function triangularsurfacecode(L::Int)
+function TriangularSurfaceCode(L::Int)
     numbering = _triangularlattice(L)
     Xstabs = _triangularlatticeXstabilizers(L, numbering, false)
     # println(rank(Xstabs))
@@ -256,7 +256,7 @@ function triangularsurfacecode(L::Int)
 end
 
 #############################
-#  Rotated Surface Codes #
+   # Rotated Surface Codes
 #############################
 
 function _RSurfstabslogs(d::Int)
@@ -353,11 +353,11 @@ end
 # julia> Base.summarysize(Q)
 # 16872
 """
-    rotatedsurfacecode(d::Int)
+    RotatedSurfaceCode(d::Int)
 
 Return the `[[d^2, 1, d]]` rotated surface code.
 """
-function rotatedsurfacecode(d::Int)
+function RotatedSurfaceCode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
     S, logs = _RSurfstabslogs(d)
@@ -367,7 +367,7 @@ function rotatedsurfacecode(d::Int)
 end
 
 #############################
-#     XZZX Surface Codes    #
+     # XZZX Surface Codes
 #############################
 
 function _XZZXstabslogs(d::Int)
@@ -452,11 +452,11 @@ function _XZZXstabslogs(d::Int)
 end
 
 """
-    XZZXsurfacecode(d::Int)
+    XZZXSurfaceCode(d::Int)
 
 Return the `[[d^2, 1, d]]` XZZX surface code.
 """
-function XZZXsurfacecode(d::Int)
+function XZZXSurfaceCode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
     S, logs = _XZZXstabslogs(d)
@@ -466,15 +466,15 @@ function XZZXsurfacecode(d::Int)
 end
 
 ################################
-# Triangular Color Codes 4.8.8 #
+ # Triangular Color Codes 4.8.8
 ################################
 
 """
-    tricolorcode488(d::Int)
+    TriangularColorCode488(d::Int)
 
 Return the 4.8.8 triangular color code of distance `d` with trellis numbering.
 """
-function tricolorcode488(d::Int)
+function TriangularColorCode488(d::Int)
     3 <= d <= 21 || error("Current implementation requires 3 ≤ d ≤ 21.")
 
     if d == 3
@@ -531,15 +531,15 @@ function tricolorcode488(d::Int)
 end
 
 ################################
-# Triangular Color Codes 6.6.6 #
+ # Triangular Color Codes 6.6.6
 ################################
 
 """
-    tricolorcode666(d::Int)
+    TriangularColorCode666(d::Int)
 
 Return the 6.6.6 triangular color code of distance `d` with trellis numbering.
 """
-function tricolorcode666(d::Int)
+function TriangularColorCode666(d::Int)
     3 <= d <= 21 || error("Current implementation requires 3 ≤ d ≤ 21.")
 
     if d == 3
@@ -595,3 +595,17 @@ function tricolorcode666(d::Int)
         return Q
     end
 end
+
+################################
+         # Toric Codes
+################################
+
+# function ToricCode()
+# toric code:
+# Hx - vertex-edge incidence matrix
+# make graph with vertices Z/mZ x Z/mZ
+# row of Hx is (x +/- 1, y), (x, y +/- 1)
+# there are 2m^2 of these
+# Hz - face-edge incidence matrix
+# (x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1)
+# k = 2, d = m

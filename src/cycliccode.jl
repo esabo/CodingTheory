@@ -820,3 +820,11 @@ end
 # Schurproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
 # Hadamardproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
 # componentwiseproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
+
+"""
+    QuadraticResidueCode(q::Int, n::Int)
+
+Return the cyclic code whose roots are the quadratic residues of `q, n`.
+"""
+# covered nicely in van Lint and Betten et al
+QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])

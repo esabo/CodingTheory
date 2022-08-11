@@ -123,7 +123,7 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
     Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
     printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-    quadratictosymplectic, symplectictoquadratic, _removeempty
+    quadratictosymplectic, symplectictoquadratic, _removeempty, quadraticresidues
     #, _processstrings,
     #_Paulistringtosymplectic,
 
@@ -184,7 +184,7 @@ export AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode
 export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
-    CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +
+    CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode
 
 #############################
      # miscknowncodes.jl
