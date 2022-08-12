@@ -4,8 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-include("tricolorcodes488trellis.jl")
-include("tricolorcodes666trellis.jl")
+# include("tricolorcodes488trellis.jl")
+# include("tricolorcodes666trellis.jl")
 
 #############################
         # Misc codes
@@ -30,7 +30,7 @@ Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
 """
 SteaneCode() = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
 Q713() = SteaneCode()
-_SteaneCodetrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
+_SteaneCodeTrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
 # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
 
 """
@@ -478,54 +478,112 @@ function TriangularColorCode488(d::Int)
     3 <= d <= 21 || error("Current implementation requires 3 ≤ d ≤ 21.")
 
     if d == 3
-        S, logs = _488d3trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d3trellis()
+        @load "data/488d3stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 5
-        S, logs = _488d5trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d5trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d5stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 7
-        S, logs = _488d7trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d7trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d7stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 9
-        S, logs = _488d9trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d9trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d9stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 11
-        S, logs = _488d11trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d11trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d11stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 13
-        S, logs = _488d13trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d13trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d13stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 15
-        S, logs = _488d15trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d15trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d15stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 17
-        S, logs = _488d17trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d17trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d17stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 19
-        S, logs = _488d19trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d19trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d19stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 21
-        S, logs = _488d21trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d21trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d21stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     end
 end
@@ -544,54 +602,114 @@ function TriangularColorCode666(d::Int)
 
     if d == 3
         # same as 4.8.8
-        S, logs = _488d3trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _488d3trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/488d3stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 5
-        S, logs = _666d5trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d5trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d5stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 7
-        S, logs = _666d7trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d7trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d7stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 9
-        S, logs = _666d9trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d9trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d9stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 11
-        S, logs = _666d11trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d11trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d11stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 13
-        S, logs = _666d13trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d13trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d13stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 15
-        S, logs = _666d15trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d15trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d15stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 17
-        S, logs = _666d17trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d17trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d17stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 19
-        S, logs = _666d19trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d19trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d19stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 21
-        S, logs = _666d21trellis()
-        Q = QuantumCode(S)
-        setlogicals!(Q, logs)
+        # S, logs = _666d21trellis()
+        # Q = QuantumCode(S)
+        # setlogicals!(Q, logs)
+        @load "data/666d21stabslogs_trellis.jld2" S l
+        F, _ = FiniteField(2, 1, "α")
+        S = matrix(F, S)
+        Q = QuantumCode(S, true)
+        l = symplectictoquadratic(matrix(F, l))
+        Q.logicals = [(l[1, :], l[2, :])]
         return Q
     end
 end

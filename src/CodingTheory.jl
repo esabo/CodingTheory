@@ -7,6 +7,7 @@ using AbstractAlgebra
 using Nemo
 using CairoMakie, Graphs
 using Plots
+using JLD2
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
@@ -218,9 +219,9 @@ export field, quadraticfield, length, numqubits, dimension, cardinality,
   # miscknownquantumcodes.jl
 #############################
 
-export fivequbitcode, Q513, SteaneCode, Q713, _SteaneCodetrellis, ShorCode, Q913,
-    Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, triangularsurfacecode,
-    rotatedsurfacecode, XZZXsurfacecode, tricolorcode488, tricolorcode666
+export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
+    Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
+    RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666
 
 #############################
         # trellis.jl

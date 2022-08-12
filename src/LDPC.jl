@@ -242,7 +242,7 @@ function LDPCCode(C::AbstractLinearCode)
     nnz, den = _density(C.H)
     den <= 0.01 || (@warn "LDPC codes (generally) require a density of less than 1%.";)
 
-    cols, rows = _degreedistribution(H)
+    cols, rows = _degreedistribution(C.H)
     isreg = true
     c1 = cols[1]
     for i in 2:length(cols)
