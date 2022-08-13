@@ -758,7 +758,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
             missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp, missing)
+            missing, missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
@@ -865,7 +865,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
             missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp, missing)
+            missing, missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
@@ -876,11 +876,13 @@ Return a basis for the space `S^⟂ / S`.
 
 Note that this is not necessarily a symplectic basis with `{X_L, Z_L}` pairs.
 """
+# TODO: phase this into a private function not cached and then regenerate by calling
+# logicals and vcat anytime this is necessary
 function logicalspace(S::AbstractStabilizerCode)
     ismissing(S.logspace) || return S.logspace
 
     F = S.E
-    G = S.stabilizers
+    G = S.stabs
     Gdual = S.dualgens
     V = VectorSpace(F, S.n)
     U, UtoV = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
@@ -904,6 +906,77 @@ function logicalspace(S::AbstractStabilizerCode)
         error("Logical space produced of incorrect dimension; expected: ",
             2 * S.k, ", received: ", n)
     end
+end
+
+# slow, but works currently
+function logicals(S::AbstractStabilizerCode)
+    ismissing(S.logicals) || return S.logicals
+
+    # if Q.k == 1
+    #     L = logicalspace(S)
+    #     nrows(L) == 2 || error("Incorrect logical space size (k = 1).")
+    #     Lsym = quadratictosymplectic(L)
+    #     # the columns in prod give the commutation relationships between the provided
+    #     # logical operators; they ideally should only consist of {X_1, Z_i} pairs
+    #     # so there should only be one nonzero element in each column
+    #     prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    #     iszero(prod) && error("Provided logical should not be symplectic self-orthogonal.")
+    #     ncpr = ncols(prod)
+    #     # need an integer sum and this is cheaper than Nemo.ZZ
+    #     prodJul = FpmattoJulia(prod)
+    #     cols = [sum(prodJul[:, i]) for i in 1:ncpr]
+    #     sum(cols) == ncpr || error("Incorrect commutation relationships between provided logicals.")
+
+    #     # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
+    #     F = base_ring(L)
+    #     logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+    #     # this does indeed grow smaller each iteration
+    #     while nrows(L) >= 2
+    #         y = findfirst(x->x>0, prodJul[:, 1])
+    #         y = [F(prod[y, 1]), y]
+    #         if y[1] != F(1)
+    #             push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
+    #         else
+    #             push!(logs, (L[1, :], L[y[2], :]))
+    #         end
+    #         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
+    #     end
+    #     S.logicals = logs
+    # else
+        L = logicalspace(S)
+        Lsym = quadratictosymplectic(L)
+        # the columns in prod give the commutation relationships between the provided
+        # logical operators; they ideally should only consist of {X_1, Z_i} pairs
+        # so there should only be one nonzero element in each column
+        prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+
+        # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
+        F = base_ring(L)
+        K = parent(prod[1, 1])
+        oneK = K(1)
+        logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+        # this does indeed grow smaller each iteration
+        while nrows(L) >= 2
+            first = 0
+            for c in 1:ncols(prod)
+                if !iszero(prod[1, c])
+                    if iszero(first)
+                        first = c
+                        if prod[1, c] != oneK
+                            L[first, :] *= F(prod[1, c]^-1)
+                        end
+                    else
+                        L[c, :] += F(prod[1, c]^-1) * L[first, :]
+                    end
+                end
+            end
+            push!(logs, (L[1, :], L[first, :]))
+            L = L[setdiff(1:nrows(L), [1, first]), :]
+            Lsym = quadratictosymplectic(L)
+            prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+        end
+    # end
+    S.logicals = logs
 end
 
 """

@@ -45,9 +45,8 @@ At the moment, all functions work as intended for test cases but have not been u
 - Keeps track of signs of elements
 - Quadratic to symplectic, symplectic to quadratic functions
 - Symplectic and trace inner product
-- Logical space construction (S⟂ \ S)
-- Logical operators - set manually (automated computation coming soon)
-- X-, Z-, and full syndrome computations
+- Logical operators
+- X, Z, and full syndrome computations
 - Generate all elements and their signs
 - Weight enumerators (signed complete and Hamming), distribution, and minimum distance
 - Hardcoded [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes

@@ -213,7 +213,7 @@ export field, quadraticfield, length, numqubits, dimension, cardinality,
     Xstabilizers, Zstabilizers, numXstabs, numZstabs, normalizermatrix,
     charactervector, relativedistance, splitstabilizers, isCSS, CSSCode,
     QuantumCode, logicalspace, setlogicals!, changesigns!, Xsyndrome, Zsyndrome,
-    syndrome, allstabilizers, elements
+    syndrome, allstabilizers, elements, logicals
 
 #############################
   # miscknownquantumcodes.jl
