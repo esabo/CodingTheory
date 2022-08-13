@@ -40,7 +40,7 @@ At the moment, all functions work as intended for test cases but have not been u
 ### Quantum
 - Stabilizer codes over $\mathbb{F}_p$ with auto CSS detection
 - CSS constructions over $\mathbb{F}_p$ from linear codes or matrices
-- Qubit ($\mathbb{F}_2$) code constructions using Pauli strings
+- Qubit code constructions using Pauli strings
 - Able to keep an over complete set of stabilizers
 - Keeps track of signs of elements
 - Quadratic to symplectic, symplectic to quadratic functions

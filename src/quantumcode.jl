@@ -21,7 +21,6 @@ mutable struct CSSCode <: AbstractCSSCode
     Xsigns::Vector{nmod}
     Zsigns::Vector{nmod}
     dualgens::fq_nmod_mat
-    logspace::Union{fq_nmod_mat, Missing}
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
     charvec::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
@@ -38,7 +37,6 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     d::Union{Integer, Missing}
     stabs::fq_nmod_mat
     dualgens::fq_nmod_mat
-    logspace::Union{fq_nmod_mat, Missing}
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
     charvec::Vector{nmod}
     signs::Vector{nmod}
@@ -377,8 +375,8 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
 
     return CSSCode(C1.F, E, C1.n, dimcode, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
-        C2, C1, signs, Xsigns, Zsigns, dualgens, missing, missing, charvec,
-        missing, missing, false, missing)
+        C2, C1, signs, Xsigns, Zsigns, dualgens, missing, charvec, missing,
+        missing, false, missing)
 end
 
 """
@@ -459,8 +457,8 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
 
     return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, D.d, D.d, Sq2,
-        D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, missing,
-        charvec, missing, missing, overcomp, missing)
+        D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, charvec,
+        missing, missing, overcomp, missing)
 end
 
 """
@@ -561,7 +559,7 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
 
     return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
         Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
-        missing, missing, charvec, missing, missing, overcomp, missing)
+        missing, charvec, missing, missing, overcomp, missing)
 end
 
 """
@@ -656,8 +654,7 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp,
-            missing)
+            dualgens, missing, charvec, missing, missing, overcomp, missing)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -754,11 +751,10 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp,
-            missing)
+            dualgens, missing, charvec, missing, missing, overcomp, missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp)
+            missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
@@ -833,7 +829,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
 
     # determine if the provided set of stabilizers are redundant
     Srank = rank(S)
-    if ncols(S) > Srank
+    if nrows(S) > Srank
         overcomp = true
     else
         overcomp = false
@@ -861,123 +857,88 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, missing, charvec, missing, missing, overcomp,
-            missing)
+            dualgens, missing, charvec, missing, missing, overcomp, missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, missing, charvec, signs, missing, missing, overcomp)
+            missing, charvec, signs, missing, missing, overcomp)
     end
 end
 
-"""
-    logicalspace(S::AbstractStabilizerCode)
-
-Return a basis for the space `S^⟂ / S`.
-
-Note that this is not necessarily a symplectic basis with `{X_L, Z_L}` pairs.
-"""
-# TODO: phase this into a private function not cached and then regenerate by calling
-# logicals and vcat anytime this is necessary
-function logicalspace(S::AbstractStabilizerCode)
-    ismissing(S.logspace) || return S.logspace
-
-    F = S.E
-    G = S.stabs
-    Gdual = S.dualgens
-    V = VectorSpace(F, S.n)
+function _logicalspace(S::AbstractStabilizerCode)
+    F = S.F
+    G = quadratictosymplectic(S.stabs)
+    Gdual = quadratictosymplectic(S.dualgens)
+    V = VectorSpace(F, 2 * S.n)
     U, UtoV = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
     W, WtoV = sub(V, [V(Gdual[i, :]) for i in 1:nrows(Gdual)])
     gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
-    UinW, UinWtoW = sub(W, gensofUinW)
+    UinW, _ = sub(W, gensofUinW)
     Q, WtoQ = quo(W, UinW)
     C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
     Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-    G2 = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
-
-    # returns linear object, make additive if necessary
-    n = nrows(G2)
-    if n == S.k
-        S.logspace = vcat(G2, gen(F) * G2)
-        return S.logspace
-    elseif n == 2 * S.k
-        S.logspace = G2
-        return S.logspace
-    else
-        error("Logical space produced of incorrect dimension; expected: ",
-            2 * S.k, ", received: ", n)
-    end
+    return symplectictoquadratic(matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...)))
 end
 
-# slow, but works currently
+"""
+    logicals(S::AbstractStabilizerCode)
+
+Return a vector of tuples of pairs of logical operators for `S`.
+
+Each pair commutes with all other pairs.
+"""
+# slow, but works currently and without permutations
 function logicals(S::AbstractStabilizerCode)
     ismissing(S.logicals) || return S.logicals
 
-    # if Q.k == 1
-    #     L = logicalspace(S)
-    #     nrows(L) == 2 || error("Incorrect logical space size (k = 1).")
-    #     Lsym = quadratictosymplectic(L)
-    #     # the columns in prod give the commutation relationships between the provided
-    #     # logical operators; they ideally should only consist of {X_1, Z_i} pairs
-    #     # so there should only be one nonzero element in each column
-    #     prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
-    #     iszero(prod) && error("Provided logical should not be symplectic self-orthogonal.")
-    #     ncpr = ncols(prod)
-    #     # need an integer sum and this is cheaper than Nemo.ZZ
-    #     prodJul = FpmattoJulia(prod)
-    #     cols = [sum(prodJul[:, i]) for i in 1:ncpr]
-    #     sum(cols) == ncpr || error("Incorrect commutation relationships between provided logicals.")
-
-    #     # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
-    #     F = base_ring(L)
-    #     logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
-    #     # this does indeed grow smaller each iteration
-    #     while nrows(L) >= 2
-    #         y = findfirst(x->x>0, prodJul[:, 1])
-    #         y = [F(prod[y, 1]), y]
-    #         if y[1] != F(1)
-    #             push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
-    #         else
-    #             push!(logs, (L[1, :], L[y[2], :]))
-    #         end
-    #         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
-    #     end
-    #     S.logicals = logs
-    # else
-        L = logicalspace(S)
+    E = S.E
+    L = _logicalspace(S)
+    logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
+    # this does indeed grow smaller each iteration
+    while nrows(L) >= 2
         Lsym = quadratictosymplectic(L)
         # the columns in prod give the commutation relationships between the provided
         # logical operators; they ideally should only consist of {X_1, Z_i} pairs
         # so there should only be one nonzero element in each column
         prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
-
-        # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
-        F = base_ring(L)
-        K = parent(prod[1, 1])
-        oneK = K(1)
-        logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
-        # this does indeed grow smaller each iteration
-        while nrows(L) >= 2
-            first = 0
-            for c in 1:ncols(prod)
-                if !iszero(prod[1, c])
-                    if iszero(first)
-                        first = c
-                        if prod[1, c] != oneK
-                            L[first, :] *= F(prod[1, c]^-1)
-                        end
-                    else
-                        L[c, :] += F(prod[1, c]^-1) * L[first, :]
+        nprod = ncols(prod)
+        first = 0
+        for c in 1:nprod
+            if !iszero(prod[1, c])
+                if iszero(first)
+                    first = c
+                    if !isone(prod[1, c])
+                        L[first, :] *= E(prod[1, c]^-1)
                     end
+                else
+                    L[c, :] += E(prod[1, c]^-1) * L[first, :]
                 end
             end
-            push!(logs, (L[1, :], L[first, :]))
-            L = L[setdiff(1:nrows(L), [1, first]), :]
-            Lsym = quadratictosymplectic(L)
-            prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
         end
-    # end
+        for c in 2:nprod
+            if !iszero(prod[first, c])
+                L[c, :] += E(prod[first, c]^-1) * L[1, :]
+            end
+        end
+        push!(logs, (L[1, :], L[first, :]))
+        L = L[setdiff(1:nrows(L), [1, first]), :]
+    end
     S.logicals = logs
 end
+
+function _testlogicalsrelationships(S::AbstractStabilizerCode)
+    L = vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
+    Lsym = quadratictosymplectic(L);
+    prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    display(prod)
+    return
+end
+
+"""
+    logicalsmatrix(S::AbstractStabilizerCode)
+
+Returns the result of `logicals(S)` as a vertically concatenated matrix.
+"""
+logicalsmatrix(S::AbstractStabilizerCode) = return vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
 
 """
     setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
