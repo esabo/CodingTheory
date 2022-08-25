@@ -60,17 +60,9 @@ function _weightenumeratorBF(G::fq_nmod_mat)
     return WeightEnumerator(poly, "complete")
 end
 
-#############################
-        # Classical
-#############################
-
-#############################
-    # Weight Enumerators
-#############################
-
 # make private?
 function CWEtoHWE(CWE::WeightEnumerator)
-    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+    R, (x, y) = PolynomialRing(base_ring(CWE.polynomial), ["x", "y"])
     poly = R(0)
     for i in 1:length(CWE.polynomial)
         exps = exponent_vector(CWE.polynomial, i)
@@ -78,6 +70,14 @@ function CWEtoHWE(CWE::WeightEnumerator)
     end
     return WeightEnumerator(poly, "Hamming")
 end
+
+#############################
+        # Classical
+#############################
+
+#############################
+    # Weight Enumerators
+#############################
 
 function weightenumeratorC(T::Trellis, type::String="complete")
     type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
@@ -100,7 +100,7 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     for i in 2:length(V)
         for (j, v) in enumerate(V[i])
             outer = R(0)
-            for e in E[i - 1][j]
+            Threads.@threads for e in E[i - 1][j]
                 inner = deepcopy(V[i - 1][e.outvertex].polynomial)
                 for k in e.label
                     inner *= vars[lookup[k]]
@@ -284,7 +284,7 @@ function weightplot(C::AbstractLinearCode, alg::String="auto")
     yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
     ismissing(C.d) ? (title="Weight Distribution - [$(C.n), $(C.k)]";) :
         title="Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
-    f = bar(0:length(C), wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+    f = bar(0:C.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
         legend=false, xlabel="Weight", ylabel="Number of Terms", title=title)
     show(f)
     return f
@@ -304,6 +304,7 @@ support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", 
      # Minimum Distance
 #############################
 
+# TODO: update doc strings for these and this whole file in general
 """
     minimumdistance(C::AbstractLinearCode, alg::String="trellis", sect::Bool=false)
 
@@ -331,277 +332,410 @@ end
     # Weight Enumerators
 #############################
 
-# right now this only makes sense for qubit codes
-# for nonqubit, can add coeff(l, ⋅) instead of 1 but then the concept of Y
-# is itself fuzzy
-# can just define a qudit version with X, Z tracking only
 
-# does this actually modify T in a way I don't want to keep? should always cleanV?
-function Pauliweightenumerator(T::Trellis, cleanV::Bool=true)
-    V = T.vertices
-    E = T.edges
-    Int(characteristic(base_ring(E[1][1][1].label))) > 2 &&
-        error("The PWE is currently only valid for qubit codes. Run the standard Hamming weight enumerator for qudit codes.")
-    for i in 2:length(V)
-        for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
-            for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                for k in e.label
-                    if coeff(k, 0) == 1 && iszero(coeff(k, 1))
-                        if e.sign == 1
-                            for term in inner
-                                if term[2] < 0 || term[3] < 0 || term[4] < 0
-                                    term[2] -= 1
-                                else
-                                    term[2] += 1
-                                end
-                            end
-                        else
-                            for term in inner
-                                term[2] *= -1
-                                term[3] *= -1
-                                term[4] *= -1
-                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                                    term[2] -= 1
-                                else
-                                    term[2] += 1
-                                end
-                            end
-                        end
-                    elseif coeff(k, 0) == 1 && coeff(k, 1) == 1
-                        if e.sign == 1
-                            for term in inner
-                                if term[2] < 0 || term[3] < 0 || term[4] < 0
-                                    term[3] -= 1
-                                else
-                                    term[3] += 1
-                                end
-                            end
-                        else
-                            for term in inner
-                                term[2] *= -1
-                                term[3] *= -1
-                                term[4] *= -1
-                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                                    term[3] -= 1
-                                else
-                                    term[3] += 1
-                                end
-                            end
-                        end
-                    elseif iszero(coeff(k, 0)) && coeff(k, 1) == 1
-                        if e.sign == 1
-                            for term in inner
-                                if term[2] < 0 || term[3] < 0 || term[4] < 0
-                                    term[4] -= 1
-                                else
-                                    term[4] += 1
-                                end
-                            end
-                        else
-                            for term in inner
-                                term[2] *= -1
-                                term[3] *= -1
-                                term[4] *= -1
-                                if (term[2] < 0 || term[3] < 0 || term[4] < 0) || (term[2] == 0 && term[3] == 0 && term[4] == 0)
-                                    term[4] -= 1
-                                else
-                                    term[4] += 1
-                                end
-                            end
-                        end
-                    else
-                        continue
-                    end
-                end
-                append!(outer, inner)
-            end
-            v.polynomial = _reducepoly(outer)
-        end
-    end
-    # sort is somehow broken
-    # println(V[end][1].polynomial)
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex), "Pauli")
-    # W = WeightEnumerator(V[end][1].polynomial, "Pauli")
-    # println(W)
 
-    if cleanV
-        for i in 2:length(V)
-            for v in V[i]
-                v.polynomial = [[0, 0, 0, 0]]
-            end
-        end
-    end
-    return W
-end
 
-# function Pauliweightenumerator(Q::AbstractStabilizerCode, Pauli::Char=' ',
-#     keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
-function Pauliweightenumerator(Q::AbstractStabilizerCode, Pauli::Char=' ',
-    sect::Bool=false)
 
-    !ismissing(Q.Pauliweightenum) && return Q.Pauliweightenum
-    T = syndrometrellis(Q, "weight", Pauli, sect)
-    # if keeptrellis
-    #     return Pauliweightenumerator(T, cleanV), T
-    # end
-    # return PauliweightenumeratorQ(T, cleanV)
-    return Pauliweightenumerator(T, false)
-end
-
-function PWEtoHWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE.polynomial)
-    n = 7
-    for term in poly
-        tot = abs(term[2] + term[3] + term[4])
-        term[2] = tot
-        term[3] = 7 - tot
-        term[4] = 0
-    end
-    return WeightEnumerator(_reducepoly(poly), "Hamming")
-end
-
-function PWEtoXWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE.polynomial)
-    for term in poly
-        tot = abs(term[2] + term[3])
-        term[2] = tot
-        term[3] = length(S) - tot
-        term[4] = 0
-    end
-    return WeightEnumerator(_reducepoly(poly), "X")
-end
-
-function PWEtoZWE(PWE::WeightEnumerator)
-    poly = deepcopy(PWE.polynomial)
-    for term in poly
-        tot = abs(term[3] + term[4])
-        term[2] = length(S) - tot
-        term[3] = 0
-        term[4] = tot
-    end
-    W = WeightEnumerator(_reducepoly(poly), "Z")
-    if ismissing(S.Zwtenum)
-        S.Zwtenum = W
-    end
-    return W
-end
-
-function HammingweightenumeratorQ(T::Trellis, cleanV::Bool=true)
-    V = T.vertices
-    E = T.edges
-    for i in 2:length(V)
-        for (j, v) in enumerate(V[i])
-            outer = Vector{Vector{Int64}}()
-            for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                for k in e.label
-                    if iszero(k)
-                        for term in inner
-                            term[3] += 1
-                        end
-                    else
-                        for term in inner
-                            term[2] += 1
-                        end
-                    end
-                end
-                append!(outer, inner)
-            end
-            # println(outer)
-            v.polynomial = _reducepoly(outer)
-            # println(v.polynomial)
-        end
-    end
-    W = WeightEnumerator(sort!(V[end][1].polynomial, lt=_islessLex), "Hamming")
-
-    if cleanV
-        for i in 2:length(V)
-            for v in V[i]
-                v.polynomial = [[0, 0, 0, 0]]
-            end
-        end
-    end
-    return W
-end
-
-# function HammingweightenumeratorQ(Q::AbstractStabilizerCode, Paui::Char=' ',
-#     keeptrellis::Bool=true, cleanV::Bool=true, sect::Bool=false)
-function Hammingweightenumerator(Q::AbstractStabilizerCode, Paui::Char=' ',
-    sect::Bool=false)
-
-    !ismissing(Q.Pauliweightenum) && return PWEtoHWE(Q.Pauliweightenum)
-    T = syndrometrellis(Q, "weight", Pauli, sect)
-    # if keeptrellis
-    #     return HammingweightenumeratorQ(T, cleanV), T
-    # end
-    # return HammingweightenumeratorQ(T, cleanV)
-    return HammingweightenumeratorQ(T, false)
-end
-
+# # we can organize the S⟂ \ S any way we want as long as we have these elements on the
 # function weightenumerator(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
-#     Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=false)
+#     Pauli::Char=' ', verbose::Bool=true)
 
+#     alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
 
-# we can organize the S⟂ \ S any way we want as long as we have these elements on the
-function weightenumerator(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
-    Pauli::Char=' ', verbose::Bool=true)
+#     # S⟂ - this is not a stabilizer code
+#     # if ismissing(Q.dualweightenum)
+#     #     Q.dualweightenum = weightenumerator(LinearCode(normalizermatrix(Q)))
+#     # end
+#     verbose && println("S⟂: ", Q.dualweightenum)
 
-    alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
+#     # S⟂ \ S - this is not a stabilizer code
+#     # k is always small, so just brute force it
+#     if ismissing(Q.logsweightenum)
+#         logspace = LinearCode(logicalspace(Q))
+#         Q.logsweightenum = _weightenumeratorBF(logspace)
+#         Q.d = Q.logsweightenum.polynomial[2][2]
+#     end
+#     verbose && println("S⟂ / S: ", Q.logsweightenum)
 
-    # S⟂ - this is not a stabilizer code
-    # if ismissing(Q.dualweightenum)
-    #     Q.dualweightenum = weightenumerator(LinearCode(normalizermatrix(Q)))
+#     # S
+#     if ismissing(Q.Pauliweightenum)
+#         # this is not valid for qudit codes
+#         Q.Pauliweightenum = Pauliweightenumerator(Q, Pauli, sect)
+#     end
+#     verbose && println("S: ", Q.Pauliweightenum)
+
+#     return [Q.dualweightenum, Q.logsweightenum, Q.Pauliweightenum]
+# end
+
+# function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
+#     Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=true)
+
+#     weightenumerator(Q, alg, sect, Pauli, false)
+#     # S⟂
+#     temp1 = zeros(Int64, 1, Q.n + 1)
+#     for term in Q.dualweightenum
+#         temp1[term[2] + 1] = term[1]
+#     end
+#     verbose && println("S⟂: ", temp1)
+
+#     # S⟂ \  S
+#     temp2 = zeros(Int64, 1, Q.n + 1)
+#     for term in Q.logsweightenum
+#         temp2[term[2] + 1] = term[1]
+#     end
+#     verbose && println("S⟂ / S: ", temp2)
+
+#     # S
+#     temp3 = zeros(Int64, 1, Q.n + 1)
+#     for term in Q.Pauliweightenum
+#         temp3[term[2] + 1] = term[1]
+#     end
+#     verbose && println("S: ", temp3)
+
+#     return [temp1, temp2, temp3]
+# end
+
+# TODO: test with other iterator
+function _weightenumeratorBFQ(G::fq_nmod_mat, charvec::Vector{nmod},
+    R::Union{AbstractAlgebra.Generic.MPolyRing{nf_elem}, Missing})
+    # this should be the quadratic extension field
+    E = base_ring(G)
+    iseven(Int(degree(E))) || error("Matrix passed to weight enumerator does not appear to be over the quadratic extension.")
+    ordE = Int(order(E))
+    lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
+    
+    p = Int(characteristic(E))
+    iseven(p) ? nth = 2 * p : nth = p
+    if ismissing(R)
+        K, ω = CyclotomicField(nth, "ω")
+        R, vars = PolynomialRing(K, ordE)
+    else
+        ω = gen(base_ring(R))
+        vars = gens(R)
+    end
+    poly = R(0)
+    nr, nc = size(G)
+
+    # Nemo.AbstractAlgebra.ProductIterator
+    for iter in Base.Iterators.product([0:(p - 1) for _ in 1:nr]...)
+        row = E(iter[1]) * G[1, :]
+        for r in 2:nr
+            if !iszero(iter[r])
+                row += E(iter[r]) * G[r, :]
+            end
+        end
+        rowsym = quadratictosymplectic(row)
+
+        # to do process signs here
+        parity = 0
+        for c in 1:2 * nc
+            iszero(rowsym[c]) || (parity += data(charvec[c]);)
+        end
+
+        # TODO: can do this in one step, but is it faster?
+        term = zeros(Int, 1, ordE)
+        for x in row
+            term[lookup[x]] += 1
+        end
+        # println(term, ", ", typeof(term))
+        termpoly = ω^parity
+        for i in 1:ordE
+            termpoly *= vars[i]^term[i]
+        end
+        poly += termpoly
+    end
+    # display(poly)
+    return WeightEnumerator(poly, "complete")
+    # return poly
+end
+
+function weightenumerator(S::AbstractStabilizerCode, type::String="complete",
+    alg::String="auto", set::String="all")
+
+    type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
+    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
+    set ∈ ["all", "stabilizers", "logicals", "quotient"] || throw(ArgumentError("Unsupported set type '$set'. Expected 'all', 'stabilizers', 'logicals', 'quotient'."))
+
+    if set ∈ ["all", "logicals"] && ismissing(S.sCWElogs)
+        logsmat = logicalsmatrix(S)
+        S.sCWElogs = _weightenumeratorBFQ(logsmat, S.charvec, missing)
+    end
+
+    if set != "logicals" && ismissing(S.sCWEstabs)
+        if alg == "bruteforce" || cardinality(S) <= 1e6
+            S.sCWEstabs = _weightenumeratorBFQ(S.stabs, S.charvec, parent(S.sCWElogs.polynomial))
+        else
+            # trellis solution here
+        end
+    end
+
+    if set ∈ ["all", "quotient"] && ismissing(S.sCWEdual)
+        if alg == "bruteforce" || BigInt(characteristic(S.F))^(S.n + S.k) <= 3e6
+            S.sCWEdual = _weightenumeratorBFQ(vcat(S.stabs, logicalsmatrix(S)), S.charvec, parent(S.sCWElogs.polynomial))
+        else
+            # trellis solution here
+        end
+    end
+    
+    if !ismissing(S.sCWEstabs) && !ismissing(S.sCWEdual)
+        # compute minimum distance here
+        poly = WeightEnumerator(S.sCWEdual.polynomial - S.sCWEstabs.polynomial, "complete")
+        HWE = CWEtoHWE(poly)
+        S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            for i in 1:length(HWE.polynomial)]))
+    end
+
+    if type == "complete"
+        set == "all" && return S.sCWEstabs, S.sCWEdual, S.sCWElogs, poly
+        set == "stabilizers" && return S.sCWEstabs
+        set == "logicals" && return S.sCWElogs
+        return poly
+    else
+        set == "all" && return CWEtoHWE(S.sCWEstabs), CWEtoHWE(S.sCWEdual), CWEtoHWE(S.sCWElogs), CWEtoHWE(poly)
+        set == "stabilizers" && return CWEtoHWE(S.sCWEstabs)
+        set == "logicals" && return CWEtoHWE(S.sCWElogs)
+        return HWE
+    end
+end
+
+# MAGMA returns this format
+# [ <0, 1>, <4, 105>, <6, 280>, <8, 435>, <10, 168>, <12, 35> ]
+function weightdistribution(S::AbstractStabilizerCode, alg::String="auto", format::String="full",
+    set::String="all")
+
+    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
+    format ∈ ["full", "compact"] || error("Unknown value for parameter format: $format; expected `full` or `compact`.")
+    set ∈ ["all", "stabilizers", "logicals", "quotient"] || throw(ArgumentError("Unsupported set type '$set'. Expected 'all', 'stabilizers', 'logicals', 'quotient'."))
+
+    wtenums = weightenumerator(S, "Hamming", alg, set)
+
+    if format == "compact"
+        if length(wtenums) == 1
+            wtdist = Vector{Tuple}()
+            for i in 1:length(wtenums.polynomial)
+                push!(wtdist, (exponent_vector(wtenums.polynomial, i)[1],
+                    coeff(wtenums.polynomial, i)))
+            end
+        else
+            wtdist = Vector{Vector{Tuple}}()
+            for wtenum in wtenums
+                wtdistinner = Vector{Tuple}()
+                for i in 1:length(wtenum.polynomial)
+                    push!(wtdistinner, (exponent_vector(wtenum.polynomial, i)[1],
+                        coeff(wtenum.polynomial, i)))
+                end
+                push!(wtdist, wtdistinner)
+            end
+        end
+    else
+        if length(wtenums) == 1
+            K = base_ring(wtenums.polynomial)
+            wtdist = zero_matrix(K, 1, S.n + 1)
+            for i in 1:length(wtenums.polynomial)
+                wtdist[1, exponent_vector(wtenums.polynomial, i)[1] + 1] = coeff(wtenums.polynomial, i)
+            end
+        else
+            K = base_ring(wtenums[1].polynomial)
+            wtdist = [] #Vector{Vector{K}}()
+            for wtenum in wtenums
+                wtdistinner = zero_matrix(K, 1, S.n + 1)
+                for i in 1:length(wtenum.polynomial)
+                    # println(coeff(wtenum.polynomial, i))
+                    wtdistinner[1, exponent_vector(wtenum.polynomial, i)[1] + 1] = coeff(wtenum.polynomial, i)
+                end
+                push!(wtdist, wtdistinner)
+            end
+        end
+    end
+    return wtdist
+end
+
+function weightenumeratorQ(T::Trellis, type::String="complete")
+    type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
+
+    # if type == "complete" && !ismissing(T.CWE)
+    #     return T.CWE
+    # elseif type == "Hamming" && !ismissing(T.CWE)
+    #     return CWEtoHWE(T.CWE)
     # end
-    verbose && println("S⟂: ", Q.dualweightenum)
 
-    # S⟂ \ S - this is not a stabilizer code
-    # k is always small, so just brute force it
-    if ismissing(Q.logsweightenum)
-        logspace = LinearCode(logicalspace(Q))
-        Q.logsweightenum = _weightenumeratorBF(logspace)
-        Q.d = Q.logsweightenum.polynomial[2][2]
+    # if this ever changes or permutes will have to store with T
+    elms = collect(T.code.E)
+    lookup = Dict(value => key for (key, value) in enumerate(elms))
+
+    p = Int(characteristic(T.code.E))
+    iseven(p) ? nth = 2 * p : nth = p
+    K, ω = CyclotomicField(nth, "ω")
+    R, vars = PolynomialRing(K, length(elms))
+
+    n = T.code.n
+    charvec = T.code.charvec
+    V = T.vertices
+    E = T.edges
+    V[1][1].polynomial = R(1)
+    bit = 1
+    for i in 2:length(V)
+        # for (j, v) in enumerate(V[i])
+        Threads.@threads for j in 1:length(V[i])
+            v = V[i][j]
+            outer = R(0)
+            for e in E[i - 1][j]
+                innerbit = deepcopy(bit)
+                parity = 0
+                for k in e.label
+                    if !iszero(coeff(k, 0))
+                        parity += data(charvec[innerbit])
+                    end
+                    if !iszero(coeff(k, 1))
+                        parity += data(charvec[innerbit + n])
+                    end
+                    innerbit += 1
+                end
+
+                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
+                # println(inner)
+                # println(e.label)
+                for k in e.label
+                    inner *= ω^parity * vars[lookup[k]]
+                end
+                outer += inner # this prevents the e loop from being thread-safe
+            end
+            v.polynomial = outer
+        end
+        bit += length(E[i - 1][1][1].label)
     end
-    verbose && println("S⟂ / S: ", Q.logsweightenum)
+    T.CWE = WeightEnumerator(V[end][1].polynomial, "complete")
 
-    # S
-    if ismissing(Q.Pauliweightenum)
-        # this is not valid for qudit codes
-        Q.Pauliweightenum = Pauliweightenumerator(Q, Pauli, sect)
+    # # currently Missing is not an option but how to implement dual trellis
+    if !isshifted(T) && !ismissing(T.code)
+        T.code.sCWEstabs = T.CWE
     end
-    verbose && println("S: ", Q.Pauliweightenum)
 
-    return [Q.dualweightenum, Q.logsweightenum, Q.Pauliweightenum]
+    # # clean up vertices
+    # for i in 1:length(V)
+    #     for v in V[i]
+    #         v.polynomial = missing
+    #     end
+    # end
+
+    # display(T.CWE.polynomial)
+    if type == "Hamming"
+        return CWEtoHWE(T.CWE)
+    end
+    return T.CWE
 end
 
-function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
-    Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=true)
+# need weight distribution functions
 
-    weightenumerator(Q, alg, sect, Pauli, false)
-    # S⟂
-    temp1 = zeros(Int64, 1, Q.n + 1)
-    for term in Q.dualweightenum
-        temp1[term[2] + 1] = term[1]
+
+"""
+    weightplot(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
+
+Return a bar plot of the weight distribution related to `S`.
+
+If `type` is `stabilizer`, the weight distribution of the stabilizers are computed.
+If `type` is `normalizer`, the weight distrbution of the normalizer of the stabilizers
+are computed. If `type` is `quotient`, the weight distrbution of the normalizer mod the
+stabilizers (logical representatives only) is computed.
+"""
+function weightplot(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
+    type ∈ ["stabilizer", "normalizer", "quotient"] || throw(ArgumentError("Unknown value $type for parameter type."))
+
+    wtdist = weightdistribution(S, alg, type, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    if type == "stabilizer"
+        titlestr = "Stabilizer Weight Distribution"
+    elseif type == "normalizer"
+        titlestr = "Normalizer Weight Distribution"
+    else
+        titlestr = "Quotient Weight Distribution"
     end
-    verbose && println("S⟂: ", temp1)
-
-    # S⟂ \  S
-    temp2 = zeros(Int64, 1, Q.n + 1)
-    for term in Q.logsweightenum
-        temp2[term[2] + 1] = term[1]
-    end
-    verbose && println("S⟂ / S: ", temp2)
-
-    # S
-    temp3 = zeros(Int64, 1, Q.n + 1)
-    for term in Q.Pauliweightenum
-        temp3[term[2] + 1] = term[1]
-    end
-    verbose && println("S: ", temp3)
-
-    return [temp1, temp2, temp3]
+    ismissing(S.d) ? (title="$titlestr - [$(S.n), $(S.k)]";) :
+        title="$titlestr - [$(S.n), $(S.k), $(S.d)]"
+    f = bar(0:S.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms", title=title)
+    show(f)
+    return f
 end
+
+"""
+    weightplotCSSX(S::AbstractCSSCode, alg::String="auto")
+
+Return a bar plot of the weight distribution of the `X` stabilizers.
+"""
+function weightplotCSSX(S::AbstractCSSCode, alg::String="auto")
+    C = LinearCode(S.Xstabs)
+    wtdist = weightdistribution(C, alg, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    f = bar(0:C.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms",
+        title="X-Weight Distribution")
+    show(f)
+    return f
+end
+
+"""
+    weightplotCSSZ(S::AbstractCSSCode, alg::String="auto")
+
+Return a bar plot of the weight distribution of the `Z` stabilizers.
+"""
+function weightplotCSSZ(S::AbstractCSSCode, alg::String="auto")
+    C = LinearCode(S.Zstabs)
+    wtdist = weightdistribution(C, alg, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    f = bar(0:C.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms",
+        title="Z-Weight Distribution")
+    show(f)
+    return f
+
+end
+
+"""
+    weightplotCSS(S::AbstractCSSCode, alg::String="auto")
+
+Return bar plots of the weight distribution of the both the
+`X` and 'Z' stabilizers, separately.
+"""
+function weightplotCSS(S::AbstractCSSCode, alg::String="auto")
+    C = LinearCode(S.Xstabs)
+    wtdist = weightdistribution(C, alg, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    fX = bar(0:C.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms",
+        title="X-Weight Distribution")
+
+    # okay to overwrite
+    C = LinearCode(S.Zstabs)
+    wtdist = weightdistribution(C, alg, "full")
+    xticks = findall(x->x>0, vec(wtdist)) .- 1
+    yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
+    fZ = bar(0:C.n, wtdist', bar_width=1, xticks=xticks, yticks=yticks,
+        legend=false, xlabel="Weight", ylabel="Number of Terms",
+        title="Z-Weight Distribution")
+    
+    f = Plots.plot(fX, fZ, layout=(1, 2))
+    show(f)
+    return f
+end
+
+"""
+    support(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
+
+Returns the support related to `S`.
+
+The support is the collection of nonzero exponents of the Hamming
+weight enumerator. If `type` is `stabilizer`, the support of the stabilizers are computed.
+If `type` is `normalizer`, the support of the normalizer of the stabilizers
+are computed. If `type` is `quotient`, the support of the normalizer mod the
+stabilizers (logical representatives only) is computed.
+"""
+support(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer") =
+    [i for (i, _) in weightdistribution(S, alg, type, "compact")]
 
 #############################
      # Minimum Distance
@@ -613,16 +747,128 @@ end
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimumdistance(Q::AbstractStabilizerCode)
-    !ismissing(Q.d) && return Q.d
-    if ismissing(Q.logsweightenum)
-        logspace = logicalspace(Q)
-        Q.logsweightenum = _weightenumeratorBF(logspace)
+function minimumdistance(S::AbstractStabilizerCode, alg::String="auto")
+    !ismissing(S.d) && return S.d
+
+    # these should be different? weight? auto? BZ?
+    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
+
+    if iszero(S.k)
+        # "Quantum Error Correction Via Codes Over GF(4)"
+        # the distance of an [𝑛,0] code is defined as the smallest non-zero weight of any stabilizer in the code
+    else
+
+        # something like this
+        if alg == "auto"
+            weightenumerator(S, "Hamming", "auto", "quotient")
+        elseif alg == "trellis"
+            Tdual = syndrometrellis(S, "primal", true, true)
+            TdualHWE = weightenumeratorQ(Tdual, "Hamming")
+            Tdual = missing
+            println("Primal trellis complete")
+            Tstabs = syndrometrellis(S, "dual", true, true)
+            THWE = weightenumeratorQ(Tstabs, "Hamming")
+            Tstabs = missing
+            poly = TdualHWE.polynomial - THWE.polynomial
+            S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+                for i in 1:length(poly)]))
+        else
+            # brute force solution here
+        end
+         #TODO: purity - 
     end
-    Q.d = Q.logsweightenum.polynomial[2][2]
-    return Q.d
+   
+    return S.d
 end
 
-minimumdistance(S::CSSCode) = S.d
-minimumdistanceX(S::CSSCode) = S.dx
-minimumdistanceZ(S::CSSCode) = S.dz
+function minimumdistanceXZ(S::AbstractCSSCode)
+    (!ismissing(S.dz) && !ismissing(S.dx)) && return S.dz, S.dx
+
+    # dz = min(CX^⟂ \ CZ)
+    # dx = min(CZ^⟂ \ CX)
+
+    # need to make these if they are missing
+    if !ismissing(S.ZorigCode)
+        C1 = S.ZorigCode
+        C2 = S.Xorigcode
+    else
+        C1 = LinearCode(S.Zstabs)
+        C2 = LinearCode(S.Xstabs)
+    end
+    C1wtenum = weightenumerator(C1, "Hamming")
+    C2wtenum = weightenumerator(C2, "Hamming")
+    C1dualwtenum = MacWilliamsIdentity(C1, C1wtenum)
+    C2dualwtenum = MacWilliamsIdentity(C2, C2wtenum)
+    C1setdiffC2wtenum = C1dualwtenum.polynomial - C2dualwtenum.polynomial
+    C2dualsetdiffC1dualwtenum = C2dualwtenum.polynomial - C1dualwtenum.polynomial
+    S.dz = minimum(filter(x->x!=0, [collect(exponent_vectors(C1setdiffC2wtenum))[i][1]
+        for i in 1:length(C1setdiffC2wtenum)]))
+    S.dx = minimum(filter(x->x!=0, [collect(exponent_vectors(C2dualsetdiffC1dualwtenum))[i][1]
+        for i in 1:length(C2dualsetdiffC1dualwtenum)]))
+    # the above commands will set Ci.d
+    (S.dx == C2.d && S.dz == C1.d) ? (S.pure = true;) : (S.pure = false;)
+    return S.dz, S.dx
+
+    # some other paper has this as the formula
+    # expsC1setdiffC2 = filter(x->x!=0, [collect(exponent_vectors(C1setdiffC2wtenum))[i][1]
+    #     for i in 1:length(C1setdiffC2wtenum)])
+    # expsC2dualsetdiffC2dual = filter(x->x!=0, [collect(exponent_vectors(C2dualsetdiffC1dualwtenum))[i][1]
+    #     for i in 1:length(C2dualsetdiffC1dualwtenum)])
+    # exps = vcat(expsC1setdiffC2, expsC2dualsetdiffC2dual)
+    # S.dx = minimum(exps)
+    # S.dz = maximum(exps)
+end
+
+function minimumdistanceX(S::AbstractCSSCode)
+    ismissing(S.dx) || return S.dx
+    
+     # need to make these if they are missing
+     if !ismissing(S.ZorigCode)
+        C1 = S.ZorigCode
+        C2 = S.Xorigcode
+    else
+        C1 = LinearCode(S.Zstabs)
+        C2 = LinearCode(S.Xstabs)
+    end
+    C1wtenum = weightenumerator(C1, "Hamming")
+    C2wtenum = weightenumerator(C2, "Hamming")
+    C1dualwtenum = MacWilliamsIdentity(C1, C1wtenum)
+    C2dualwtenum = MacWilliamsIdentity(C2, C2wtenum)
+    C2dualsetdiffC1dualwtenum = C2dualwtenum.polynomial - C1dualwtenum.polynomial
+    S.dx = minimum(filter(x->x!=0, [collect(exponent_vectors(C2dualsetdiffC1dualwtenum))[i][1]
+        for i in 1:length(C2dualsetdiffC1dualwtenum)]))
+    return S.dx
+end
+
+function minimumdistanceZ(S::AbstractCSSCode)
+    ismissing(S.dz) || return S.dz
+
+    # need to make these if they are missing
+    if !ismissing(S.ZorigCode)
+        C1 = S.ZorigCode
+        C2 = S.Xorigcode
+    else
+        C1 = LinearCode(S.Zstabs)
+        C2 = LinearCode(S.Xstabs)
+    end
+    C1wtenum = weightenumerator(C1, "Hamming")
+    C2wtenum = weightenumerator(C2, "Hamming")
+    C1dualwtenum = MacWilliamsIdentity(C1, C1wtenum)
+    C2dualwtenum = MacWilliamsIdentity(C2, C2wtenum)
+    C1setdiffC2wtenum = C1dualwtenum.polynomial - C2dualwtenum.polynomial
+    S.dz = minimum(filter(x->x!=0, [collect(exponent_vectors(C1setdiffC2wtenum))[i][1]
+        for i in 1:length(C1setdiffC2wtenum)]))
+    return S.dz
+end
+
+function ispure(S::AbstractStabilizerCode)
+    ismissing(S.pure) || return S.pure
+    minimumdistance(S) # this needs to force the weight enumerator approach
+    return S.pure
+end
+
+function ispure(S::AbstractCSSCode)
+    ismissing(S.pure) || return S.pure
+    minimumdistanceXZ(S)
+    return S.pure
+end

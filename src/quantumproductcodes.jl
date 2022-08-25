@@ -276,3 +276,139 @@ end
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
     charvec::Union{Vector{nmod}, Missing}=missing) = GeneralizedShorCode(C1, C2,
     charvec)
+
+"""
+    HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+
+Return the CSS hyperbicycle construction of "Quantum Kronecker sum-product low-density
+parity-check codes with finite rate".
+
+Inputs:
+- a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
+- b: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions,
+  potentially different from those of `a`.
+- χ: A strictly positive integer coprime with `c`.
+"""
+function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+    χ > 0 || throw(ArgumentError("Required χ > 0."))
+    c = length(a)
+    gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
+    c == length(b) || throw(ArgumentError("Input vectors must have same length."))
+    k1, n1 = size(a[1])
+    k2, n2 = size(b[1])
+    F = base_ring(a[1])
+    Int(order(F)) == 2 || throw(ArgumentError("Hyperbicycle codes require binary inputs."))
+    for i in 1:c
+        F == base_ring(a[i]) || throw(ArgumentError("Inputs must share the same base ring."))
+        k1, n1 == size(a[i]) || throw(ArgumentError("First set of imput matrices must all have the same dimensions."))
+        F == base_ring(b[i]) || throw(ArgumentError("Inputs must share the same base ring."))
+        k2, n2 == size(b[i]) || throw(ArgumentError("Second set of imput matrices must all have the same dimensions."))
+    end
+
+    for i in 1:c
+        Sχi = zero_matrix(F, c, c)
+        Ii = zero_matrix(F, c, c)
+        for c1 in 1:c
+            for r in 1:c
+                if (c1 - r) % c == 1
+                    Ii[r, c1] = F(1)
+                end
+                if (c1 - r) % c == (r - 1) * (χ - 1) % c
+                    Sχi[r, c1] = F(1)
+                end
+            end
+        end
+        Iχi = Sχi * Ii
+        ITχi = transpose(Sχi) * transpose(Ii)
+        if i == 1
+            H1 = Iχi ⊗ a[i]
+            H2 = b[i] ⊗ Iχi
+            HT1 = ITχi ⊗ transpose(a[i])
+            HT2 = transpose(b[i]) ⊗ ITχi
+        else
+            H1 += Iχi ⊗ a[i]
+            H2 += b[i] ⊗ Iχi
+            HT1 += ITχi ⊗ transpose(a[i])
+            HT2 += transpose(b[i]) ⊗ ITχi
+        end
+    end
+
+    Mk1 = MatrixSpace(F, k1, k1)
+    Ek1 = Mk1(1)
+    Mk2 = MatrixSpace(F, k2, k2)
+    Ek2 = Mk2(1)
+    Mn1 = MatrixSpace(F, n1, n1)
+    En1 = Mn1(1)
+    Mn2 = MatrixSpace(F, n2, n2)
+    En2 = Mn2(1)
+
+    GX = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
+    GZ = hcat(HT2 ⊗ En1, En2 ⊗ HT1)
+    return CSSCode(GX, GZ)
+
+    # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
+    # not really worth it, just use standard technique from quantumcode.jl
+end
+
+"""
+    HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+
+Return the hyperbicycle construction of "Quantum Kronecker sum-product low-density
+parity-check codes with finite rate".
+
+Inputs:
+- a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
+- b: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions,
+  potentially different from those of `a`.
+- χ: A strictly positive integer coprime with `c`.
+"""
+function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+    χ > 0 || throw(ArgumentError("Required χ > 0."))
+    c = length(a)
+    gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
+    c == length(b) || throw(ArgumentError("Input vectors must have same length."))
+    k1, n1 = size(a[1])
+    k2, n2 = size(b[1])
+    F = base_ring(a[1])
+    Int(order(F)) == 2 || throw(ArgumentError("Hyperbicycle codes require binary inputs."))
+    for i in 1:c
+        F == base_ring(a[i]) || throw(ArgumentError("Inputs must share the same base ring."))
+        k1, n1 == size(a[i]) || throw(ArgumentError("First set of imput matrices must all have the same dimensions."))
+        F == base_ring(b[i]) || throw(ArgumentError("Inputs must share the same base ring."))
+        k2, n2 == size(b[i]) || throw(ArgumentError("Second set of imput matrices must all have the same dimensions."))
+    end
+
+    for i in 1:c
+        Sχi = zero_matrix(F, c, c)
+        Ii = zero_matrix(F, c, c)
+        for c1 in 1:c
+            for r in 1:c
+                if (c1 - r) % c == 1
+                    Ii[r, c1] = F(1)
+                end
+                if (c1 - r) % c == (r - 1) * (χ - 1) % c
+                    Sχi[r, c1] = F(1)
+                end
+            end
+        end
+        Iχi = Sχi * Ii
+        if i == 1
+            H1 = Iχi ⊗ a[i]
+            H2 = b[i] ⊗ Iχi
+        else
+            H1 += Iχi ⊗ a[i]
+            H2 += b[i] ⊗ Iχi
+        end
+    end
+
+    Mk1 = MatrixSpace(F, k1, k1)
+    Ek1 = Mk1(1)
+    Mk2 = MatrixSpace(F, k2, k2)
+    Ek2 = Mk2(1)
+
+    G = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
+    return QuantumCode(G, true)
+
+    # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
+    # not really worth it, just use standard technique from quantumcode.jl
+end

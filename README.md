@@ -52,4 +52,4 @@ At the moment, all functions work as intended for test cases but have not been u
 - Hardcoded [[5, 1, 3]] perfect, Steane, Shor, and [[15, 1, 3]] Reed Muller codes
 - Rotated surface/XZZX codes to any distance
 - 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21
-- Hypergraph product and generalized Shor code
+- Hypergraph product, generalized Shor, Bacon-Casaccino, hyperbicycle constructions

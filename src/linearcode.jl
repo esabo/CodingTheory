@@ -1,4 +1,4 @@
-# Copyright (c) 2021, Eric Sabo
+# Copyright (c) 2021, 2022 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -6,7 +6,7 @@
 
 struct WeightEnumerator
     # polynomial::Union{fmpz_mpoly, LaurentMPolyElem{fmpz}}
-    polynomial::fmpz_mpoly
+    polynomial::Union{fmpz_mpoly, AbstractAlgebra.Generic.MPoly{nf_elem}}
     type::String
 end
 
@@ -422,11 +422,13 @@ All of the necessary information for the dual is already stored in a LinearCode
 object, so this implementation merely swaps data fields, e.g., `G <-> H`, without
 doing any new computation.
 """
-# TODO: compute d if have that info for C
+# TODO: compute d if have that info for C, check for 
 function dual(C::AbstractLinearCode)
+    !ismissing(C.weightenum) ? (dualwtenum = MacWilliamsIdentity(C, C.weightenum);) :
+        (dualwtenum = missing;)
     return LinearCode(C.F, C.n, C.n - C.k, missing, deepcopy(C.H),
         deepcopy(C.Horig), deepcopy(C.G), deepcopy(C.Gorig),
-        deepcopy(C.Hstand), deepcopy(C.Gstand), missing)
+        deepcopy(C.Hstand), deepcopy(C.Gstand), dualwtenum)
 end
 
 """

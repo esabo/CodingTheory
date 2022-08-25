@@ -555,6 +555,15 @@ function quadraticresidues(q::Int, n::Int)
     return qres, nqres
 end
 
+function digitstoint(x::Vector{Int}, base::Int=2)
+    res = 0
+    lenx = length(x)
+    for i in 1:lenx
+        res = x[i] + base * res
+    end
+    return res
+end
+
 # #=
 # Example of using the repeated iterator inside of product.
 #

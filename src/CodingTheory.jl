@@ -105,12 +105,12 @@ include("trellis.jl")
 include("weight_dist.jl")
 
 #############################
-    # hypergraphproduct.jl
+   # quantumproductcodes.jl
 #############################
 
 abstract type AbstractHypergraphProductCode <: AbstractCSSCode end
 
-include("hypergraphproduct.jl")
+include("quantumproductcodes.jl")
 
 #############################
         # Exports
@@ -124,7 +124,8 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
     Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
     printstringarray, printchararray, printsymplecticarray, pseudoinverse,
-    quadratictosymplectic, symplectictoquadratic, _removeempty, quadraticresidues
+    quadratictosymplectic, symplectictoquadratic, _removeempty, quadraticresidues,
+    digitstoint
     #, _processstrings,
     #_Paulistringtosymplectic,
 
@@ -236,17 +237,16 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
       # weight_dist.jl
 #############################
 
-export weightenumeratorC, weightenumerator, weightdistribution, minimumdistance,
-    Pauliweightenumerator, Pauliweightenumerator, PWEtoHWE, PWEtoXWE, PWEtoZWE,
-    HammingweightenumeratorQ, Hammingweightenumerator, weightenumerator,
-    weightdistribution, CWEtoHWE, support, polynomial, type, MacWilliamsIdentity,
-    weighthplot
-    # _weightenumeratorBF
+export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
+    weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
+    weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
+    minimumdistanceZ, ispure
 
 #############################
-    # hypergraphproduct.jl
+   # quantumproductcodes.jl
 #############################
 
-export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction
+export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
+    HyperBicycleCodeCSS, HyperBicycleCode
 
 end

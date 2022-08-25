@@ -14,7 +14,7 @@ mutable struct Vertex
     next::Int64
     value::Float64
     edgeloc::Int64
-    polynomial::Union{fmpz_mpoly, Missing}
+    polynomial::Union{fmpz_mpoly, AbstractAlgebra.Generic.MPoly{nf_elem}, Missing}
 end
 
 # could redo this for classical to remove sign
@@ -24,7 +24,7 @@ mutable struct Edge
     label::Union{fq_nmod, fq_nmod_mat}
     weight::Float64
     outvertex::Int64
-    sign::Int8
+    sign::Union{Missing, nmod}
 end
 
 mutable struct Trellis
@@ -348,8 +348,7 @@ end
 
 function _findactive(A::fq_nmod_mat, edges::Bool=false)
     # need to make sure quadratic extension
-    n = size(A, 2)
-    k = size(A, 1)
+    k, n = size(A)
     leftright = [[0, 0] for i in 1:k]
     for i in 1:k
         for j in 1:n
@@ -367,13 +366,17 @@ function _findactive(A::fq_nmod_mat, edges::Bool=false)
             end
         end
     end
+    # display(A)
+    # println(leftright)
 
     active = Vector{Vector{Int64}}()
     if edges
         for i in 1:n
             arri = Vector{Int64}()
             for j in 1:k
+                # i == 5 && println(i, ", ", j, ", ", leftright[j])
                 if leftright[j][1] <= i <= leftright[j][2]
+                    # i == 5 && println("added")
                     push!(arri, j)
                 end
             end
@@ -394,6 +397,7 @@ function _findactive(A::fq_nmod_mat, edges::Bool=false)
             end
         end
     end
+    # println(active)
     return active
 end
 
@@ -816,6 +820,7 @@ end
         # Classical
 #############################
 
+# TODO: handle lookup table better - temporarily skipping
 # TODO: remove dictionaries, iterate once to find left, once for right
 # keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
 function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true,
@@ -824,38 +829,68 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
     (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) ||
         error("Syndrome trellises are so far only implemented for linear and stabilizer codes.")
 
-    # wrtV::fq_nmod_mat, wrtE::fq_nmod_mat,
     if typeof(C) <: AbstractLinearCode
         wrtV = trellisorientedformlinear(paritycheckmatrix(C))
         wrtE = trellisorientedformlinear(generatormatrix(C))
         if sect
-            boundaries, _ = optimalsectionalizationC(wrtV, wrtE)
+            boundaries, numEsect = optimalsectionalizationC(wrtV, wrtE)
+            profiles = trellisprofiles(wrtV, wrtE, boundaries, "Euclidean")
+            profilesnosect = trellisprofiles(wrtV, wrtE, missing, "Euclidean")
+            if verbose
+                numEnosect = sum(profilesnosect[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+            if length(boundaries) == 2
+                if verbose
+                    println("Sectionalized to lookup table, skipping")
+                end
+                boundaries = missing
+                profiles = profilesnosect
+            end
         else
             boundaries = missing
+            profiles = trellisprofiles(wrtV, wrtE, missing, "Euclidean")
+            if verbose
+                boundaries2, numEsect = optimalsectionalizationC(wrtV, wrtE)
+                profilessect = trellisprofiles(wrtV, wrtE, boundaries2, "Euclidean")
+                numEnosect = sum(profiles[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
         end
-        profiles = trellisprofiles(wrtV, wrtE, boundaries, "Euclidean")
     else
         if type == "primal"
             wrtV = trellisorientedformadditive(stabilizers(C))
-            wrtE = trellisorientedformadditive(normalizermatrix(C))
-            if sect
-                boundaries, _ = optimalsectionalization(wrtV, wrtE)
-            else
-                boundaries = missing
-            end
-            profiles = trellisprofiles(wrtV, wrtE, boundaries, "symplectic")
+            wrtE = trellisorientedformadditive(normalizermatrix(C))           
         else
             wrtV = trellisorientedformadditive(normalizermatrix(C))
             wrtE = trellisorientedformadditive(stabilizers(C))
-            if sect
-                boundaries, _ = optimalsectionalization(wrtV, wrtE)
-            else
-                boundaries = missing
-            end
+        end
+        if sect
+            boundaries, numEsect = optimalsectionalizationQ(wrtV, wrtE)
             profiles = trellisprofiles(wrtV, wrtE, boundaries, "symplectic")
+            profilesnosect = trellisprofiles(wrtV, wrtE, missing, "symplectic")
+            if verbose
+                numEnosect = sum(profilesnosect[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+            if length(boundaries) == 2
+                if verbose
+                    println("Sectionalized to lookup table, skipping")
+                end
+                boundaries = missing
+                profiles = profilesnosect
+            end
+        else
+            boundaries = missing
+            profiles = trellisprofiles(wrtV, wrtE, missing, "symplectic")
+            if verbose
+                boundaries2, numEsect = optimalsectionalizationQ(wrtV, wrtE)
+                profilessect = trellisprofiles(wrtV, wrtE, boundaries2, "symplectic")
+                numEnosect = sum(profiles[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
         end
     end
-
 
     if ismissing(boundaries)
         bds = [0:length(C)...]
@@ -867,21 +902,22 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
         K = field(C)
     else
         K = quadraticfield(C)
+        R = parent(C.charvec[1])
     end
     p = Int64(characteristic(K))
     n = length(C)
-    V = Vector{Vertex}[Vertex[] for i = 1:n + 1] # TODO: why am I using = and not in throughout this function
-    Threads.@threads for i = 1:n + 1
-        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for j = 1:profiles[1][i]]
+    V = Vector{Vertex}[Vertex[] for _ in 1:length(bds)]
+    Threads.@threads for i in 1:length(profiles[1])
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ in 1:profiles[1][i]]
     end
     V[1] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     V[end] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     verbose && println("Vertex preallocation completed.")
 
-    E = Vector{Vector{Edge}}[[Edge[]] for i = 1:n]
-    Threads.@threads for i in 1:n
+    E = Vector{Vector{Edge}}[[Edge[]] for _ in 1:length(profiles[3])]
+    Threads.@threads for i in 1:length(profiles[3])
         # the j-th element of Ei is going to be all of the edges going into Vi[j]
-        E[i] = [[Edge(K(0), 0.0, 0, 1) for j = 1:profiles[3][i]] for k = 1:profiles[1][i + 1]]
+        E[i] = [[Edge(K(0), 0.0, 0, missing) for j = 1:profiles[3][i]] for _ in 1:profiles[1][i + 1]]
     end
     verbose && println("Edge preallocation completed.")
 
@@ -890,7 +926,7 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
     synlen = size(wrtV, 1)
     active = _findactive(wrtV)
     active = active[bds[2:end - 1]]
-    Threads.@threads for i = 2:n
+    Threads.@threads for i in 2:length(bds) - 1
         Visize = profiles[1][i]
         for num in 0:Visize - 1
             bin = reverse(digits(num, base=2, pad=length(active[i - 1])))
@@ -920,13 +956,12 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
     else
         activetemp = Vector{Vector{Int64}}()
         for i in 1:length(bds) - 1
-            temp = Vector{Int64}()
-            for j in bds[i] + 1:bds[i + 1]
-                if !(bds[i] <= left[j] && right[j] <= bds[i + 1])
-                    append!(temp, active[j])
-                end
-            end
-            push!(activetemp, sort!(unique!(temp)))
+            # temp = Vector{Int64}()
+            # for j in bds[i] + 1:bds[i + 1]
+            #     append!(temp, active[j])
+            # end
+            # push!(activetemp, sort!(unique!(temp)))
+            push!(activetemp, sort!(unique!(vcat([active[j] for j in bds[i] + 1:bds[i + 1]]...))))
         end
     end
 
@@ -936,9 +971,10 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
         symwrtV = quadratictosymplectic(wrtV)
         H = FpmattoJulia(hcat(symwrtV[:, n + 1:end], -symwrtV[:, 1:n]))
     end
-    Threads.@threads for i = n:-1:1
+    # Threads.@threads 
+    for i in length(bds) - 1:-1:1
         verbose && println("Starting E[$i]")
-        seclen = bds[i + 1] - bds[i]
+        # seclen = bds[i + 1] - bds[i]
         validedges = Vector{fq_nmod_mat}()
         edgecontrib = Dict{fq_nmod_mat, Vector{Int64}}()
         contribedge = Dict{Vector{Int64}, fq_nmod_mat}()
@@ -950,6 +986,7 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
             end
         end
         unique!(validedges)
+        # i == 1 && display(validedges)
 
         for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(validedges))
             e = K(iter[1]) * validedges[1]
@@ -974,8 +1011,14 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
             syn = H * P .% p
             edgecontrib[e] = syn
             contribedge[syn] = e
+            # when it's so small it sectionalizes to a lookup table, there is
+            # only one syndrome = 0 at Vright = V_n, so contribedge only has
+            # one value. to fix, can only handle this case entirely manually
         end
         verbose && println("Edges dictionaries completed for E[$i].")
+        # i == 1 && display(edgecontrib)
+        # display(edgecontrib)
+        # display(contribedge)
 
         Vleft = V[i]
         Vright = V[i + 1]
@@ -985,6 +1028,7 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
         startingrightindex = 1
         # keep below here instead of preallocating above or else the answer comes out wrong
         blank = K(0)
+        # println(lenright)
 
         while startingrightindex <= lenright
             startingrightv = Vright[startingrightindex].label
@@ -994,6 +1038,7 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
             sizehint!(rightvertices, profiles[3][i])
 
             startingrightvsyn = reverse(digits(startingrightv, base=2, pad=synlen))
+            # println("i: $i, synlen: $synlen, srsyn: $startingrightvsyn, srv: $startingrightv")
             push!(rightvertices, (startingrightindex, startingrightv, startingrightvsyn))
             connectingstarts = blank
             startingleftv = biz
@@ -1074,9 +1119,9 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
             # can probably skip this recalculation of temp by immediately storing
             # instead of building right and left vertex lists
             # should now have all vertices
-            for (rightindex, rightlabel, rightsyn) in rightvertices
+            for (rightindex, _, rightsyn) in rightvertices
                 count = 1
-                for (leftindex, leftlabel, leftsyn) in leftvertices
+                for (leftindex, _, leftsyn) in leftvertices
                     temp = rightsyn .- leftsyn
                     for t in 1:length(temp)
                         if temp[t] < 0
@@ -1089,13 +1134,13 @@ function syndrometrellis(C::AbstractCode, type::String="primal", sect::Bool=true
                     E[i][rightindex][count].label = lab
                     E[i][rightindex][count].outvertex = leftindex
                     if typeof(C) <: AbstractStabilizerCode
-                        sign = 1
+                        sign = R(0)
                         for (j, k) in enumerate(lab)
                             if !iszero(coeff(k, 0))
-                                sign *= charactervector(C)[bds[i] + j]
+                                sign += charactervector(C)[bds[i] + j]
                             end
                             if !iszero(coeff(k, 1))
-                                sign *= charactervector(C)[bds[i] + j + n]
+                                sign += charactervector(C)[bds[i] + j + n]
                             end
                         end
                         E[i][rightindex][count].sign = sign
@@ -1164,12 +1209,12 @@ function optimalsectionalizationQ(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
 
     n = size(wrtV, 2)
     p = Int64(characteristic(K))
-    V = [Vertex(i, 0, 0, 0.0, 0, [[0, 0, 0, 0]]) for i in 1:n + 1]
-    E = [[Edge(K(0), 0.0, 0, 1) for i in 1:j] for j in n:-1:1]
+    V = [Vertex(i, 0, 0, 0.0, 0, missing) for i in 1:n + 1]
+    E = [[Edge(K(0), 0.0, 0, missing) for i in 1:j] for j in n:-1:1]
 
     symV = quadratictosymplectic(wrtV)
     symE = quadratictosymplectic(wrtE)
-    dimker = _symplectickernel(symV, symE)
+    dimker = _kernelinnerprod(symV, symE, "symplectic")
     past, future = _pastfuture(wrtE)
     for i in 1:n
         for j in i:n
@@ -1859,3 +1904,387 @@ end
 #         end
 #     end
 # end
+
+
+
+function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
+    verbose::Bool=false)
+
+    (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) ||
+        error("Syndrome trellises are so far only implemented for linear and stabilizer codes.")
+
+    if typeof(C) <: AbstractLinearCode
+        wrtV = trellisorientedformlinear(paritycheckmatrix(C))
+        wrtE = trellisorientedformlinear(generatormatrix(C))
+        if sect
+            boundaries, numEsect = optimalsectionalizationC(wrtV, wrtE)
+            profiles = trellisprofiles(wrtV, wrtE, boundaries, "Euclidean")
+            profilesnosect = trellisprofiles(wrtV, wrtE, missing, "Euclidean")
+            if verbose
+                numEnosect = sum(profilesnosect[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+            if length(boundaries) == 2
+                if verbose
+                    println("Sectionalized to lookup table, skipping")
+                end
+                boundaries = missing
+                profiles = profilesnosect
+            end
+        else
+            boundaries = missing
+            profiles = trellisprofiles(wrtV, wrtE, missing, "Euclidean")
+            if verbose
+                boundaries2, numEsect = optimalsectionalizationC(wrtV, wrtE)
+                profilessect = trellisprofiles(wrtV, wrtE, boundaries2, "Euclidean")
+                numEnosect = sum(profiles[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+        end
+    else
+        if type == "primal"
+            wrtV = trellisorientedformadditive(stabilizers(C))
+            wrtE = trellisorientedformadditive(normalizermatrix(C))           
+        else
+            wrtV = trellisorientedformadditive(normalizermatrix(C))
+            wrtE = trellisorientedformadditive(stabilizers(C))
+        end
+        if sect
+            boundaries, numEsect = optimalsectionalizationQ(wrtV, wrtE)
+            profiles = trellisprofiles(wrtV, wrtE, boundaries, "symplectic")
+            profilesnosect = trellisprofiles(wrtV, wrtE, missing, "symplectic")
+            if verbose
+                numEnosect = sum(profilesnosect[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+            if length(boundaries) == 2
+                if verbose
+                    println("Sectionalized to lookup table, skipping")
+                end
+                boundaries = missing
+                profiles = profilesnosect
+            end
+        else
+            boundaries = missing
+            profiles = trellisprofiles(wrtV, wrtE, missing, "symplectic")
+            if verbose
+                boundaries2, numEsect = optimalsectionalizationQ(wrtV, wrtE)
+                profilessect = trellisprofiles(wrtV, wrtE, boundaries2, "symplectic")
+                numEnosect = sum(profiles[2])
+                println("|E| original: $numEnosect, |E| sectionalized: $numEsect")
+            end
+        end
+    end
+
+    if ismissing(boundaries)
+        bds = [0:C.n...]
+    else
+        bds = deepcopy(boundaries)
+    end
+
+    if typeof(C) <: AbstractLinearCode
+        K = C.F
+    else
+        K = C.E
+        R = parent(C.charvec[1])
+    end
+    p = Int64(characteristic(K))
+    n = C.n
+    V = Vector{Vertex}[Vertex[] for _ in 1:length(bds)]
+    Threads.@threads for i in 1:length(profiles[1])
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ in 1:profiles[1][i]]
+    end
+    V[1] = [Vertex(0, 0, 0, 0.0, 0, missing)]
+    V[end] = [Vertex(0, 0, 0, 0.0, 0, missing)]
+    verbose && println("Vertex preallocation completed.")
+
+    E = Vector{Vector{Edge}}[[Edge[]] for _ in 1:length(profiles[3])]
+    Threads.@threads for i in 1:length(profiles[3])
+        # the j-th element of Ei is going to be all of the edges going into Vi[j]
+        E[i] = [[Edge(K(0), 0.0, 0, missing) for j = 1:profiles[3][i]] for _ in 1:profiles[1][i + 1]]
+    end
+    verbose && println("Edge preallocation completed.")
+
+    bio = BigInt(1)
+    synlen = nrows(wrtV)
+    activeVs = _findactive(wrtV)
+    activeVs = activeVs[bds[2:end - 1]]
+    Threads.@threads for i in 2:length(bds) - 1
+        Visize = profiles[1][i]
+        lenact = length(activeVs[i - 1])
+        # TODO: can I get away with not reversing throughout
+        # TODO: do I gain anything from making the V.label correct?
+        for num in 0:Visize - 1
+            # int to small active digits array
+            bin = reverse(digits(num, base=p, pad=lenact))
+            # to full syn length size
+            templabel = zeros(Int64, synlen)
+            loc = 1
+            for j in activeVs[i - 1]
+                templabel[j] = bin[loc]
+                loc += 1
+            end
+            # back to int
+            V[i][num + 1].label = digitstoint(reverse(templabel, dims=1), p)
+        end
+    end
+    verbose && println("Vertex construction completed.")
+
+    left, right = _leftrightindices(wrtE)
+    active = _findactive(wrtE, true)
+    # display(active)
+    if ismissing(boundaries)
+        activetemp = active
+        parallel = missing
+    else
+        activetemp = Vector{Vector{Int64}}()
+        parallel = Vector{Vector{Int64}}()
+        for i in 1:length(bds) - 1
+            temp = sort!(unique!(vcat([active[j] for j in bds[i] + 1:bds[i + 1]]...)))
+            # println(temp)
+            act = Vector{Int64}()
+            par = Vector{Int64}()
+            for a in temp
+                (bds[i] + 1 <= left[a] && right[a] <= bds[i + 1]) ? append!(par, a) : append!(act, a)
+            end
+            push!(activetemp, act)
+            push!(parallel, par)
+        end
+    end
+    # display(wrtE)
+    # println(bds)
+    # display(activetemp)
+    # display(parallel)
+    # return
+
+    if typeof(C) <: AbstractLinearCode
+        H = FpmattoJulia(wrtV)
+    else
+        symwrtV = quadratictosymplectic(wrtV)
+        H = FpmattoJulia(hcat(symwrtV[:, n + 1:end], -symwrtV[:, 1:n]))
+    end
+    
+    # Threads.@threads 
+    for i in length(bds) - 1:-1:1
+        verbose && println("Starting E[$i]")
+        
+        validedges = Vector{fq_nmod_mat}()
+        edgecontrib = Dict{fq_nmod_mat, Vector{Int64}}()
+        contribedge = Dict{Vector{Int64}, fq_nmod_mat}()
+
+        for a in activetemp[i]
+            temp = wrtE[a, bds[i] + 1:bds[i + 1]]
+            if !iszero(temp)
+                push!(validedges, temp)
+            end
+        end
+        unique!(validedges)
+
+        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(validedges))
+            e = K(iter[1]) * validedges[1]
+            for r in 2:length(validedges)
+                if !iszero(iter[r])
+                    e += K(iter[r]) * validedges[r]
+                end
+            end
+
+            if typeof(C) <: AbstractLinearCode
+                P = zeros(Int64, n)
+                for (j, k) in enumerate(e)
+                    P[bds[i] + j] = coeff(k, 0)
+                end
+            else
+                P = zeros(Int64, 2 * n)
+                for (j, k) in enumerate(e)
+                    P[bds[i] + j] = coeff(k, 0)
+                    P[bds[i] + j + n] = coeff(k, 1)
+                end
+            end
+            syn = H * P .% p
+            edgecontrib[e] = syn
+            contribedge[syn] = e
+        end
+        verbose && println("Edges dictionaries completed for E[$i].")
+
+        # find fundamental edge configuration
+        # seclen = bds[i + 1] - bds[i]
+        parflag = false
+        if !ismissing(parallel) && !isempty(parallel[i])
+            parflag = true
+            paralleledges = Vector{fq_nmod_mat}()
+            for a in parallel[i]
+                # should never be zero because the entire row is between this
+                # same argument says it's always unique
+                push!(paralleledges, wrtE[a, bds[i] + 1:bds[i + 1]])
+            end
+        end
+        # i == 2 && display(activeVs)
+        # i == 2 && display(paralleledges)
+        # return
+
+        Vllen = profiles[1][i]
+        Vrlen = profiles[1][i + 1]
+        leftvertices = Vector{Tuple{BigInt, Vector{Int}}}()
+        rightvertices = Vector{Tuple{BigInt, Vector{Int}}}()
+        sizehint!(leftvertices, profiles[4][i])
+        sizehint!(rightvertices, profiles[3][i])
+
+        # find all v-e-0
+        leftsyn = rightsyn = zeros(Int64, synlen)
+        fundamental = Vector{Tuple{BigInt, Vector{Int}, Vector{fq_nmod_mat}, Vector{Int}, BigInt}}()
+        for lab in keys(edgecontrib)
+            leftsyn = (rightsyn .- edgecontrib[lab] .+ p) .% p
+            if i == 1 && iszero(leftsyn)
+                edgs = [lab]
+                if parflag
+                    for a in paralleledges
+                        push!(edgs, a + lab)
+                    end
+                end
+                push!(fundamental, (bio, leftsyn, edgs, rightsyn, bio))
+                push!(leftvertices, (bio, leftsyn))
+            elseif i != 1 && iszero(leftsyn[setdiff(1:synlen, activeVs[i - 1])])
+                leftloc = BigInt(digitstoint(reverse(leftsyn[activeVs[i - 1]], dims=1), p)) + 1
+                if leftloc <= Vllen
+                    # println("here: $leftloc")
+                    edgs = [lab]
+                    if parflag
+                        for a in paralleledges
+                            push!(edgs, a + lab) # this idea is mentally incorrect
+                        end
+                    end
+                    push!(fundamental, (leftloc, leftsyn, edgs, rightsyn, bio))
+                    push!(leftvertices, (leftloc, leftsyn))
+                end
+            end
+        end
+        i == 2 && (display(fundamental); return)
+
+        # find all 0-e-v
+        leftsyn = zeros(Int64, synlen)
+        for lab in keys(edgecontrib)
+            rightsyn = edgecontrib[lab]
+            if i != length(bds) - 1 && iszero(rightsyn[setdiff(1:synlen, activeVs[i])])
+                rightloc = BigInt(digitstoint(reverse(rightsyn[activeVs[i]], dims=1), p)) + 1
+                if !isone(rightloc)
+                    edgs = [lab]
+                    if parflag
+                        for a in paralleledges
+                            push!(edgs, a + lab)
+                        end
+                    end
+                    push!(fundamental, (bio, leftsyn, edgs, rightsyn, rightloc))
+                    push!(rightvertices, (rightloc, rightsyn))
+                end
+            end
+        end
+
+        # use the above v-e-0 and 0-e-v' to find all v-e-v'
+        for (ll, lv) in leftvertices
+            for (rl, rv) in rightvertices
+                temp = (rv .- lv .+ p) .% p
+                lab = contribedge[temp]
+                edgs = [lab]
+                if parflag
+                    for a in paralleledges
+                        push!(edgs, a + lab)
+                    end
+                end
+                tup = (ll, lv, edgs, rv, rl)
+                if tup ∉ fundamental
+                    push!(fundamental, tup)
+                end
+            end
+        end
+
+        # record fundamental in E[i1]
+        sort!(fundamental, by=last)
+        count = 1
+        cur = fundamental[1][5]
+        Vrightlocs = trues(Vrlen) # TODO: switch to profiles reference
+        for (ll, _, edgs, _, rl) in fundamental
+            rl == cur || (count = 1; cur = rl;)
+            for e in edgs
+                E[i][rl][count].label = e
+                E[i][rl][count].outvertex = ll
+                if typeof(C) <: AbstractStabilizerCode
+                    sign = R(0)
+                    for (j, k) in enumerate(e)
+                        if !iszero(coeff(k, 0))
+                            sign += charactervector(C)[bds[i] + j]
+                        end
+                        if !iszero(coeff(k, 1))
+                            sign += charactervector(C)[bds[i] + j + n]
+                        end
+                    end
+                    E[i][rl][count].sign = sign
+                end
+                count += 1
+            end
+            Vrightlocs[rl] = false
+        end
+
+        # there's nothing but the fundamental in E[1] and E[end]
+        if i != 1 && i != length(bds) - 1
+            # shift fundamental edge configuration
+            rloc = findfirst(x->x==true, Vrightlocs)
+            lenact = length(activeVs[i])
+            while !isnothing(rloc)
+                for edg in keys(edgecontrib)
+                    errorsyn = edgecontrib[edg]
+                    # int to small active digits array
+                    bin = reverse(digits(rloc - 1, base=p, pad=lenact))
+                    # to full syn length size
+                    rightsyn = zeros(Int64, synlen)
+                    loc = 1
+                    for j in activeVs[i]
+                        rightsyn[j] = bin[loc]
+                        loc += 1
+                    end
+                    leftsyn = (rightsyn .- errorsyn .+ p) .% p
+                    # check if this exists and only shift if it does
+                    if iszero(leftsyn[setdiff(1:synlen, activeVs[i - 1])])
+                        # now have v-e-v' not in the fundamental edge configuration
+                        # use it to shift
+                        count = 1
+                        cur = fundamental[1][5]
+                        for (_, lv, edgs, rv, rl) in fundamental
+                            rl == cur || (count = 1; cur = rl;)
+                            rightv = (rv .+ rightsyn .+ p) .% p
+                            # okay to reuse variable here
+                            rl = BigInt(digitstoint(reverse(rightv[activeVs[i]], dims=1), p)) + 1
+                            leftv = (lv .+ leftsyn .+ p) .% p
+                            E[i][rl][count].outvertex = BigInt(digitstoint(reverse(leftv[activeVs[i - 1]], dims=1), p)) + 1
+                            for e in edgs
+                                newe = e + edg
+                                E[i][rl][count].label = newe
+                                if typeof(C) <: AbstractStabilizerCode
+                                    sign = R(0)
+                                    for (j, k) in enumerate(newe)
+                                        if !iszero(coeff(k, 0))
+                                            sign += charactervector(C)[bds[i] + j]
+                                        end
+                                        if !iszero(coeff(k, 1))
+                                            sign += charactervector(C)[bds[i] + j + n]
+                                        end
+                                    end
+                                    E[i][rl][count].sign = sign
+                                end
+                                count += 1
+                            end
+                            Vrightlocs[rloc] = false
+                        end
+                    end
+                end
+                rloc = findfirst(x->x==true, Vrightlocs)
+            end
+        end
+        verbose && println("E[$i] complete")
+    end
+
+    if typeof(C) <: AbstractLinearCode
+        return Trellis(V, E, C, missing, zero_matrix(K, 1, n))
+    else
+        return Trellis(V, E, C, missing, zero_matrix(K, 1, 2 * n))
+    end
+end

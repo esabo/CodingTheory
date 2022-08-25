@@ -25,8 +25,10 @@ mutable struct CSSCode <: AbstractCSSCode
     charvec::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
+    sCWElogs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
-    Lsigns::Union{Vector{nmod}, Missing}
+    pure::Union{Bool, Missing}
+    # Lsigns::Union{Vector{nmod}, Missing}
 end
 
 mutable struct QuantumCode <: AbstractStabilizerCode
@@ -42,7 +44,9 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     signs::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
+    sCWElogs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
+    pure::Union{Bool, Missing}
 end
 
 """
@@ -82,7 +86,7 @@ Return the cardinality of the stabilizer group of the code.
 
 No size checking is done on the parameters of the code, returns a BitInt by default.
 """
-cardinality(S::AbstractStabilizerCode) = BigInt(order(S.F))^S.k
+cardinality(S::AbstractStabilizerCode) = BigInt(characteristic(S.F))^(S.n - S.k)
 
 """
     rate(S::AbstractStabilizerCode)
@@ -201,7 +205,7 @@ function _getsigns(A::fq_nmod_mat, charvec::Vector{nmod})
     for r in 1:nrows(A)
         parity = R(0)
         for c = 1:nc
-            parity += charvec[c]
+            !iszero(A[r, c]) && (parity += charvec[c];)
         end
         append!(signs, parity)
     end
@@ -372,11 +376,11 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(C1.F))^ncols(Sq2) // BigInt(p)^rank(S)
-    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     return CSSCode(C1.F, E, C1.n, dimcode, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
         C2, C1, signs, Xsigns, Zsigns, dualgens, missing, charvec, missing,
-        missing, false, missing)
+        missing, missing, false, missing)
 end
 
 """
@@ -454,11 +458,11 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rank(S)
-    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, D.d, D.d, Sq2,
         D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, charvec,
-        missing, missing, overcomp, missing)
+        missing, missing, missing, overcomp, missing)
 end
 
 """
@@ -559,7 +563,7 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
 
     return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
         Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
-        missing, charvec, missing, missing, overcomp, missing)
+        missing, charvec, missing, missing, missing, overcomp, missing)
 end
 
 """
@@ -648,13 +652,13 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^Srank
-    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, overcomp, missing)
+            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -751,10 +755,10 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, overcomp, missing)
+            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, charvec, signs, missing, missing, overcomp)
+            missing, charvec, signs, missing, missing, missing, overcomp, missing)
     end
 end
 
@@ -857,10 +861,10 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     if args[1]
         return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
             Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, overcomp, missing)
+            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
     else
         return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, charvec, signs, missing, missing, overcomp)
+            missing, charvec, signs, missing, missing, missing, overcomp, missing)
     end
 end
 
@@ -923,6 +927,7 @@ function logicals(S::AbstractStabilizerCode)
         L = L[setdiff(1:nrows(L), [1, first]), :]
     end
     S.logicals = logs
+    return logs
 end
 
 function _testlogicalsrelationships(S::AbstractStabilizerCode)
@@ -938,7 +943,10 @@ end
 
 Returns the result of `logicals(S)` as a vertically concatenated matrix.
 """
-logicalsmatrix(S::AbstractStabilizerCode) = return vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
+function logicalsmatrix(S::AbstractStabilizerCode)
+    ismissing(S.logicals) && logicals(S)
+    return vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
+end
 
 """
     setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
@@ -991,11 +999,11 @@ function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=fals
         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
     end
     S.logicals = logs
-    logspace = vcat(logs[1][1], logs[1][2])
-    for i in 2:length(logs)
-        logspace = vcat(logspace, logs[i][1], logs[i][2])
-    end
-    S.logspace = logspace
+    # logspace = vcat(logs[1][1], logs[1][2])
+    # for i in 2:length(logs)
+    #     logspace = vcat(logspace, logs[i][1], logs[i][2])
+    # end
+    # S.logspace = logspace
 end
 
 
@@ -1234,6 +1242,30 @@ function allstabilizers(S::AbstractStabilizerCode, onlyprint::Bool=false)
     end
 end
 elements(Q::AbstractStabilizerCode, onlyprint::Bool=false) = allstabilizers(Q, onlyprint)
+
+#############################
+#       Graph States  #
+#############################
+
+function graphstate(G::SimpleGraph{Int64})
+    # probably need some checks on G here but maybe the function args are good enough
+    A = adjacency_matrix(G)
+    _, nc = size(A)
+    # are there non-binary graph states?
+    F, _ = FiniteField(2, 1, "α")
+    fone = F(1)
+    symstabs = zero_matrix(F, nc, 2 * nc)
+    for r in 1:nc
+        symstabs[r, r] = fone
+        for c in 1:nc
+            isone(A[r, c]) && (symstabs[r, c + nc] = fone;)
+        end
+    end
+
+    # what do I actually want to return here, an [[n, 0, d]] object?
+    return symstabs
+end
+
 
 #############################
 #   Generator Coefficients  #
