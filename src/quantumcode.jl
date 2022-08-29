@@ -7,11 +7,11 @@
 mutable struct CSSCode <: AbstractCSSCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field
-    n::Integer
-    k::Union{Integer, Rational{BigInt}}
-    d::Union{Integer, Missing}
-    dx::Union{Integer, Missing}
-    dz::Union{Integer, Missing}
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    d::Union{Int, Missing}
+    dx::Union{Int, Missing}
+    dz::Union{Int, Missing}
     stabs::fq_nmod_mat
     Xstabs::fq_nmod_mat
     Zstabs::fq_nmod_mat
@@ -34,9 +34,9 @@ end
 mutable struct QuantumCode <: AbstractStabilizerCode
     F::FqNmodFiniteField # base field (symplectic)
     E::FqNmodFiniteField # additive field
-    n::Integer
-    k::Union{Integer, Rational{BigInt}}
-    d::Union{Integer, Missing}
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    d::Union{Int, Missing}
     stabs::fq_nmod_mat
     dualgens::fq_nmod_mat
     logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
@@ -47,6 +47,40 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     sCWElogs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
     pure::Union{Bool, Missing}
+end
+
+mutable struct GraphState <: AbstractStabilizerCode
+    F::FqNmodFiniteField # base field (symplectic)
+    E::FqNmodFiniteField # additive field
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    stabs::fq_nmod_mat
+    charvec::Vector{nmod}
+    signs::Vector{nmod}
+    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    overcomplete::Bool
+end
+
+mutable struct GraphStateCSS <: AbstractCSSCode
+    F::FqNmodFiniteField # base field (symplectic)
+    E::FqNmodFiniteField # additive field
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    dx::Union{Int, Missing}
+    dz::Union{Int, Missing}
+    stabs::fq_nmod_mat
+    Xstabs::fq_nmod_mat
+    Zstabs::fq_nmod_mat
+    Xorigcode::Union{LinearCode, Missing}
+    ZorigCode::Union{LinearCode, Missing}
+    signs::Vector{nmod}
+    Xsigns::Vector{nmod}
+    Zsigns::Vector{nmod}
+    charvec::Vector{nmod}
+    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    overcomplete::Bool
 end
 
 """
@@ -162,13 +196,13 @@ Return the character vector of the code.
 charactervector(S::AbstractStabilizerCode) = S.charvec
 
 """
-    setminimumdistance(S::AbstractStabilizerCode, d::Integer)
+    setminimumdistance(S::AbstractStabilizerCode, d::Int)
 
 Set the minimum distance of the code to `d`.
 
 The only check done on the value of `d` is that `1 ≤ d ≤ n`.
 """
-function setminimumdistance!(S::AbstractStabilizerCode, d::Integer)
+function setminimumdistance!(S::AbstractStabilizerCode, d::Int)
     # TODO: should check bounds like Singleton for possibilities
     d > 0 && d <= S.n || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
     S.d = d
@@ -366,21 +400,27 @@ function CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     nrD = nrows(D2.H)
     if iszero(charvec)
         signs = [R(0) for _ in 1:nrows(S)]
-        Xsigns = [R(0) for _ in 1:nr]
+        Xsigns = [R(0) for _ in 1:nrD]
         Zsigns = [R(0) for _ in 1:nrows(C1.H)]
     else
         signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nr, :]
-        Zsigns = signs[nr + 1:end, :]
+        Xsigns = signs[1:nrD, :]
+        Zsigns = signs[nrD + 1:end, :]
     end
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(C1.F))^ncols(Sq2) // BigInt(p)^rank(S)
-    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
+    rkS = rank(S)
+    if rkS != C1.n
+        dimcode = BigInt(order(C1.F))^ncols(Sq2) // BigInt(p)^rkS
+        isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-    return CSSCode(C1.F, E, C1.n, dimcode, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
-        C2, C1, signs, Xsigns, Zsigns, dualgens, missing, charvec, missing,
-        missing, missing, false, missing)
+        return CSSCode(C1.F, E, C1.n, dimcode, missing, missing, missing, Sq2, D2.H, C1.H,
+            C2, C1, signs, Xsigns, Zsigns, dualgens, missing, charvec, missing,
+            missing, missing, false, missing)
+    else
+        return GraphStateCSS(C1.F, E, C1.n, 0, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
+            C2, C1, signs, Xsigns, Zsigns, charvec, missing, false)
+    end
 end
 
 """
@@ -457,12 +497,18 @@ function CSSCode(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     end
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rank(S)
-    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
+    rkS = rank(S)
+    if rkS != D.n
+        dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rkS
+        isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-    return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, D.d, D.d, Sq2,
-        D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, charvec,
-        missing, missing, missing, overcomp, missing)
+        return CSSCode(D.F, base_ring(Sq2), D.n, dimcode, missing, missing, missing, Sq2,
+            D.H, D.H, C, D, signs, Xsigns, Zsigns, dualgens, missing, charvec,
+            missing, missing, missing, overcomp, missing)
+    else
+        return GraphStateCSS(D.F, base_ring(Sq2), D.n, 0, missing, D.d, D.d, Sq2,
+            D.H, D.H, C, D, signs, Xsigns, Zsigns, charvec, missing, false)
+    end
 end
 
 """
@@ -558,12 +604,19 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(F))^n // BigInt(p)^(Xrank + Zrank)
-    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
+    rkS = Xrank + Zrank
+    if rkS != n
+        dimcode = BigInt(order(F))^n // BigInt(p)^rkS
+        isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-    return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
-        Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
-        missing, charvec, missing, missing, missing, overcomp, missing)
+        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
+            Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
+            missing, charvec, missing, missing, missing, overcomp, missing)
+    else
+        return GraphStateCSS(F, base_ring(Sq2), n, 0, missing, missing, missing, Sq2,
+            Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, charvec, missing,
+            overcomp)
+    end
 end
 
 """
@@ -629,8 +682,8 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     n = ncols(Sq2)
 
     # determine if the provided set of stabilizers are redundant
-    Srank = rank(S)
-    if nrows(S) > Srank
+    rkS = rank(S)
+    if nrows(S) > rkS
         overcomp = true
     else
         overcomp = false
@@ -646,19 +699,25 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # n + (n - Srank)
-    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
+    # n + (n - rkS)
+    ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
-    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
-
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
-            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        if rkS != n
+            dimcode = BigInt(order(F))^n // BigInt(p)^rkS
+            isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
+
+            return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        else
+            return GraphStateCSS(F, base_ring(Sq2), n, 0, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                charvec, missing, overcomp)
+        end
     else
         error("Provided Pauli strings are not CSS.")
     end
@@ -725,8 +784,8 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     n = ncols(Sq2)
 
     # determine if the provided set of stabilizers are redundant
-    Srank = rank(S)
-    if nrows(S) > Srank
+    rkS = rank(S)
+    if nrows(S) > rkS
         overcomp = true
     else
         overcomp = false
@@ -742,23 +801,34 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # println("H: ", size(H), ", n: ", n, ", k: ", Srank)
-    # n + (n - Srank)
-    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
+    # println("H: ", size(H), ", n: ", n, ", k: ", rkS)
+    # n + (n - rkS)
+    ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
+    dimcode = BigInt(order(F))^n // BigInt(p)^rkS
     isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
-            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        if rkS != n
+            return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        else
+            return GraphStateCSS(F, base_ring(Sq2), n, 0, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                charvec, missing, overcomp)
+        end
     else
-        return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, charvec, signs, missing, missing, missing, overcomp, missing)
+        if rkS != n
+            return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
+                missing, charvec, signs, missing, missing, missing, overcomp, missing)
+        else
+            return GraphState(F, base_ring(Sq2), n, 0, missing, Sq2, charvec, signs,
+                missing, overcomp)
+        end
     end
 end
 
@@ -832,8 +902,8 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     end
 
     # determine if the provided set of stabilizers are redundant
-    Srank = rank(S)
-    if nrows(S) > Srank
+    rkS = rank(S)
+    if nrows(S) > rkS
         overcomp = true
     else
         overcomp = false
@@ -849,22 +919,33 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)]))
-    # n + (n - Srank)
-    ncols(H) == 2 * n - Srank || error("Normalizer matrix is not size n + k.")
+    # n + (n - rkS)
+    ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
     dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(F))^n // BigInt(p)^Srank
+    dimcode = BigInt(order(F))^n // BigInt(p)^rkS
     isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
-            Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-            dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        if rkS != n
+            return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                dualgens, missing, charvec, missing, missing, missing, overcomp, missing)
+        else
+            return GraphStateCSS(F, base_ring(Sq2), n, 0, missing, missing, missing,
+                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
+                charvec, missing, overcomp)
+        end
     else
-        return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
-            missing, charvec, signs, missing, missing, missing, overcomp, missing)
+        if rkS != n
+            return QuantumCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, dualgens,
+                missing, charvec, signs, missing, missing, missing, overcomp, missing)
+        else
+            return GraphState(F, base_ring(Sq2), n, 0, missing, Sq2, charvec, signs,
+                missing, overcomp)
+        end
     end
 end
 
@@ -926,6 +1007,7 @@ Each pair commutes with all other pairs.
 """
 # slow, but works currently and without permutations
 function logicals(S::AbstractStabilizerCode)
+    typeof(S) ∈ [GraphState, GraphStateCSS] && error("Graph states have no logical operators.")
     ismissing(S.logicals) || return S.logicals
     L = _quotientspace(quadratictosymplectic(S.dualgens), quadratictosymplectic(S.stabs))
     S.logicals = _makepairs(L)
@@ -933,6 +1015,7 @@ function logicals(S::AbstractStabilizerCode)
 end
 
 function _testlogicalsrelationships(S::AbstractStabilizerCode)
+    typeof(S) ∈ [GraphState, GraphStateCSS] && error("Graph states have no logical operators.")
     L = vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
     Lsym = quadratictosymplectic(L);
     prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
@@ -946,6 +1029,7 @@ end
 Returns the result of `logicals(S)` as a vertically concatenated matrix.
 """
 function logicalsmatrix(S::AbstractStabilizerCode)
+    typeof(S) ∈ [GraphState, GraphStateCSS] && error("Graph states have no logical operators.")
     ismissing(S.logicals) && logicals(S)
     return vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
 end
@@ -959,6 +1043,7 @@ If the optional parameter `symp` is set to `true`, `L` is assumed to be in
 symplectic form over the base field of `S`.
 """
 function setlogicals!(S::AbstractStabilizerCode, L::fq_nmod_mat, symp::Bool=false)
+    typeof(S) ∈ [GraphState, GraphStateCSS] && error("Graph states have no logical operators.")
     if symp
         Lsym = L
         size(L) == (2 * S.k, 2 * S.n) || error("Provided matrix is of incorrect size for the logical space.")
@@ -1106,14 +1191,14 @@ function show(io::IO, S::AbstractStabilizerCode)
                     end
                 end
             end
-            if !ismissing(S.sCWEstabs)
-                println(io, "\nSigned complete weight enumerator for the stabilizer:")
-                print(io, "\t", polynomial(S.sCWEstabs))
-            end
-            if !ismissing(S.sCWEdual)
-                println(io, "\nSigned complete weight enumerator for the normalizer:")
-                print(io, "\t", polynomial(S.sCWEdual))
-            end
+            # if !ismissing(S.sCWEstabs)
+            #     println(io, "\nSigned complete weight enumerator for the stabilizer:")
+            #     print(io, "\t", polynomial(S.sCWEstabs))
+            # end
+            # if !ismissing(S.sCWEdual)
+            #     println(io, "\nSigned complete weight enumerator for the normalizer:")
+            #     print(io, "\t", polynomial(S.sCWEdual))
+            # end
         else
             if typeof(dimension(S)) <: Integer
                 if ismissing(S.d)
@@ -1145,13 +1230,85 @@ function show(io::IO, S::AbstractStabilizerCode)
                     end
                 end
             end
-            if !ismissing(S.sCWEstabs)
-                println(io, "\nSigned complete weight enumerator for the stabilizer:")
-                print(io, "\t", polynomial(S.sCWEstabs))
+            # if !ismissing(S.sCWEstabs)
+            #     println(io, "\nSigned complete weight enumerator for the stabilizer:")
+            #     print(io, "\t", polynomial(S.sCWEstabs))
+            # end
+            # if !ismissing(S.sCWEdual)
+            #     println(io, "\nSigned complete weight enumerator for the normalizer:")
+            #     print(io, "\t", polynomial(S.sCWEdual))
+            # end
+        end
+    end
+end
+
+function show(io::IO, S::Union{GraphState, GraphStateCSS})
+    if typeof(S) == GraphStateCSS
+        if ismissing(S.d)
+            println(io, "[[$(S.n)), 0]]_$(order(S.F)) CSS graph state.")
+        else
+            println(io, "[[$(S.n), 0, $(S.d)]]_$(order(S.F)) CSS graph state.")
+        end
+    else
+        if ismissing(S.d)
+            println(io, "[[$(S.n)), 0]]_$(order(S.F)) graph state.")
+        else
+            println(io, "[[$(S.n), 0, $(S.d)]]_$(order(S.F)) graph state.")
+        end
+    end
+    if !get(io, :compact, false)
+        if typeof(S) == GraphStateCSS
+            if S.overcomplete
+                println(io, "X-stabilizer matrix (overcomplete): $(numXstabs(S)) × $(S.n)")
+            else
+                println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(S.n)")
             end
-            if !ismissing(S.sCWEdual)
-                println(io, "\nSigned complete weight enumerator for the normalizer:")
-                print(io, "\t", polynomial(S.sCWEdual))
+            for i in 1:numXstabs(S)
+                print(io, "\t chi($(S.Xsigns[i])) ")
+                for j in 1:S.n
+                    if j != S.n
+                        print(io, "$(S.Xstabs[i, j]) ")
+                    elseif j == S.n && i != S.n
+                        println(io, "$(S.Xstabs[i, j])")
+                    else
+                        print(io, "$(S.Xstabs[i, j])")
+                    end
+                end
+            end
+            if isovercomplete(S)
+                println(io, "Z-stabilizer matrix (overcomplete): $(numZstabs(S)) × $(S.n)")
+            else
+                println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(S.n)")
+            end
+            for i in 1:numZstabs(S)
+                print(io, "\t chi($(S.Zsigns[i])) ")
+                for j in 1:S.n
+                    if j != S.n
+                        print(io, "$(S.Zstabs[i, j]) ")
+                    elseif j == S.n && i != S.n
+                        println(io, "$(S.Zstabs[i, j])")
+                    else
+                        print(io, "$(S.Zstabs[i, j])")
+                    end
+                end
+            end
+        else
+            if isovercomplete(S)
+                println(io, "Stabilizer matrix (overcomplete): $(nrows(S.stabs)) × $(S.n)")
+            else
+                println(io, "Stabilizer matrix: $(nrows(S.stabs)) × $(S.n)")
+            end
+            for i in 1:nrows(S.stabs)
+                print(io, "\t chi($(S.signs[i])) ")
+                for j in 1:S.n
+                    if j != S.n
+                        print(io, "$(S.stabs[i, j]) ")
+                    elseif j == S.n && i != S.n
+                        println(io, "$(S.stabs[i, j])")
+                    else
+                        print(io, "$(S.stabs[i, j])")
+                    end
+                end
             end
         end
     end
@@ -1256,6 +1413,7 @@ Return the code created by added `row` to the stabilizers of `S`.
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
 function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)
+    typeof(S) ∈ [GraphState, GraphStateCSS] && return S
     iszero(row) && return S
     nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
 
@@ -1343,17 +1501,22 @@ function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=t
     verbose && println("Removing stabilizers $rows")
     newstabs = S.stabs[setdiff(1:numstabs, rows)]
     Snew = QuantumCode(newstabs, false, S.charvec)
-    logs = logicals(S)
-    logsmatrix = logicalsmatrix(S)
-    small = vcat(newstabs, logsmatrix)
-    _, H = right_kernel(hcat(newstabs[:, S.n + 1:end], -newstabs[:, 1:S.n]))
-    dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
-    temp = _quotientspace(dualgenssym, small)
-    newlogs = _makepairs(temp)
-    verbose && println("New logicals:")
-    verbose && display(newlogs)
-    Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
-    return Snew
+    if typeof(S) ∉ [GraphState, GraphStateCSS]
+        logs = logicals(S)
+        logsmatrix = logicalsmatrix(S)
+        small = vcat(newstabs, logsmatrix)
+        _, H = right_kernel(hcat(newstabs[:, S.n + 1:end], -newstabs[:, 1:S.n]))
+        dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
+        temp = _quotientspace(dualgenssym, small)
+        newlogs = _makepairs(temp)
+        verbose && println("New logicals:")
+        verbose && display(newlogs)
+        Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
+        return Snew
+    else
+        verbose && println("Started with all graph state. New logicals:")
+        verbose && display(logicals(Snew))
+    end
 end
 
 #############################
@@ -1377,9 +1540,8 @@ function graphstate(G::SimpleGraph{Int64})
             isone(A[r, c]) && (symstabs[r, c + nc] = fone;)
         end
     end
-
-    # what do I actually want to return here, an [[n, 0, d]] object?
-    return symstabs
+    # this should automatically compute everything for the GraphState constructor
+    return QuantumCode(symstabs, true, missing)
 end
 
 #############################

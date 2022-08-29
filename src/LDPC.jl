@@ -316,10 +316,10 @@ function show(io::IO, C::AbstractLDPCCode)
                 end
             end
         end
-        if !ismissing(C.weightenum)
-            println(io, "\nComplete weight enumerator:")
-            println(io, "\t", C.weightenum.polynomial)
-        end
+        # if !ismissing(C.weightenum)
+        #     println(io, "\nComplete weight enumerator:")
+        #     println(io, "\t", C.weightenum.polynomial)
+        # end
         println(io, "\nVariable degree polynomial:")
         println(io, "\t", C.λ)
         println(io, "Check degree polynomial:")
