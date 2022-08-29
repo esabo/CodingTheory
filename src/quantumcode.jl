@@ -559,7 +559,7 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^(Xrank + Zrank)
-    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     return CSSCode(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
         Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, dualgens,
@@ -749,7 +749,7 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^Srank
-    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
@@ -855,7 +855,7 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^Srank
-    isinteger(dimcode) && (dimcode = Int64(log(BigInt(p), dimcode));)
+    isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
@@ -868,13 +868,11 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     end
 end
 
-function _logicalspace(S::AbstractStabilizerCode)
-    F = S.F
-    G = quadratictosymplectic(S.stabs)
-    Gdual = quadratictosymplectic(S.dualgens)
+function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
+    F = base_ring(big)
     V = VectorSpace(F, 2 * S.n)
-    U, UtoV = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
-    W, WtoV = sub(V, [V(Gdual[i, :]) for i in 1:nrows(Gdual)])
+    U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
+    W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
     gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
     UinW, _ = sub(W, gensofUinW)
     Q, WtoQ = quo(W, UinW)
@@ -883,19 +881,9 @@ function _logicalspace(S::AbstractStabilizerCode)
     return symplectictoquadratic(matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...)))
 end
 
-"""
-    logicals(S::AbstractStabilizerCode)
-
-Return a vector of tuples of pairs of logical operators for `S`.
-
-Each pair commutes with all other pairs.
-"""
-# slow, but works currently and without permutations
-function logicals(S::AbstractStabilizerCode)
-    ismissing(S.logicals) || return S.logicals
-
-    E = S.E
-    L = _logicalspace(S)
+function _makepairs(L::fq_nmod_mat)
+    E = base_ring(L)
+    n = ncols(L)
     logs = Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}()
     # this does indeed grow smaller each iteration
     while nrows(L) >= 2
@@ -903,7 +891,7 @@ function logicals(S::AbstractStabilizerCode)
         # the columns in prod give the commutation relationships between the provided
         # logical operators; they ideally should only consist of {X_1, Z_i} pairs
         # so there should only be one nonzero element in each column
-        prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+        prod = hcat(Lsym[:, n + 1:end], -Lsym[:, 1:n]) * transpose(Lsym)
         nprod = ncols(prod)
         first = 0
         for c in 1:nprod
@@ -926,7 +914,21 @@ function logicals(S::AbstractStabilizerCode)
         push!(logs, (L[1, :], L[first, :]))
         L = L[setdiff(1:nrows(L), [1, first]), :]
     end
-    S.logicals = logs
+    return logs
+end
+
+"""
+    logicals(S::AbstractStabilizerCode)
+
+Return a vector of tuples of pairs of logical operators for `S`.
+
+Each pair commutes with all other pairs.
+"""
+# slow, but works currently and without permutations
+function logicals(S::AbstractStabilizerCode)
+    ismissing(S.logicals) || return S.logicals
+    L = _quotientspace(quadratictosymplectic(S.dualgens), quadratictosymplectic(S.stabs))
+    S.logicals = _makepairs(L)
     return logs
 end
 
@@ -1243,6 +1245,117 @@ function allstabilizers(S::AbstractStabilizerCode, onlyprint::Bool=false)
 end
 elements(Q::AbstractStabilizerCode, onlyprint::Bool=false) = allstabilizers(Q, onlyprint)
 
+"""
+    augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)
+
+Return the code created by added `row` to the stabilizers of `S`.
+
+* Notes:
+- The goal of this function is to track how the logical operators update given the new stabilizer.
+  The unaffected logical operators are kept during the update and only those which don't commute
+  with the new stabilizer are recomputed. Use `verbose` to better 
+"""
+function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)
+    iszero(row) && return S
+    nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
+
+    # it might be extremely problematic how I create fields throughout since they are pointer equality
+    if symp
+        ncols(row) == 2 * S.n || throw(ArgumentError("Symplectic flag set but row has incorrect number of columns."))
+        base_ring(row) == S.F || throw(ArgumentError("Row must be over the same ring as the code."))
+        rowq2 = symplectictoquadratic(row)
+    else
+        ncols(row) = S.n || throw(ArgumentError("Row has incorrect number of columns."))
+        base_ring(row) == S.E || throw(ArgumentError("Row must be over the same ring as the code."))
+        rowq2 = row
+        row = quadratictosymplectic(rowq2)
+    end
+
+    # this is a more theoretically pure way to do this, probably slower than the iszero(prod) below
+    # but this avoids possibly computing the logicals if they aren't already known and aren't needed
+    symstabs = quadratictosymplectic(S.stabs)
+    rankS = rank(symstabs)
+    newsymstabs = vcat(symstabs, row)
+    ranknewS = rank(newsymstabs)
+    if rankS == ranknewS
+        verbose && println("Row is already in the stabilizer group. Nothing to update.")    
+        return S
+    elseif S.k == 1
+        verbose && println("Row is not in the stabilizer group; the result is a graph state.")
+        return QuantumCode(vcat(S.stabs, row), false, S.charvec)
+    end
+
+    # not a stabilizer and multiple logical pairs
+    logs = logicals(S)
+    logsmat = logicalsmatrix(S)
+    Lsym = quadratictosymplectic(logsmat)
+    LsymEuc = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n])
+    prod = LsymEuc * row
+    # if iszero(prod)
+    #     verbose && println("Row is already in the stabilizer group. Nothing to update.")    
+    #     return S
+    # end
+    numlogs = nrows(logsmat)
+    logstokeep = Vector{Int}()
+    logpairstokeep = Vector{Int}()
+    # safer than 1:2k
+    pair = 1
+    for i in 1:2:numlogs
+        if iszero(prod[i]) && iszero(prod[i + 1])
+            append!(logstokeep, i, i + 1)
+            append!(logpairstokeep, pair)
+        end
+        pair += 1
+    end
+    if isempty(logstokeep)
+        verbose && println("Row does not commute with any logicals. The entire code needs to be recomputed from scratch.")
+        Snew = QuantumCode(vcat(S.stabs, row), false, S.charvec)
+        _ = logicals(Snew)
+        return Snew
+    end
+
+    verbose && println("Logical pairs not requiring updating:")
+    verbose && display(logs[logpairstokeep]) # how do I want to best display this?
+    temp = vcat(S.stabs, logsmat[logstokeep])
+    _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
+    temp = _quotientspace(dualgenssym, quadratictosymplectic(S.stabs))
+    newlogs = _makepairs(temp)
+    verbose && println("New logicals:")
+    verbose && display(newlogs)
+    Snew = QuantumCode(vcat(S.stabs, row), false, S.charvec)
+    Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
+    return Snew
+end
+
+"""
+    expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
+
+Return the code created by removing the stabilizers indexed by `rows`.
+
+* Notes:
+- The goal of this function is to track how the logical operators update through this process.
+  Here, the original logical pairs are kept and an appropriate number of new pairs are added.
+"""
+function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
+    numstabs = nrows(S.stabs)
+    rows ⊆ 1:numstabs || throw(ArgumentError("Argument rows not a subset of the number of stabilizers."))
+    verbose && println("Removing stabilizers $rows")
+    newstabs = S.stabs[setdiff(1:numstabs, rows)]
+    Snew = QuantumCode(newstabs, false, S.charvec)
+    logs = logicals(S)
+    logsmatrix = logicalsmatrix(S)
+    small = vcat(newstabs, logsmatrix)
+    _, H = right_kernel(hcat(newstabs[:, S.n + 1:end], -newstabs[:, 1:S.n]))
+    dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
+    temp = _quotientspace(dualgenssym, small)
+    newlogs = _makepairs(temp)
+    verbose && println("New logicals:")
+    verbose && display(newlogs)
+    Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
+    return Snew
+end
+
 #############################
 #       Graph States  #
 #############################
@@ -1251,6 +1364,9 @@ function graphstate(G::SimpleGraph{Int64})
     # probably need some checks on G here but maybe the function args are good enough
     A = adjacency_matrix(G)
     _, nc = size(A)
+    for i in 1:nc
+        iszero(A[i, i]) || error("Graph cannot have self-loops.")
+    end
     # are there non-binary graph states?
     F, _ = FiniteField(2, 1, "α")
     fone = F(1)
@@ -1265,7 +1381,6 @@ function graphstate(G::SimpleGraph{Int64})
     # what do I actually want to return here, an [[n, 0, d]] object?
     return symstabs
 end
-
 
 #############################
 #   Generator Coefficients  #

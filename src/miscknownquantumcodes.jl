@@ -70,7 +70,6 @@ Q15RM() = QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
     "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
 Q1513() = Q15RM()
 
-# TODO: dimension breaks creating this code
 """
     Q1573()
 

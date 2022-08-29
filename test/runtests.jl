@@ -493,6 +493,12 @@ end
     @test isnarrowsense(C)
     @test isprimitive(C)
 
+    # iscyclic - true parameter also tests cyclic code constructor given generator polynomial
+    # C = ReedSolomonCode(7, 3)
+    # H = HammingCode(2, 3)
+    # @test iscyclic(H, false) == false
+    # _, C2 = iscyclic(C, true) # this true is construct, can do an isequivalent here
+
 end
 #
 # @testset "GeneralizedReedSolomon.jl" begin
@@ -505,8 +511,13 @@ end
 
 # @testset "quantumcode.jl" begin
 #     using Nemo, CodingTheory
-#
+
 #     S = SteaneCode()
+
+#     S = Q1573()
+#     row = stabilizers(S)[1, :]
+#     S2 = augment(S, row)
+#     Row is already in the stabilizer group. Nothing to update.
 # end
 
 @testset "LDPC.jl" begin

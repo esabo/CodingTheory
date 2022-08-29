@@ -205,9 +205,10 @@ function ExtendedGolayCode(p::Int)
         H = hcat(-transpose(A), M(1))
         Gstand, Hstand = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
-            440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, "complete")
-        return LinearCode(F, 12, 6, 6, G, missing, H, missing, Gstand, Hstand, wtenum)
+        # this looks like Hamming and not complete
+        # wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
+        #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, "complete")
+        return LinearCode(F, 12, 6, 6, G, missing, H, missing, Gstand, Hstand, missing)
     else
         error("Golay code not implemented for q = $q.")
     end

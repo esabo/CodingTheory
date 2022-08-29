@@ -717,8 +717,9 @@ function BCHCode(C::AbstractCyclicCode)
     error("Failed to create BCH supercode.")
 end
 
-# TODO: finish and finish the above CyclicCode constructor this calls
 function iscyclic(C::AbstractLinearCode, construct::Bool=true)
+    typeof(C) <: AbstractCyclicCode && (return true, C;)
+    
     ordF = Int(order(C.F))
     gcd(C.n, ordF) == 1 || return false
     (p, t), = factor(ordF)
@@ -728,9 +729,10 @@ function iscyclic(C::AbstractLinearCode, construct::Bool=true)
     # β = α^(div(q^deg - 1, n))
 
     G = generatormatrix(C)
-    g = R(FpmattoJulia(G[1, :])[1, :])
+    nc = ncols(G)
+    g = R([E(G[1, i]) for i in 1:nc])
     for r in 2:nrows(G)
-        g = gcd(g, R(FpmattoJulia(G[r, :])[1, :]))
+        g = gcd(g, R([E(G[r, i]) for i in 1:nc]))
     end
     isone(g) && return false
     degree(g) == C.n - C.k || return false
