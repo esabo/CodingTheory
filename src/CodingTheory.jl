@@ -125,7 +125,10 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
     printstringarray, printchararray, printsymplecticarray, pseudoinverse,
     quadratictosymplectic, symplectictoquadratic, _removeempty, quadraticresidues,
-    digitstoint
+    digitstoint, isbasis, primitivebasis, #polynomialbasis, monomialbasis,
+    normalbasis, dualbasis, complementarybasis, verifydualbasis,
+    verifycomplementarybasis, isequivalentbasis, isselfdualbasis,
+    isprimitivebasis, isnormalbasis, isextension
     #, _processstrings,
     #_Paulistringtosymplectic,
 

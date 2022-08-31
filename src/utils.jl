@@ -66,57 +66,6 @@ distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
 dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
 
 """
-    tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
-
-Return the relative trace of `x` from its base field to the field `K`.
-
-If the optional parameter `verify` is set to `true`, the two fields are checked
-for compatibility.
-"""
-function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
-    L = parent(x)
-    q = order(K)
-    if verify
-        # shouldn't need Int casting here but just in case...
-        Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
-        degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
-    end
-    n = div(degree(L), degree(K))
-    return sum([x^(q^i) for i in 0:(n - 1)])
-end
-
-function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
-    return [tr(x * i, K, verify) for i in basis]
-end
-
-function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
-    new_row = _expandelement(row[1], K, basis, verify)
-    for i in 2:ncols(row)
-        new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
-    end
-    return matrix(K, 1, length(new_row), new_row)
-end
-
-"""
-    expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
-
-Return the matrix constructed by expanding the elements of `M` to the subfield
-`K` using the provided `basis` for the base ring of `M` over `K`.
-
-No check is done to ensure that `basis` is indeed a basis for the extension.
-"""
-function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
-    L = base_ring(M)
-    L == K && return M
-    Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
-    degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
-    n = div(degree(L), degree(K))
-    n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
-    # should really check if it is a basis
-    return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
-end
-
-"""
     symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
 
 Return the symplectic inner product of `u` and `v`.
@@ -538,6 +487,76 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
     return A
 end
 
+function digitstoint(x::Vector{Int}, base::Int=2)
+    res = 0
+    lenx = length(x)
+    for i in 1:lenx
+        res = x[i] + base * res
+    end
+    return res
+end
+
+#############################
+        # Finite Fields
+#############################
+
+"""
+    tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
+
+Return the relative trace of `x` from its base field to the field `K`.
+
+If the optional parameter `verify` is set to `true`, the two fields are checked
+for compatibility.
+"""
+function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
+    L = parent(x)
+    q = order(K)
+    if verify
+        # shouldn't need Int casting here but just in case...
+        Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+        degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+    end
+    n = div(degree(L), degree(K))
+    return sum([x^(q^i) for i in 0:(n - 1)])
+end
+
+function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+    return [tr(x * i, K, verify) for i in basis]
+end
+
+function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+    new_row = _expandelement(row[1], K, basis, verify)
+    for i in 2:ncols(row)
+        new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
+    end
+    return matrix(K, 1, length(new_row), new_row)
+end
+
+"""
+    expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return the matrix constructed by expanding the elements of `M` to the subfield
+`K` using the provided `basis` for the base ring of `M` over `K`.
+
+No check is done to ensure that `basis` is indeed a basis for the extension.
+"""
+function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    L = base_ring(M)
+    L == K && return M
+    Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+    degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+    n = div(degree(L), degree(K))
+    n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
+    # should really check if it is a basis
+    return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
+end
+
+"""
+    quadraticresidues(q::Int, n::Int)
+
+Return the set of quadratic resides and quadratic non-residues of `q` and `n`.
+"""
+# TODO: improve this description
 function quadraticresidues(q::Int, n::Int)
     isodd(n) && isprime(n) || error("n must be an odd prime in quadratic residues")
     q^div(n - 1, 2) % n == 1 || error("q^(n - 1)/2 ≅ 1 mod n in quadratic residues")
@@ -555,14 +574,215 @@ function quadraticresidues(q::Int, n::Int)
     return qres, nqres
 end
 
-function digitstoint(x::Vector{Int}, base::Int=2)
-    res = 0
-    lenx = length(x)
-    for i in 1:lenx
-        res = x[i] + base * res
+function _isbasis(E::FqNmodFiniteField, basis::Vector{fq_nmod}, q::Int)
+    m = length(basis)
+    M = MatrixSpace(E, m, m)
+    B = M(0)
+    for r in 1:m
+        for c in 1:m
+            B[r, c] = basis[r]^(q^(c - 1))
+        end
     end
-    return res
+    iszero(det(B)) && return false, missing
+    
+    try
+        Binv = inv(B)
+        λ = [Binv[1, i] for i in 1:m]
+        return true, λ
+    catch
+        return false, missing
+    end
 end
+
+"""
+    isextension(E::FqNmodFiniteField, F::FqNmodFiniteField)
+
+Return `true` if `E/F` is a valid field extension.
+"""
+function isextension(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    p = Int(characteristic(E))
+    Int(characteristic(F)) == p || return false, missing
+    degE = degree(E)
+    degF = degree(F)
+    degE % degF == 0 || return false, missing
+    return true, div(degE, degF)
+end
+
+"""
+    isbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return `true` and the dual (complementary) basis if `basis` is a basis for `E/F`,
+otherwise return `false, missing`.
+"""
+function isbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    flag, m = isextension(E, F)
+    flag || throw(ArgumentError("Second field is not a subfield of the first."))
+    length(basis) == m || throw(ArgumentError("Basis does not have length degree of the extension."))
+    for i in 1:m
+        parent(basis[i]) == E || throw(ArgumentError("The basis must be elements of the extension field."))
+    end
+    return _isbasis(E, basis, Int(order(F)))
+end
+
+"""
+    primitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+
+Return a primitive basis for `E/F` and its dual (complementary) basis.
+"""
+function primitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    flag, m = isextension(E, F)
+    flag || throw(ArgumentError("Second field is not a subfield of the first."))
+    # TODO: this is only over the basis field, how to get relative?
+    # maybe do _isbasis on this because that involves q and hence brings in F
+    α = gen(E)
+    basis = [α^i for i in 0:m - 1]
+    flag, λ = _isbasis(E, basis, Int(order(F)))
+    return basis, λ
+end
+# these are slightly different
+# polynomialbasis(E::FqNmodFiniteField, F::FqNmodFiniteField) = primitivebasis(E, F)
+# monomialbasis(E::FqNmodFiniteField, F::FqNmodFiniteField) = primitivebasis(E, F)
+
+"""
+    normalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+
+Return a normal basis for `E/F` and its dual (complementary) basis.
+"""
+# "Normal Bases over Finite Fields" by Shuhong Gao has algorithms for this but they are
+# complicated for the field sizes intended in this work
+function normalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    flag, m = isextension(E, F)
+    flag || throw(ArgumentError("Second field is not a subfield of the first."))
+
+    q = Int(order(F))
+    elms = collect(E)
+    for e in elms
+        basis = [e^(q^i) for i in 0:m - 1]
+        flag, dualbasis = _isbasis(E, basis, q)
+        flag && return basis, dualbasis
+    end
+    error("Somehow failed to final a normal element for the extension.")
+end
+
+"""
+    dualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    complementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return the dual (complentary) basis of `basis` for the extension `E/F`.
+"""
+function dualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    flag, λ = isbasis(E, F, basis)
+    flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
+    return λ
+end
+complementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}) = dualbasis(E, F, basis)
+
+"""
+    verifydualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod})
+    verifycomplementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod})
+
+Return `true` if `basis` is the dual of `dualbasis` for `E/F`, otherwise return `false`.
+"""
+function verifydualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod})
+    flag, m = isextension(E, F)
+    flag || throw(ArgumentError("Second field is not a subfield of the first."))
+
+    m = length(basis)
+    length(dualbasis) == m || throw(ArgumentError("The basis and dual basis must have the same length."))
+    E = parent(basis[1])
+    for i in 1:m
+        parent(basis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+        parent(dualbasis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+    end
+
+    q = Int(order(F))
+    M = MatrixSpace(E, m, m)
+    B = M(0)
+    for r in 1:m
+        for c in 1:m
+            B[r, c] = basis[r]^(q^(c - 1))
+        end
+    end
+    Binv = M(0)
+    for r in 1:m
+        for c in 1:m
+            Binv[r, c] = dualbasis[c]^(q^(r - 1))
+        end
+    end
+    return B * Binv == M(1)
+end
+verifycomplementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod}) = verifydualbasis(E, F, basis, dualbasis)
+
+"""
+    isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+
+Return `true` if `basis` is a scalar multiple of `basis2`.`
+"""
+function isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+    m = length(basis)
+    length(basis2) == m || throw(ArgumentError("The two vectors must have the same length."))
+    c = basis[1] * basis2[1]^-1
+    E = parent(basis[1])
+    for i in 1:m
+        parent(basis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+        parent(basis2[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+        # for logical consistency should probably do this in a separate loop
+        basis[i] == c * basis2[i] || return false
+    end
+    return true
+end
+
+"""
+    isselfdualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return `true` if `basis` is equal to its dual.
+"""
+function isselfdualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    flag, λ = isbasis(E, F, basis)
+    flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
+    return basis == λ
+end
+
+"""
+    isprimitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return `true` if `basis` is a primitive basis for `E/F`.
+"""
+function isprimitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    flag, _ = isbasis(E, F, basis)
+    flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
+    isone(basis[1]) ? (x = basis[2];) : (x = basis[1];)
+    m = length(basis)
+    for i in 0:m - 1
+        x^i ∈ basis || return false
+    end
+    return true
+end
+
+"""
+    isnormalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+
+Return `true` if `basis` is a normal basis for `E/F`.
+"""
+function isnormalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    flag, _ = isbasis(E, F, basis)
+    flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
+    isone(basis[1]) ? (return false;) : (x = basis[1];)
+    m = length(basis)
+    q = Int(order(F))
+    for i in 0:m - 1
+        x^(q^i) ∈ basis || return false
+    end
+    return true
+end
+
+# The finite field F_q^n has a pair of self-dual bases for the following parameters.
+# (1) q is an even prime power.
+# (2) q is an odd prime power and n = 2k + 1.
+# (Imamura 1983) The finite field F_q^n has no self-dual power bases.
+
+
+
 
 # #=
 # Example of using the repeated iterator inside of product.

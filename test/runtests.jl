@@ -20,7 +20,7 @@ using Test
 end
 
 @testset "utils.jl" begin
-    using CodingTheory
+    using Nemo, CodingTheory
 
     # example: Betten et al
     # Golay code G_23
@@ -32,6 +32,124 @@ end
     qres, _ = quadraticresidues(3, 11)
     @test qres == [1, 3, 4, 5, 9]
 
+    F, _ = FiniteField(2, 1, "α1");
+    E, α = FiniteField(2, 3, "α");
+    flag, _ = isextension(E, F)
+    @test flag
+    basis = [α^3, α^5, α^6];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = primitivebasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = normalbasis(E, F)
+    flag, _ = isbasis(E, F, basis[1])
+    @test flag
+    @test verifydualbasis(E, F, basis[1], basis[2])
+
+    E, α = FiniteField(2, 4, "α");
+    flag, _ = isextension(E, F)
+    @test flag
+    basis = [α^3, α^6, α^9, α^12];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^7, α^11, α^13, α^14]
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = primitivebasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = normalbasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+
+    F, _ = FiniteField(3, 1, "α1");
+    E, α = FiniteField(3, 2, "α");
+    flag, _ = isextension(E, F)
+    @test flag
+    basis = [α, α^3];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^5, α^7];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = primitivebasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = normalbasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+
+    E, α = FiniteField(3, 3, "α");
+    flag, _ = isextension(E, F)
+    @test flag
+    basis = [α^2, α^6, α^18];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^4, α^10, α^12];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^5, α^15, α^19];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^7, α^11, α^21];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^8, α^20, α^24];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^17, α^23, α^25];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = primitivebasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    @test isprimitivebasis(E, F, basis)
+    basis, _ = normalbasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    @test isnormalbasis(E, F, basis)
+
+    F, _ = FiniteField(5, 1, "α1");
+    E, α = FiniteField(5, 2, "α");
+    flag, _ = isextension(E, F)
+    @test flag
+    basis = [α, α^5];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^2, α^10];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^4, α^20];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^7, α^11];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^8, α^16];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^13, α^17];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^14, α^22];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis = [α^19, α^23];
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = primitivebasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis, _ = normalbasis(E, F)
+    flag, _ = isbasis(E, F, basis)
+    @test flag
+    basis2 = [α * basis[i] for i in 1:2]
+    @test isequivalentbasis(basis, basis2)
+
+    F, _ = FiniteField(2, 1, "α1");
+    flag, _ = isextension(E, F)
+    @test flag == false
 end
 
 @testset "linearcode.jl" begin
