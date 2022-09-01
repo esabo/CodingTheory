@@ -324,16 +324,16 @@ end
     C2 = ReedMullerCode(2, r + 1, m)
     @test C ⊆ C2
 
-    # all weights of RM(r, m) are multiples of 2^(Int(ceil(m / r) - 1)
-    sup = support(C)
-    flag = true
-    for i in sup
-        if !iszero(i % 2^(Int(ceil(m / r) - 1)))
-            flag = false
-            break
-        end
-    end
-    @test flag == true
+    # # all weights of RM(r, m) are multiples of 2^(Int(ceil(m / r) - 1)
+    # sup = support(C)
+    # flag = true
+    # for i in sup
+    #     if !iszero(i % 2^(Int(ceil(m / r) - 1)))
+    #         flag = false
+    #         break
+    #     end
+    # end
+    # @test flag == true
 
     # RM(m - 1, m) contains all vectors of even weight
     C = ReedMullerCode(2, m - 1, m)
@@ -627,16 +627,22 @@ end
 #     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
 # end
 
-# @testset "quantumcode.jl" begin
-#     using Nemo, CodingTheory
+@testset "quantumcode.jl" begin
+    using Nemo, CodingTheory
 
-#     S = SteaneCode()
+    # S = SteaneCode()
 
-#     S = Q1573()
-#     row = stabilizers(S)[1, :]
-#     S2 = augment(S, row)
-#     Row is already in the stabilizer group. Nothing to update.
-# end
+    # S = Q1573()
+    # row = stabilizers(S)[1, :]
+    # S2 = augment(S, row)
+    # Row is already in the stabilizer group. Nothing to update.
+    Q = Q1573();
+    logs = logicals(Q);
+    newstab = logs[1][2] + logs[2][2];
+    Q2 = augment(Q, newstab, false, false);
+    Q3 = expurgate(Q2, [9], false);
+    @test isisomorphic(Q, Q3)
+end
 
 @testset "LDPC.jl" begin
     using Nemo, CodingTheory

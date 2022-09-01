@@ -11,7 +11,7 @@ using JLD2
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
-import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree
+import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic
 import Base: show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 
@@ -217,7 +217,7 @@ export field, quadraticfield, length, numqubits, dimension, cardinality,
     Xstabilizers, Zstabilizers, numXstabs, numZstabs, normalizermatrix,
     charactervector, relativedistance, splitstabilizers, isCSS, CSSCode,
     QuantumCode, logicalspace, setlogicals!, changesigns!, Xsyndrome, Zsyndrome,
-    syndrome, allstabilizers, elements, logicals, logicalsmatrix
+    syndrome, allstabilizers, elements, logicals, logicalsmatrix, isisomorphic
 
 #############################
   # miscknownquantumcodes.jl

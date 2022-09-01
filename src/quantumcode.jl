@@ -953,6 +953,35 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     end
 end
 
+"""
+    isisomorphic(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode)
+
+Return `true` if the stabilizers and logicals of `S1` and `S2` are isomorphic as
+symplectic vector spaces.
+
+* Note
+- This is not intended to detect if `S1` and `S2` are permutation equivalent.
+"""
+function isisomorphic(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode)
+    (S1.n == S2.n && S1.k == S2.k) || return false
+    (Int(order(S1.F)) == Int(order(S2.F)) && Int(order(S1.E)) == Int(order(S2.E))) || return false
+
+    V = VectorSpace(S1.F, 2 * S1.n);
+    # test stabilizers
+    S1symstabs = symplecticstabilizers(S1);
+    S2symstabs = symplecticstabilizers(S2);
+    S1VS, _ = sub(V, [V(S1symstabs[i, :]) for i in 1:nrows(S1symstabs)]);
+    S2VS, _ = sub(V, [V(S2symstabs[i, :]) for i in 1:nrows(S2symstabs)]);
+    is_isomorphic(S1VS, S2VS) || return false
+
+    # test logicals
+    S1symlogs = quadratictosymplectic(logicalsmatrix(S1));
+    S2symlogs = quadratictosymplectic(logicalsmatrix(S2));
+    S1logsVS, _ = sub(V, [V(S1symlogs[i, :]) for i in 1:nrows(S1symlogs)]);
+    S2logsVS, _ = sub(V, [V(S2symlogs[i, :]) for i in 1:nrows(S2symlogs)]);
+    return is_isomorphic(S1logsVS, S2logsVS)
+end
+
 function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
     F = base_ring(big)
     V = VectorSpace(F, ncols(big))
