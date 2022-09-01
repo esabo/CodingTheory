@@ -38,8 +38,8 @@ At the moment, all functions work as intended for test cases but have not been u
 - LDPC codes: degree distributions/polynomials, Tanner graph
 
 ### Quantum
-- Stabilizer codes over $\mathbb{F}_p$ with auto CSS and graph state detection
-- CSS constructions over $\mathbb{F}_p$ from linear codes or matrices
+- Stabilizer codes over $\mathbb{F}_q$ with auto CSS and graph state detection
+- CSS constructions over $\mathbb{F}_q$ from linear codes or matrices
 - Qubit code constructions using Pauli strings
 - Able to keep an over complete set of stabilizers
 - Keeps track of signs of elements

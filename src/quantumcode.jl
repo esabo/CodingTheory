@@ -951,7 +951,7 @@ end
 
 function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
     F = base_ring(big)
-    V = VectorSpace(F, 2 * S.n)
+    V = VectorSpace(F, ncols(big))
     U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
     W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
     gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
@@ -1011,7 +1011,7 @@ function logicals(S::AbstractStabilizerCode)
     ismissing(S.logicals) || return S.logicals
     L = _quotientspace(quadratictosymplectic(S.dualgens), quadratictosymplectic(S.stabs))
     S.logicals = _makepairs(L)
-    return logs
+    return S.logicals
 end
 
 function _testlogicalsrelationships(S::AbstractStabilizerCode)
@@ -1448,7 +1448,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     logsmat = logicalsmatrix(S)
     Lsym = quadratictosymplectic(logsmat)
     LsymEuc = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n])
-    prod = LsymEuc * row
+    prod = LsymEuc * transpose(row)
     # if iszero(prod)
     #     verbose && println("Row is already in the stabilizer group. Nothing to update.")    
     #     return S
@@ -1474,14 +1474,15 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
 
     verbose && println("Logical pairs not requiring updating:")
     verbose && display(logs[logpairstokeep]) # how do I want to best display this?
-    temp = vcat(S.stabs, logsmat[logstokeep])
+    temp = quadratictosymplectic(vcat(S.stabs, logsmat[logstokeep, :]))
     _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
+    H = transpose(H)
+    dualgenssym = hcat(H[:, S.n + 1:end], -H[:, 1:S.n])
     temp = _quotientspace(dualgenssym, quadratictosymplectic(S.stabs))
     newlogs = _makepairs(temp)
     verbose && println("New logicals:")
     verbose && display(newlogs)
-    Snew = QuantumCode(vcat(S.stabs, row), false, S.charvec)
+    Snew = QuantumCode(vcat(S.stabs, rowq2), false, S.charvec)
     Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
     return Snew
 end
