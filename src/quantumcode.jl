@@ -601,7 +601,8 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - Srank)
     ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
+    H = transpose(H)
+    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
 
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
@@ -701,7 +702,8 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
+    H = transpose(H)
+    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
@@ -804,7 +806,8 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     # println("H: ", size(H), ", n: ", n, ", k: ", rkS)
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
+    H = transpose(H)
+    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -918,10 +921,11 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
 
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
-    _, H = right_kernel(hcat(S[:, ncols(Sq2) + 1:end], -S[:, 1:ncols(Sq2)]))
+    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
+    H = transpose(H)
+    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -959,7 +963,7 @@ function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
     Q, WtoQ = quo(W, UinW)
     C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
     Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-    return symplectictoquadratic(matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...)))
+    return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 end
 
 function _makepairs(L::fq_nmod_mat)
@@ -1009,9 +1013,17 @@ Each pair commutes with all other pairs.
 function logicals(S::AbstractStabilizerCode)
     typeof(S) ∈ [GraphState, GraphStateCSS] && error("Graph states have no logical operators.")
     ismissing(S.logicals) || return S.logicals
-    L = _quotientspace(quadratictosymplectic(S.dualgens), quadratictosymplectic(S.stabs))
-    S.logicals = _makepairs(L)
-    return S.logicals
+    L = symplectictoquadratic(_quotientspace(quadratictosymplectic(S.dualgens), quadratictosymplectic(S.stabs)))
+    logs = _makepairs(L)
+    # verify
+    logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
+    aresymplecticorthogonal(S.stabs, logsmat) || error("Computed logicals do not commute with the codespace.")
+    Lsym = quadratictosymplectic(logsmat);
+    prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
+    # set and return if good
+    S.logicals = logs
+    return logs
 end
 
 function _testlogicalsrelationships(S::AbstractStabilizerCode)
@@ -1433,6 +1445,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     # but this avoids possibly computing the logicals if they aren't already known and aren't needed
     symstabs = quadratictosymplectic(S.stabs)
     rankS = rank(symstabs)
+    newstabs = vcat(S.stabs, rowq2)
     newsymstabs = vcat(symstabs, row)
     ranknewS = rank(newsymstabs)
     if rankS == ranknewS
@@ -1440,7 +1453,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
         return S
     elseif S.k == 1
         verbose && println("Row is not in the stabilizer group; the result is a graph state.")
-        return QuantumCode(vcat(S.stabs, row), false, S.charvec)
+        return QuantumCode(newstabs, false, S.charvec)
     end
 
     # not a stabilizer and multiple logical pairs
@@ -1467,22 +1480,31 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     end
     if isempty(logstokeep)
         verbose && println("Row does not commute with any logicals. The entire code needs to be recomputed from scratch.")
-        Snew = QuantumCode(vcat(S.stabs, row), false, S.charvec)
+        Snew = QuantumCode(newstabs, false, S.charvec)
         _ = logicals(Snew)
         return Snew
     end
 
     verbose && println("Logical pairs not requiring updating:")
     verbose && display(logs[logpairstokeep]) # how do I want to best display this?
-    temp = quadratictosymplectic(vcat(S.stabs, logsmat[logstokeep, :]))
+    temp = quadratictosymplectic(vcat(newstabs, logsmat[logstokeep, :]))
+    # kernel should contain newstabs and new logs but not old logs
     _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
     H = transpose(H)
-    dualgenssym = hcat(H[:, S.n + 1:end], -H[:, 1:S.n])
-    temp = _quotientspace(dualgenssym, quadratictosymplectic(S.stabs))
-    newlogs = _makepairs(temp)
+    # unclear why this shouldn't be made not symplectic again
+    temp = _quotientspace(H, quadratictosymplectic(newstabs))
+    # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
+    newlogs = _makepairs(symplectictoquadratic(temp))
+    # verify
+    logsmat = vcat([vcat(newlogs[i]...) for i in 1:length(newlogs)]...)
+    aresymplecticorthogonal(newstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
+    Lsym = quadratictosymplectic(logsmat);
+    prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
+    # set and return if good
     verbose && println("New logicals:")
     verbose && display(newlogs)
-    Snew = QuantumCode(vcat(S.stabs, rowq2), false, S.charvec)
+    Snew = QuantumCode(newstabs, false, S.charvec)
     Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
     return Snew
 end

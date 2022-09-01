@@ -600,12 +600,17 @@ end
 Return `true` if `E/F` is a valid field extension.
 """
 function isextension(E::FqNmodFiniteField, F::FqNmodFiniteField)
-    p = Int(characteristic(E))
-    Int(characteristic(F)) == p || return false, missing
-    degE = degree(E)
-    degF = degree(F)
-    degE % degF == 0 || return false, missing
-    return true, div(degE, degF)
+    # p = Int(characteristic(E))
+    # Int(characteristic(F)) == p || return false, missing
+    # degE = degree(E)
+    # degF = degree(F)
+    # degE % degF == 0 || return false, missing
+    try
+        embed(F, E)
+        return true, div(degree(E), degree(F))
+    catch
+        return false, missing
+    end
 end
 
 """
@@ -632,8 +637,6 @@ Return a primitive basis for `E/F` and its dual (complementary) basis.
 function primitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
     flag, m = isextension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
-    # TODO: this is only over the basis field, how to get relative?
-    # maybe do _isbasis on this because that involves q and hence brings in F
     α = gen(E)
     basis = [α^i for i in 0:m - 1]
     flag, λ = _isbasis(E, basis, Int(order(F)))
