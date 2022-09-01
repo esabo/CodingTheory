@@ -600,17 +600,19 @@ end
 Return `true` if `E/F` is a valid field extension.
 """
 function isextension(E::FqNmodFiniteField, F::FqNmodFiniteField)
-    # p = Int(characteristic(E))
-    # Int(characteristic(F)) == p || return false, missing
-    # degE = degree(E)
-    # degF = degree(F)
-    # degE % degF == 0 || return false, missing
-    try
-        embed(F, E)
-        return true, div(degree(E), degree(F))
-    catch
-        return false, missing
-    end
+    p = Int(characteristic(E))
+    Int(characteristic(F)) == p || return false, missing
+    degE = degree(E)
+    degF = degree(F)
+    degE % degF == 0 || return false, missing
+    return true, div(degE, degF)
+    # the below allows you to embed GF(2) into GF(5) without error but is not an extension
+    # try
+    #     embed(F, E)
+    #     return true, div(degree(E), degree(F))
+    # catch
+    #     return false, missing
+    # end
 end
 
 """

@@ -1496,7 +1496,8 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
     newlogs = _makepairs(symplectictoquadratic(temp))
     # verify
-    logsmat = vcat([vcat(newlogs[i]...) for i in 1:length(newlogs)]...)
+    fulllogs = [logs[logpairstokeep]; newlogs]
+    logsmat = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
     aresymplecticorthogonal(newstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
     Lsym = quadratictosymplectic(logsmat);
     prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
@@ -1505,7 +1506,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     verbose && println("New logicals:")
     verbose && display(newlogs)
     Snew = QuantumCode(newstabs, false, S.charvec)
-    Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
+    Snew.logicals = fulllogs
     return Snew
 end
 
@@ -1521,20 +1522,35 @@ Return the code created by removing the stabilizers indexed by `rows`.
 function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
     numstabs = nrows(S.stabs)
     rows ⊆ 1:numstabs || throw(ArgumentError("Argument rows not a subset of the number of stabilizers."))
-    verbose && println("Removing stabilizers $rows")
-    newstabs = S.stabs[setdiff(1:numstabs, rows)]
+    verbose && println("Removing stabilizers: $rows")
+    newstabs = S.stabs[setdiff(1:numstabs, rows), :]
     Snew = QuantumCode(newstabs, false, S.charvec)
     if typeof(S) ∉ [GraphState, GraphStateCSS]
         logs = logicals(S)
         logsmatrix = logicalsmatrix(S)
-        small = vcat(newstabs, logsmatrix)
-        _, H = right_kernel(hcat(newstabs[:, S.n + 1:end], -newstabs[:, 1:S.n]))
-        dualgenssym = transpose(hcat(H[:, S.n + 1:end], -H[:, 1:S.n]))
-        temp = _quotientspace(dualgenssym, small)
-        newlogs = _makepairs(temp)
+        small = quadratictosymplectic(vcat(newstabs, logsmatrix))
+        # println(size(small))
+        _, H = right_kernel(hcat(small[:, S.n + 1:end], -small[:, 1:S.n]))
+        H = transpose(H)
+        # println(size(H))
+        # dualgenssym = hcat(H[:, S.n + 1:end], -H[:, 1:S.n])
+        # println(size(dualgenssym))
+        temp = _quotientspace(H, quadratictosymplectic(newstabs))
+        # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
+        # using dualgenssym then switching temp here just switches {X, Z} to {Z, X}
+        # but the vectors remain the same for some reason
+        newlogs = _makepairs(symplectictoquadratic(temp))
+        # verify
+        fulllogs = [logs; newlogs]
+        logsmatrix = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
+        aresymplecticorthogonal(newstabs, logsmatrix) || error("Computed logicals do not commute with the codespace.")
+        Lsym = quadratictosymplectic(logsmatrix);
+        prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+        sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
+        # set and return if good
         verbose && println("New logicals:")
         verbose && display(newlogs)
-        Snew.logicals = [logs[logpairstokeep]; newlogs] # almost surely wrong notation
+        Snew.logicals = [fulllogs; newlogs]
         return Snew
     else
         verbose && println("Started with all graph state. New logicals:")
