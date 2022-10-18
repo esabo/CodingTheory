@@ -12,7 +12,7 @@ using JLD2
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
 import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic
-import Base: show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import Base: circshift, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 
 #############################
@@ -45,6 +45,14 @@ abstract type AbstractLDPCCode <: AbstractLinearCode end
 include("LDPC.jl")
 
 #############################
+    # MatrixProductCode.jl
+#############################
+
+abstract type AbstractMatrixProductCode <: AbstractLinearCode end
+
+include("MatrixProductCode.jl")
+
+#############################
       # ReedMuller.jl
 #############################
 
@@ -61,6 +69,14 @@ abstract type AbstractBCHCode <: AbstractCyclicCode end
 abstract type AbstractReedSolomonCode <: AbstractBCHCode end
 
 include("cycliccode.jl")
+
+#############################
+    # quasicycliccode.jl
+#############################
+
+abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
+
+include("quasicycliccode.jl")
 
 #############################
       # miscknowncodes.jl
@@ -85,6 +101,15 @@ abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
 abstract type AbstractCSSCode <: AbstractStabilizerCode end
 
 include("quantumcode.jl")
+
+#############################
+      # graphstate.jl
+#############################
+
+abstract type AbstractGraphState <: AbstractStabilizerCode end
+abstract type AbstractGraphStateCSS <: AbstractCSSCode end
+
+include("graphstate.jl")
 
 #############################
   # miscknownquantumcodes.jl
@@ -173,6 +198,14 @@ export Tannergraph, variabledegreedistribution, checkdegreedistribution,
     checkdegreepolynomial, columnrowbounds
 
 #############################
+    # MatrixProductCode.jl
+#############################
+
+export AbstractMatrixProductCode
+
+export MatrixProductCode
+
+#############################
        # ReedMuller.jl
 #############################
 
@@ -190,6 +223,14 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode
+
+#############################
+       # cycliccode.jl
+#############################
+
+export AbstractQuasiCyclicCode
+
+export QuasiCyclicCode, index
 
 #############################
      # miscknowncodes.jl
@@ -220,12 +261,21 @@ export field, quadraticfield, length, numqubits, dimension, cardinality,
     syndrome, allstabilizers, elements, logicals, logicalsmatrix, isisomorphic
 
 #############################
+      # graphstate.jl
+#############################
+
+export AbstractGraphState, AbstractGraphStateCSS
+
+export ClusterState, graphstate
+
+#############################
   # miscknownquantumcodes.jl
 #############################
 
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
-    RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666
+    RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code
 
 #############################
         # trellis.jl

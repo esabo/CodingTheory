@@ -293,9 +293,11 @@ function _sortbyleftindex(A::fq_nmod_mat)
                 break
             end
         end
-        push!(arr, [numcols, A[r, :]])
+        # push!(arr, [numcols, A[r, :]])
     end
+    # println("sort1: $arr")
     sort!(arr, by=x->x[1])
+    # println("sort2: $arr")
     # vcat is faster and cheaper than the following
     # return A[[arr2[i][2] for i in 1:numrows], :]
     return vcat([arr[i][2] for i in 1:numrows]...)
@@ -312,7 +314,7 @@ function _sortbyrightindex(A::fq_nmod_mat)
                 break
             end
         end
-        push!(arr, [1, A[r, :]])
+        # push!(arr, [1, A[r, :]])
     end
     sort!(arr, by=x->x[1]) #, rev=true
     return vcat([arr[i][2] for i in 1:numrows]...)
@@ -593,16 +595,18 @@ function trellisorientedformadditive(A::fq_nmod_mat)
     degree(E) == 2 || error("So far this is only implemented for quadratic extensions over a prime subfield.")
 
     A = _sortbyleftindex(A)
-    for c in 1:size(A, 2)
+    # display(A)
+    # println(" ")
+    @views for c in 1:size(A, 2)
         left, right = _leftrightindices(A)
         rows = findall(x->x==c, left)
         if length(rows) == 1
             if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             elseif !iszero(coeff(A[rows[1], c], 0))
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             else
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
             end
         elseif length(rows) > 1
             Xedges = []
@@ -617,6 +621,9 @@ function trellisorientedformadditive(A::fq_nmod_mat)
                     push!(Zedges, (row, A[row, c]))
                 end
             end
+            # println(Xedges)
+            # println(Zedges)
+            # println(mixededges)
 
             if length(Xedges) <= 1 && length(Zedges) <= 1 && length(mixededges) <= 1 && (length(Xedges) + length(Zedges) + length(mixededges)) <= 2
                 continue
@@ -626,49 +633,55 @@ function trellisorientedformadditive(A::fq_nmod_mat)
                 if !isempty(Xedges)
                     Xpivot = true
                     row, X = Xedges[1]
-                    @views A[row, :] *= inv(E(coeff(X, 0)))
+                    A[row, :] *= inv(E(coeff(X, 0)))
+                    # println("X")
+                    # display(A)
+                    # println(" ")
                     # no problems here if this is only length 1
                     for i in 2:length(Xedges)
-                        @views A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
                     end
                 end
                 if !isempty(Zedges)
                     Zpivot = true
                     row, Z = Zedges[1]
-                    @views A[row, :] *= inv(E(coeff(Z, 1)))
+                    A[row, :] *= inv(E(coeff(Z, 1)))
+                    # println("Z")
+                    # display(A)
+                    # println(" ")
                     # no problems here if this is only length 1
                     for i in 2:length(Zedges)
-                        @views A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
                     end
                 end
                 if !isempty(mixededges)
                     if Xpivot && Zpivot
                         for i in 1:length(mixededges)
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
                         end
                     elseif Xpivot
-                        @views A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[1][1], :]
+                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[1][1], :]
                         # no problems here if this is only length 1
                         for i in 2:length(mixededges)
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[1][1], :]
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[1][1], :]
                         end
                     elseif Zpivot
-                        @views A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[1][1], :]
+                        A[mixededges[1][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[1][1], :]
                         # no problems here if this is only length 1
                         for i in 2:length(mixededges)
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
+                            A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[1][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[1][1], :]
                         end
                     else
-                        @views A[mixededges[1][1], :] *= inv(E(coeff(mixededges[1][2], 0)))
+                        A[mixededges[1][1], :] *= inv(E(coeff(mixededges[1][2], 0)))
                         if length(mixededges) > 1
-                            @views A[mixededges[2][1], :] -= E(coeff(mixededges[2][2], 0)) * A[mixededges[1][1], :]
-                            @views A[mixededges[2][1], :] *= inv(E(coeff(A[mixededges[2][1], c], 1)))
+                            A[mixededges[2][1], :] -= E(coeff(mixededges[2][2], 0)) * A[mixededges[1][1], :]
+                            A[mixededges[2][1], :] *= inv(E(coeff(A[mixededges[2][1], c], 1)))
                             if length(mixededges) > 2
-                                @views A[mixededges[3][1], :] -= E(coeff(mixededges[3][2], 1)) * A[mixededges[2][1], :]
-                                @views A[mixededges[3][1], :] *= inv(E(coeff(A[mixededges[3][1], c], 0)))
+                                A[mixededges[3][1], :] -= E(coeff(mixededges[3][2], 1)) * A[mixededges[2][1], :]
+                                A[mixededges[3][1], :] *= inv(E(coeff(A[mixededges[3][1], c], 0)))
                                 # no problems here if this is only length 3
                                 for i in 3:length(mixededges)
-                                    @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[3][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[2][1], :]
+                                    A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[3][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[2][1], :]
                                 end
                             end
                         end
@@ -677,18 +690,24 @@ function trellisorientedformadditive(A::fq_nmod_mat)
             end
         end
     end
+    # println("after1")
+    # display(A)
+    # println(" ")
     A = _sortbyleftindex(A)
     left, right = _leftrightindices(A)
+    # println("after2")
+    # display(A)
+    # println(" ")
 
-    for c in size(A, 2):-1:1
+    @views for c in size(A, 2):-1:1
         rows = findall(x->x==c, right)
         if length(rows) == 1
             if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             elseif !iszero(coeff(A[rows[1], c], 0))
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 0)))
             else
-                @views A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
+                A[rows[1], :] *= inv(E(coeff(A[rows[1], c], 1)))
             end
         elseif length(rows) > 1
             Xedges = []
@@ -707,57 +726,62 @@ function trellisorientedformadditive(A::fq_nmod_mat)
             if length(Xedges) <= 1 && length(Zedges) <= 1 && length(mixededges) <= 1 && (length(Xedges) + length(Zedges) + length(mixededges)) <= 2
                 continue
             else
-                Xpivot = false
-                Zpivot = false
+                # need to determine if X and/or Z pivots are below Y and if not, use Y to
+                # create one of these pivots and reset the X/Z pivots to a potentially lower row
+                if !isempty(mixededges)
+                    # can only set one coefficient of a + bω to 1 in additive, do a
+                    row, Y = mixededges[end]
+                    A[row, :] *= inv(E(coeff(Y, 0)))
+                    for i in length(mixededges) - 1:-1:1
+                        # can't use a + bω to eliminate a c + dω, so first use 1 + b'ω to eliminate c
+                        A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[row, :]
+                        # now turn d to 1 - these are all pure Z's now and some could be pivots
+                        if !iszero(coeff(A[mixededges[i][1], c], 1))
+                            A[mixededges[i][1], :] *= inv(E(coeff(A[mixededges[i][1], c], 1)))
+                            append!(Zedges, (mixededges[i][1], A[mixededges[i][1], c]))
+                        end
+                    end
+                    mixededges = [mixededges[end]]
+                    sort!(Zedges, by=x->x[1])
+                end
+
                 if !isempty(Xedges)
-                    Xpivot = true
                     row, X = Xedges[end]
-                    @views A[row, :] *= inv(E(coeff(X, 0)))
+                    A[row, :] *= inv(E(coeff(X, 0)))
                     # no problems here if this is only length 1
                     for i in length(Xedges) - 1:-1:1
-                        @views A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
+                        A[Xedges[i][1], :] -= E(coeff(Xedges[i][2], 0)) * A[row, :]
                     end
+                    Xedges = [Xedges[end]]
                 end
                 if !isempty(Zedges)
-                    Zpivot = true
                     row, Z = Zedges[end]
-                    @views A[row, :] *= inv(E(coeff(Z, 1)))
+                    A[row, :] *= inv(E(coeff(Z, 1)))
                     # no problems here if this is only length 1
                     for i in length(Zedges) - 1:-1:1
-                        @views A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
+                        A[Zedges[i][1], :] -= E(coeff(Zedges[i][2], 1)) * A[row, :]
                     end
+                    Zedges = [Zedges[end]]
                 end
-                if !isempty(mixededges)
-                    if Xpivot && Zpivot
-                        for i in 1:length(mixededges)
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
-                        end
-                    elseif Xpivot
-                        @views A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 0)) * A[Xedges[end][1], :]
-                        # no problems here if this is only length 1
-                        for i in length(mixededges) - 1:-1:1
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[Xedges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end][1], :]
-                        end
-                    elseif Zpivot
-                        @views A[mixededges[end][1], :] -= E(coeff(mixededges[1][2], 1)) * A[Zedges[end][1], :]
-                        # no problems here if this is only length 1
-                        for i in length(mixededges) - 1:-1:1
-                            @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end][1], :] + E(coeff(mixededges[i][2], 1)) * A[Zedges[end][1], :]
-                        end
+
+                # now could have three pivots, remove the top one using the bottom two
+                if !isempty(mixededges) && !isempty(Xedges) && !isempty(Zedges)
+                    _, loc = findmin([mixededges[1], Xedges[1], Zedges[1]])
+                    if loc == 1
+                        # Y edge is top, apply both X and Z pivots to remove it
+                        # pivot to be removed is of the form 1 + bω
+                        A[mixededges[1][1], :] -= A[Xedges[1][1], :]
+                        A[mixededges[1][1], :] -= E(coeff(A[mixededges[1][1], c], 1)) * A[Zedges[1][1], :]
+                    elseif loc == 2
+                        # X edge is top, apply both Y and Z pivots to remove it
+                        A[Xedges[1][1], :] -= A[mixededges[1][1], :]
+                        # pivot to be remove is now of the form bω coming from the Y
+                        A[Xedges[1][1], :] -= E(coeff(A[Xedges[1][1], c], 1)) * A[Zedges[1][1], :]
                     else
-                        @views A[mixededges[end][1], :] *= inv(E(coeff(mixededges[end][2], 0)))
-                        if length(mixededges) > 1
-                            @views A[mixededges[end - 1][1], :] -= E(coeff(mixededges[end - 1][2], 0)) * A[mixededges[end][1], :]
-                            @views A[mixededges[end - 1][1], :] *= inv(E(coeff(A[mixededges[end - 1][1], c], 1)))
-                            if length(mixededges) > 2
-                                @views A[mixededges[end - 2][1], :] -= E(coeff(mixededges[end - 2][2], 1)) * A[mixededges[end - 1][1], :]
-                                @views A[mixededges[end - 2][1], :] *= inv(E(coeff(A[mixededges[end - 2][1], c], 0)))
-                                # no problems here if this is only length 3
-                                for i in length(mixededges) - 1:-1:1
-                                    @views A[mixededges[i][1], :] -= E(coeff(mixededges[i][2], 0)) * A[mixededges[end - 2][1], :] + E(coeff(mixededges[i][2], 1)) * A[mixededges[end - 1][1], :]
-                                end
-                            end
-                        end
+                        # Z edge is top, apply both Y and X pivots to remove it
+                        A[Zedges[1][1], :] -= inv(E(coeff(mixededges[1][2], 1))) * A[mixededges[1][1], :]
+                        # pivot to be remove is now of the form b^{-1}
+                        A[Zedges[1][1], :] -= E(coeff(A[Zedges[1][1], c], 0)) * A[Xedges[1][1], :]
                     end
                 end
             end
@@ -791,12 +815,13 @@ function trellisprofiles(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat,
     past = past[bds]
     future = future[bds]
 
-    if innerprod == "Euclidean"
-        dimker = _kernelinnerprod(wrtV, wrtE, innerprod)
-    else
-        dimker = _kernelinnerprod(quadratictosymplectic(wrtV),
-            quadratictosymplectic(wrtE), innerprod)
-    end
+    # if innerprod == "Euclidean"
+    #     dimker = _kernelinnerprod(wrtV, wrtE, innerprod)
+    # else
+    #     dimker = _kernelinnerprod(quadratictosymplectic(wrtV),
+    #         quadratictosymplectic(wrtE), innerprod)
+    # end
+    dimker = 0
 
     p = Int64(characteristic(base_ring(wrtV)))
     for i in 1:n + 1
@@ -1214,7 +1239,9 @@ function optimalsectionalizationQ(wrtV::fq_nmod_mat, wrtE::fq_nmod_mat)
 
     symV = quadratictosymplectic(wrtV)
     symE = quadratictosymplectic(wrtE)
-    dimker = _kernelinnerprod(symV, symE, "symplectic")
+    # dimker = _kernelinnerprod(symV, symE, "symplectic")
+    dimker = 0
+    # println(dimker)
     past, future = _pastfuture(wrtE)
     for i in 1:n
         for j in i:n
@@ -1907,8 +1934,7 @@ end
 
 
 
-function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
-    verbose::Bool=false)
+function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::Bool=false)
 
     (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) ||
         error("Syndrome trellises are so far only implemented for linear and stabilizer codes.")
@@ -1981,6 +2007,9 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
     else
         bds = deepcopy(boundaries)
     end
+    # println(bds)
+    # println(profiles)
+    # return
 
     if typeof(C) <: AbstractLinearCode
         K = C.F
@@ -2024,15 +2053,22 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                 templabel[j] = bin[loc]
                 loc += 1
             end
+            # i == 3 && println("i = 3: $templabel")
+            # i == 2 && println("i = 2: $templabel")
             # back to int
             V[i][num + 1].label = digitstoint(reverse(templabel, dims=1), p)
         end
     end
     verbose && println("Vertex construction completed.")
+    # display(wrtV)
+    # display(V)
+    # return
 
     left, right = _leftrightindices(wrtE)
+    # println("left: $left")
+    # println("right $right")
     active = _findactive(wrtE, true)
-    # display(active)
+    # println("active: $active")
     if ismissing(boundaries)
         activetemp = active
         parallel = missing
@@ -2041,21 +2077,20 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
         parallel = Vector{Vector{Int64}}()
         for i in 1:length(bds) - 1
             temp = sort!(unique!(vcat([active[j] for j in bds[i] + 1:bds[i + 1]]...)))
-            # println(temp)
+            # println("temp: $temp")
             act = Vector{Int64}()
             par = Vector{Int64}()
             for a in temp
+                # i == 1 && println(a)
+                # i == 1 && println(bds[i] + 1, ", ", left[a], ", ", right[a], ", ", bds[i + 1])
+                # i == 1 && println(bds[i] + 1 <= left[a] && right[a] <= bds[i + 1])
                 (bds[i] + 1 <= left[a] && right[a] <= bds[i + 1]) ? append!(par, a) : append!(act, a)
             end
             push!(activetemp, act)
             push!(parallel, par)
         end
     end
-    # display(wrtE)
-    # println(bds)
-    # display(activetemp)
-    # display(parallel)
-    # return
+    # println("par: $parallel")
 
     if typeof(C) <: AbstractLinearCode
         H = FpmattoJulia(wrtV)
@@ -2072,13 +2107,74 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
         edgecontrib = Dict{fq_nmod_mat, Vector{Int64}}()
         contribedge = Dict{Vector{Int64}, fq_nmod_mat}()
 
+        parflag = false
+        if !ismissing(parallel) && !isempty(parallel[i])
+            parflag = true
+            pedges = Vector{fq_nmod_mat}()
+            for a in parallel[i]
+                # should never be zero because the entire row is between this
+                # same argument says it's always unique
+                push!(pedges, wrtE[a, bds[i] + 1:bds[i + 1]])
+            end
+
+            paralleledges = Vector{fq_nmod_mat}()
+            for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(pedges))
+                e = K(iter[1]) * pedges[1]
+                for r in 2:length(pedges)
+                    if !iszero(iter[r])
+                        e += K(iter[r]) * pedges[r]
+                    end
+                end
+                !iszero(e) && push!(paralleledges, e)
+            end
+            
+            if length(paralleledges) > 1
+                pemathsym = quadratictosymplectic(vcat(paralleledges...))
+                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(pemathsym, 1:nrows(pemathsym), 1:ncols(pemathsym)), "rows"))
+                paralleledges = [temp[i, :] for i in 1:nrows(temp)]
+            else
+                pemathsym = quadratictosymplectic(vcat(paralleledges...))
+            end
+        end
+        println("i = $i")
+        display(paralleledges)
+        # i == 2 && return
+
         for a in activetemp[i]
             temp = wrtE[a, bds[i] + 1:bds[i + 1]]
             if !iszero(temp)
                 push!(validedges, temp)
             end
         end
-        unique!(validedges)
+        # unique!(validedges)
+        if !isempty(parallel[i])
+            vematsym = quadratictosymplectic(vcat(validedges...))
+            F = base_ring(vematsym)
+            VS = VectorSpace(F, ncols(vematsym))
+            U, UtoVS = sub(VS, [VS(pemathsym[i, :]) for i in 1:nrows(pemathsym)])
+            W, WtoVS = sub(VS, [VS(vematsym[i, :]) for i in 1:nrows(vematsym)])
+            I, _ = intersect(U, W)
+            if !iszero(AbstractAlgebra.dim(I))
+                println("i = $i, here quo")
+                gensofUinW = [preimage(WtoVS, UtoVS(g)) for g in gens(U)]
+                UinW, _ = sub(W, gensofUinW)
+                Q, WtoQ = quo(W, UinW)
+                C2modC1basis = [WtoVS(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
+                Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
+                temp = symplectictoquadratic(matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...)))
+                validedges = [temp[i, :] for i in 1:nrows(temp)]
+            else
+                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), "rows"))
+                validedges = [temp[i, :] for i in 1:nrows(temp)]
+            end
+        else
+            temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), "rows"))
+            validedges = [temp[i, :] for i in 1:nrows(temp)]
+        end
+        println("i = $i")
+        display(validedges)
+        # return
+        # i == 2 && return
 
         for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(validedges))
             e = K(iter[1]) * validedges[1]
@@ -2101,26 +2197,14 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                 end
             end
             syn = H * P .% p
-            edgecontrib[e] = syn
-            contribedge[syn] = e
+            # if !iszero(syn)
+                edgecontrib[e] = syn
+                contribedge[syn] = e
+            # end
         end
+        # i == 2 && display(edgecontrib)
+        # i == 2 && display(contribedge)
         verbose && println("Edges dictionaries completed for E[$i].")
-
-        # find fundamental edge configuration
-        # seclen = bds[i + 1] - bds[i]
-        parflag = false
-        if !ismissing(parallel) && !isempty(parallel[i])
-            parflag = true
-            paralleledges = Vector{fq_nmod_mat}()
-            for a in parallel[i]
-                # should never be zero because the entire row is between this
-                # same argument says it's always unique
-                push!(paralleledges, wrtE[a, bds[i] + 1:bds[i + 1]])
-            end
-        end
-        # i == 2 && display(activeVs)
-        # i == 2 && display(paralleledges)
-        # return
 
         Vllen = profiles[1][i]
         Vrlen = profiles[1][i + 1]
@@ -2129,6 +2213,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
         sizehint!(leftvertices, profiles[4][i])
         sizehint!(rightvertices, profiles[3][i])
 
+        # find fundamental edge configuration
         # find all v-e-0
         leftsyn = rightsyn = zeros(Int64, synlen)
         fundamental = Vector{Tuple{BigInt, Vector{Int}, Vector{fq_nmod_mat}, Vector{Int}, BigInt}}()
@@ -2146,7 +2231,6 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
             elseif i != 1 && iszero(leftsyn[setdiff(1:synlen, activeVs[i - 1])])
                 leftloc = BigInt(digitstoint(reverse(leftsyn[activeVs[i - 1]], dims=1), p)) + 1
                 if leftloc <= Vllen
-                    # println("here: $leftloc")
                     edgs = [lab]
                     if parflag
                         for a in paralleledges
@@ -2158,7 +2242,6 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                 end
             end
         end
-        i == 2 && (display(fundamental); return)
 
         # find all 0-e-v
         leftsyn = zeros(Int64, synlen)
@@ -2183,28 +2266,36 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
         for (ll, lv) in leftvertices
             for (rl, rv) in rightvertices
                 temp = (rv .- lv .+ p) .% p
-                lab = contribedge[temp]
-                edgs = [lab]
-                if parflag
-                    for a in paralleledges
-                        push!(edgs, a + lab)
+                # if !iszero(temp)
+                    lab = contribedge[temp]
+                    edgs = [lab]
+                    if parflag
+                        for a in paralleledges
+                            push!(edgs, a + lab)
+                        end
                     end
-                end
-                tup = (ll, lv, edgs, rv, rl)
-                if tup ∉ fundamental
-                    push!(fundamental, tup)
-                end
+                    tup = (ll, lv, edgs, rv, rl)
+                    if tup ∉ fundamental
+                        push!(fundamental, tup)
+                    end
+                # end
             end
         end
 
         # record fundamental in E[i1]
         sort!(fundamental, by=last)
+        # i == 2 && 
+        println("i = $i")
+        display(fundamental)
+        # return fundamental
+        # println(profiles)
         count = 1
         cur = fundamental[1][5]
         Vrightlocs = trues(Vrlen) # TODO: switch to profiles reference
         for (ll, _, edgs, _, rl) in fundamental
             rl == cur || (count = 1; cur = rl;)
             for e in edgs
+                # i == 2 && println("here: $i, $cur, $rl, $count")
                 E[i][rl][count].label = e
                 E[i][rl][count].outvertex = ll
                 if typeof(C) <: AbstractStabilizerCode
@@ -2216,7 +2307,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                         if !iszero(coeff(k, 1))
                             sign += charactervector(C)[bds[i] + j + n]
                         end
-                    end
+                    end                    
                     E[i][rl][count].sign = sign
                 end
                 count += 1
@@ -2224,6 +2315,8 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
             Vrightlocs[rl] = false
         end
 
+        # i == 2 && display(edgecontrib)
+        # i == 2 && return
         # there's nothing but the fundamental in E[1] and E[end]
         if i != 1 && i != length(bds) - 1
             # shift fundamental edge configuration
@@ -2241,11 +2334,14 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                         rightsyn[j] = bin[loc]
                         loc += 1
                     end
+                    # i == 2 && println("right: $rightsyn")
                     leftsyn = (rightsyn .- errorsyn .+ p) .% p
+                    # i == 2 && println("left: $leftsyn")
                     # check if this exists and only shift if it does
                     if iszero(leftsyn[setdiff(1:synlen, activeVs[i - 1])])
                         # now have v-e-v' not in the fundamental edge configuration
                         # use it to shift
+                        # i == 2 && println("in")
                         count = 1
                         cur = fundamental[1][5]
                         for (_, lv, edgs, rv, rl) in fundamental
@@ -2277,6 +2373,10 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true,
                     end
                 end
                 rloc = findfirst(x->x==true, Vrightlocs)
+                # i == 2 && println(rloc)
+                # i == 2 && println(Vrightlocs)
+                # i == 2 && display(E[3])
+                # i == 2 && return
             end
         end
         verbose && println("E[$i] complete")

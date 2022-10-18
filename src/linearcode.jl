@@ -415,12 +415,9 @@ quotient(C1::AbstractLinearCode, C2::AbstractLinearCode) = codecomplement(C1, C2
 
 """
     dual(C::AbstractLinearCode)
+    Euclideandual(C::AbstractLinearCode)
 
 Return the dual of the code `C`.
-
-All of the necessary information for the dual is already stored in a LinearCode
-object, so this implementation merely swaps data fields, e.g., `G <-> H`, without
-doing any new computation.
 """
 # TODO: compute d if have that info for C, check for 
 function dual(C::AbstractLinearCode)
@@ -430,6 +427,7 @@ function dual(C::AbstractLinearCode)
         deepcopy(C.Horig), deepcopy(C.G), deepcopy(C.Gorig),
         deepcopy(C.Hstand), deepcopy(C.Gstand), dualwtenum)
 end
+Euclideandual(C::AbstractLinearCode) = dual(C)
 
 """
     Hermitiandual(C::AbstractLinearCode)
@@ -456,11 +454,47 @@ isselfdual(C::AbstractLinearCode) = isequivalent(C, dual(C))
 """
     isselforthogonal(C::AbstractLinearCode)
     isweaklyselfdual(C::AbstractLinearCode)
+    isEuclideanselforthogonal(C::AbstractLinearCode)
 
 Return `true` if `C ⊆ dual(C)`.
 """
 isselforthogonal(C::AbstractLinearCode) = C ⊆ dual(C)
 isweaklyselfdual(C::AbstractLinearCode) = isselforthogonal(C)
+isEuclideanselforthogonal(C::AbstractLinearCode) = isselforthogonal(C)
+
+"""
+    isdualcontaining(C::AbstractLinearCode)
+    isEuclideandualcontaining(C::AbstractLinearCode)
+
+Return `true` if `dual(C) ⊆ C`.
+"""
+isdualcontaining(C::AbstractLinearCode) = dual(C) ⊆ C
+isEuclideandualcontaining(C::AbstractLinearCode) = isdualcontaining(C)
+
+"""
+    isHermitianselfdual(C::AbstractLinearCode)
+
+Return `true` if `isequivalent(C, Hermitiandual(C))`.
+"""
+isHermitianselfdual(C::AbstractLinearCode) = isequivalent(C, Hermitiandual(C))
+
+"""
+    isHermitianselforthogonal(C::AbstractLinearCode)
+    isHermitianweaklyselfdual(C::AbstractLinearCode)
+
+Return `true` if `C ⊆ Hermitiandual(C)`.
+"""
+isHermitianselforthogonal(C::AbstractLinearCode) = C ⊆ Hermitiandual(C)
+isHermitianweaklyselfdual(C::AbstractLinearCode) = isHermitianselforthogonal(C)
+
+"""
+    isHermitiandualcontaining(C::AbstractLinearCode)
+
+Return `true` if `Hermitiandual(C) ⊆ C`.
+"""
+isHermitiandualcontaining(C::AbstractLinearCode) = Hermitiandual(C) ⊆ C
+
+# TODO: add l-Galois dual and self-dual/orthogonal based functions
 
 """
     ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
@@ -816,8 +850,6 @@ end
 Return the expanded code of `C` constructed by exapnding the generator matrix
 to the subfield `K` using the provided dual `basis` for the field of `C`
 over `K`.
-
-No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 function expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     return LinearCode(expandmatrix(C.G, K, basis))
@@ -840,8 +872,6 @@ end
 
 Return the subfield subcode code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K`.
-
-No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 function subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     return LinearCode(transpose(expandmatrix(transpose(C.H), K, basis)), true)
@@ -852,11 +882,8 @@ end
 
 Return the trace code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K` using Delsarte's theorem.
-
-No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod}) = dual(subfieldsubcode(dual(C), K, basis))
-
 
 # R.Pellikaan, On decoding by error location and dependent sets of error
 # positions, Discrete Mathematics, 106107 (1992), 369-381.
@@ -1055,3 +1082,80 @@ function words(C::AbstractLinearCode, onlyprint::Bool=false)
 end
 codewords(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)
 elements(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)
+
+"""
+    hull(C::AbstractLinearCode)
+    Euclideanhull(C::AbstractLinearCode)
+
+Return the (Euclidean) hull of `C` and its dimension.
+
+The hull of a code is the intersection of it and its dual.
+"""
+function hull(C::AbstractLinearCode)
+    G = generatormatrix(C)
+    H = paritycheckmatrix(C)
+    VS = VectorSpace(F, C.n)
+    U, _ = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
+    W, WtoVS = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
+    I, _ = intersect(U, W)
+    if !iszero(AbstractAlgebra.dim(I))
+        Ibasis = [WtoVS(g) for g in gens(I)]
+        GI = vcat(Ibasis...)
+        return LinearCode(GI), AbstractAlgebra.dim(I)
+    else
+        return missing, 0 # is this the behavior I want?
+    end
+end
+Euclideanhull(C::AbstractLinearCode) = hull(C)
+
+"""
+    Hermitianhull::AbstractLinearCode)
+    
+Return the Hermitian hull of `C` and its dimension.
+
+The Hermitian hull of a code is the intersection of it and its Hermitian dual.
+"""
+function Hermitianhull(C::AbstractLinearCode)
+    D = Hermitiandual(C)
+    G = generatormatrix(C)
+    H = generatormatrix(D)
+    VS = VectorSpace(F, C.n)
+    U, _ = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
+    W, WtoVS = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
+    I, _ = intersect(U, W)
+    if !iszero(AbstractAlgebra.dim(I))
+        Ibasis = [WtoVS(g) for g in gens(I)]
+        GI = vcat(Ibasis...)
+        return LinearCode(GI), AbstractAlgebra.dim(I)
+    else
+        return missing, 0 # is this the behavior I want?
+    end
+end
+
+"""
+    isLCD(C::AbstractLinearCode)
+
+Return `true` if `C` is linear complementary dual.
+
+A code is linear complementary dual if the dimension of `hull(C)` is zero.
+"""
+function isLCD(C::AbstractLinearCode)
+    # return true if dim(hull) = 0
+    _, dimhullC = hull(C)
+    dimhullC == 0 ? (return true;) : (return false;)
+end
+
+"""
+    isHermitianLCD(C::AbstractLinearCode)
+
+Return `true` if `C` is linear complementary Hermitian dual.
+
+A code is linear complementary Hermitian dual if the dimension of `Hermitianhull(C)` is zero.
+"""
+function isHermitianLCD(C::AbstractLinearCode)
+    # return true if dim(hull) = 0
+    _, dimhullC = Hermitianhull(C)
+    dimhullC == 0 ? (return true;) : (return false;)
+end
+
+# TODO: add l-Galois hull and isLCD functions for that dual

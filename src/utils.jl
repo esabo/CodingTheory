@@ -5,6 +5,33 @@
 # LICENSE file in the root directory of this source tree.
 
 """
+    circshift(v::fq_nmod_mat, l::Int)
+
+Return the circular shift of the vector `v` by `l` bits.
+
+This is an overload of Base.circshift for type `fq_nmod_mat`.
+Either the number of rows or the number of columns must have dimension one.1
+"""
+function circshift(v::fq_nmod_mat, l::Int)
+    nr, nc = size(v)
+    l = l % nc
+    l < 0 && (l = nc + l;)
+
+    if nr == 1
+        vshift = zero_matrix(base_ring(v), 1, nc)
+        vshift[1, 1:l] = v[1, nc - l + 1:nc]
+        vshift[1, l + 1:end] = v[1, 1:nc - l]
+    elseif nc == 1
+        vshift = zero_matrix(base_ring(v), nr, 1)
+        vshift[1:l, 1] = v[nc - l + 1:nc, 1]
+        vshift[l + 1:end, 1] = v[1:nc - l, 1]
+    else
+        throw(ArgumentError("Input matrix must be a vector."))
+    end
+    return vshift
+end
+
+"""
     ⊕(A::fq_nmod_mat, B::fq_nmod_mat)
     directsum(A::fq_nmod_mat, B::fq_nmod_mat)
 
@@ -233,6 +260,19 @@ function istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
         end
     end
     return true
+end
+
+function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
+    F = base_ring(big)
+    V = VectorSpace(F, ncols(big))
+    U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
+    W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
+    gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
+    UinW, _ = sub(W, gensofUinW)
+    Q, WtoQ = quo(W, UinW)
+    C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
+    Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
+    return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 end
 
 #############################
@@ -496,6 +536,30 @@ function digitstoint(x::Vector{Int}, base::Int=2)
     return res
 end
 
+function polytocircmatrix(f)
+
+end
+
+function _lift(A::)
+    R = parent(A[1, 1])
+    S = base_ring(R)
+    F = base_ring(S)
+    f = modulus(R)
+    l = degree(f)
+    # make sure f == gen()^l - 1
+    gcd(l, Int(characteristic(F))) == 1 || error("Modulus is ")
+
+
+    nr, nc = size(A)
+    Alift = zero_matrix(F, nr * l, nc * l)
+    for c in 1:nc
+        for r in 1:nr
+            Alift[ , ] = polytocircmatrix(A[r, c])
+        end
+    end
+    return Alift
+end
+
 #############################
         # Finite Fields
 #############################
@@ -512,16 +576,18 @@ function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
     L = parent(x)
     q = order(K)
     if verify
-        # shouldn't need Int casting here but just in case...
-        Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
-        degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+        # # shouldn't need Int casting here but just in case...
+        # Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+        # degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+        flag, m = isextension(L, K)
+        flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
     end
     n = div(degree(L), degree(K))
     return sum([x^(q^i) for i in 0:(n - 1)])
 end
 
 function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
-    return [tr(x * i, K, verify) for i in basis]
+    return [tr(x * i) for i in basis] #, K, verify
 end
 
 function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
@@ -537,8 +603,6 @@ end
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the provided `basis` for the base ring of `M` over `K`.
-
-No check is done to ensure that `basis` is indeed a basis for the extension.
 """
 function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     L = base_ring(M)
@@ -548,6 +612,11 @@ function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmo
     n = div(degree(L), degree(K))
     n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
     # should really check if it is a basis
+    flag, m = isextension(base_ring(M), K)
+    flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
+    m == length(basis) || throw(ArgumentError("Basis does not have length degree of the extension."))
+    flag, _ = _isbasis(F, basis, Int(order(K)))
+    flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
 end
 

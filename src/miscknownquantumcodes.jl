@@ -66,8 +66,8 @@ ordering.
 """
 Q15RM() = QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
     "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
-    "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX",
-    "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+    "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ",
+    "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
 Q1513() = Q15RM()
 
 """
@@ -356,6 +356,10 @@ end
     RotatedSurfaceCode(d::Int)
 
 Return the `[[d^2, 1, d]]` rotated surface code.
+
+This is the surface-13/17 configuration found in "Low-distance surface codes under realistic quantum noise"
+by Tomita and Svore. The standard planar surface code is equivalent to their surface-25 configuration, which
+can be seen by viewing the stabilizers of PlanarSurfaceCode as an adjacency matrix.
 """
 function RotatedSurfaceCode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
@@ -718,12 +722,330 @@ end
          # Toric Codes
 ################################
 
-# function ToricCode()
-# toric code:
-# Hx - vertex-edge incidence matrix
-# make graph with vertices Z/mZ x Z/mZ
-# row of Hx is (x +/- 1, y), (x, y +/- 1)
-# there are 2m^2 of these
-# Hz - face-edge incidence matrix
-# (x, y), (x + 1, y), (x + 1, y + 1), (x, y + 1)
-# k = 2, d = m
+"""
+    ToricCode(d::Int)
+
+Return the `[[2d^2, 2, d]]` toric code.
+
+The lattice orientation used here follows the picture at https://errorcorrectionzoo.org/c/surface.
+"""
+function ToricCode(d::Int)
+    2 <= d || throw(ArgumentError("Distance must be at least two."))
+
+    F, _ = FiniteField(2, 1, "α")
+    Fone = F(1)
+    A = zero_matrix(F, d^2, 2 * d^2) # stars, X stabilizers
+    B = zero_matrix(F, d^2, 2 * d^2) # faces, Z stabilizers
+    qubit = 1
+    rowA = 1
+    rowB = 1
+    for r in 1:2 * d
+        if isodd(r)
+            for c in 1:d
+                # println("r = $r, c = $c, rowA = $rowA")
+                if r != 2 * d - 1 && c != d
+                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + d + 1] = A[rowA, qubit + 2 * d] = Fone
+                elseif r == 2 * d - 1 && c != d
+                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + d + 1] = A[rowA, c] = Fone
+                elseif r != 2 * d - 1 && c == d
+                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + 1] = A[rowA, qubit + 2 * d] = Fone
+                elseif r == 2 * d - 1 && c == d
+                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + 1] = A[rowA, c] = Fone
+                else
+                    error("Ran into unaccounted for case in creating the toric code lattice.")
+                end
+                rowA += 1
+                qubit += 1
+            end
+        else
+            for c in 1:d
+                # println("r = $r, c = $c, rowB = $rowB")
+                if r != 2 * d && c == 1
+                    B[rowB, qubit] = B[rowB, qubit + d] = B[rowB, qubit + 2 * d] = B[rowB, qubit + 2 * d - 1] = Fone
+                elseif r != 2 * d && c != 1
+                    B[rowB, qubit] = B[rowB, qubit + d - 1] = B[rowB, qubit + d] = B[rowB, qubit + 2 * d] = Fone
+                elseif r == 2 * d && c == 1
+                    B[rowB, qubit] = B[rowB, d] = B[rowB, d + 1] = B[rowB, 1] = Fone
+                elseif r == 2 * d && c != 1
+                    B[rowB, qubit] = B[rowB, c - 1] = B[rowB, c] = B[rowB, c + d] = Fone
+                else
+                    println("here")
+                    error("Ran into unaccounted for case in creating the toric code lattice.")
+                end
+                rowB += 1
+                qubit += 1
+            end
+        end
+    end
+    # display(A)
+    # println(" ")
+    # display(B)
+    # println(" ")
+    S = CSSCode(A, B, missing)
+    Eone = S.E(1)
+    ω = gen(S.E)
+    X1 = zero_matrix(S.E, 1, 2 * d^2)
+    for c in 1:d
+        X1[1, c + d] = Eone
+    end
+    # display(X1)
+    # println(" ")
+    Z1 = zero_matrix(S.E, 1, 2 * d^2)
+    for r in 1:2:2 * d
+        Z1[1, r * d + 1] = ω
+    end
+    # display(Z1)
+    # println(" ")
+    X2 = zero_matrix(S.E, 1, 2 * d^2)
+    for r in 1:2:2 * d
+        X2[1, (r - 1) * d + 1] = Eone
+    end
+    # display(X2)
+    # println(" ")
+    Z2 = zero_matrix(S.E, 1, 2 * d^2)
+    for c in 1:d
+        Z2[1, c] = ω
+    end
+    # display(Z2)
+    S.logicals = [(X1, Z1), (X2, Z2)]
+    S.dx = d
+    S.dz = d
+    S.d = d
+    return S
+end
+
+################################
+     # Planar Surface Codes
+################################
+
+"""
+    PlanarSurfaceCode(dx::Int, dz::Int)
+    PlanarSurfaceCode(d::Int)
+
+Return the `[[dx * dz + (dx - 1) * (dz - 1), 1, dx/dz]]` planar surface code.
+
+The top and bottom boundaries are "smooth" (`Z`) and the left and right are "rough" (`X`).
+"""
+function PlanarSurfaceCode(dx::Int, dz::Int)
+    (2 <= dx && 2 <= dz) || throw(ArgumentError("Distances must be at least two."))
+
+    F, _ = FiniteField(2, 1, "α")
+    Fone = F(1)
+    numV = dx * dz + (dx - 1) * (dz - 1)
+    A = zero_matrix(F, dx * (dz - 1) + 1, numV) # stars, X stabilizers
+    B = zero_matrix(F, dz * (dx - 1), numV) # faces, Z stabilizers
+    qubit = 1
+    rowA = 1
+    rowB = 1
+    for r in 1:dz
+        for c in 1:dx
+            # println("r = $r, c = $c, qubit = $qubit")
+            if r != dz
+                if c == 1
+                    B[rowB, qubit] = B[rowB, qubit + dx] = B[rowB, qubit + 2 * dx - 1] = Fone
+                    # println("$qubit $(qubit + dx) $(qubit + 2 * dx - 1)")
+                    rowB += 1
+                elseif c == dx
+                    B[rowB, qubit] = B[rowB, qubit + dx - 1] = B[rowB, qubit + 2 * dx - 1] = Fone
+                    # println("$qubit $(qubit + dx - 1) $(qubit + 2 * dx - 1)")
+                    rowB += 1
+                else
+                    B[rowB, qubit] = B[rowB, qubit + dx - 1] = B[rowB, qubit + dx] = B[rowB, qubit + 2 * dx - 1] = Fone
+                    # println("$qubit $(qubit + dx - 1) $(qubit + dx) $(qubit + 2 * dx - 1)")
+                    rowB += 1
+                end
+            end
+
+            if c != dx
+                if r == 1
+                    # println("$qubit $(qubit + 1) $(qubit + dx)")
+                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit + dx] = Fone
+                    rowA += 1
+                elseif r == dz
+                    # println("$qubit $(qubit + 1) $(qubit - dx + 1)")
+                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit - dx + 1] = Fone
+                    rowA += 1
+                else
+                    # println("$qubit $(qubit + 1) $(qubit + dx) $(qubit - dx + 1)")
+                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit + dx] = A[rowA, qubit - dx + 1] = Fone
+                    rowA += 1
+                end
+            end
+            qubit += 1
+        end
+        qubit += dx - 1
+    end
+    # display(A)
+    # println(" ")
+    # display(B)
+    # println(" ")
+    # display(A * transpose(B))
+    S = CSSCode(A, B, missing)
+    Eone = S.E(1)
+    ω = gen(S.E)
+    X1 = zero_matrix(S.E, 1, numV)
+    for r in 1:2:dx
+        X1[1, dz * (r - 1) + (dz - 1) * (r - 1) + 1] = Eone
+    end
+    Z1 = zero_matrix(S.E, 1, numV)
+    for c in 1:dz
+        Z1[1, c] = ω
+    end
+    S.logicals = [(X1, Z1)]
+    S.dx = dx
+    S.dz = dz
+    S.d = minimum([dx, dz])
+    return S
+end
+PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
+
+################################
+       # XY Surface Codes
+################################
+
+"""
+    XYSurfaceCode(dx::Int, dz::Int)
+    XYSurfaceCode(d::Int)
+
+Return the `[[dx * dy + (dx - 1) * (dy - 1), 1, dx/dy]]` XY surface code of
+"Ultrahigh Error Threshold for Surface Codes with Biased Noise" by Tuckett, Bartlett, and Flammia.
+
+The top and bottom boundaries are "smooth" (`Y`) and the left and right are "rough" (`X`).
+"""
+function XYSurfaceCode(dx::Int, dy::Int)
+    (2 <= dx && 2 <= dy) || throw(ArgumentError("Distances must be at least two."))
+
+    E, ω = FiniteField(2, 2, "ω")
+    Eone = E(1)
+    numV = dx * dy + (dx - 1) * (dy - 1)
+    M = zero_matrix(E, numV - 1, numV)
+    qubit = 1
+    row = 1
+    for r in 1:dy
+        for c in 1:dx
+            if r != dz
+                if c == 1
+                    M[row, qubit] = M[row, qubit + dx] = M[row, qubit + 2 * dx - 1] = Eone + ω
+                    row += 1
+                elseif c == dx
+                    M[row, qubit] = M[row, qubit + dx - 1] = M[row, qubit + 2 * dx - 1] = Eone + ω
+                    row += 1
+                else
+                    M[row, qubit] = M[row, qubit + dx - 1] = M[row, qubit + dx] = M[row, qubit + 2 * dx - 1] = Eone + ω
+                    row += 1
+                end
+            end
+
+            if c != dx
+                if r == 1
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + dx] = Eone
+                    row += 1
+                elseif r == dz
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit - dx + 1] = Eone
+                    row += 1
+                else
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + dx] = M[row, qubit - dx + 1] = Eone
+                    row += 1
+                end
+            end
+            qubit += 1
+        end
+        qubit += dx - 1
+    end
+    S = QuantumCode(M, false, missing)
+    # Eone = S.E(1)
+    # ω = gen(S.E)
+    # X1 = zero_matrix(S.E, 1, numV)
+    # for r in 1:2:dx
+    #     X1[1, dz * (r - 1) + (dz - 1) * (r - 1) + 1] = Eone
+    # end
+    # Z1 = zero_matrix(S.E, 1, numV)
+    # for c in 1:dz
+    #     Z1[1, c] = ω
+    # end
+    # S.logicals = [(X1, Z1)]
+    # S.dx = dx
+    # S.dz = dz
+    # S.d = minimum([dx, dz])
+    return S
+end
+XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
+
+# ################################
+#          # XYZ^2 Codes
+# ################################
+
+# """
+#     XYZ2Code(d::Int)
+
+# Return the `[[2d^2, 1, d]]` XYZ^2 (XYZXYZ) code of "The XYZ^2 hexagonal stabilizer code"
+# by Srivastava, Kockum, and Granath.
+# """
+# function XYZ2Code(d::Int)
+#     3 <= d && isodd(d) || throw(ArgumentError("The distance must be an odd, positive integer."))
+
+#     E, ω = FiniteField(2, 2, "ω")
+#     Eone = E(1)
+#     M = zero_matrix(E, 2 * d^2 - 1, 2 * d^2) # stars, X stabilizers
+#     qubit = d + 1
+#     row = 1
+#     # comments refer to rotating Figure 1 of paper to the right by 45 degrees such that it's a rectangle
+#     for r in 2:2 * d - 1
+#         for c in 1:d
+#             if isodd(r)
+#                 # weight-3 stabilizers on bottom
+#                 if r == 2 * d - 1 && isodd(c) && c != d
+#                     M[row, qubit] = M[row, qubit + d] = M[row, qubit + d + 1] = Eone
+#                     row += 1
+#                 # weight-3 stabilizers on left
+#                 elseif c == 1 && (r + 1) % 4 == 0 # r != 2 * d - 1 && - never need this since restricting to d odd
+#                     M[row, qubit] = M[row, qubit - d] = M[row, qubit + d] = Eone
+#                     row += 1
+#                 end
+#             else
+#                 # full hex
+#                 if c != d
+#                     M[row, qubit] = M[row, qubit - d] = M[row, qubit + 1] =  M[row, qubit + d] = M[row, qubit + d + 1] = M[row, qubit + 2 * d + 1] = Eone
+#                     row += 1
+#                 end
+#                 # weight-3 stabilizers on top
+#                 if r == 2 && isodd(c) && c != 1
+#                     M[row, qubit] = M[row, qubit - d] = M[row, qubit - d - 1] = Eone
+#                     row += 1
+#                 # weight-3 stabilizers on right
+#                 elseif r != 2 && c == d && r % 4 == 0
+#                     M[row, qubit] = M[row, qubit - d] = M[row, qubit + d] = Eone
+#                     row += 1
+#                 end
+#             end
+#             qubit += 1
+#         end
+#     end
+#     display(M)
+#     return
+#     S.d = d
+#     S.dx = d
+#     S.dz = 2 * d^2
+#     # Y distance is also 2 * d^2
+# end
+
+################################
+           # H Codes
+################################
+
+function HCode(k::Int)
+    (2 <= k && iseven(k)) || throw(ArgumentError("Input must be >= 2 and even."))    
+    F, _ = FiniteField(2, 1, "α")
+    Fone = F(1)
+    X = zero_matrix(F, 2, k + 4)
+    Z = zero_matrix(F, 2, k + 4)
+    X[1, 1] = X[1, 2] = X[1, 3] = X[1, 4] = Fone
+    Z[1, 1] = Z[1, 2] = Z[1, 3] = Z[1, 4] = Fone
+    X[2, 1] = X[2, 2] = Fone
+    Z[2, 1] = Z[2, 2] = Fone
+    for c in 5:k + 4
+        X[2, c] = X[2, c + 1] = Fone
+        Z[2, c] = Z[2, c + 1] = Fone
+    end
+    return CSSCode(X, Z)
+end

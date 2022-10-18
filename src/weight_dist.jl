@@ -133,8 +133,6 @@ function weightenumeratorC(T::Trellis, type::String="complete")
     return T.CWE
 end
 
-# ah, there's nothing about this function which is correct. I've been changing the
-# exponents while I need to evaluate the functions then expand using the same exponents
 function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
     dual ∈ ["Euclidean", "Hermitian"] ||
         error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
@@ -162,6 +160,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
         K, ζ = CyclotomicField(3, "ζ")
         R, vars = PolynomialRing(K, 3)
+        # might have to switch this here
         poly = divexact(W.polynomial(
             vars[1] + vars[2] + vars[3],
             vars[1] + ζ*vars[2] + ζ^2*vars[3],
@@ -170,15 +169,25 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         return WeightEnumerator(map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
             parent=parent(W.polynomial)), "complete")
     elseif Int(order(C.F)) == 4
+        # these order 4 formulas are from "Self-Dual Codes" by Rains and Sloane without proof
+        # the differ in order from the formula in MacWilliams and Sloane used in the general
+        # case below:
+        #    x1 + x2 + x3 + x4
+        #    x1 - x2 + x3 - x4
+        #    x1 + x2 - x3 - x4
+        #    x1 - x2 - x3 + x4
+        # But that formula should depend on the chosen basis and character so I assume it's okay
         if dual == "Euclidean"
             # for Euclidean dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
             R = parent(W.polynomial)
             vars = gens(R)
+            # switched lines 2 and 3 from Rains & Sloane (Huffman & Press) formula because it
+            # appears to implicitly assuming a primitive basis and here we permute for our basis
             return WeightEnumerator(divexact(W.polynomial(
                 vars[1] + vars[2] + vars[3] + vars[4],
-                vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] - vars[3] + vars[4],
+                vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] + vars[3] - vars[4]), cardinality(C)),
                 "complete")
         else
@@ -186,18 +195,51 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
             R = parent(W.polynomial)
             vars = gens(R)
+            # switched lines 2 and 3 from Rains & Sloane (Huffman & Press) formula because it
+            # appears to implicitly assuming a primitive basis and here we permute for our basis
             return WeightEnumerator(divexact(W.polynomial(
                 vars[1] + vars[2] + vars[3] + vars[4],
-                vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] + vars[3] - vars[4],
+                vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] - vars[3] + vars[4]), cardinality(C)),
                 "complete")
         end
     else
-        # do the full manual thing here
-        error("The MacWilliams identities for complete weight enumerators have
-            not yet been implemented over higher fields. See MachWilliams and
-            Sloane for the proper implementation.")
+        q = Int(order(C.F))
+        if isprime(q)
+            K, ω = CyclotomicField(Int(characteristic(C.F)), "ω")
+            R, vars = PolynomialRing(K, q)
+            elms = collect(C.F)
+            funcargs = []
+            for i in 1:q
+                innersum = R(0)
+                for j in 1:q
+                    innersum += ω^coeff(elms[i] * elms[j], 0) * vars[j]
+                end
+                append!(funcargs, innersum)
+            end
+            return WeightEnumerator(divexact(W.polynomial(funcargs), cardinality(C)),
+                "complete")
+        else
+            K, ω = CyclotomicField(Int(characteristic(C.F)), "ω")
+            R, vars = PolynomialRing(K, q)
+            primefield, _ = FiniteField(Int(characteristic(C.F)), 1, "α2")
+            _, λ = primitivebasis(C.F, primefield)
+            elms = collect(C.F)
+            funcargs = []
+            for i in 1:q
+                innersum = R(0)
+                for j in 1:q
+                    β = elms[i] * elms[j]
+                    βexp = _expandelement(β, primefield, λ, false)
+                    innersum += ω^coeff(βexp[1], 0) * vars[j]
+                end
+                push!(funcargs, innersum)
+            end
+            display(funcargs)
+            return WeightEnumerator(divexact(W.polynomial(funcargs...), cardinality(C)),
+                "complete")
+        end
     end
 end
 
@@ -332,69 +374,6 @@ end
     # Weight Enumerators
 #############################
 
-
-
-
-
-# # we can organize the S⟂ \ S any way we want as long as we have these elements on the
-# function weightenumerator(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
-#     Pauli::Char=' ', verbose::Bool=true)
-
-#     alg ∈ ["trellis"] || error("Algorithm `$alg` is not implemented in weightdistribution.")
-
-#     # S⟂ - this is not a stabilizer code
-#     # if ismissing(Q.dualweightenum)
-#     #     Q.dualweightenum = weightenumerator(LinearCode(normalizermatrix(Q)))
-#     # end
-#     verbose && println("S⟂: ", Q.dualweightenum)
-
-#     # S⟂ \ S - this is not a stabilizer code
-#     # k is always small, so just brute force it
-#     if ismissing(Q.logsweightenum)
-#         logspace = LinearCode(logicalspace(Q))
-#         Q.logsweightenum = _weightenumeratorBF(logspace)
-#         Q.d = Q.logsweightenum.polynomial[2][2]
-#     end
-#     verbose && println("S⟂ / S: ", Q.logsweightenum)
-
-#     # S
-#     if ismissing(Q.Pauliweightenum)
-#         # this is not valid for qudit codes
-#         Q.Pauliweightenum = Pauliweightenumerator(Q, Pauli, sect)
-#     end
-#     verbose && println("S: ", Q.Pauliweightenum)
-
-#     return [Q.dualweightenum, Q.logsweightenum, Q.Pauliweightenum]
-# end
-
-# function weightdistribution(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false,
-#     Pauli::Char=' ', keeptrellis::Bool=true, cleanV::Bool=true, verbose::Bool=true)
-
-#     weightenumerator(Q, alg, sect, Pauli, false)
-#     # S⟂
-#     temp1 = zeros(Int64, 1, Q.n + 1)
-#     for term in Q.dualweightenum
-#         temp1[term[2] + 1] = term[1]
-#     end
-#     verbose && println("S⟂: ", temp1)
-
-#     # S⟂ \  S
-#     temp2 = zeros(Int64, 1, Q.n + 1)
-#     for term in Q.logsweightenum
-#         temp2[term[2] + 1] = term[1]
-#     end
-#     verbose && println("S⟂ / S: ", temp2)
-
-#     # S
-#     temp3 = zeros(Int64, 1, Q.n + 1)
-#     for term in Q.Pauliweightenum
-#         temp3[term[2] + 1] = term[1]
-#     end
-#     verbose && println("S: ", temp3)
-
-#     return [temp1, temp2, temp3]
-# end
-
 # TODO: test with other iterator
 function _weightenumeratorBFQ(G::fq_nmod_mat, charvec::Vector{nmod},
     R::Union{AbstractAlgebra.Generic.MPolyRing{nf_elem}, Missing})
@@ -447,6 +426,70 @@ function _weightenumeratorBFQ(G::fq_nmod_mat, charvec::Vector{nmod},
     # display(poly)
     return WeightEnumerator(poly, "complete")
     # return poly
+end
+
+# formulas from
+# "Weight enumerators for nonbinary asymmetric quantum codes and their applications"
+# by Chuangqiang Hu, Shudi Yang, Stephen S.-T.Yau
+function MacWilliamsIdentity(S::AbstractStabilizerCode, W::WeightEnumerator, dual::Bool=false)
+    dual ? (card = BigInt(characteristic(S.F))^(S.n + S.k);) : (card = cardinality(S);)
+    if W.type == "Hamming"
+        # (1/(q^n|S|))W(y - x, y + (q^2 - 1)x)
+        R = parent(W.polynomial)
+        vars = gens(R)
+        q = Int(order(S.F))
+        return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
+            (q^2 - 1) * vars[1]), card), "Hamming")
+        # could probably put the /q under each variable and remove the q^n
+    end
+
+    # complete weight enumerators
+    if Int(order(S.E)) == 4
+        # 1/|S| W((x - y - z + w)/2, (-x + y - z + w)/2, (-x - y + z + w)/2, (x + y + z + w)/2)
+        R = parent(W.polynomial)
+        vars = gens(R)
+        # this is the same as the classical Hermitian dual formula
+        # switched lines 2 and 3 from citation for our basis
+        return WeightEnumerator(divexact(W.polynomial(
+            vars[1] + vars[2] + vars[3] + vars[4],
+            vars[1] + vars[2] - vars[3] - vars[4],
+            vars[1] - vars[2] + vars[3] - vars[4],
+            vars[1] - vars[2] - vars[3] + vars[4]),
+            card), "complete") # need the /2 to connect to the original Shor-Laflamme def
+    else
+        error("The quantum MacWilliams identity for higher fields has a bug and is currently unavailable.")
+        # BUG: in the below it's unclear what the proper permutation is given the paper
+        # the various combinations I've tried always fix one but break the dual
+        # need to set ω ↦ ω^2 and then match the equations above (try Q15RM())
+        # want perm = [1, 3, 2, 4]
+        # R = parent(W.polynomial)
+        # vars = gens(R)
+        # ω = gen(base_ring(R)) # if Int(order(S.F)) == 2, ω ↦ ω^2 in below
+        # elms = collect(S.E)
+        # q = Int(order(S.E))
+        # α = gen(S.E)
+        # basis = [S.E(0); [α^i for i in 1:q - 1]]
+        # # perm = [findfirst(x->x==b, elms) for b in basis]
+        # perm = [findfirst(x->x==b, basis) for b in elms]
+        # funcargs = []
+        # for i in 1:q
+        #     innersum = R(0)
+        #     for j in 1:q
+        #         # innersum += ω^(2*tr(coeff(elms[i], 0) * coeff(elms[j], 1) -
+        #         #     coeff(elms[j], 0) * coeff(elms[i], 1))) * vars[j]
+        #         innersum += ω^(2*tr(coeff(basis[i], 0) * coeff(basis[j], 1) -
+        #             coeff(basis[j], 0) * coeff(basis[i], 1))) * vars[perm[j]]
+        #     end
+        #     push!(funcargs, innersum) # /q for Shor-Laflamme
+        # end
+        # println(basis)
+        # println(elms)
+        # println(perm)
+        # display(funcargs)
+        # display(funcargs[perm])
+        # return WeightEnumerator(divexact(W.polynomial(funcargs[perm]...), card),
+        #     "complete")
+    end
 end
 
 function weightenumerator(S::AbstractStabilizerCode, type::String="complete",
@@ -553,11 +596,11 @@ end
 function weightenumeratorQ(T::Trellis, type::String="complete")
     type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
 
-    # if type == "complete" && !ismissing(T.CWE)
-    #     return T.CWE
-    # elseif type == "Hamming" && !ismissing(T.CWE)
-    #     return CWEtoHWE(T.CWE)
-    # end
+    if type == "complete" && !ismissing(T.CWE)
+        return T.CWE
+    elseif type == "Hamming" && !ismissing(T.CWE)
+        return CWEtoHWE(T.CWE)
+    end
 
     # if this ever changes or permutes will have to store with T
     elms = collect(T.code.E)
@@ -593,8 +636,6 @@ function weightenumeratorQ(T::Trellis, type::String="complete")
                 end
 
                 inner = deepcopy(V[i - 1][e.outvertex].polynomial)
-                # println(inner)
-                # println(e.label)
                 for k in e.label
                     inner *= ω^parity * vars[lookup[k]]
                 end
@@ -624,9 +665,6 @@ function weightenumeratorQ(T::Trellis, type::String="complete")
     end
     return T.CWE
 end
-
-# need weight distribution functions
-
 
 """
     weightplot(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
@@ -747,7 +785,7 @@ support(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer"
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimumdistance(S::AbstractStabilizerCode, alg::String="auto")
+function minimumdistance(S::AbstractStabilizerCode, alg::String="auto", verbose::Bool=false)
     !ismissing(S.d) && return S.d
 
     # these should be different? weight? auto? BZ?
@@ -757,21 +795,44 @@ function minimumdistance(S::AbstractStabilizerCode, alg::String="auto")
         # "Quantum Error Correction Via Codes Over GF(4)"
         # the distance of an [𝑛,0] code is defined as the smallest non-zero weight of any stabilizer in the code
     else
-
         # something like this
         if alg == "auto"
             weightenumerator(S, "Hamming", "auto", "quotient")
         elseif alg == "trellis"
-            Tdual = syndrometrellis(S, "primal", true, true)
-            TdualHWE = weightenumeratorQ(Tdual, "Hamming")
-            Tdual = missing
-            println("Primal trellis complete")
-            Tstabs = syndrometrellis(S, "dual", true, true)
-            THWE = weightenumeratorQ(Tstabs, "Hamming")
-            Tstabs = missing
-            poly = TdualHWE.polynomial - THWE.polynomial
-            S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
-                for i in 1:length(poly)]))
+            TOFstabs = trellisorientedformadditive(S.stabs)
+            TOFnorm = trellisorientedformadditive(S.dualgens)
+            boundaries, numEsectprimal = optimalsectionalizationQ(TOFstabs, TOFnorm)
+            verbose && println("Primal edges: $numEsectprimal")
+            profilesprimal = trellisprofiles(TOFstabs, TOFnorm, boundaries, "symplectic")
+            boundaries, numEsectdual = optimalsectionalizationQ(TOFnorm, TOFstabs)
+            verbose && println("Dual edges: $numEsectdual")
+            profilesdual = trellisprofiles(TOFnorm, TOFstabs, boundaries, "symplectic")
+            if sum(profilesprimal[2]) <= sum(profilesdual[2])
+                Tprimal = sect(S, "primal", true, false)
+                TprimalHWE = weightenumeratorQ(Tprimal, "complete")
+                TdualHWE = MacWilliamsIdentity(S, TprimalHWE, true)
+                poly = TdualHWE.polynomial - TprimalHWE.polynomial
+                S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+                    for i in 1:length(poly)]))
+            else
+                Tdual = sect(S, "dual", true, false)
+                TdualHWE = weightenumeratorQ(Tdual, "Hamming")
+                TprimalHWE = MacWilliamsIdentity(S, TdualHWE)
+                poly = TdualHWE.polynomial - TprimalHWE.polynomial
+                S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+                    for i in 1:length(poly)]))
+            end
+
+            # Tdual = syndrometrellis(S, "primal", true, true)
+            # TdualHWE = weightenumeratorQ(Tdual, "Hamming")
+            # Tdual = missing
+            # println("Primal trellis complete")
+            # Tstabs = syndrometrellis(S, "dual", true, true)
+            # THWE = weightenumeratorQ(Tstabs, "Hamming")
+            # Tstabs = missing
+            # poly = TdualHWE.polynomial - THWE.polynomial
+            # S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+            #     for i in 1:length(poly)]))
         else
             # brute force solution here
         end

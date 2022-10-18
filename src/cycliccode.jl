@@ -751,7 +751,6 @@ function iscyclic(C::AbstractLinearCode, construct::Bool=true)
     return true
 end
 
-
 """
     complement(C::AbstractCyclicCode)
 

@@ -49,40 +49,6 @@ mutable struct QuantumCode <: AbstractStabilizerCode
     pure::Union{Bool, Missing}
 end
 
-mutable struct GraphState <: AbstractStabilizerCode
-    F::FqNmodFiniteField # base field (symplectic)
-    E::FqNmodFiniteField # additive field
-    n::Int
-    k::Int
-    d::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    charvec::Vector{nmod}
-    signs::Vector{nmod}
-    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    overcomplete::Bool
-end
-
-mutable struct GraphStateCSS <: AbstractCSSCode
-    F::FqNmodFiniteField # base field (symplectic)
-    E::FqNmodFiniteField # additive field
-    n::Int
-    k::Int
-    d::Union{Int, Missing}
-    dx::Union{Int, Missing}
-    dz::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
-    Xorigcode::Union{LinearCode, Missing}
-    ZorigCode::Union{LinearCode, Missing}
-    signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
-    charvec::Vector{nmod}
-    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    overcomplete::Bool
-end
-
 """
     field(S::AbstractStabilizerCode)
 
@@ -601,8 +567,9 @@ function CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - Srank)
     ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-    H = transpose(H)
-    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    # H = transpose(H)
+    # dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
@@ -702,8 +669,9 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    H = transpose(H)
-    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    # H = transpose(H)
+    # dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
@@ -806,8 +774,11 @@ function QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=mi
     # println("H: ", size(H), ", n: ", n, ", k: ", rkS)
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    H = transpose(H)
-    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    # H = transpose(H)
+    # display(H)
+    # display(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    # dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -924,8 +895,9 @@ function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    H = transpose(H)
-    dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    # H = transpose(H)
+    # dualgens = symplectictoquadratic(hcat(H[:, n + 1:end], -H[:, 1:n]))
+    dualgens = symplectictoquadratic(transpose(H))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -980,19 +952,6 @@ function isisomorphic(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode)
     S1logsVS, _ = sub(V, [V(S1symlogs[i, :]) for i in 1:nrows(S1symlogs)]);
     S2logsVS, _ = sub(V, [V(S2symlogs[i, :]) for i in 1:nrows(S2symlogs)]);
     return is_isomorphic(S1logsVS, S2logsVS)
-end
-
-function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
-    F = base_ring(big)
-    V = VectorSpace(F, ncols(big))
-    U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
-    W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
-    gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
-    UinW, _ = sub(W, gensofUinW)
-    Q, WtoQ = quo(W, UinW)
-    C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
-    Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-    return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 end
 
 function _makepairs(L::fq_nmod_mat)
@@ -1283,78 +1242,6 @@ function show(io::IO, S::AbstractStabilizerCode)
     end
 end
 
-function show(io::IO, S::Union{GraphState, GraphStateCSS})
-    if typeof(S) == GraphStateCSS
-        if ismissing(S.d)
-            println(io, "[[$(S.n)), 0]]_$(order(S.F)) CSS graph state.")
-        else
-            println(io, "[[$(S.n), 0, $(S.d)]]_$(order(S.F)) CSS graph state.")
-        end
-    else
-        if ismissing(S.d)
-            println(io, "[[$(S.n)), 0]]_$(order(S.F)) graph state.")
-        else
-            println(io, "[[$(S.n), 0, $(S.d)]]_$(order(S.F)) graph state.")
-        end
-    end
-    if !get(io, :compact, false)
-        if typeof(S) == GraphStateCSS
-            if S.overcomplete
-                println(io, "X-stabilizer matrix (overcomplete): $(numXstabs(S)) × $(S.n)")
-            else
-                println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(S.n)")
-            end
-            for i in 1:numXstabs(S)
-                print(io, "\t chi($(S.Xsigns[i])) ")
-                for j in 1:S.n
-                    if j != S.n
-                        print(io, "$(S.Xstabs[i, j]) ")
-                    elseif j == S.n && i != S.n
-                        println(io, "$(S.Xstabs[i, j])")
-                    else
-                        print(io, "$(S.Xstabs[i, j])")
-                    end
-                end
-            end
-            if isovercomplete(S)
-                println(io, "Z-stabilizer matrix (overcomplete): $(numZstabs(S)) × $(S.n)")
-            else
-                println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(S.n)")
-            end
-            for i in 1:numZstabs(S)
-                print(io, "\t chi($(S.Zsigns[i])) ")
-                for j in 1:S.n
-                    if j != S.n
-                        print(io, "$(S.Zstabs[i, j]) ")
-                    elseif j == S.n && i != S.n
-                        println(io, "$(S.Zstabs[i, j])")
-                    else
-                        print(io, "$(S.Zstabs[i, j])")
-                    end
-                end
-            end
-        else
-            if isovercomplete(S)
-                println(io, "Stabilizer matrix (overcomplete): $(nrows(S.stabs)) × $(S.n)")
-            else
-                println(io, "Stabilizer matrix: $(nrows(S.stabs)) × $(S.n)")
-            end
-            for i in 1:nrows(S.stabs)
-                print(io, "\t chi($(S.signs[i])) ")
-                for j in 1:S.n
-                    if j != S.n
-                        print(io, "$(S.stabs[i, j]) ")
-                    elseif j == S.n && i != S.n
-                        println(io, "$(S.stabs[i, j])")
-                    else
-                        print(io, "$(S.stabs[i, j])")
-                    end
-                end
-            end
-        end
-    end
-end
-
 """
     Xsyndrome(S::CSSCode, v::fq_nmod_mat)
 
@@ -1585,31 +1472,6 @@ function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=t
         verbose && println("Started with all graph state. New logicals:")
         verbose && display(logicals(Snew))
     end
-end
-
-#############################
-#       Graph States  #
-#############################
-
-function graphstate(G::SimpleGraph{Int64})
-    # probably need some checks on G here but maybe the function args are good enough
-    A = adjacency_matrix(G)
-    _, nc = size(A)
-    for i in 1:nc
-        iszero(A[i, i]) || error("Graph cannot have self-loops.")
-    end
-    # are there non-binary graph states?
-    F, _ = FiniteField(2, 1, "α")
-    fone = F(1)
-    symstabs = zero_matrix(F, nc, 2 * nc)
-    for r in 1:nc
-        symstabs[r, r] = fone
-        for c in 1:nc
-            isone(A[r, c]) && (symstabs[r, c + nc] = fone;)
-        end
-    end
-    # this should automatically compute everything for the GraphState constructor
-    return QuantumCode(symstabs, true, missing)
 end
 
 #############################
