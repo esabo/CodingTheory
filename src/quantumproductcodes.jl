@@ -55,7 +55,7 @@ arXiv:0903.0566v2"
 function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod},
         Missing}=missing)
 
-    Int(order(C.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
+    # Int(order(C.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
 
     # perform product with H as is, but need to actually compute the parameters
     # of the transpose code (LinearCode(H^T, true)) in order to use formulas
@@ -64,7 +64,7 @@ function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod
     eye = M(1)
     Mtr = MatrixSpace(C.F, ncols(Htr), ncols(Htr))
     eyetr = Mtr(1)
-    HX = hcat(C.H ⊗ eye, eyetr ⊗ Htr)
+    HX = hcat(C.H ⊗ eye, -eyetr ⊗ Htr)
     HZ = hcat(eye ⊗ C.H, Htr ⊗ eyetr)
     S = directsum(HX, HZ)
     Sq2 = symplectictoquadratic(S)
@@ -158,8 +158,8 @@ arXiv:0903.0566v2"
 function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
         charvec::Union{Vector{nmod}, Missing}=missing)
 
-    Int(order(C1.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
-    Int(order(C2.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
+    # Int(order(C1.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
+    # Int(order(C2.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
 
     # note that orthogonality of C1 and C2 here is not necessary because
     # HX * transpose(HZ) = C1.H \otimes transpose(C2.H) + C1.H \otimes transpose(C2.H) = 0
@@ -170,7 +170,7 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     Mnk1 = MatrixSpace(C1.F, ncols(H1tr), ncols(H1tr))
     Mn2 = MatrixSpace(C2.F, C2.n, C2.n)
     Mnk2 = MatrixSpace(C2.F, ncols(H2tr), ncols(H2tr))
-    HX = hcat(H1 ⊗ Mn2(1), Mnk1(1) ⊗ H2tr)
+    HX = hcat(H1 ⊗ Mn2(1), -Mnk1(1) ⊗ H2tr)
     HZ = hcat(Mn1(1) ⊗ H2, H1tr ⊗ Mnk2(1))
     S = directsum(HX, HZ)
     Sq2 = symplectictoquadratic(S)
@@ -232,6 +232,11 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
 
     # [[(C1.n)^2 + (C2^T.n)^2, (C1.k)^2 + (C2^T.k)^2, min(d, d^T)]]
     # dX = min(d^T_1, d_2), dZ = min(d1, d^T_2), d = min(dX, dZ)
+end
+
+# TODO
+function HypergraphProductCode(A::fq_nmod_mat, B::fq_nmod_mat)
+
 end
 
 # unable to yield quantum LDPC code families with non constant minimum distance
@@ -411,4 +416,166 @@ function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::In
 
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
     # not really worth it, just use standard technique from quantumcode.jl
+end
+
+"""
+    GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
+
+Return the generealized bicycle code given by `A` and `B`.
+
+Generealized bicycle codes are discussed in "Quantum kronecker sum-product
+low-density parity- check codes with finite rate" and "Degenerate Quantum
+LDPC Codes With Good Finite Length Performance".
+"""
+function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
+    base_ring(A) == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
+    (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
+    iszero(A * B - B * A) || throw(ArgumentError("Arguments must commute."))
+    HX = hcat(A, B)
+    HZ = hcat(transpose(B), -transpose(A))
+    return CSSCode(HX, HZ)
+end
+
+"""
+    GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+
+Return the generealized bicycle code determined by `a` and `b`.
+
+`l x l` circulant matrices are constructed using the coefficients of the polynomials
+`a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column.
+"""
+function GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
+    return GeneralizedBicycleCode(polytocircmatrix(a), polytocircmatrix(b))
+end
+
+# function BicycleCode(A::fq_nmot_mat)
+#     m, n = size(A)
+#     m == n || throw(ArgumentError("Input matrix must be square."))
+#     # should probably check for F_2
+
+#     H = hcat(A, transpose(A))
+#     return CSS(H, H)
+# end
+    
+"""
+    GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+
+Return the two matrices `HX` and `HZ` of generalized hypergraph product of `A` and `b`
+over the reside ring.
+
+The generalized hypergraph product is defined in "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
+To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
+
+Notes
+- `A`` - an `m x n`` matrix with coefficents in a residue ring over `GF(2)`.
+- `b` - a polynomial over the same residue ring
+"""
+function GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    @warn "Commutativity of A and b required but not yet enforced."
+    S = base_ring(b)
+    F = base_ring(S)
+    Int(order(F)) == 2 || throw(ArgumentError("The generalized hypergraph product is only defined over GF(2)."))
+    R = parent(A[1, 1])
+    R == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
+    m, n = size(A)
+    (m != 1 && n != 1) || throw(ArgumentError("First input matrix must not be a vector."))
+    f = modulus(R)
+    l = degree(f)
+    f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
+    # gcd(l, Int(characteristic(F))) == 1 || throw(ArgumentError("Residue ring over F_q[x] must be defined by x^l - 1 with gcd(l, q) = 1."))
+    
+    Atr = transpose(A)
+    for c in 1:m
+        for r in 1:n
+            hcoeffs = collect(coefficients(Nemo.lift(Atr[r, c])))
+            for _ in 1:l - length(hcoeffs)
+                push!(hcoeffs, F(0))
+            end
+            hcoeffs[2:end] = reverse(hcoeffs[2:end])
+            Atr[r, c] = R(S(hcoeffs))
+        end
+    end
+    bcoeffs = collect(coefficients(Nemo.lift(b)))
+    for _ in 1:l - length(bcoeffs)
+        push!(bcoeffs, F(0))
+    end
+    bcoeffs[2:end] = reverse(bcoeffs[2:end])
+    btr = R(S(bcoeffs))
+    Mn = MatrixSpace(R, n, n)
+    HZ = hcat(Mn(btr), Atr)
+    Mm = MatrixSpace(R, m, m)
+    HX = hcat(A, Mm(b))
+    return HX, HZ
+end
+
+"""
+    LiftedGeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+
+Return the CSS code produced by lifting the generalized hypergraph product of `A` and `b`
+over the underlying base field.
+"""
+function LiftedGeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    HX, HZ = GeneralizedHypergraphProductCode(A, b)
+    return CSSCode(lift(HX), lift(HZ))
+end
+
+function QuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
+    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+    @warn "Commutativity of A and b required but not yet enforced."
+    S = base_ring(A[1, 1])
+    F = base_ring(S)
+    Int(order(F)) == 2 || throw(ArgumentError("The quasi-cyclic lifted product is only defined over GF(2)."))
+    R = parent(A[1, 1])
+    R == parent(B[1, 1]) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
+    f = modulus(R)
+    l = degree(f)
+    f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
+    
+    k1, n1 = size(A)
+    Atr = transpose(A)
+    for c in 1:k1
+        for r in 1:n1
+            hcoeffs = collect(coefficients(Nemo.lift(Atr[r, c])))
+            for _ in 1:l - length(hcoeffs)
+                push!(hcoeffs, F(0))
+            end
+            hcoeffs[2:end] = reverse(hcoeffs[2:end])
+            Atr[r, c] = R(S(hcoeffs))
+        end
+    end
+
+    k2, n2 = size(B)
+    Btr = transpose(B)
+    for c in 1:k2
+        for r in 1:n2
+            hcoeffs = collect(coefficients(Nemo.lift(Btr[r, c])))
+            for _ in 1:l - length(hcoeffs)
+                push!(hcoeffs, F(0))
+            end
+            hcoeffs[2:end] = reverse(hcoeffs[2:end])
+            Btr[r, c] = R(S(hcoeffs))
+        end
+    end
+
+    Mk1 = MatrixSpace(R, k1, k1)
+    Ek1 = Mk1(1)
+    Mk2 = MatrixSpace(R, k2, k2)
+    Ek2 = Mk2(1)
+    Mn1 = MatrixSpace(R, n1, n1)
+    En1 = Mn1(1)
+    Mn2 = MatrixSpace(R, n2, n2)
+    En2 = Mn2(1)
+
+    HX = hcat(kronecker_product(A, Ek2), kronecker_product(Ek1, B))
+    HZ = hcat(kronecker_product(En1, Btr), kronecker_product(Atr, En2))
+    return HX, HZ
+end
+
+function LiftedQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
+    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+    HX, HZ = QuasiCyclicLiftedProductCode(A, B)
+    return CSSCode(lift(HX), lift(HZ))
 end

@@ -838,7 +838,7 @@ determine such quantities. Use `isovercomplete` to determine if an
   upon failure.
 """
 function QuantumCode(Sq2::fq_nmod_mat, symp::Bool=false,
-    charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+    charvec::Union{Vector{nmod}, Missing}=missing)
 
     iszero(Sq2) && error("The stabilizer matrix is empty.")
     Sq2 = _removeempty(Sq2, "rows")
@@ -1157,37 +1157,39 @@ function show(io::IO, S::AbstractStabilizerCode)
                     println(io, "(($(length(S)), $(dimension(S)), $(minimumdistance(S))))_$(order(field(S))) CSS code.")
                 end
             end
-            if isovercomplete(S)
-                println(io, "X-stabilizer matrix (overcomplete): $(numXstabs(S)) × $(length(S))")
-            else
-                println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(length(S))")
-            end
-            for i in 1:numXstabs(S)
-                print(io, "\t chi($(S.Xsigns[i])) ")
-                for j in 1:length(S)
-                    if j != length(S)
-                        print(io, "$(S.Xstabs[i, j]) ")
-                    elseif j == length(S) && i != length(S) - dimension(S)
-                        println(io, "$(S.Xstabs[i, j])")
-                    else
-                        print(io, "$(S.Xstabs[i, j])")
+            if get(io, :compact, true) && S.n <= 20
+                if isovercomplete(S)
+                    println(io, "X-stabilizer matrix (overcomplete): $(numXstabs(S)) × $(length(S))")
+                else
+                    println(io, "X-stabilizer matrix: $(numXstabs(S)) × $(length(S))")
+                end
+                for i in 1:numXstabs(S)
+                    print(io, "\t chi($(S.Xsigns[i])) ")
+                    for j in 1:length(S)
+                        if j != length(S)
+                            print(io, "$(S.Xstabs[i, j]) ")
+                        elseif j == length(S) && i != length(S) - dimension(S)
+                            println(io, "$(S.Xstabs[i, j])")
+                        else
+                            print(io, "$(S.Xstabs[i, j])")
+                        end
                     end
                 end
-            end
-            if isovercomplete(S)
-                println(io, "Z-stabilizer matrix (overcomplete): $(numZstabs(S)) × $(length(S))")
-            else
-                println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(length(S))")
-            end
-            for i in 1:numZstabs(S)
-                print(io, "\t chi($(S.Zsigns[i])) ")
-                for j in 1:length(S)
-                    if j != length(S)
-                        print(io, "$(S.Zstabs[i, j]) ")
-                    elseif j == length(S) && i != length(S) - dimension(S)
-                        println(io, "$(S.Zstabs[i, j])")
-                    else
-                        print(io, "$(S.Zstabs[i, j])")
+                if isovercomplete(S)
+                    println(io, "Z-stabilizer matrix (overcomplete): $(numZstabs(S)) × $(length(S))")
+                else
+                    println(io, "Z-stabilizer matrix: $(numZstabs(S)) × $(length(S))")
+                end
+                for i in 1:numZstabs(S)
+                    print(io, "\t chi($(S.Zsigns[i])) ")
+                    for j in 1:length(S)
+                        if j != length(S)
+                            print(io, "$(S.Zstabs[i, j]) ")
+                        elseif j == length(S) && i != length(S) - dimension(S)
+                            println(io, "$(S.Zstabs[i, j])")
+                        else
+                            print(io, "$(S.Zstabs[i, j])")
+                        end
                     end
                 end
             end
@@ -1218,15 +1220,17 @@ function show(io::IO, S::AbstractStabilizerCode)
             else
                 println(io, "Stabilizer matrix: $(nrows(S.stabs)) × $(length(S))")
             end
-            for i in 1:nrows(S.stabs)
-                print(io, "\t chi($(S.signs[i])) ")
-                for j in 1:length(S)
-                    if j != length(S)
-                        print(io, "$(S.stabs[i, j]) ")
-                    elseif j == length(S) && i != length(S) - dimension(S)
-                        println(io, "$(S.stabs[i, j])")
-                    else
-                        print(io, "$(S.stabs[i, j])")
+            if get(io, :compact, true) && C.n <= 20
+                for i in 1:nrows(S.stabs)
+                    print(io, "\t chi($(S.signs[i])) ")
+                    for j in 1:length(S)
+                        if j != length(S)
+                            print(io, "$(S.stabs[i, j]) ")
+                        elseif j == length(S) && i != length(S) - dimension(S)
+                            println(io, "$(S.stabs[i, j])")
+                        else
+                            print(io, "$(S.stabs[i, j])")
+                        end
                     end
                 end
             end

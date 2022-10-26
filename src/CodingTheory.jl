@@ -11,8 +11,8 @@ using JLD2
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
-import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic
-import Base: circshift, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic, lift
+import Base: circshift, reverse, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 
 #############################
@@ -153,7 +153,8 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     digitstoint, isbasis, primitivebasis, #polynomialbasis, monomialbasis,
     normalbasis, dualbasis, complementarybasis, verifydualbasis,
     verifycomplementarybasis, isequivalentbasis, isselfdualbasis,
-    isprimitivebasis, isnormalbasis, isextension
+    isprimitivebasis, isnormalbasis, isextension, polytocircmatrix#,
+    #circshift, lift
     #, _processstrings,
     #_Paulistringtosymplectic,
 
@@ -225,12 +226,15 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode
 
 #############################
-       # cycliccode.jl
+    # quasicycliccode.jl
 #############################
 
 export AbstractQuasiCyclicCode
 
-export QuasiCyclicCode, index
+export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
+    expansionfactor, type, polynomialmatrix, polynomialmatrixtype,
+    noncirculantgeneratormatrix, noncirculantparitycheckmatrix, generators,
+    circulants
 
 #############################
      # miscknowncodes.jl
@@ -300,6 +304,8 @@ export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
 #############################
 
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
-    HyperBicycleCodeCSS, HyperBicycleCode
+    HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
+    BicycleCode, GeneralizedHypergraphProductCode, LiftedGeneralizedHypergraphProductCode,
+    QuasiCyclicLiftedProductCode, LiftedQuasiCyclicLiftedProductCode
 
 end

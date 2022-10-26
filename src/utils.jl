@@ -5,6 +5,69 @@
 # LICENSE file in the root directory of this source tree.
 
 """
+    reverse(v::fq_nmod_mat)
+    reverse!(v::fq_nmod_mat)
+
+Return the reverse of the vector `v`.
+"""
+function reverse(v::fq_nmod_mat)
+    nr, nc = size(v)
+    u = deepcopy(v)
+    if nr == 1
+        left = 1
+        right = nc
+        while left < right
+            temp = u[1, left]
+            u[1, left] = u[1, right]
+            u[1, right] = temp
+            left += 1
+            right -= 1
+        end
+        return u
+    elseif nc == 1
+        left = 1
+        right = nr
+        while left < right
+            temp = u[left, 1]
+            u[left, 1] = u[right, 1]
+            u[right, 1] = temp
+            left += 1
+            right -= 1
+        end
+        return u
+    else
+        throw(ArgumentError("Matrix must be a vector."))
+    end
+end
+
+function reverse!(v::fq_nmod_mat)
+    nr, nc = size(v)
+    if nr == 1      
+        left = 1
+        right = nc
+        while left < right
+            temp = v[1, left]
+            v[1, left] = v[1, right]
+            v[1, right] = temp
+            left += 1
+            right -= 1
+        end
+    elseif nc == 1
+        left = 1
+        right = nr
+        while left < right
+            temp = v[left, 1]
+            v[left, 1] = v[right, 1]
+            v[right, 1] = temp
+            left += 1
+            right -= 1
+        end
+    else
+        throw(ArgumentError("Matrix must be a vector."))
+    end
+end
+
+"""
     circshift(v::fq_nmod_mat, l::Int)
 
 Return the circular shift of the vector `v` by `l` bits.
@@ -14,17 +77,18 @@ Either the number of rows or the number of columns must have dimension one.1
 """
 function circshift(v::fq_nmod_mat, l::Int)
     nr, nc = size(v)
-    l = l % nc
-    l < 0 && (l = nc + l;)
-
     if nr == 1
+        l = l % nc
+        l < 0 && (l = nc + l;)
         vshift = zero_matrix(base_ring(v), 1, nc)
         vshift[1, 1:l] = v[1, nc - l + 1:nc]
         vshift[1, l + 1:end] = v[1, 1:nc - l]
     elseif nc == 1
+        l = l % nr
+        l < 0 && (l = nr + l;)
         vshift = zero_matrix(base_ring(v), nr, 1)
-        vshift[1:l, 1] = v[nc - l + 1:nc, 1]
-        vshift[l + 1:end, 1] = v[1:nc - l, 1]
+        vshift[1:l, 1] = v[nr - l + 1:nr, 1]
+        vshift[l + 1:end, 1] = v[1:nr - l, 1]
     else
         throw(ArgumentError("Input matrix must be a vector."))
     end
@@ -69,7 +133,7 @@ kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer
     count = 0
     for i in 1:length(v)
         if !iszero(v[i])
@@ -80,6 +144,13 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <:
 end
 weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
 wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+
+"""
+    wt(f::fq_nmod_poly)
+
+Return the number of nonzero coefficients of the polynomial `f`.
+"""
+wt(f::fq_nmod_poly) = Hammingweight(collect(coefficients(f)))
 
 """
     Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
@@ -536,25 +607,52 @@ function digitstoint(x::Vector{Int}, base::Int=2)
     return res
 end
 
-function polytocircmatrix(f)
+"""
+    polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
 
+Return the circulant matrix whose first column is the coefficients of `f`.
+"""
+function polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    R = parent(f)
+    S = base_ring(R)
+    F = base_ring(S)
+    g = modulus(R)
+    l = degree(g)
+    g == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
+    # gcd(l, Int(characteristic(F))) == 1 || throw(ArgumentError("Residue ring over F_q[x] must have modulus x^l - 1 with gcd(l, q) = 1."))
+
+    A = zero_matrix(F, l, l)
+    fcoeffs = zero_matrix(F, l, 1)
+    temp = collect(coefficients(Nemo.lift(f)))
+    fcoeffs[1:length(temp), 1] = temp
+    A[:, 1] = fcoeffs
+    for c in 2:l
+        A[:, c] = circshift(fcoeffs, c - 1)
+    end
+    return A
 end
 
-function _lift(A::)
+"""
+    lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+Return the matrix whose polynomial elements are converted to circulant matrices over the base field.
+"""
+function lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
-    f = modulus(R)
-    l = degree(f)
-    # make sure f == gen()^l - 1
-    gcd(l, Int(characteristic(F))) == 1 || error("Modulus is ")
-
+    g = modulus(R)
+    l = degree(g)
+    g == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
+    # gcd(l, Int(characteristic(F))) == 1 || throw(ArgumentError("Residue ring over F_q[x] must have modulus x^l - 1 with gcd(l, q) = 1."))
 
     nr, nc = size(A)
     Alift = zero_matrix(F, nr * l, nc * l)
     for c in 1:nc
         for r in 1:nr
-            Alift[ , ] = polytocircmatrix(A[r, c])
+            if !iszero(A[r, c])
+                Alift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] = polytocircmatrix(A[r, c])
+            end
         end
     end
     return Alift

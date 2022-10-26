@@ -506,12 +506,15 @@ function CyclicCode(n::Integer, g::fq_nmod_poly)
     E, α = FiniteField(p, t * deg, "α")
     β = α^(div(q^deg - 1, n))
     ordE = Int(order(E))
+    RE, y = PolynomialRing(E, "y")
+    gE = RE([E(i) for i in collect(coefficients(g))])
+    # _, h = divides(gen(RE)^n - 1, gE)
 
     dic = Dict{fq_nmod, Int64}()
     for i in 0:ordE - 1
         dic[β^i] = i
     end
-    cosets = definingset(sort!([dic[rt] for rt in roots(g)]), q, n, false)
+    cosets = definingset(sort!([dic[rt] for rt in roots(gE)]), q, n, false)
     defset = sort!(vcat(cosets...))
     k = n - length(defset)
     e = _idempotent(g, h, n)

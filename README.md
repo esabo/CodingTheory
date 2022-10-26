@@ -53,7 +53,8 @@ At the moment, all functions work as intended for test cases but have not been u
 - Toric, planar, and rotated surface codes (surface-17 configuration)
 - XY, XZZX, and XYZ^2 surface codes
 - 4.8.8 and 6.6.6 triangular color codes for odd distances 3 to 21
-- Hypergraph product, generalized Shor, Bacon-Casaccino, hyperbicycle constructions
+- Hypergraph product, generalized Shor, Bacon-Casaccino construction,
+    hyperbicycle, generalized bicycle, bicycle generalized hypergraph product, lifted generalized hypergraph product
 - Graph states (from graph object), cluster states
 
 Quantum minimum distance and sectionalized trellises temporarily disabled.

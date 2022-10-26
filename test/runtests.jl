@@ -157,6 +157,21 @@ using Test
 #     F, _ = FiniteField(2, 1, "α1");
 #     flag, _ = isextension(E, F)
 #     @test flag == false
+
+    # F, _ = FiniteField(2, 1, "α")
+    # S, x = PolynomialRing(F, "x")
+    # l = 3
+    # R = ResidueRing(S, x^l - 1)
+    # A = matrix(R, 2, 3, [1, 0, 1 + x^2, 1 + x, 1 + x + x^2, x^2])
+    # @test lift(A) == matrix(F, 6, 9,
+    #     [1, 0, 0, 0, 0, 0, 1, 1, 0,
+    #     0, 1, 0, 0, 0, 0, 0, 1, 1,
+    #     0, 0, 1, 0, 0, 0, 1, 0, 1,
+    #     1, 0, 1, 1, 1, 1, 0, 1, 0,
+    #     1, 1, 0, 1, 1, 1, 0, 0, 1,
+    #     0, 1, 1, 1, 1, 1, 1, 0, 0])
+    # #weight matrix
+    # W = [1, 0, 2; 2, 3, 1]
 # end
 
 # @testset "linearcode.jl" begin
@@ -651,54 +666,54 @@ using Test
 #     @test isisomorphic(Q, Q3)
 # end
 
-@testset "QWEMacWId" begin
-    using CodingTheory
+# @testset "QWEMacWId" begin
+#     using CodingTheory
 
-    # basic - too symmetric in X, Y, Z to determine errors in formula
-    Q = SteaneCode()
-    WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
-    WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
-    WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
-    WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
-    @test WEnormMacW == WEnorm
-    @test WEstabsMacW == WEstabs
+#     # basic - too symmetric in X, Y, Z to determine errors in formula
+#     Q = SteaneCode()
+#     WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
+#     WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
+#     WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
+#     WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
+#     @test WEnormMacW == WEnorm
+#     @test WEstabsMacW == WEstabs
 
-    # non-CSS - also too symmetric in X, Y, Z
-    Q = Q513()
-    WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
-    WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
-    WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
-    WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
-    @test WEnormMacW == WEnorm
-    @test WEstabsMacW == WEstabs
+#     # non-CSS - also too symmetric in X, Y, Z
+#     Q = Q513()
+#     WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
+#     WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
+#     WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
+#     WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
+#     @test WEnormMacW == WEnorm
+#     @test WEstabsMacW == WEstabs
 
-    # k > 1 - magically also too symmetric in X, Y, Z
-    Q = Q823()
-    WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
-    WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
-    WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
-    WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
-    @test WEnormMacW == WEnorm
-    @test WEstabsMacW == WEstabs
+#     # k > 1 - magically also too symmetric in X, Y, Z
+#     Q = Q823()
+#     WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
+#     WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
+#     WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
+#     WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
+#     @test WEnormMacW == WEnorm
+#     @test WEstabsMacW == WEstabs
 
-    # # k > 1
-    # Q = Q1573()
-    # WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
-    # WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
-    # WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
-    # WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
-    # @test WEnormMacW == WEnorm
-    # @test WEstabsMacW == WEstabs
+#     # # k > 1
+#     # Q = Q1573()
+#     # WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
+#     # WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
+#     # WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
+#     # WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
+#     # @test WEnormMacW == WEnorm
+#     # @test WEstabsMacW == WEstabs
 
-    # popular - non-symmetric, detected error in X and Z terms being switched in MacWilliamsIdentity
-    Q = Q15RM()
-    WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
-    WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
-    WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
-    WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
-    @test WEnormMacW == WEnorm
-    @test WEstabsMacW == WEstabs
-end
+#     # popular - non-symmetric, detected error in X and Z terms being switched in MacWilliamsIdentity
+#     Q = Q15RM()
+#     WEstabs = CodingTheory._weightenumeratorBFQ(Q.stabs, Q.charvec, missing)
+#     WEnorm = CodingTheory._weightenumeratorBFQ(Q.dualgens, Q.charvec, parent(WEstabs.polynomial))
+#     WEnormMacW = MacWilliamsIdentity(Q, WEstabs)
+#     WEstabsMacW = MacWilliamsIdentity(Q, WEnorm, true)
+#     @test WEnormMacW == WEnorm
+#     @test WEstabsMacW == WEstabs
+# end
 
 # @testset "LDPC.jl" begin
 #     using Nemo, CodingTheory
@@ -751,9 +766,53 @@ end
     @test C.k == 4
     v2 = matrix(F, 1, 8, [1, 0, 1, 0, 1, 0, 1, 0])
     C = QuasiCyclicCode([v, v2], 2, false)
-    v = [matrix(F, 1, 4, [1, 1, 1, 0]), matrix(F, 1, 4, [0, 1, 0, 0]), matrix(F, 1, 4, [1, 1, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 0])]
+    v = [matrix(F, 1, 4, [1, 0, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 1]), matrix(F, 1, 4, [1, 1, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 0])]
     C2 = QuasiCyclicCode(v, 2, true)
     @test isequivalent(C, C2)
 
+
+end
+
+@testset "quantumproductcodes.jl" begin
+    using Nemo, CodingTheory
+
+    # Degenerate Quantum LDPC Codes With Good Finite Length Performance
+    # Example A1
+    F, _ = FiniteField(2, 1, "α")
+    S, x = PolynomialRing(F, "x")
+    l = 127
+    R = ResidueRing(S, x^l - 1)
+    a = 1 + x^15 + x^20 + x^28 + x^66
+    b = 1 + x^58 + x^59 + x^100 + x^121
+    g = gcd(a, b, x^l - 1)
+    aR = R(a)
+    bR = R(b)
+    S = GeneralizedBicycleCode(aR, bR)
+    @test length(S) == 254
+    @test dimension(S) == 28
+
+    # Example A2
+    l = 24
+    R = ResidueRing(S, x^l - 1)
+    a = 1 + x^2 + x^8 + x^15
+    b = 1 + x^2 + x^12 + x^17
+    S = GeneralizedBicycleCode(R(a), R(b))
+    @test length(S) == 48
+    @test dimension(S) == 6
+
+    # Example B1
+    l = 63
+    R = ResidueRing(S, x^l - 1)
+    A = matrix(R, 7, 7,
+	    [x^27, 0, 0, 1, x^18, x^27, 1,
+	     1, x^27, 0, 0, 1, x^18, x^27,
+	     x^27, 1, x^27, 0, 0, 1, x^18,
+	     x^18, x^27, 1, x^27, 0, 0, 1,
+	     1, x^18, x^27, 1, x^27, 0, 0,
+	     0, 1, x^18, x^27, 1, x^27, 0,
+	     0, 0, 1, x^18, x^27, 1, x^27])
+    S = LiftedGeneralizedHypergraphProductCode(A, b)
+    @test length(S) == 882
+    @test dimension(S) == 48
 
 end

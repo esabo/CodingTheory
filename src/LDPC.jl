@@ -5,22 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 mutable struct LDPCCode <: AbstractLDPCCode
-    F::Union{FqNmodFiniteField}
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
-    G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
-    H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    weightenum::Union{WeightEnumerator, Missing}
+    C::AbstractLinearCode
     numedges::Int
     vardegs::Vector{Int}
     checkdegs::Vector{Int}
     colbound::Int
     rowbound::Int
+    limited::Int
     density::Float64
     isreg::Bool
     tangr::Union{Figure, Missing}
@@ -127,6 +118,13 @@ Return the column and row bounds `c, r` of the `(c, r)`-LDPC code `C`.
 columnrowbounds(C::AbstractLDPCCode) = C.colbound, C.rowbound
 
 """
+    limited(C::AbstractLDPCCode)
+
+Return the maximum of the row and column bounds for `C`.
+"""
+limited(C::AbstractLDPCCode) = C.limited
+
+"""
     density(C::AbstractLDPCCode)
 
 Return the density of the parity-check matrix of `C`.
@@ -226,9 +224,8 @@ function LDPCCode(H::fq_nmod_mat)
     end
     rowpoly = divexact(rowpoly, nnz)
 
-    return LDPCCode(C.F, C.n, C.k, C.d, C.G, C.Gorig, C.H, C.Horig, C.Gstand,
-        C.Hstand, C.weightenum, nnz, cols, rows, c, r, den, isreg, missing,
-        colpoly, rowpoly)
+    return LDPCCode(C, nnz, cols, rows, c, r, maximum([c, r]), den, isreg,
+        missing, colpoly, rowpoly)
 end
 
 """
@@ -239,10 +236,11 @@ Return the LDPC code given by `C`.
 LDPC codes are typically required to have a matrix density of less than 1%.
 """
 function LDPCCode(C::AbstractLinearCode)
-    nnz, den = _density(C.H)
+    H = paritycheckmatrix(C)
+    nnz, den = _density(H)
     den <= 0.01 || (@warn "LDPC codes (generally) require a density of less than 1%.";)
 
-    cols, rows = _degreedistribution(C.H)
+    cols, rows = _degreedistribution(H)
     isreg = true
     c1 = cols[1]
     for i in 2:length(cols)
@@ -267,52 +265,56 @@ function LDPCCode(C::AbstractLinearCode)
         rowpoly += x^i
     end
     rowpoly = divexact(rowpoly, nnz)
-
-    return LDPCCode(C.F, C.n, C.k, C.d, C.G, C.Gorig, C.H, C.Horig, C.Gstand,
-        C.Hstand, C.weightenum, nnz, cols, rows, c, r, den, isreg, missing,
+    
+    # G = generatormatrix(C)
+    # display(G)
+    # println(" ")
+    # Gstand = generatormatrix(C, true)
+    # display(Gstand)
+    # println(" ")
+    # Gorig = originalgeneratormatrix(C)
+    # display(Gorig)
+    # println(" ")
+    # Hstand = paritycheckmatrix(C, true)
+    # display(H)
+    # println(" ")
+    # display(Hstand)
+    # println(" ")
+    # Horig = originalparitycheckmatrix(C)
+    # display(Horig)
+    # println(" ")
+    return LDPCCode(C, nnz, cols, rows, c, r, maximum([c, r]), den, isreg, missing,
         colpoly, rowpoly)
 end
 
 function show(io::IO, C::AbstractLDPCCode)
-    if get(io, :compact, false)
-        if ismissing(C.d)
-            if C.isreg
-                println(io, "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            else
-                println(io, "[$(C.n), $(C.k)]_$(order(C.F)) irregular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            end
+    if ismissing(C.C.d)
+        if C.isreg
+            println(io, "[$(C.C.n), $(C.C.k)]_$(order(C.C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
         else
-            if C.isreg
-                println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            else
-                println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) irregular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            end
+            println(io, "[$(C.C.n), $(C.C.k)]_$(order(C.C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
         end
     else
-        if ismissing(C.d)
-            if C.isreg
-                println(io, "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            else
-                println(io, "[$(C.n), $(C.k)]_$(order(C.F)) irregular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            end
+        if C.isreg
+            println(io, "[$(C.C.n), $(C.C.k), $(C.C.d)]_$(order(C.C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
         else
-            if C.isreg
-                println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            else
-                println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) irregular ($(C.colbound), $(C.rowbound))-LDPC code with density $(C.density).")
-            end
+            println(io, "[$(C.C.n), $(C.C.k), $(C.C.d)]_$(order(C.C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
         end
-        nr, nc = size(C.Horig)
+    end
+    if get(io, :compact, false) && C.n <= 30
+        # was using Horig here, which is probably what I want
+        H = paritycheckmatrix(C.C)
+        nr, nc = size(H)
         println(io, "Parity-check matrix: $nr × $nc")
         for i in 1:nr
             print(io, "\t")
             for j in 1:nc
                 if j != nc
-                    print(io, "$(C.Horig[i, j]) ")
+                    print(io, "$(H[i, j]) ")
                 elseif j == nc && i != nr
-                    println(io, "$(C.Horig[i, j])")
+                    println(io, "$(H[i, j])")
                 else
-                    print(io, "$(C.Horig[i, j])")
+                    print(io, "$(H[i, j])")
                 end
             end
         end
