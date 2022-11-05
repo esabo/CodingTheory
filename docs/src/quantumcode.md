@@ -2,6 +2,6 @@
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["quantumcode.jl"]
+Pages = ["quantumcode.jl", "graphstate.jl"]
 Private = false
 ```

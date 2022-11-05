@@ -1,7 +1,7 @@
-# LDPC Codes
+# Quasi-Cyclic Codes
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["LDPC.jl", "LDPCalgs.jl"]
+Pages = ["quasicycliccode.jl"]
 Private = false
 ```
