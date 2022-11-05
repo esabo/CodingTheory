@@ -693,6 +693,17 @@ function CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     end
 end
 
+"""
+    CSSCode(S::StabilizerCode)
+
+Return the `[[2n, 2k, S.d <= d <= 2 S.d]]` CSS code derived by splitting the stabilizers of `S`.
+"""
+function CSSCode(S::QuantumCode)
+	X = S.stabs[:, 1:S.n]
+	Z = S.stabs[:, S.n + 1:end]
+	return CSSCode(X, Z, S.charvec)
+end
+
 # entanglement-assisted is not symplectic orthogonal
 """
     QuantumCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}

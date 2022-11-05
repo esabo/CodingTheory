@@ -75,6 +75,204 @@ end
         # Classical
 #############################
 
+"""
+    Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
+
+Search for codewords of `C` of weight `w` using Stern's attach and return any found.
+
+# Notes
+* p - Integer
+* l - Integer
+"""
+function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
+    # requires 2 * x = 0
+    Int(order(C.F)) == 2 || throw(ArgumentError("Only valid for binary codes."))
+    if !ismissing(C.d)
+        d <= w <= C.n || throw(ArgumentError("Target weight must be between the minimum distance and code length."))
+    else
+        1 <= w <= C.n || throw(ArgumentError("Target weight must be positive and no more than the code length."))
+    end
+    1 <= p <= ceil(C.k / 2) || throw(ArgumentError("p must be between 1 and k/2"))
+
+    G = generatormatrix(C, true)
+    # H = paritycheckmatrix(C, true)
+    # nr, nc = size(H)
+    nr, nc = size(G)
+    1 <= l <= nr || throw(ArgumentError("l must be between 1 and k"))
+    # H2 = deepcopy(H)
+    G2 = deepcopy(G)
+    # lenwvecs = Vector{fq_nmod_mat}()
+    lenwvecs = Set{fq_nmod_mat}()
+    count = 0
+    while count < 100000
+        # choose n - k random columns and row reduce these to the identity
+        # going to use a modified, partial Fisher-Yates algorithm for the column indices
+        # however, not all choices are going to give an information set, so we are going
+        # to do the randomness as needed
+        colindices = collect(1:nc)
+        rowpivots = falses(nr)
+        rowpivotsloc = zeros(Int, nr)
+        have = 0
+        loc = nc
+        while have < nr
+            i = rand(1:loc)
+            nonzeros = []
+            for j in 1:nr
+                if !iszero(G2[j, i])
+                    append!(nonzeros, j)
+                end
+            end
+            used = false
+            for nz in nonzeros
+                # nonzero rows of columns may already be pivots and should be ignored
+                if rowpivots[nz] == false
+                    # eliminate here because eliminating later can choose pivots which get removed
+                    if !iszero(G2[nz, colindices[i]]) && !isone(G2[nz, colindices[i]])
+                        G2[nz, :] = G2[nz, colindices[i]]^-1 * G2[nz, :]
+                    end
+
+                    for j in 1:nr
+                        # go through all rows and eliminate all nonzeros in column using the chosen row
+                        if j != nz && !iszero(G2[j, colindices[i]])
+                            if !isone(G2[j, colindices[i]])
+                                G2[j, :] = G2[j, :] - G2[j, :]^-1 * G2[nz, :]
+                            else
+                                G2[j, :] = G2[j, :] - G2[nz, :]
+                            end
+                        end
+                    end
+
+                    rowpivots[nz] = true
+                    rowpivotsloc[nz] = i
+                    if i != loc
+                        temp = colindices[loc]
+                        colindices[loc] = colindices[i]
+                        colindices[i] = temp
+                    end
+                    have += 1
+                    loc -= 1
+                    used = true
+                    break
+                end
+            end
+
+            if !used
+                if i != loc
+                    temp = colindices[loc]
+                    colindices[loc] = colindices[i]
+                    colindices[i] = temp
+                end
+                loc -= 1
+            end
+
+            # if we need more than are available, restart
+            if nr - have > loc
+                colindices = collect(1:nc)
+                rowpivots = falses(nr)
+                rowpivotsloc = zeros(Int, nr)
+                have = 0
+                loc = nc
+                count += 1
+                # H2 = deepcopy(H)
+            end
+        end
+
+        # randomly split the remaning column indices
+        X = Vector{Int}()
+        Y = Vector{Int}()
+        for i in colindices[1:nc - nr]
+            rand(Float16) <= 0.5 ? (append!(X, i);) : (append!(Y, i);)
+        end
+
+        # choose a random size-l subset Z of rows, again using Fisher-Yates
+        Z = collect(1:nr)
+        loc = nr
+        num = nr - l
+        while loc > num
+            i = rand(1:loc)
+            if i != loc
+                temp = Z[loc]
+                Z[loc] = Z[i]
+                Z[i] = temp
+            end
+            loc -= 1
+        end
+
+        # search for codewords that have:
+        # exactly p nonzero bits in X
+        # exactly p nonzero bits in Y
+        # 0 nonzero bits in Z
+        # and exactly w − 2p nonzero bits in the remaining columns
+
+        # storing this is a terrible idea but avoids repeated calculations of πB for each A
+        # will have to check later if that's fast enough in parallel to do
+        left = nr - l
+        AπAs = Vector{Tuple{Vector{Int}, Vector{fq_nmod}}}()
+        # for every size-p subset A of X
+        for A in powerset(X, p, p)
+            # compute the sum of the columns in A for each of those l rows
+            # this represents the contribution from these columns to the dot product
+            πA = [sum(G2[Z[left + 1], A])]
+            for i in 2:l
+                push!(πA, sum(G2[Z[left + i], A]))
+            end
+            push!(AπAs, (A, πA))
+        end
+
+        # compute π(B) for every size-p subset B of Y
+        BπBs = Vector{Tuple{Vector{Int}, Vector{fq_nmod}}}()
+        for B in powerset(Y, p, p)
+            πB = [sum(G2[Z[left + 1], B])]
+            for i in 2:l
+                push!(πB, sum(G2[Z[left + i], B]))
+            end
+            push!(BπBs, (B, πB))
+        end
+
+        left = nc - nr
+        for i in AπAs
+            for j in BπBs
+                # for each collision π(A) = π(B)
+                # if they are the same, then the sum of them will have 0 dot product
+                if i[2] == j[2]
+                    AB = i[1] ∪ j[1]
+                    # compute the sum of the 2p columns in A ∪ B over all rows
+                    πAB = [sum(G2[1, AB])]
+                    for k in 2:nr
+                        push!(πAB, sum(G2[k, AB]))
+                    end
+
+                    # if the sum has weight w − 2p
+                    if wt(πAB) == w - 2 * p
+                        # add the corresponding w − 2p columns in the (n − k) × (n − k) submatrix
+                        # these, together with A and B, form a codeword of weight w
+                        # so any time there is a 1 at index i, put a 1 in the i-th position of the end of colindices
+                        # that will give w - 2p 1's at locations outside of A ∪ B
+                        veclenw = zeros(C.F, 1, nc)
+                        for k in 1:nr
+                            if isone(πAB[k])
+                                veclenw[1, rowpivotsloc[k]] = C.F(1)
+                            end
+                        end
+                        # now add back in the 2p 1's at locations in A ∪ B to get a vector of weight w
+                        for k in AB
+                            veclenw[1, k] = C.F(1)
+                        end
+                        # println(veclenw)
+                        test = matrix(C.F, 1, nc, [coeff(x, 0) for x in veclenw])
+                        # println(iszero(H * transpose(test)))
+                        if iszero(G * transpose(test))
+                            push!(lenwvecs, test)
+                        end
+                    end
+                end
+            end
+        end
+        count += 1
+    end
+    return lenwvecs
+end
+
 #############################
     # Weight Enumerators
 #############################

@@ -285,8 +285,11 @@ BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
 """
     HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
 
-Return the CSS hyperbicycle construction of "Quantum Kronecker sum-product low-density
-parity-check codes with finite rate".
+Return the hyperbicycle CSS code of `a` and `b` given `χ`.
+
+Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
+codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
+codes with finite rate".
 
 Inputs:
 - a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
@@ -305,11 +308,17 @@ function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ:
     Int(order(F)) == 2 || throw(ArgumentError("Hyperbicycle codes require binary inputs."))
     for i in 1:c
         F == base_ring(a[i]) || throw(ArgumentError("Inputs must share the same base ring."))
-        k1, n1 == size(a[i]) || throw(ArgumentError("First set of imput matrices must all have the same dimensions."))
+        (k1, n1) == size(a[i]) || throw(ArgumentError("First set of matrices must all have the same dimensions."))
         F == base_ring(b[i]) || throw(ArgumentError("Inputs must share the same base ring."))
-        k2, n2 == size(b[i]) || throw(ArgumentError("Second set of imput matrices must all have the same dimensions."))
+        (k2, n2) == size(b[i]) || throw(ArgumentError("Second set of matrices must all have the same dimensions."))
     end
 
+    # julia creates a new scope for every iteration of the for loop,
+    # so the else doesn't work without declaring these variables outside here
+    H1 = missing
+    H2 = missing
+    HT1 = missing
+    HT2 = missing
     for i in 1:c
         Sχi = zero_matrix(F, c, c)
         Ii = zero_matrix(F, c, c)
@@ -358,8 +367,11 @@ end
 """
     HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
 
-Return the hyperbicycle construction of "Quantum Kronecker sum-product low-density
-parity-check codes with finite rate".
+Return the hyperbicycle CSS code of `a` and `b` given `χ`.
+
+Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
+codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
+codes with finite rate".
 
 Inputs:
 - a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
@@ -378,9 +390,9 @@ function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::In
     Int(order(F)) == 2 || throw(ArgumentError("Hyperbicycle codes require binary inputs."))
     for i in 1:c
         F == base_ring(a[i]) || throw(ArgumentError("Inputs must share the same base ring."))
-        k1, n1 == size(a[i]) || throw(ArgumentError("First set of imput matrices must all have the same dimensions."))
+        (k1, n1) == size(a[i]) || throw(ArgumentError("First set of matrices must all have the same dimensions."))
         F == base_ring(b[i]) || throw(ArgumentError("Inputs must share the same base ring."))
-        k2, n2 == size(b[i]) || throw(ArgumentError("Second set of imput matrices must all have the same dimensions."))
+        (k2, n2) == size(b[i]) || throw(ArgumentError("Second set of matrices must all have the same dimensions."))
     end
 
     for i in 1:c
@@ -423,13 +435,14 @@ end
 
 Return the generealized bicycle code given by `A` and `B`.
 
-Generealized bicycle codes are discussed in "Quantum kronecker sum-product
-low-density parity- check codes with finite rate" and "Degenerate Quantum
-LDPC Codes With Good Finite Length Performance".
+Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
+codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
+finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
 function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
     base_ring(A) == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
     (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
+    # this will take care of the sizes being square
     iszero(A * B - B * A) || throw(ArgumentError("Arguments must commute."))
     HX = hcat(A, B)
     HZ = hcat(transpose(B), -transpose(A))
@@ -443,6 +456,10 @@ Return the generealized bicycle code determined by `a` and `b`.
 
 `l x l` circulant matrices are constructed using the coefficients of the polynomials
 `a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column.
+
+Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
+codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
+finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
 function GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
@@ -578,4 +595,75 @@ function LiftedQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceE
 
     HX, HZ = QuasiCyclicLiftedProductCode(A, B)
     return CSSCode(lift(HX), lift(HZ))
+end
+
+"""
+    BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
+B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+Return the bias-tailored lifted product code of `A` and `B` with entries over the residue ring
+`F_2[x]/(x^m - 1)`.
+
+The bias-tailored lifted product is defined in `Bias-tailored quantum LDPC codes`.
+"""
+function BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
+    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+    @warn "Commutativity of A and b required but not yet enforced."
+    S = base_ring(A[1, 1])
+    F = base_ring(S)
+    Int(order(F)) == 2 || throw(ArgumentError("The quasi-cyclic lifted product is only defined over GF(2)."))
+    R = parent(A[1, 1])
+    R == parent(B[1, 1]) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
+    f = modulus(R)
+    l = degree(f)
+    f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
+    
+    k1, n1 = size(A)
+    Atr = transpose(A)
+    for c in 1:k1
+        for r in 1:n1
+            hcoeffs = collect(coefficients(Nemo.lift(Atr[r, c])))
+            for _ in 1:l - length(hcoeffs)
+                push!(hcoeffs, F(0))
+            end
+            hcoeffs[2:end] = reverse(hcoeffs[2:end])
+            Atr[r, c] = R(S(hcoeffs))
+        end
+    end
+
+    k2, n2 = size(B)
+    Btr = transpose(B)
+    for c in 1:k2
+        for r in 1:n2
+            hcoeffs = collect(coefficients(Nemo.lift(Btr[r, c])))
+            for _ in 1:l - length(hcoeffs)
+                push!(hcoeffs, F(0))
+            end
+            hcoeffs[2:end] = reverse(hcoeffs[2:end])
+            Btr[r, c] = R(S(hcoeffs))
+        end
+    end
+
+    Mk1 = MatrixSpace(R, k1, k1)
+    Ek1 = Mk1(1)
+    Mk2 = MatrixSpace(R, k2, k2)
+    Ek2 = Mk2(1)
+    Mn1 = MatrixSpace(R, n1, n1)
+    En1 = Mn1(1)
+    Mn2 = MatrixSpace(R, n2, n2)
+    En2 = Mn2(1)
+
+    A12 = kronecker_product(Atr, Ek2)
+    A13 = kronecker_product(En1, B)
+    A21 = kronecker_product(A, En2)
+    A24 = kronecker_product(Ek1, Btr)
+    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+end
+
+function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
+    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+
+    S = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
+    return QuantumCode(lift(S), true)
 end

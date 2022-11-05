@@ -1,3 +1,9 @@
+# Copyright (c) 2021, 2022 Eric Sabo, Benjamin Ide
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 module CodingTheory
 
 # change environment variable so that banner doesn't print
@@ -8,12 +14,14 @@ using Nemo
 using CairoMakie, Graphs
 using Plots
 using JLD2
+using Combinatorics
 
 import LinearAlgebra: tr
 import AbstractAlgebra: quo, VectorSpace
 import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic, lift
 import Base: circshift, reverse, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
+import Combinatorics: powerset
 
 #############################
         # utils.jl
@@ -43,6 +51,12 @@ include("linearcode.jl")
 abstract type AbstractLDPCCode <: AbstractLinearCode end
 
 include("LDPC.jl")
+
+#############################
+        # LDPCalgs.jl
+#############################
+
+include("LDPCalgs.jl")
 
 #############################
     # MatrixProductCode.jl
@@ -199,6 +213,12 @@ export Tannergraph, variabledegreedistribution, checkdegreedistribution,
     checkdegreepolynomial, columnrowbounds
 
 #############################
+        # LDPCalgs.jl
+#############################
+
+# export Sternsattack
+
+#############################
     # MatrixProductCode.jl
 #############################
 
@@ -297,7 +317,7 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
     weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
     weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
-    minimumdistanceZ, ispure
+    minimumdistanceZ, ispure, Sternsattack
 
 #############################
    # quantumproductcodes.jl
@@ -306,6 +326,7 @@ export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
     BicycleCode, GeneralizedHypergraphProductCode, LiftedGeneralizedHypergraphProductCode,
-    QuasiCyclicLiftedProductCode, LiftedQuasiCyclicLiftedProductCode
+    QuasiCyclicLiftedProductCode, LiftedQuasiCyclicLiftedProductCode,
+    BiasTailoredQuasiCyclicLiftedProductCode, LiftedBiasTailoredQuasiCyclicLiftedProductCode
 
 end

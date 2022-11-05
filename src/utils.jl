@@ -142,8 +142,8 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vect
     end
     return count
 end
-weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
-wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(v)
+weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer = Hammingweight(v)
+wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer = Hammingweight(v)
 
 """
     wt(f::fq_nmod_poly)
@@ -710,10 +710,10 @@ function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmo
     n = div(degree(L), degree(K))
     n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
     # should really check if it is a basis
-    flag, m = isextension(base_ring(M), K)
+    flag, m = isextension(L, K)
     flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
     m == length(basis) || throw(ArgumentError("Basis does not have length degree of the extension."))
-    flag, _ = _isbasis(F, basis, Int(order(K)))
+    flag, _ = _isbasis(L, basis, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
 end
