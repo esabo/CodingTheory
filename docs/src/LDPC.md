@@ -2,6 +2,13 @@
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["LDPC.jl", "LDPCalgs.jl"]
+Pages = ["LDPC.jl"]
+Private = false
+```
+
+# Algorithms
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["LDPCalgs.jl"]
 Private = false
 ```
