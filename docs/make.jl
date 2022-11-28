@@ -19,6 +19,7 @@ Documenter.makedocs(
 		     "Reed-Muller Codes" => "ReedMuller.md",
 		     "Miscellaneous Known Codes" => "miscknowncodes.md",
 			 "LDPC Codes" => "LDPC.md",
+			 "Tilings Of Surfaces" => "tilings.md",
 		     "Stabilizer Codes" => "quantumcode.md",
 		     "Miscellaneous Known Stabilizer Codes" => "miscknownquantumcodes.md",
 			 "Product Codes" => "productcodes.md",

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, Eric Sabo
+# Copyright (c) 2022, Eric Sabo, Benjamin Ide, Michael Vasmer
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -72,6 +72,109 @@ function CWEtoHWE(CWE::WeightEnumerator)
 end
 
 #############################
+        # GrayCode
+#############################
+
+# will be sent to a new package by Ben
+struct GrayCode
+    n::Int # length of codewords
+    k::Int # weight of codewords
+    ns::Int # n for the subcode
+    ks::Int # k for the subcode
+    prefix::Vector{Int}
+    prefix_length::Int
+    mutate::Bool
+end
+
+GrayCode(n::Int, k::Int; mutate=false) = GrayCode(n, k, Int[], mutate=mutate)
+
+function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate=false)
+    GrayCode(n, k, n - length(prefix), k - count(prefix .!= 0), prefix,
+        length(prefix), mutate)
+end
+
+Base.IteratorEltype(::GrayCode) = Base.HasEltype()
+Base.eltype(::GrayCode) = Array{Int, 1}
+Base.IteratorSize(::GrayCode) = Base.HasLength()
+@inline function Base.length(G::GrayCode)
+    if 0 <= G.ks <= G.ns
+        factorial(big(G.ns)) ÷ (factorial(big(G.ks)) * factorial(big(G.ns - G.ks)))
+    else
+        0
+    end
+end
+Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && view(v, 1:G.prefix_length) == G.prefix
+
+@inline function Base.iterate(G::GrayCode)
+    0 <= G.ks <= G.ns || return nothing
+
+    g = [i <= G.ks ? 1 : 0 for i = 1:G.ns + 1]
+    τ = collect(2:G.ns + 2)
+    τ[1] = G.ks + 1
+    # to force stopping with returning the only valid vector when ks == 0 and ns > 0
+    iszero(G.ks) && (τ[1] = G.ns + 1;)
+    v = [G.prefix; g[end - 1:-1:1]]
+    ((G.mutate ? v : copy(v);), (g, τ, G.ks, v))
+end
+
+@inline function Base.iterate(G::GrayCode, state)
+    g, τ, t, v = state
+    @inbounds begin
+        i = τ[1]
+        i < G.ns + 1 || return nothing
+
+        τ[1] = τ[i]
+        τ[i] = i + 1
+        if g[i] == 1
+            if t != 0
+                g[t] = g[t] == 0 ? 1 : 0
+                if t < G.ns + 1
+                    v[G.prefix_length + G.ns + 1 - t] = g[t]
+                end
+            else
+                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                if i - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                end
+            end
+            t = t + 1
+        else
+            if t != 1
+                g[t - 1] = g[t - 1] == 0 ? 1 : 0
+                if t - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - t] = g[t - 1]
+                end
+            else
+                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                if i - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                end
+            end
+            t = t - 1
+        end
+
+        g[i] = g[i] == 0 ? 1 : 0
+        if i < G.ns + 1
+            v[G.prefix_length + G.ns + 1 - i] = g[i]
+        end
+
+        if t == i - 1 || t == 0
+            t = t + 1
+        else
+            t = t - g[i - 1]
+            τ[i - 1] = τ[1]
+            if t == 0
+                τ[1] = i - 1
+            else
+                τ[1] = t + 1
+            end
+        end
+    end
+
+    ((G.mutate ? v : copy(v);), (g, τ, t, v))
+end
+
+#############################
         # Classical
 #############################
 
@@ -79,32 +182,29 @@ end
     Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
 
 Search for codewords of `C` of weight `w` using Stern's attach and return any found.
-
-# Notes
-* p - Integer
-* l - Integer
 """
-function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
+function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int, numfind::Int=2, maxitrs::Int=50000)
     # requires 2 * x = 0
     Int(order(C.F)) == 2 || throw(ArgumentError("Only valid for binary codes."))
     if !ismissing(C.d)
-        d <= w <= C.n || throw(ArgumentError("Target weight must be between the minimum distance and code length."))
+        C.d <= w <= C.n || throw(ArgumentError("Target weight must be between the minimum distance and code length."))
     else
         1 <= w <= C.n || throw(ArgumentError("Target weight must be positive and no more than the code length."))
     end
     1 <= p <= ceil(C.k / 2) || throw(ArgumentError("p must be between 1 and k/2"))
 
-    G = generatormatrix(C, true)
-    # H = paritycheckmatrix(C, true)
-    # nr, nc = size(H)
-    nr, nc = size(G)
-    1 <= l <= nr || throw(ArgumentError("l must be between 1 and k"))
-    # H2 = deepcopy(H)
-    G2 = deepcopy(G)
+    # G = generatormatrix(C, true)
+    H = paritycheckmatrix(C, true)
+    nr, nc = size(H)
+    # nr, nc = size(G)
+    1 <= l <= nr || throw(ArgumentError("l must be between 1 and n - k"))
+    H2 = deepcopy(H)
+    # G2 = deepcopy(G)
     # lenwvecs = Vector{fq_nmod_mat}()
     lenwvecs = Set{fq_nmod_mat}()
     count = 0
-    while count < 100000
+    found = 0
+    while count < maxitrs
         # choose n - k random columns and row reduce these to the identity
         # going to use a modified, partial Fisher-Yates algorithm for the column indices
         # however, not all choices are going to give an information set, so we are going
@@ -118,7 +218,7 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
             i = rand(1:loc)
             nonzeros = []
             for j in 1:nr
-                if !iszero(G2[j, i])
+                if !iszero(H2[j, i])
                     append!(nonzeros, j)
                 end
             end
@@ -127,17 +227,18 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
                 # nonzero rows of columns may already be pivots and should be ignored
                 if rowpivots[nz] == false
                     # eliminate here because eliminating later can choose pivots which get removed
-                    if !iszero(G2[nz, colindices[i]]) && !isone(G2[nz, colindices[i]])
-                        G2[nz, :] = G2[nz, colindices[i]]^-1 * G2[nz, :]
-                    end
+                    # this probably only works for binary, so likely unnecessary
+                    # if !iszero(H2[nz, colindices[i]]) && !isone(H2[nz, colindices[i]])
+                    #     H2[nz, :] = H2[nz, colindices[i]]^-1 * H2[nz, :]
+                    # end
 
                     for j in 1:nr
                         # go through all rows and eliminate all nonzeros in column using the chosen row
-                        if j != nz && !iszero(G2[j, colindices[i]])
-                            if !isone(G2[j, colindices[i]])
-                                G2[j, :] = G2[j, :] - G2[j, :]^-1 * G2[nz, :]
+                        if j != nz && !iszero(H2[j, colindices[i]])
+                            if !isone(H2[j, colindices[i]])
+                                H2[j, :] = H2[j, :] - H2[j, :]^-1 * H2[nz, :]
                             else
-                                G2[j, :] = G2[j, :] - G2[nz, :]
+                                H2[j, :] = H2[j, :] - H2[nz, :]
                             end
                         end
                     end
@@ -212,9 +313,9 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
         for A in powerset(X, p, p)
             # compute the sum of the columns in A for each of those l rows
             # this represents the contribution from these columns to the dot product
-            πA = [sum(G2[Z[left + 1], A])]
+            πA = [sum(H2[Z[left + 1], A])]
             for i in 2:l
-                push!(πA, sum(G2[Z[left + i], A]))
+                push!(πA, sum(H2[Z[left + i], A]))
             end
             push!(AπAs, (A, πA))
         end
@@ -222,9 +323,9 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
         # compute π(B) for every size-p subset B of Y
         BπBs = Vector{Tuple{Vector{Int}, Vector{fq_nmod}}}()
         for B in powerset(Y, p, p)
-            πB = [sum(G2[Z[left + 1], B])]
+            πB = [sum(H2[Z[left + 1], B])]
             for i in 2:l
-                push!(πB, sum(G2[Z[left + i], B]))
+                push!(πB, sum(H2[Z[left + i], B]))
             end
             push!(BπBs, (B, πB))
         end
@@ -237,9 +338,9 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
                 if i[2] == j[2]
                     AB = i[1] ∪ j[1]
                     # compute the sum of the 2p columns in A ∪ B over all rows
-                    πAB = [sum(G2[1, AB])]
+                    πAB = [sum(H2[1, AB])]
                     for k in 2:nr
-                        push!(πAB, sum(G2[k, AB]))
+                        push!(πAB, sum(H2[k, AB]))
                     end
 
                     # if the sum has weight w − 2p
@@ -261,8 +362,13 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
                         # println(veclenw)
                         test = matrix(C.F, 1, nc, [coeff(x, 0) for x in veclenw])
                         # println(iszero(H * transpose(test)))
-                        if iszero(G * transpose(test))
+                        if iszero(H * transpose(test))
+                            println(test)
                             push!(lenwvecs, test)
+                            found += 1
+                            if found == numfind
+                                return lenwvecs
+                            end
                         end
                     end
                 end
@@ -271,6 +377,614 @@ function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
         count += 1
     end
     return lenwvecs
+end
+
+#############################
+  # Enumeration Based Algs
+#############################
+
+# TODO:
+# 2. extend GrayCode to non-binary
+# 3. reduce ops by going to A_i instead of G_i
+# 4. unit tests
+# 7. decoding attacks from thesis
+
+# TODO: this does not produce the optimal set of matrices
+# see section 7.3 of White's thesis for comments on this
+function _getinformationsets(G::fq_nmod_mat, alg::String)
+    # alg ∈ ["Brouwer", "Zimmermann", "White", "Chen"] || throw(ArgumentError("Expected 'Brouwer', 'Zimmermann', or 'White'."))
+    nr, nc = size(G)
+    genmats = []
+    # Gi = deepcopy(G)
+    rnk = nr
+    if alg == "Brouwer"
+        for i in 0:Int(floor(nc / nr)) - 1
+            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+            push!(genmats, (rnk, Gi, Pi))
+            # Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
+            # push!(genmats, Ai)
+        end
+    elseif alg == "Zimmermann"
+        for i in 0:Int(floor(nc / nr))
+            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+            push!(genmats, (rnk, Gi, Pi))
+            # display(Gi)
+            # println(rnk)
+            # Ai = Gi[:, setdiff(1:nc, i * nr + 1:i * nr + rnk)]
+            # display(Ai)
+            # println(" ")
+            # push!(genmats, (rnk, Ai))
+        end
+    elseif alg == "White"
+        # the expansion factor of the code
+        for i in 0:div(nc, nr) - 1
+            # could use Gi here instead of G
+            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * nr + 1:(i + 1) * nr)
+            # display(Gi)
+            # println(rnk)
+            push!(genmats, (rnk, Gi, Pi))
+        end
+    elseif alg == "Chen"
+        # should remove this in the future as this should simply be (k, Gstand, P)
+        rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, 1:nc)
+        push!(genmats, (rnk, Gi, Pi))
+    end
+    return genmats
+end
+
+@inline function _lowerbounds(r::Int, n::Int, k::Int, l::Int, rankdefs::Vector{Int}, type::String)
+    if type == "BZ"
+        h = length(rankdefs)
+        lower = 0
+        for i in 1:h
+            lower += maximum([0, r - rankdefs[i]])
+        end
+    elseif type == "Chen"
+        lower = Int(ceil(n * r / k))
+    elseif type == "White"
+        lower = 0
+        for i in 1:l
+	        lower += Int(ceil(n * maximum([0, r - rankdefs[i]]) / (l * (k + rankdefs[i]))))
+        end
+    end
+    return lower
+end
+
+"""
+    Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
+
+Return the minimum distance of `C` using a deterministic algorithm based on enumerating
+constant weight codewords of the binary reflected Gray code. If a word of minimum weight
+is found before the lower and upper bounds cross, it is returned; otherwise, `missing`
+is returned.
+
+For more information on the algorithms contained in this function see
+"Enumeration Based Algorithms" by Gregory White.
+"""
+# In the thesis, the h and GrayCode for loops are switched. This seems inefficient
+# but does allow one to update the lower bound using a single matrix after every
+# GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
+# once will overcome this. Could be tested though.
+function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
+    ordF = Int(order(C.F))
+    ordF == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+
+    p = Int(characteristic(C.F))
+    found = missing
+    perm = missing
+
+    G = generatormatrix(C)
+    if typeof(C) <: AbstractCyclicCode
+        verbose && println("Detected a cyclic code, using Chen's adaption.")
+        genmats = _getinformationsets(G, "Chen")
+    elseif typeof(C) <: AbstractQuasiCyclicCode
+        verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+        genmats = _getinformationsets(G, "White")
+    else
+        genmats = _getinformationsets(G, "Zimmermann")
+    end
+    genmatsJulia = [FpmattoJulia(x[2])' for x in genmats] # deepcopy doesn't save anythign here
+    # genmatsJulia = [FpmattoJulia(x[2]) for x in genmats]
+    h = length(genmatsJulia)
+    rankdefs = zeros(Int, h)
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(genmats[i][1]);) : (print("$(genmats[i][1]), "))
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            rankdefs[i] = C.k - genmats[i][1]
+        end
+    end
+    
+    evenflag = false
+    devenflag = false
+    tevenflag = false
+    ordF == 2 && (evenflag = iseven(C);)
+    evenflag && (devenflag = isdoublyeven(C);)
+    devenflag && (tevenflag = istriplyeven(C);)
+    if verbose
+        tevenflag && println("Detected a triply even code.")
+        (!tevenflag && devenflag) && println("Detected a doubly even code.")
+        (!tevenflag && !devenflag && evenflag) && println("Detected an even code.")
+    end
+    
+    upper = C.n - C.k + 1
+    verbose && println("Singleton upper bound: $upper")
+    for (j, g) in enumerate(genmatsJulia)
+        for i in 1:C.k
+            w = wt(g[:, i]) # for transposed matrix
+            if w < upper
+                found = g[:, i]
+                upper = w
+                perm = j
+            end
+        end
+    end
+    verbose && println("Upper bound after row analysis: $upper")
+    verbose && !ismissing(found) && println("Found vector for upper bound.")
+
+    numthrds = Threads.nthreads()
+    verbose && println("Detected $numthrds threads.")
+    power = 0
+    for i in 1:20
+        if 2^i > numthrds
+            power = i - 1
+            break
+        end
+    end
+
+    for r in 1:C.k
+        if typeof(C) <: AbstractCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+        else
+            lower = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+        end
+        # an even code can't have have an odd minimum weight
+        (!tevenflag && !devenflag && evenflag) && (lower += lower % 2;)
+        (!tevenflag && devenflag) && (lower += 4 - lower % 4;)
+        tevenflag && (lower += 8 - lower % 8;)
+
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $lower")
+        verbose && println("Upper bound: $upper")
+        if lower >= upper
+            C.d = upper
+            if !ismissing(found)
+                y = matrix(C.F, 1, C.n, found)
+                ismissing(genmats[perm][3]) || (y = y * genmats[perm][3];)
+                iszero(C.H * transpose(y)) ? (return upper, y;) : (return upper, missing;)
+            else
+                return upper, found
+            end
+        end
+
+        flag = Threads.Atomic{Bool}(true)
+        # numthrds = 1
+        # power = 0
+        # total = Threads.Atomic{Int}(0)
+        uppers = [upper for _ in 1:numthrds]
+        founds = [found for _ in 1:numthrds]
+        perms = [perm for _ in 1:numthrds]
+        Threads.@threads for m in 1:numthrds
+            c = zeros(Int, C.n)
+            prefix = digits(m - 1, base=2, pad=power)
+            # count = Threads.Atomic{Int}(0)
+            for u in GrayCode(C.k, r, prefix, mutate=true)
+                # count += 1
+                # Threads.atomic_add!(count, 1)
+                if flag[]
+                    for i in 1:h
+                        if r - rankdefs[i] > 0
+                            LinearAlgebra.mul!(c, genmatsJulia[i], u)
+                            w = 0
+                            @inbounds for j in 1:C.n
+                                c[j] % p != 0 && (w += 1;)
+                            end
+
+                            if uppers[m] > w
+                                uppers[m] = w
+                                founds[m] = c
+                                perms[m] = i
+                                # verbose && println("Adjusting upper bound: $upperlocal")
+                                if lower == uppers[m]
+                                    Threads.atomic_cas!(flag, true, false)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            # println(count)
+            # Threads.atomic_add!(total, count[])
+        end
+        loc = argmin(uppers)
+        upper = uppers[loc]
+        found = founds[loc]
+        perm = perms[loc]
+        # println("total: $total")
+        if !flag[]
+            C.d = upper
+            if !ismissing(found)
+                y = matrix(C.F, 1, C.n, found)
+                ismissing(genmats[perm][3]) || (y = y * genmats[perm][3];)
+                iszero(C.H * transpose(y)) ? (return upper, y;) : (return upper, missing;)
+            else
+                return upper, found
+            end
+        end
+    end
+end
+
+function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose::Bool=false)
+    ordF = Int(order(C.F))
+    ordF == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+
+    1 <= lbound <= ubound <= C.n || throw(ArgumentError("Expected 1 <= lbound <= ubound <= C.n"))
+    if lbound < C.n / 2 && ordF == 2
+        # faster to enumerate backwards, but only in binary
+        return _wordsofweighthigh(C, lbound, ubound)
+    end
+
+    p = Int(characteristic(C.F))
+    G = generatormatrix(C)
+    if typeof(C) <: AbstractCyclicCode
+        verbose && println("Detected a cyclic code, using Chen's adaption.")
+        genmats = _getinformationsets(G, "Chen")
+    elseif typeof(C) <: AbstractQuasiCyclicCode
+        verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+        genmats = _getinformationsets(G, "White")
+    else
+        genmats = _getinformationsets(G, "Zimmermann")
+    end
+    genmatsJulia = [FpmattoJulia(x[2])' for x in genmats]
+    h = length(genmatsJulia)
+    rankdefs = zeros(Int, h)
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(genmats[i][1]);) : (print("$(genmats[i][1]), "))
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            rankdefs[i] = C.k - genmats[i][1]
+        end
+    end
+
+    evenflag = false
+    devenflag = false
+    tevenflag = false
+    ordF == 2 && (evenflag = iseven(C);)
+    evenflag && (devenflag = isdoublyeven(C);)
+    devenflag && (tevenflag = istriplyeven(C);)
+    if verbose
+        tevenflag && println("Detected a triply even code.")
+        (!tevenflag && devenflag) && println("Detected a doubly even code.")
+        (!tevenflag && !devenflag && evenflag) && println("Detected an even code.")
+    end
+
+    numthrds = Threads.nthreads()
+    verbose && println("Detected $numthrds threads.")
+    power = 0
+    for i in 1:20
+        if 2^i > numthrds
+            power = i - 1
+            break
+        end
+    end
+
+    W = Set{fq_nmod_mat}()
+    for r in 1:C.k
+        if typeof(C) <: AbstractCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+        else
+            lower = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+        end
+        # an even code can't have have an odd minimum weight
+        (!tevenflag && !devenflag && evenflag) && (lower += lower % 2;)
+        (!tevenflag && devenflag) && (lower += 4 - lower % 4;)
+        tevenflag && (lower += 8 - lower % 8;)
+
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $lower")
+        if lower >= ubound
+            return W
+        end
+
+        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Threads.@threads for m in 1:numthrds
+            c = zeros(Int, C.n)
+            prefix = digits(m - 1, base=2, pad=power)
+            for u in GrayCode(C.k, r, prefix, mutate=true)
+                for i in 1:h
+                    LinearAlgebra.mul!(c, genmatsJulia[i], u)
+                    w = 0
+                    @inbounds for j in 1:C.n
+                        c[j] % p != 0 && (w += 1;)
+                    end
+
+                    if lbound <= w <= ubound
+                        c2 = matrix(C.F, 1, C.n, c)
+                        ismissing(genmats[i][3]) || (c2 = c2 * genmats[i][3];)
+                        push!(Ws[m], c2)
+                    end
+                end
+            end
+        end
+        for m in 1:numthrds
+            union!(W, Ws[m])
+        end
+    end
+end
+
+wordsofweight(C::AbstractLinearCode, bound::Int, verbose::Bool=false) = wordsofweight(C, bound, bound, verbose)
+
+# untested
+# TODO: figure out if even weight upper weight needs to subtract or not
+function _wordsofweighthigh(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose::Bool=false)
+    p = Int(characteristic(C.F))
+    G = generatormatrix(C)
+    if typeof(C) <: AbstractCyclicCode
+        verbose && println("Detected a cyclic code, using Chen's adaption.")
+        genmats = _getinformationsets(G, "Chen")
+    elseif typeof(C) <: AbstractQuasiCyclicCode
+        verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+        genmats = _getinformationsets(G, "White")
+    else
+        genmats = _getinformationsets(G, "Zimmermann")
+    end
+    genmatsJulia = [FpmattoJulia(x[2])' for x in genmats]
+    h = length(genmatsJulia)
+    rankdefs = zeros(Int, h)
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(genmats[i][1]);) : (print("$(genmats[i][1]), "))
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            rankdefs[i] = C.k - genmats[i][1]
+        end
+    end
+
+    evenflag = false
+    devenflag = false
+    tevenflag = false
+    ordF == 2 && (evenflag = iseven(C);)
+    evenflag && (devenflag = isdoublyeven(C);)
+    devenflag && (tevenflag = istriplyeven(C);)
+    if verbose
+        tevenflag && println("Detected a triply even code.")
+        (!tevenflag && devenflag) && println("Detected a doubly even code.")
+        (!tevenflag && !devenflag && evenflag) && println("Detected an even code.")
+    end
+
+    numthrds = Threads.nthreads()
+    verbose && println("Detected $numthrds threads.")
+    power = 0
+    for i in 1:20
+        if 2^i > numthrds
+            power = i - 1
+            break
+        end
+    end
+
+    W = Set{fq_nmod_mat}()
+    for r in C.k:-1:1
+        if typeof(C) <: AbstractCyclicCode
+            upper = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            upper = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+        else
+            upper = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+        end
+        # # an even code can't have have an odd minimum weight
+        # (!tevenflag && !devenflag && evenflag) && (upper += upper % 2;)
+        # (!tevenflag && devenflag) && (upper += 4 - upper % 4;)
+        # tevenflag && (upper += 8 - upper % 8;)
+
+        verbose && println("r: $r")
+        verbose && println("Upper bound: $upper")
+        if upper < lbound
+            return W
+        end
+
+        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Threads.@threads for m in 1:numthrds
+            c = zeros(Int, C.n)
+            prefix = digits(m - 1, base=2, pad=power)
+            for u in GrayCode(C.k, r, prefix, mutate=true)
+                for i in 1:h
+                    LinearAlgebra.mul!(c, genmatsJulia[i], u)
+                    w = 0
+                    @inbounds for j in 1:C.n
+                        c[j] % p != 0 && (w += 1;)
+                    end
+
+                    if lbound <= w <= ubound
+                        c2 = matrix(C.F, 1, C.n, c)
+                        ismissing(genmats[i][3]) || (c2 = c2 * genmats[i][3];)
+                        push!(Ws[m], c2)
+                    end
+                end
+            end
+        end
+        for m in 1:numthrds
+            union!(W, Ws[m])
+        end
+    end
+end
+
+#TODO: change above to BigInts
+function partialweightdistribution(C::AbstractLinearCode, bound::Int, compact::Bool=false)
+	1 <= bound <= C.n || throw(ArgumentError("Bound must be between 1 and n."))
+
+	W = wordsofweight(C, 1, bound)
+    wtdist = zeros(BigInt, bound + 1)
+    bio = BigInt(1)
+    wtdist[1] = bio    
+	for c in W
+		wtdist[wt(c) + 1] += bio
+	end
+    
+    if compact
+        wtdistcomp = Vector{Tuple{Int, BigInt}}()
+        for (i, x) in enumerate(wtdist)
+            !iszero(x) && (push!(wtdistcomp, (i - 1, x)))
+        end
+        return wtdistcomp
+    else
+        return wtdist
+    end
+end
+
+"""
+	minimumwords(C::AbstractLinearCode)
+
+Return the set of codewords of `C` with weight equal to the minimum distance.
+
+This algorithm simultaneously computes the minimum distance and stores the words of
+this weight that it finds, removing the repeated work of calling
+`w = minimumdistance(C); W = wordsofweight(C, w);`
+"""
+function minimumwords(C::AbstractLinearCode)
+    ordF = Int(order(C.F))
+    ordF == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+
+    p = Int(characteristic(C.F))
+    found = missing
+    perm = missing
+
+    G = generatormatrix(C)
+    if typeof(C) <: AbstractCyclicCode
+        verbose && println("Detected a cyclic code, using Chen's adaption.")
+        genmats = _getinformationsets(G, "Chen")
+    elseif typeof(C) <: AbstractQuasiCyclicCode
+        verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+        genmats = _getinformationsets(G, "White")
+    else
+        genmats = _getinformationsets(G, "Zimmermann")
+    end
+    genmatsJulia = [FpmattoJulia(x[2])' for x in genmats] # deepcopy doesn't save anythign here
+    # genmatsJulia = [FpmattoJulia(x[2]) for x in genmats]
+    h = length(genmatsJulia)
+    rankdefs = zeros(Int, h)
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(genmats[i][1]);) : (print("$(genmats[i][1]), "))
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            rankdefs[i] = C.k - genmats[i][1]
+        end
+    end
+    
+    evenflag = false
+    devenflag = false
+    tevenflag = false
+    ordF == 2 && (evenflag = iseven(C);)
+    evenflag && (devenflag = isdoublyeven(C);)
+    devenflag && (tevenflag = istriplyeven(C);)
+    if verbose
+        tevenflag && println("Detected a triply even code.")
+        (!tevenflag && devenflag) && println("Detected a doubly even code.")
+        (!tevenflag && !devenflag && evenflag) && println("Detected an even code.")
+    end
+    
+    upper = C.n - C.k + 1
+    verbose && println("Singleton upper bound: $upper")
+    for (j, g) in enumerate(genmatsJulia)
+        for i in 1:C.k
+            w = wt(g[:, i]) # for transposed matrix
+            if w < upper
+                found = g[:, i]
+                upper = w
+                perm = j
+            end
+        end
+    end
+    verbose && println("Upper bound after row analysis: $upper")
+    verbose && !ismissing(found) && println("Found vector for upper bound.")
+
+    numthrds = Threads.nthreads()
+    verbose && println("Detected $numthrds threads.")
+    power = 0
+    for i in 1:20
+        if 2^i > numthrds
+            power = i - 1
+            break
+        end
+    end
+
+    W = Set{fq_nmod_mat}()
+    for r in 1:C.k
+        if typeof(C) <: AbstractCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            lower = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+        else
+            lower = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+        end
+        # an even code can't have have an odd minimum weight
+        (!tevenflag && !devenflag && evenflag) && (lower += lower % 2;)
+        (!tevenflag && devenflag) && (lower += 4 - lower % 4;)
+        tevenflag && (lower += 8 - lower % 8;)
+
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $lower")
+        verbose && println("Upper bound: $upper")
+        if lower >= upper
+            C.d = upper
+            return upper, W
+        end
+
+        uppers = [upper for _ in 1:numthrds]
+        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Threads.@threads for m in 1:numthrds
+            c = zeros(Int, C.n)
+            prefix = digits(m - 1, base=2, pad=power)
+            for u in GrayCode(C.k, r, prefix, mutate=true)
+                for i in 1:h
+                    LinearAlgebra.mul!(c, genmatsJulia[i], u)
+                    w = 0
+                    @inbounds for j in 1:C.n
+                        c[j] % p != 0 && (w += 1;)
+                    end
+
+                    if w <= uppers[m]
+                        if w < uppers[m]
+                            uppers[m] = w
+                            verbose && println("Adjusting upper bound: $upper")
+                            Ws[m] = Set{fq_nmod_mat}()
+                        end
+                        # TODO: this is very expensive just to get erased
+                        # maybe keep perms[m] and adjust outside loop
+                        # allocations are more expensive inside threads
+                        c2 = matrix(C.F, 1, C.n, c)
+                        ismissing(genmats[i][3]) || (c2 = c2 * genmats[i][3];)
+                        push!(Ws[m], c2)
+                    end
+                end
+            end
+        end
+        loc = argmin(uppers)
+        if upper > uppers[loc]
+            upper = uppers[loc]
+            W = Set{fq_nmod_mat}()
+        end
+        for m in 1:numthrds
+            if uppers[m] == upper
+                union!(W, Ws[m])
+            end
+        end
+    end
 end
 
 #############################
@@ -489,6 +1203,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
     end
 end
 
+# TODO: change to compact::Bool=true
 # MAGMA returns this format
 # [ <0, 1>, <4, 105>, <6, 280>, <8, 435>, <10, 168>, <12, 35> ]
 function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::String="full")
@@ -551,17 +1266,61 @@ support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", 
 Return the minimum distance of the linear code if known, otherwise computes it
 using the algorithm of `alg`. If `alg = "trellis"`, the sectionalization flag
 `sect` can be set to true to further compactify the reprsentation.
+
+
+enumeration-based algorithms using the binary, reflected Gray code such as Brouwer-Zimmermann
+and adaptions
 """
-function minimumdistance(C::AbstractLinearCode, alg::String="auto")
+function minimumdistance(C::AbstractLinearCode, alg::String="auto", sect::Bool=false, verbose::Bool=false)
     !ismissing(C.d) && return C.d
-    HWE = weightenumerator(C, "Hamming", alg)
-    !ismissing(C.d) && return C.d
-    # this line should only be needed to be run if the weight enumerator is known
-    # but the minimum distance is intentionally set to missing
-    # ordering here can be a bit weird
-    C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-        for i in 1:length(HWE.polynomial)]))
-    return C.d
+
+    alg ∈ ["auto", "Gray", "trellis", "Leon", "bruteforce", "wtdist"] || throw(ArgumentError("Unexpected algorithm '$alg'."))
+    if alg == "auto"
+        D = dual(C)
+        if cardinality(C) <= 1e6 # random cutoff
+            C.weightenum = _weightenumeratorBF(C.G)
+            HWE = CWEtoHWE(C.weightenum)
+            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+                for i in 1:length(HWE.polynomial)]))
+            return C.d
+        elseif rate(C) > 0.5
+            D = dual(C)
+            if cardinality(D) <= 1e6 # random cutoff
+                D.weightenum = _weightenumeratorBF(D.G)
+            else
+                weightenumeratorC(syndrometrellis(D, "primal", false), type)
+            end
+            C.weightenum = MacWilliamsIdentity(D, D.weightenum)
+            HWE = CWEtoHWE(C.weightenum)
+            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+                for i in 1:length(HWE.polynomial)]))
+            return C.d
+        else
+            return Graycodemindist(C, verbose)
+        end
+    elseif alg == "Gray"
+        return Graycodemindist(C, verbose)
+    elseif alg == "trellis"
+        weightenumeratorC(syndrometrellis(C, "primal", false), type)
+        return C.d
+    elseif alg == "bruteforce"
+        C.weightenum = _weightenumeratorBF(C.G)
+        HWE = CWEtoHWE(C.weightenum)
+        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            for i in 1:length(HWE.polynomial)]))
+        return C.d
+    elseif alg == "wtdist"
+        HWE = weightenumerator(C, "Hamming", alg)
+        !ismissing(C.d) && return C.d
+        # this line should only be needed to be run if the weight enumerator is known
+        # but the minimum distance is intentionally set to missing
+        # ordering here can be a bit weird
+        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            for i in 1:length(HWE.polynomial)]))
+        return C.d
+    # elseif alg == "Leon"
+    #     Leon(C)
+    end
 end
 
 #############################
@@ -1130,4 +1889,40 @@ function ispure(S::AbstractCSSCode)
     ismissing(S.pure) || return S.pure
     minimumdistanceXZ(S)
     return S.pure
+end
+
+
+
+"""
+    distrandCSS(hx::Matrix{Int}, hz::Matrix{Int}, num::Int, mindist::Int=0, debug::Int=0, field::GapObj=GAP.Globals.GF(2), maxav=Nothing)
+Wrapper for the QDistRnd function DistRandCSS.
+## QDistRnd documentation
+- `num`: number of information sets to construct (should be large).
+- `mindist`: the algorithm stops when distance equal or below `mindist` 
+    is found and returns the result with negative sign. Set 
+    `mindist` to 0 if you want the actual distance.
+- `debug`: optional integer argument containing debug bitmap (default: `0`).
+    - 1 (0s  bit set): print 1st of the vectors found.
+    - 2 (1st bit set): check orthogonality of matrices and of the final vector.
+    - 4 (2nd bit set): show occasional progress update.
+    - 8 (3rd bit set): maintain cw count and estimate the success probability.
+- `field` (Options stack): Galois field, default: GF(2).
+- `maxav` (Options stack): if set, terminate when `<n>` greater than `maxav`, 
+    see Section Emprirical. Not set by default.
+"""
+# Michael Vasmer
+function QDistRndCSS(hx::Matrix{Int}, hz::Matrix{Int}, num::Int, mindist::Int,
+    debug::Int=0, field::GapObj=GAP.Globals.GF(2), maxav=missing)
+
+    GAP.Packages.load("QDistRnd");
+    # Convert input matrices to GAP matrices over the given field
+    e = GAP.Globals.One(field)
+    hxg = GapObj(hx) * e
+    hzg = GapObj(hz) * e
+    if ismissing(maxav)
+        dist = GAP.Globals.DistRandCSS(hxg, hzg, num, mindist, debug, field)
+    else
+        dist = GAP.Globals.DistRandCSS(hxg, hzg, num, mindist, debug, field, maxav)
+    end
+    return dist
 end

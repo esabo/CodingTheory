@@ -230,7 +230,13 @@ a `[12, 6, 6]` if punctured and extended in the first coordinate or a
  All single punctures are equivalent.
 """
 function GolayCode(p::Int)
-    return puncture(ExtendedGolayCode(p), [1])
+    C = puncture(ExtendedGolayCode(p), [1])
+    if p == 2
+        C.d = 7
+    else
+        C.d = 5
+    end
+    return C
 end
 
 #############################

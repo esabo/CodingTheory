@@ -284,35 +284,40 @@ function isdegenerate(C::AbstractCyclicCode)
     return false
 end
 
-# TODO: why doesn't this check C.d like the other shows?
+# TODO: make this standard with the other shows
 function show(io::IO, C::AbstractCyclicCode)
     if get(io, :compact, false)
         # to use type "show(IOContext(stdout, :compact=>true), C)" instead
+        # over splitting field GF($(order(splittingfield(C))))
         if typeof(C) <: ReedSolomonCode
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
         elseif typeof(C) <: BCHCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code over splitting field GF($(order(splittingfield(C)))).")
+            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code.")
         else
-            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code over splitting field GF($(order(splittingfield(C)))).")
+            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code.")
         end
     else
         if typeof(C) <: ReedSolomonCode
             println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
         elseif typeof(C) <: BCHCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code over splitting field GF($(order(splittingfield(C)))).")
+            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code.")
         else
-            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code over splitting field GF($(order(splittingfield(C)))).")
+            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code.")
         end
         println(io, "$(order(field(C)))-Cyclotomic cosets: ")
-        for (i, x) in enumerate(qcosetsreps(C))
-            if i == 1
-                print(io, "\tC_$x ∪ ")
-            elseif i == 1 && i == length(qcosetsreps(C))
-                println(io, "\tC_$x")
-            elseif i != length(qcosetsreps(C))
-                print(io, "C_$x ∪ ")
-            else
-                println(io, "C_$x")
+        if length(qcosetsreps(C)) == 1
+            println("\tC_$(qcosetsreps(C)[1])")
+        else
+            for (i, x) in enumerate(qcosetsreps(C))
+                if i == 1
+                    print(io, "\tC_$x ∪ ")
+                elseif i == 1 && i == length(qcosetsreps(C))
+                    println(io, "\tC_$x")
+                elseif i != length(qcosetsreps(C))
+                    print(io, "C_$x ∪ ")
+                else
+                    println(io, "C_$x")
+                end
             end
         end
         println(io, "Generator polynomial:")
@@ -445,9 +450,11 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
     (p, t), = factors
 
     F, _ = FiniteField(p, t, "α")
+    # R, x = PolynomialRing(F, "x")
     deg = ord(n, q)
     E, α = FiniteField(p, t * deg, "α")
     R, x = PolynomialRing(E, "x")
+    # RE, _ = PolynomialRing(E, "x")
     β = α^(div(q^deg - 1, n))
 
     defset = sort!(vcat(cosets...))
@@ -456,6 +463,9 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
     g = _generatorpolynomial(R, β, defset)
     h = _generatorpolynomial(R, β, vcat(comcosets...))
     e = _idempotent(g, h, n)
+    # g = change_coefficient_ring(R, g)
+    # h = change_coefficient_ring(R, h)
+    # e = change_coefficient_ring(R, e)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
     Gstand, Hstand = _standardform(G)

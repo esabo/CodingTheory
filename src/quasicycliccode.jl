@@ -213,6 +213,13 @@ Return the type of the quasi-cycle code `C`.
 """
 type(C::AbstractQuasiCyclicCode) = C.type
 
+"""
+    issinglegenerator(C::AbstractQuasiCyclicCode)
+
+Return `true` if `C` is a single-generator quasi-cyclic code.
+"""
+issinglegenerator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
+
 function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
     if ismissing(C.G)
         if C.Atype == 'G'

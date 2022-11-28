@@ -133,7 +133,7 @@ kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer
+function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer
     count = 0
     for i in 1:length(v)
         if !iszero(v[i])
@@ -142,8 +142,23 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vect
     end
     return count
 end
-weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer = Hammingweight(v)
-wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}} where S <: Integer = Hammingweight(v)
+weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer = Hammingweight(v)
+wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer = Hammingweight(v)
+
+function Hammingweight(v::Matrix{Int64})
+    return sum(v)
+end
+
+# TODO: should do the full row, col double loop
+function wt(v::Matrix{Int64})
+    count = 0
+    for i in 1:length(v)
+        if !iszero(v[1, i])
+            count += 1
+        end
+    end
+    return count
+end
 
 """
     wt(f::fq_nmod_poly)
@@ -553,8 +568,8 @@ function _removeempty(A::fq_nmod_mat, type::String)
 end
 
 function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-    isempty(rowrange) && error("The row range cannot be empty in _rref_no_col_swap.")
-    isempty(colrange) && error("The column range cannot be empty in _rref_no_col_swap.")
+    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
+    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
     A = deepcopy(M)
 
     i = rowrange.start
@@ -585,8 +600,9 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
             # eliminate
             for k = rowrange.start:nr
                 if k != i
+                    # do a manual loop here to reduce allocations
                     d = A[k, j]
-                    @simd for l = j:nc
+                    @simd for l = 1:nc
                         A[k, l] = (A[k, l] - d * A[i, l])
                     end
                 end
@@ -596,6 +612,74 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
         j += 1
     end
     return A
+end
+
+function _rref_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
+    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
+    A = deepcopy(M)
+    # permutation matrix required to return to rowspace if column swap done
+    P = missing
+    ncA = ncols(A)
+
+    rnk = 0
+    i = rowrange.start
+    j = colrange.start
+    nr = rowrange.stop
+    nc = colrange.stop
+    while i <= nr && j <= nc
+        # find first pivot
+        ind = 0
+        for k in i:nr
+            if !iszero(A[k, j])
+                ind = k
+                break
+            end
+        end
+
+        # need to column swap
+        if iszero(ind)
+            for k in j + 1:nc
+                for l in i:nr
+                    if !iszero(A[l, k])
+                        ismissing(P) && (P = identity_matrix(base_ring(A), nc);)
+                        swap_cols!(A, k, j)
+                        swap_rows!(P, k, j)
+                        ind = l
+                        break
+                    end
+                end
+            end
+        end
+
+        # if true, the rest of the submatrix is zero
+        if iszero(ind)
+            return rnk, A, P
+        else
+            # normalize pivot
+            if !isone(A[ind, j])
+                A[ind, :] *= inv(A[ind, j])
+            end
+
+            # swap to put the pivot in the next row
+            ind != i && swap_rows!(A, ind, i)
+
+            # eliminate
+            for k = rowrange.start:nr
+                if k != i
+                    # do a manual loop here to reduce allocations
+                    d = A[k, j]
+                    @simd for l = 1:ncA
+                        A[k, l] = (A[k, l] - d * A[i, l])
+                    end
+                end
+            end
+        end
+        i += 1
+        j += 1
+        rnk += 1
+    end
+    return rnk, A, P
 end
 
 function digitstoint(x::Vector{Int}, base::Int=2)
@@ -1018,22 +1102,7 @@ end
 #
 # # Gray code iterator, chooses next based on previous, gives Ints instead of vectors
 #
-# struct GrayCode
-#     n::Int
-# end
-#
-# Base.iterate(G::GrayCode) = G.n < 64 ? (0, (0,1)) : error("Don't handle cases this large")
-#
-# function Base.iterate(G::GrayCode, state)
-#     prev, k = state
-#     k == 2 ^ G.n && return nothing
-#     j = isodd(k) ? 0 : trailing_zeros(prev) + 1
-#     next = prev ⊻ (1 << j)
-#     return (next, (next, k+1))
-# end
-#
-# Base.length(G::GrayCode) = 2^G.n
-#
+
 # #=
 # Benchmark result:
 #

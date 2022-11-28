@@ -15,13 +15,20 @@ using CairoMakie, Graphs
 using Plots
 using JLD2
 using Combinatorics
+using .Threads
+using GAP #, GAP_jll
+using LinearAlgebra # need to remove? want only mul!
+using SparseArrays
 
-import LinearAlgebra: tr
+import LinearAlgebra: tr, Adjoint
 import AbstractAlgebra: quo, VectorSpace
 import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic, lift
-import Base: circshift, reverse, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
+
+# don't want this here
+# GAP.Packages.load("LINS");
 
 #############################
         # utils.jl
@@ -152,6 +159,12 @@ abstract type AbstractHypergraphProductCode <: AbstractCSSCode end
 include("quantumproductcodes.jl")
 
 #############################
+        # tilings.jl
+#############################
+
+# include("tilings.jl")
+
+#############################
         # Exports
 #############################
 
@@ -196,7 +209,7 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
     componentwiseproductcode, VectorSpace, setminimumdistance!,
     expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
-    words, codewords, elements, isMDS
+    words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven
     # _standardform,
 
 export dual1, dual2, dual3
@@ -254,7 +267,7 @@ export AbstractQuasiCyclicCode
 export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
     expansionfactor, type, polynomialmatrix, polynomialmatrixtype,
     noncirculantgeneratormatrix, noncirculantparitycheckmatrix, generators,
-    circulants
+    circulants, issinglegenerator
 
 #############################
      # miscknowncodes.jl
@@ -317,7 +330,7 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
     weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
     weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
-    minimumdistanceZ, ispure, Sternsattack
+    minimumdistanceZ, ispure, Sternsattack, Graycodemindist
 
 #############################
    # quantumproductcodes.jl
@@ -328,5 +341,13 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     BicycleCode, GeneralizedHypergraphProductCode, LiftedGeneralizedHypergraphProductCode,
     QuasiCyclicLiftedProductCode, LiftedQuasiCyclicLiftedProductCode,
     BiasTailoredQuasiCyclicLiftedProductCode, LiftedBiasTailoredQuasiCyclicLiftedProductCode
+
+#############################
+        # tilings.jl
+#############################
+
+export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
+    startetrahedrongroup, cycletetrahedrongroup, normalsubgroups, fixedpointfree,
+    orientable, kcolorable, cosetintersection
 
 end
