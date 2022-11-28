@@ -162,7 +162,7 @@ include("quantumproductcodes.jl")
         # tilings.jl
 #############################
 
-# include("tilings.jl")
+include("tilings.jl")
 
 #############################
         # Exports
