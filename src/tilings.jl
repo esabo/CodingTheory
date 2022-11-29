@@ -52,7 +52,7 @@ function tetrahedrongroup(orders::Vector{Int})
     f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c", "d"]))
     g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, f.:4^2,
         (f.:1 * f.:2)^orders[1], (f.:1 * f.:3)^orders[2], (f.:1 * f.:4)^orders[3],
-        (f.:1 * f.:2)^orders[4], (f.:1 * f.:2)^orders[5], (f.:1 * f.:2)^orders[6]])
+        (f.:2 * f.:3)^orders[4], (f.:2 * f.:4)^orders[5], (f.:3 * f.:4)^orders[6]])
     ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
 end
 
