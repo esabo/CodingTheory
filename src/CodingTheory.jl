@@ -9,10 +9,11 @@ module CodingTheory
 # change environment variable so that banner doesn't print
 ENV["NEMO_PRINT_BANNER"] = "false"
 
-using AbstractAlgebra
-using Nemo
+# using AbstractAlgebra
+# using Nemo
+using Oscar
 using CairoMakie, Graphs
-using Plots
+# using Plots
 using JLD2
 using Combinatorics
 using .Threads
@@ -165,6 +166,12 @@ include("quantumproductcodes.jl")
 include("tilings.jl")
 
 #############################
+        # Tanner.jl
+#############################
+
+include("Tanner.jl")
+
+#############################
         # Exports
 #############################
 
@@ -220,7 +227,7 @@ export dual1, dual2, dual3
 
 export AbstractLDPCCode
 
-export Tannergraph, variabledegreedistribution, checkdegreedistribution,
+export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
     checkdegreepolynomial, columnrowbounds
@@ -349,5 +356,11 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
 export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
     startetrahedrongroup, cycletetrahedrongroup, normalsubgroups, fixedpointfree,
     orientable, kcolorable, cosetintersection
+
+#############################
+        # Tanner.jl
+#############################
+
+export Tannergraph, Tannercode
 
 end

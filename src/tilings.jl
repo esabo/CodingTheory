@@ -23,7 +23,9 @@ Return the (`l`,`m`,`n`) triangle group.
 function trianglegroup(l::Int, m::Int, n::Int)
     l >= 0 && m >= 0 && n >= 0 || throw(ArgumentError("Arguments must be non-negative.")) 
     # f = GAP.Globals.FreeGroup(g"a", g"b", g"c")
-    f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c"]))
+    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c"]))
+    # f = free_group(["a", "b", "c"]).X
+    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c"]; recursive=true))
     g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, (f.:1 * f.:2)^l, (f.:1 * f.:3)^m, (f.:2 * f.:3)^n])
     return ReflectionGroup(g, [g.:1, g.:2, g.:3], [l, m, n], 3)
 end
@@ -49,11 +51,13 @@ Return the tetrahedron group with relations given by `orders`.
 function tetrahedrongroup(orders::Vector{Int})
     all(>=(0), orders) || throw(ArgumentError("Arguments must be non-negative."))
     # f = GAP.Globals.FreeGroup(g"a", g"b", g"c", g"d")
-    f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c", "d"]))
+    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c", "d"]))
+    # f = free_group(["a", "b", "c", "d"]).X
+    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c", "d"]; recursive=true))
     g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, f.:4^2,
         (f.:1 * f.:2)^orders[1], (f.:1 * f.:3)^orders[2], (f.:1 * f.:4)^orders[3],
         (f.:2 * f.:3)^orders[4], (f.:2 * f.:4)^orders[5], (f.:3 * f.:4)^orders[6]])
-    ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
+    return ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
 end
 
 """
@@ -109,12 +113,12 @@ Return all normal subgroups of `g` with index up to `maxindex`.
 function normalsubgroups(g::ReflectionGroup, maxindex::Int)
     gr = GAP.Globals.LowIndexNormalSubgroupsSearchForAll(g.group, maxindex)
     lns = GAP.Globals.List(gr)
-    subgroups = Vector{GapObj}()
+    sbgrps = Vector{GapObj}()
     len = GAP.Globals.Length(lns)
     for i = 1:len
-        push!(subgroups, GAP.Globals.Grp(lns[i]))
+        push!(sbgrps, GAP.Globals.Grp(lns[i]))
     end
-    return subgroups
+    return sbgrps
 end
 
 """
@@ -144,14 +148,14 @@ end
 
 Return `true' if the `subgroup` of `g` is orientable; otherwise `false`.
 """
-function orientable(subgroup::GapObj, g::ReflectionGroup)
+function orientable(sbgrps::GapObj, g::ReflectionGroup)
     gens = Vector{GapObj}()
     for pair in combinations(1:g.dimension, 2)
         push!(gens, g.generators[pair[1]] * g.generators[pair[2]])
     end
     gens = GapObj(gens)
     gplus = GAP.Globals.Subgroup(g.group, gens)
-    return GAP.Globals.IsSubgroup(gplus, subgroup)
+    return GAP.Globals.IsSubgroup(gplus, sbgrps)
 end
 
 """
