@@ -2,7 +2,7 @@
 
 julia_version = "1.8.2"
 manifest_format = "2.0"
-project_hash = "bd3bc8147233c329545990827f745ea6ffc3070d"
+project_hash = "e90917e2ef0da990bc76c87a6207e923edb8aaf9"
 
 [[deps.AbstractAlgebra]]
 deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
@@ -1140,6 +1140,12 @@ git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.3.0"
 
+[[deps.Primes]]
+deps = ["Test"]
+git-tree-sha1 = "ff1a2323cb468ec5f201838fcbe3c232266b1f95"
+uuid = "27ebfcd6-29c5-5fa9-bf4b-fb8fc14df3ae"
+version = "0.4.0"
+
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -1187,6 +1193,14 @@ version = "2.6.0"
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+
+[[deps.RamanujanGraphs]]
+deps = ["Graphs", "LinearAlgebra", "Primes"]
+git-tree-sha1 = "931ee71b14d7d51284b12233a62a2bccbf2e94dd"
+repo-rev = "master"
+repo-url = "https://github.com/esabo/RamanujanGraphs.jl"
+uuid = "e7bd6bc6-b6b8-11e9-1ec2-2f89442c0d6c"
+version = "0.4.1"
 
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
