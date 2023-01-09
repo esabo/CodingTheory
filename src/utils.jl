@@ -168,6 +168,39 @@ Return the number of nonzero coefficients of the polynomial `f`.
 wt(f::fq_nmod_poly) = Hammingweight(collect(coefficients(f)))
 
 """
+    _minwtrow(A::fq_nmod_mat)
+
+Return the minimum weight and corresponding index of the rows of `A`.
+"""
+function _minwtrow(A::Union{fq_nmod_mat, Matrix{Int64}, LinearAlgebra.Adjoint{Int64, Matrix{Int64}}})
+    nr, nc = size(A)
+    w = nc
+    i = 0
+    for r in 1:nr
+        wloc = 0
+        for c in 1:nc
+            iszero(A[r, c]) || (wloc += 1;)
+        end
+        wloc < w && (w = wloc; i = r;)
+    end
+    return w, i
+end
+
+function _minwtcol(A::LinearAlgebra.Adjoint{Int64, Matrix{Int64}})
+    nr, nc = size(A)
+    w = nr
+    i = 0
+    for c in 1:nc
+        wloc = 0
+        for r in 1:nr
+            iszero(A[r, c]) || (wloc += 1;)
+        end
+        wloc < w && (w = wloc; i = c;)
+    end
+    return w, i
+end
+
+"""
     Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
     distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
     dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
@@ -1036,6 +1069,100 @@ end
 # (1) q is an even prime power.
 # (2) q is an odd prime power and n = 2k + 1.
 # (Imamura 1983) The finite field F_q^n has no self-dual power bases.
+
+#############################
+          # Graphs
+#############################
+
+"""
+    isregular(G::SimpleGraph{Int})
+
+Return `true` if `G` is regular.
+"""
+function isregular(G::SimpleGraph{Int})
+    fadjlist = G.fadjlist
+    deg = length(fadjlist[1])
+    for v in fadjlist
+        length(v) == deg || return false
+    end
+    return true
+end
+
+"""
+    edgevertexincidencematrix(G::SimpleGraph{Int})
+
+Return the edge-vertex incidence matrix of `G` along with the vertex incides of the left
+and right bipartition.
+"""
+function edgevertexincidencematrix(G::SimpleGraph{Int})
+    I = Array(incidence_matrix(G))
+    nr, nc = size(I)
+    Itr = transpose(I)
+    B = vcat(hcat(zeros(Int, nc, nc), Itr), hcat(I, zeros(Int, nr, nr)))
+    return B, collect(1:nc), collect(nc + 1:nr + nc)
+end
+
+"""
+    edgevertexincidencegraph(G::SimpleGraph{Int})
+
+Return the edge-vertex incidence graph of `G` along with the vertex incides of the left
+and right bipartition.
+"""
+function edgevertexincidencegraph(G::SimpleGraph{Int})
+    B, left, right = edgevertexincidencematrix(G)
+    return SimpleGraph(B), left, right
+end
+
+"""
+    isvalidbipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int})
+
+Return `true` if the vertices indexed by `left` and `right` form a valid bipartition for `G`.
+"""
+function isvalidbipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int})
+    nv(G) == length(left) + length(right) || throw(ArgumentError("Too few vertices in lists."))
+    l = sort(left)
+    r = sort(right)
+    temp = l ∩ r # can manually do using sorted knowledge if this is slow
+    isempty(temp) || throw(ArgumentError("Bipartition must be disjoint."))
+    # could consider getting rid of the above in exchange for changing the elseif to an if
+
+    for (i, v) in enumerate(G.fadjlist)
+        if insorted(i, l)
+            for e in v
+                insorted(e, r) || return false
+            end
+        elseif insorted(i, r)
+            for e in v
+                insorted(e, l) || return false
+            end
+        else
+            return false
+        end
+    end
+    return true
+end
+
+"""
+    extractbipartition(G::SimpleGraph{Int})
+
+Return two vectors representing the vertex indices of each side of the bipartition.
+"""
+function extractbipartition(G::SimpleGraph{Int})
+    temp = bipartite_map(G)
+    # this is the definition of the function is_bipartite in Graphs.jl
+    length(temp) == nv(G) || throw(ArgumentError("Input graph is not bipartite."))
+    left = Vector{Int}()
+    right = Vector{Int}()
+    for i in temp
+        i == 1 ? (push!(i, left);) : (push!(i, right);)
+    end
+    return left, right
+end
+
+
+
+
+
 
 
 

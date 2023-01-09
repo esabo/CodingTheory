@@ -5,16 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 mutable struct MatrixProductCode <: AbstractMatrixProductCode
-    F::Union{FqNmodFiniteField}
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
+    F::FqNmodFiniteField # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
     G::fq_nmod_mat
     Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
     C::Vector{AbstractLinearCode}
     A::fq_nmod_mat
@@ -47,17 +50,27 @@ function MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
     # need to do in this row/column order
     for r in 1:s
         for c in 1:l
-            G[curr:curr + C[r].k, 1 + (r - 1) * n:r * n] = A[r, c] * generatormatrix(C[r])
+            G[curr:curr + C[r].k, 1 + (r - 1) * n:r * n] = A[r, c] * generatormatrix(C[r], true)
             # H[currH:currH + nrows(C[r].H), 1 + (r - 1) * n:r * n] = A[r, c] * paritycheckmatrix(C[r])
         end
         curr += C[r].k
         # currH += nrows(C[r].H)
     end
     
-    _, H = right_kernel(G)
-    Gstand, Hstand = _standardform(G)
-    return MatrixProductCode(F, n, nrows(G), missing, G, missing, transpose(H), missing, Gstand,
-        Hstand, missing, C, A)
+    Gstand, Hstand, P, k = _standardform(G)
+    if ismissing(P)
+        _, H = right_kernel(G)
+        # note the H here is transpose of the standard definition
+        H = _removeempty(transpose(H), "rows")
+    else
+        H = Hstand * P
+    end
+
+    ub1, _ = _minwtrow(G)
+    ub2, _ = _minwtrow(Gstand)
+    ub = minimum([ub1, ub2])
+    return MatrixProductCode(F, n, k, 1, ub, missing, G, missing, H, missing, Gstand,
+        Hstand, P, missing, C, A)
 end
 
 """

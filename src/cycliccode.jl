@@ -9,14 +9,17 @@ mutable struct CyclicCode <: AbstractCyclicCode
     E::FqNmodFiniteField # splitting field
     R::FqNmodPolyRing # polynomial ring of generator polynomial
     β::fq_nmod # n-th root of primitive element of splitting field
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
-    b::Integer
-    δ::Integer
-    qcosets::Vector{Vector{Int64}}
-    qcosetsreps::Vector{Int64}
-    defset::Vector{Int64}
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    b::Int # offset
+    δ::Int # BCH bound
+    HT::Int # Hartmann-Tzeng refinement
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
+    qcosets::Vector{Vector{Int}}
+    qcosetsreps::Vector{Int}
+    defset::Vector{Int}
     g::fq_nmod_poly
     h::fq_nmod_poly
     e::fq_nmod_poly
@@ -26,6 +29,7 @@ mutable struct CyclicCode <: AbstractCyclicCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
@@ -34,14 +38,17 @@ mutable struct BCHCode <: AbstractBCHCode
     E::FqNmodFiniteField # splitting field
     R::FqNmodPolyRing # polynomial ring of generator polynomial
     β::fq_nmod # n-th root of primitive element of splitting field
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
-    b::Integer
-    δ::Integer
-    qcosets::Vector{Vector{Int64}}
-    qcosetsreps::Vector{Int64}
-    defset::Vector{Int64}
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    b::Int # offset
+    δ::Int # BCH bound
+    HT::Int # Hartmann-Tzeng refinement
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
+    qcosets::Vector{Vector{Int}}
+    qcosetsreps::Vector{Int}
+    defset::Vector{Int}
     g::fq_nmod_poly
     h::fq_nmod_poly
     e::fq_nmod_poly
@@ -51,6 +58,7 @@ mutable struct BCHCode <: AbstractBCHCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
@@ -59,14 +67,17 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     E::FqNmodFiniteField # splitting field
     R::FqNmodPolyRing # polynomial ring of generator polynomial
     β::fq_nmod # n-th root of primitive element of splitting field
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
-    b::Integer
-    δ::Integer # BCH bound
-    qcosets::Vector{Vector{Int64}}
-    qcosetsreps::Vector{Int64}
-    defset::Vector{Int64}
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    b::Int # offset
+    δ::Int # BCH bound
+    HT::Int # Hartmann-Tzeng refinement
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
+    qcosets::Vector{Vector{Int}}
+    qcosetsreps::Vector{Int}
+    defset::Vector{Int}
     g::fq_nmod_poly
     h::fq_nmod_poly
     e::fq_nmod_poly
@@ -76,22 +87,22 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
-function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int64})
+function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     # from_roots(R, [β^i for i in Z]) - R has wrong type for this
     g = one(R)
     x = gen(R)
     for i in Z
         g *= (x - β^i)
     end
-
     return g
 end
-_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int64}}) = _generatorpolynomial(R, β, vcat(qcosets...))
+_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, vcat(qcosets...))
 
-function _generatormatrix(F::FqNmodFiniteField, n::Integer, k::Integer, g::fq_nmod_poly)
+function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
     # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
     coeffs = collect(coefficients(g))
@@ -106,7 +117,7 @@ function _generatormatrix(F::FqNmodFiniteField, n::Integer, k::Integer, g::fq_nm
 end
 
 """
-    definingset(nums::Vector{Int64}, q::Integer, n::Integer, flat::Bool=true)
+    definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
 
 Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo
 `n`.
@@ -114,9 +125,9 @@ Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo
 If `flat` is set to true, the result will be a single flattened and sorted
 array.
 """
-function definingset(nums::Vector{Int64}, q::Integer, n::Integer, flat::Bool=true)
-    arr = Vector{Vector{Int64}}()
-    arrflat = Vector{Int64}()
+function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
+    arr = Vector{Vector{Int}}()
+    arrflat = Vector{Int}()
     for x in nums
         Cx = cyclotomiccoset(x, q, n)
         if Cx[1] ∉ arrflat
@@ -129,7 +140,7 @@ function definingset(nums::Vector{Int64}, q::Integer, n::Integer, flat::Bool=tru
     return arr
 end
 
-function _idempotent(g::fq_nmod_poly, h::fq_nmod_poly, n::Integer)
+function _idempotent(g::fq_nmod_poly, h::fq_nmod_poly, n::Int)
     # solve 1 = a(x) g(x) + b(x) h(x) for a(x) then e(x) = a(x) g(x) mod x^n - 1
     d, a, b = gcdx(g, h)
     return mod(g * a, gen(parent(g))^n - 1)
@@ -284,36 +295,54 @@ function isdegenerate(C::AbstractCyclicCode)
     return false
 end
 
-# TODO: make this standard with the other shows
+"""
+    BCHbound(C::AbstractCyclicCode)
+
+Return the BCH bound for `C`.
+
+This is a lower bound on the minimum distance of `C`.
+"""
+BCHbound(C::AbstractCyclicCode) = C.δ
+
+# """
+#     HTbound(C::AbstractCyclicCode)
+
+# Return the Hartmann-Tzeng refinement to the BCH bound for `C`.
+
+# This is a lower bound on the minimum distance of `C`.
+# """
+# HTbound(C::AbstractCyclicCode) = C.HT
+
 function show(io::IO, C::AbstractCyclicCode)
-    if get(io, :compact, false)
-        # to use type "show(IOContext(stdout, :compact=>true), C)" instead
-        # over splitting field GF($(order(splittingfield(C))))
+    if ismissing(C.d)
         if typeof(C) <: ReedSolomonCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
+            println(io, "[$(C.n)), $(C.k); $(C.b)]_$(order(C.F)) Reed-Solomon code")
         elseif typeof(C) <: BCHCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code.")
+            println(io, "[$(C.n), $(C.k); $(C.b)]_$(order(C.F)) BCH code")
         else
-            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code.")
+            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) cyclic code")
         end
     else
         if typeof(C) <: ReedSolomonCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) Reed Solomon code.")
+            println(io, "[$(C.n)), $(C.k), $(C.d); $(C.b)]_$(order(C.F)) Reed-Solomon code")
         elseif typeof(C) <: BCHCode
-            println(io, "[$(length(C)), $(dimension(C)), ≥$(designdistance(C)); $(offset(C))]_$(order(field(C))) BCH code.")
+            println(io, "[$(C.n), $(C.k), $(C.d); $(C.b)]_$(order(C.F)) BCH code")
         else
-            println(io, "[$(length(C)), $(dimension(C))]_$(order(field(C))) cyclic code.")
+            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) cyclic code")
         end
-        println(io, "$(order(field(C)))-Cyclotomic cosets: ")
-        if length(qcosetsreps(C)) == 1
+    end
+    if get(io, :compact, true)
+        println(io, "$(order(C.F))-Cyclotomic cosets: ")
+        len = length(qcosetsreps(C))
+        if len == 1
             println("\tC_$(qcosetsreps(C)[1])")
         else
             for (i, x) in enumerate(qcosetsreps(C))
                 if i == 1
                     print(io, "\tC_$x ∪ ")
-                elseif i == 1 && i == length(qcosetsreps(C))
+                elseif i == 1 && i == len
                     println(io, "\tC_$x")
-                elseif i != length(qcosetsreps(C))
+                elseif i != len
                     print(io, "C_$x ∪ ")
                 else
                     println(io, "C_$x")
@@ -322,42 +351,47 @@ function show(io::IO, C::AbstractCyclicCode)
         end
         println(io, "Generator polynomial:")
         println(io, "\t", generatorpolynomial(C))
-        println(io, "Generator matrix: $(dimension(C)) × $(length(C))")
-        for i in 1:dimension(C)
-            print(io, "\t")
-            for j in 1:length(C)
-                if j != length(C)
-                    print(io, "$(C.G[i, j]) ")
-                elseif j == length(C) && i != dimension(C)
-                    println(io, "$(C.G[i, j])")
-                else
-                    print(io, "$(C.G[i, j])")
+        if C.n <= 30
+            G = generatormatrix(C)
+            nr, nc = size(G)
+            println(io, "Generator matrix: $nr × $nc")
+            for i in 1:nr
+                print(io, "\t")
+                for j in 1:nc
+                    if j != nc
+                        print(io, "$(G[i, j]) ")
+                    elseif j == nc && i != nr
+                        println(io, "$(G[i, j])")
+                    else
+                        print(io, "$(G[i, j])")
+                    end
                 end
             end
         end
-        if !ismissing(C.weightenum)
-            println(io, "\nComplete weight enumerator:")
-            print(io, "\t", polynomial(C.weightenum))
-        end
+        # if !ismissing(C.weightenum)
+        #     println(io, "\nComplete weight enumerator:")
+        #     print(io, "\t", polynomial(C.weightenum))
+        # end
     end
 end
 
 """
-    finddelta(n::Integer, cosets::Vector{Vector{Int64}})
+    finddelta(n::Int, cosets::Vector{Vector{Int}})
 
 Return the number of consecutive elements of `cosets`, the offset for this, and
 a lower bound on the distance of the code defined with length `n` and
 cyclotomic cosets `cosets`.
 
-The lower bound is determined by applying the Hartmann-Tzeng Bound refinement to
+The lower bound is determined by applying the Hartmann-Tzeng bound refinement to
 the BCH bound.
 """
-function finddelta(n::Integer, cosets::Vector{Vector{Int64}})
+# TODO: check why d is sometimes lower than HT but never than BCH
+function finddelta(n::Int, cosets::Vector{Vector{Int}})
     defset = sort!(vcat(cosets...))
-    runs = Vector{Vector{Int64}}()
+    runs = Vector{Vector{Int}}()
     for x in defset
-        useddefset = Vector{Int64}()
-        reps = Vector{Int64}()
+        useddefset = Vector{Int}()
+        reps = Vector{Int}()
         cosetnum = 0
         for i in 1:length(cosets)
             if x ∈ cosets[i]
@@ -398,38 +432,38 @@ function finddelta(n::Integer, cosets::Vector{Vector{Int64}})
 
     # moving to Hartmann-Tzeng Bound refinement
     currbound = δ
-    if consec > 1
-        for A in runs
-            if length(A) == consec
-                for b in 1:(n - 1)
-                    if gcd(b, n) ≤ δ
-                        for s in 0:(δ - 2)
-                            B = [mod(j * b, n) for j in 0:s]
-                            AB = [x + y for x in A for y in B]
-                            if AB ⊆ defset
-                                if currbound < δ + s
-                                    currbound = δ + s
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
+    # if consec > 1
+    #     for A in runs
+    #         if length(A) == consec
+    #             for b in 1:(n - 1)
+    #                 if gcd(b, n) ≤ δ
+    #                     for s in 0:(δ - 2)
+    #                         B = [mod(j * b, n) for j in 0:s]
+    #                         AB = [x + y for x in A for y in B]
+    #                         if AB ⊆ defset
+    #                             if currbound < δ + s
+    #                                 currbound = δ + s
+    #                             end
+    #                         end
+    #                     end
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
 
     return δ, offset, currbound
 end
 
 """
-    dualdefiningset(defset::Vector{Int64}, n::Integer)
+    dualdefiningset(defset::Vector{Int}, n::Int)
 
 Return the defining set of the dual code of length `n` and defining set `defset`.
 """
-dualdefiningset(defset::Vector{Int64}, n::Integer) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
+dualdefiningset(defset::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
 
 """
-    CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
+    CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
 
 Return the CyclicCode of length `n` over `GF(q)` with `q`-cyclotomic cosets `cosets`.
 
@@ -443,19 +477,17 @@ julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
 julia> C = CyclicCode(q, n, cosets)
 ```
 """
-function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
-    (q <= 1 || n <= 1) && error("Invalid parameters passed to CyclicCode constructor: q = $q, n = $n.")
-    factors = factor(q)
-    length(factors) == 1 || error("There is no finite field of order $q.")
+function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
+    (q <= 1 || n <= 1) && throw(DomainError("Invalid parameters passed to CyclicCode constructor: q = $q, n = $n."))
+    factors = AbstractAlgebra.factor(q)
+    length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
     F, _ = FiniteField(p, t, "α")
-    # R, x = PolynomialRing(F, "x")
     deg = ord(n, q)
     E, α = FiniteField(p, t * deg, "α")
     R, x = PolynomialRing(E, "x")
-    # RE, _ = PolynomialRing(E, "x")
-    β = α^(div(q^deg - 1, n))
+    β = α^(div(BigInt(q)^deg - 1, n))
 
     defset = sort!(vcat(cosets...))
     k = n - length(defset)
@@ -463,13 +495,13 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
     g = _generatorpolynomial(R, β, defset)
     h = _generatorpolynomial(R, β, vcat(comcosets...))
     e = _idempotent(g, h, n)
-    # g = change_coefficient_ring(R, g)
-    # h = change_coefficient_ring(R, h)
-    # e = change_coefficient_ring(R, e)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = _standardform(G)
+    Gstand, Hstand, P, rnk = _standardform(G)
+    # HT will serve as a lower bound on the minimum weight
+    # take the weight of g as an upper bound
     δ, b, HT = finddelta(n, cosets)
+    ub = wt(G[1, :])
 
     # verify
     trH = transpose(H)
@@ -479,34 +511,36 @@ function CyclicCode(q::Integer, n::Integer, cosets::Vector{Vector{Int64}})
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
-    iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
-            return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
+            # known distance, should probably not do δ, HT here
+            d = n - k + 1
+            return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
                 sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, missing)
+                H, missing, Gstand, Hstand, P, missing)
         end
 
-        return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-            missing, Gstand, Hstand, missing)
+        return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
+            cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+            missing, H, missing, Gstand, Hstand, P, missing)
     end
 
-    return CyclicCode(F, E, R, β, n, k, missing, b, HT, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H, missing,
-        Gstand, Hstand, missing)
+    return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
+        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+        missing, H, missing, Gstand, Hstand, P, missing)
 end
 
 """
-    CyclicCode(n::Integer, g::fq_nmod_poly)
+    CyclicCode(n::Int, g::fq_nmod_poly)
 
 Return the length `n` cyclic code generated by the polynomial `g`.
 """
-function CyclicCode(n::Integer, g::fq_nmod_poly)
+function CyclicCode(n::Int, g::fq_nmod_poly)
+    n <= 1 && throw(DomainError("Invalid parameters passed to CyclicCode constructor: n = $n."))
     R = parent(g)
     flag, h = divides(gen(R)^n - 1, g)
-    flag || error("Given polynomial does not divide x^$n - 1.")
+    flag || throw(ArgumentError("Given polynomial does not divide x^$n - 1."))
 
     F = base_ring(R)
     q = Int(order(F))
@@ -520,7 +554,7 @@ function CyclicCode(n::Integer, g::fq_nmod_poly)
     gE = RE([E(i) for i in collect(coefficients(g))])
     # _, h = divides(gen(RE)^n - 1, gE)
 
-    dic = Dict{fq_nmod, Int64}()
+    dic = Dict{fq_nmod, Int}()
     for i in 0:ordE - 1
         dic[β^i] = i
     end
@@ -530,38 +564,41 @@ function CyclicCode(n::Integer, g::fq_nmod_poly)
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = _standardform(G)
+    Gstand, Hstand, P, rnk = _standardform(G)
+    # HT will serve as a lower bound on the minimum weight
+    # take the weight of g as an upper bound
     δ, b, HT = finddelta(n, cosets)
+    upper = wt(G[1, :])
 
     # verify
     trH = transpose(H)
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
-    iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
-            return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
+            d = n - k + 1
+            return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
                 sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, missing)
+                H, missing, Gstand, Hstand, P, missing)
         end
 
-        return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-            missing, Gstand, Hstand, missing)
+        return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
+            cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+            missing, H, missing, Gstand, Hstand, P, missing)
     end
 
-    return CyclicCode(F, E, R, β, n, k, missing, b, HT, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H, missing,
-        Gstand, Hstand, missing)
+    return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
+        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+        missing, H, missing, Gstand, Hstand, P, missing)
 end
 
 # self orthogonal cyclic codes are even-like
 # does this require them too have even minimum distance?
 # self orthogonal code must contain all of its self orthogonal q-cosets and at least one of every q-coset pair
 """
-    BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
+    BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
 
 Return the BCHCode of length `n` over `GF(q)` with design distance `δ` and offset
 `b`.
@@ -587,11 +624,11 @@ Generator matrix: 5 × 15
         0 0 0 0 1 1 1 0 1 1 0 0 1 0 1
 ```
 """
-function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
-    δ >= 2 || error("BCH codes require δ ≥ 2 but the constructor was given δ = $δ.")
-    (q <= 1 || n <= 1) && error("Invalid parameters passed to BCHCode constructor: q = $q, n = $n.")
-    factors = factor(q)
-    length(factors) == 1 || error("There is no finite field of order $q.")
+function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
+    δ >= 2 || throw(DomainError("BCH codes require δ ≥ 2 but the constructor was given δ = $δ."))
+    (q <= 1 || n <= 1) && throw(DomainError("Invalid parameters passed to BCHCode constructor: q = $q, n = $n."))
+    factors = AbstractAlgebra.factor(q)
+    length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
     F, _ = FiniteField(p, t, "α")
@@ -609,8 +646,11 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = _standardform(G)
+    Gstand, Hstand, P, rnk = _standardform(G)
+    # HT will serve as a lower bound on the minimum weight
+    # take the weight of g as an upper bound
     δ, b, HT = finddelta(n, cosets)
+    upper = wt(G[1, :])
 
     # verify
     trH = transpose(H)
@@ -620,21 +660,21 @@ function BCHCode(q::Integer, n::Integer, δ::Integer, b::Integer=0)
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
-    iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
 
     if deg == 1 && n == q - 1
-        return ReedSolomonCode(F, E, R, β, n, k, n - k + 1, b, HT, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-            missing, Gstand, Hstand, missing)
+        d = n - k + 1
+        return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
+            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
+            H, missing, Gstand, Hstand, P, missing)
     end
 
-    return BCHCode(F, E, R, β, n, k, missing, b, HT, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-        missing, Gstand, Hstand, missing)
+    return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
+        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+        missing, H, missing, Gstand, Hstand, P, missing)
 end
 
 """
-    ReedSolomonCode(q::Integer, δ::Integer, b::Integer=0)
+    ReedSolomonCode(q::Int, δ::Int, b::Int=0)
 
 Return the ReedSolomonCode over `GF(q)` with distance `d` and offset `b`.
 
@@ -670,16 +710,16 @@ Generator matrix: 8 × 12
         0 0 0 0 0 0 0 10 2 7 9 1
 ```
 """
-function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0)
-    d >= 2 || error("Reed Solomon codes require δ ≥ 2 but the constructor was given d = $d.")
-    q > 4 || error("Invalid or too small parameters passed to ReedSolomonCode constructor: q = $q.")
+function ReedSolomonCode(q::Int, d::Int, b::Int=0)
+    d >= 2 || throw(DomainError("Reed Solomon codes require δ ≥ 2 but the constructor was given d = $d."))
+    q > 4 || throw(DomainError("Invalid or too small parameters passed to ReedSolomonCode constructor: q = $q."))
 
     # n = q - 1
     # if ord(n, q) != 1
     #     error("Reed Solomon codes require n = q - 1.")
     # end
 
-    factors = factor(q)
+    factors = AbstractAlgebra.factor(q)
     length(factors) == 1 || error("There is no finite field of order $q.")
     (p, t), = factors
 
@@ -696,7 +736,7 @@ function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0)
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand = _standardform(G)
+    Gstand, Hstand, P, rnk = _standardform(G)
 
     # verify
     trH = transpose(H)
@@ -708,9 +748,9 @@ function ReedSolomonCode(q::Integer, d::Integer, b::Integer=0)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
     iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
 
-    return ReedSolomonCode(F, F, R, α, n, k, n - k + 1, b, d, cosets,
+    return ReedSolomonCode(F, F, R, α, n, k, d, b, d, d, d, d, cosets,
         sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-        missing, Gstand, Hstand, missing)
+        missing, Gstand, Hstand, P, missing)
 end
 
 """
@@ -735,7 +775,7 @@ function iscyclic(C::AbstractLinearCode, construct::Bool=true)
     
     ordF = Int(order(C.F))
     gcd(C.n, ordF) == 1 || return false
-    (p, t), = factor(ordF)
+    (p, t), = AbstractAlgebra.factor(ordF)
     deg = ord(C.n, ordF)
     E, α = FiniteField(p, t * deg, "α")
     R, x = PolynomialRing(E, "x")
@@ -770,7 +810,7 @@ end
 Return the cyclic code whose cyclotomic cosets are the completement of `C`'s.
 """
 function complement(C::AbstractCyclicCode)
-    ordC = Int64(order(C.F))
+    ordC = Int(order(C.F))
     D = CyclicCode(ordC, C.n, complementqcosets(ordC, C.n, C.qcosets))
     (C.h != D.g || D.e != (1 - C.e)) && error("Error constructing the complement cyclic code.")
     return D
@@ -793,7 +833,7 @@ issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 Return whether or not `C1` and `C2` have the same fields, lengths, and defining sets.
 """
-==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = return C1.F == C2.F && C1.n == C2.n && C1.defset == C2.defset && C1.β == C2.β
+==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.defset == C2.defset && C1.β == C2.β
 
 """
     dual(C::AbstractCyclicCode)
@@ -803,11 +843,8 @@ Return the dual of the cyclic code `C`.
 Unlike with `LinearCode`, everything is recomputed here so the proper
 polynomials and cyclotomic cosets are stored.
 """
-function dual(C::AbstractCyclicCode)
-    # one is even-like and the other is odd-like
-    ordC = Int64(order(C.F))
-    return CyclicCode(ordC, C.n, dualqcosets(ordC, C.n, C.qcosets))
-end
+# one is even-like and the other is odd-like
+dual(C::AbstractCyclicCode) = CyclicCode(Int(order(C.F)), C.n, dualqcosets(Int(order(C.F)), C.n, C.qcosets))
 
 # this checks def set, need to rewrite == for linear first
 """
@@ -837,11 +874,11 @@ function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial lcm(g_1(x), g_2(x))
     # has generator idempotent e_1(x) e_2(x)
     if C1.F == C2.F && C1.n == C2.n
-        ordC1 = Int64(order(C1.F))
+        ordC1 = Int(order(C1.F))
         return CyclicCode(ordC1, C1.n, definingset(C1.defset ∪ C2.defset, ordC1,
             C1.n, false))
     else
-        error("Cannot intersect two codes over different base fields or lengths.")
+        throw(ArgumentError("Cannot intersect two codes over different base fields or lengths."))
     end
 end
 
@@ -856,13 +893,13 @@ function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     if C1.F == C2.F && C1.n == C2.n
         defset = C1.defset ∩ C2.defset
         if length(defset) != 0
-            ordC1 = Int64(order(C1.F))
+            ordC1 = Int(order(C1.F))
             return CyclicCode(ordC1, C1.n, definingset(defset, ordC1, C1.n, false))
         else
             error("Addition of codes has empty defining set.")
         end
     else
-        error("Cannot add two codes over different base fields or lengths.")
+        throw(ArgumentError("Cannot add two codes over different base fields or lengths."))
     end
 end
 

@@ -483,8 +483,7 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
     else
         genmats = _getinformationsets(G, "Zimmermann")
     end
-    genmatsJulia = [FpmattoJulia(x[2])' for x in genmats] # deepcopy doesn't save anythign here
-    # genmatsJulia = [FpmattoJulia(x[2]) for x in genmats]
+    genmatsJulia = [deepcopy(FpmattoJulia(x[2])') for x in genmats]
     h = length(genmatsJulia)
     rankdefs = zeros(Int, h)
     if verbose
@@ -510,20 +509,22 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
         (!tevenflag && !devenflag && evenflag) && println("Detected an even code.")
     end
     
-    upper = C.n - C.k + 1
-    verbose && println("Singleton upper bound: $upper")
-    for (j, g) in enumerate(genmatsJulia)
-        for i in 1:C.k
-            w = wt(g[:, i]) # for transposed matrix
-            if w < upper
+    flag = true
+    while flag
+        for (j, g) in enumerate(genmatsJulia)
+            # redo j = 1 to grab index and perm
+            w, i = _minwtcol(g)
+            if w <= C.ubound
                 found = g[:, i]
-                upper = w
+                C.ubound = w
                 perm = j
             end
         end
+        # if restarted, found is missing
+        ismissing(found) ? (C.ubound = C.n;) : (flag = false;)
     end
-    verbose && println("Upper bound after row analysis: $upper")
-    verbose && !ismissing(found) && println("Found vector for upper bound.")
+    verbose && println("Upper bound after row analysis: $(C.ubound)")
+    verbose && !ismissing(found) && println("Found element matching upper bound.")
 
     numthrds = Threads.nthreads()
     verbose && println("Detected $numthrds threads.")
@@ -537,28 +538,31 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
 
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
-            lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+            newlower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
+            C.lbound < newlower && (C.lbound = newlower;)
         elseif typeof(C) <: AbstractQuasiCyclicCode
-            lower = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+            newlower = _lowerbounds(r, C.n, C.k, C.l, rankdefs, "White")
+            C.lbound < newlower && (C.lbound = newlower;)
         else
-            lower = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+            newlower = _lowerbounds(r, C.n, C.k, 0, rankdefs, "BZ")
+            C.lbound < newlower && (C.lbound = newlower;)
         end
         # an even code can't have have an odd minimum weight
-        (!tevenflag && !devenflag && evenflag) && (lower += lower % 2;)
-        (!tevenflag && devenflag) && (lower += 4 - lower % 4;)
-        tevenflag && (lower += 8 - lower % 8;)
+        (!tevenflag && !devenflag && evenflag) && (C.lbound += C.lbound % 2;)
+        (!tevenflag && devenflag) && (C.lbound += 4 - C.lbound % 4;)
+        tevenflag && (C.lbound += 8 - C.lbound % 8;)
 
         verbose && println("r: $r")
-        verbose && println("Lower bound: $lower")
-        verbose && println("Upper bound: $upper")
-        if lower >= upper
-            C.d = upper
+        verbose && println("Lower bound: $(C.lbound)")
+        verbose && println("Upper bound: $(C.ubound)")
+        if C.lbound >= C.ubound
+            C.d = C.ubound
             if !ismissing(found)
                 y = matrix(C.F, 1, C.n, found)
                 ismissing(genmats[perm][3]) || (y = y * genmats[perm][3];)
-                iszero(C.H * transpose(y)) ? (return upper, y;) : (return upper, missing;)
+                iszero(C.H * transpose(y)) ? (return C.ubound, y;) : (return C.ubound, missing;)
             else
-                return upper, found
+                return C.ubound, found
             end
         end
 
@@ -566,7 +570,7 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
         # numthrds = 1
         # power = 0
         # total = Threads.Atomic{Int}(0)
-        uppers = [upper for _ in 1:numthrds]
+        uppers = [C.ubound for _ in 1:numthrds]
         founds = [found for _ in 1:numthrds]
         perms = [perm for _ in 1:numthrds]
         Threads.@threads for m in 1:numthrds
@@ -590,7 +594,7 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
                                 founds[m] = c
                                 perms[m] = i
                                 # verbose && println("Adjusting upper bound: $upperlocal")
-                                if lower == uppers[m]
+                                if C.lbound == uppers[m]
                                     Threads.atomic_cas!(flag, true, false)
                                     break
                                 end
@@ -603,18 +607,18 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
             # Threads.atomic_add!(total, count[])
         end
         loc = argmin(uppers)
-        upper = uppers[loc]
+        C.ubound = uppers[loc]
         found = founds[loc]
         perm = perms[loc]
         # println("total: $total")
         if !flag[]
-            C.d = upper
+            C.d = C.ubound
             if !ismissing(found)
                 y = matrix(C.F, 1, C.n, found)
                 ismissing(genmats[perm][3]) || (y = y * genmats[perm][3];)
-                iszero(C.H * transpose(y)) ? (return upper, y;) : (return upper, missing;)
+                iszero(C.H * transpose(y)) ? (return C.ubound, y;) : (return C.ubound, missing;)
             else
-                return upper, found
+                return C.ubound, found
             end
         end
     end

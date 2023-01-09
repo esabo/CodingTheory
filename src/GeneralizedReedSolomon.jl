@@ -5,10 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 mutable struct GeneralizedReedSolomonCode <: AbstractLinearCode
-    F::Union{FqNmodFiniteField}
-    n::Integer
-    k::Integer
-    d::Integer
+    F::FqNmodFiniteField # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
     scalars::Vector{fq_nmod}
     dualscalars::Vector{fq_nmod}
     evalpts::Vector{fq_nmod}
@@ -18,6 +20,7 @@ mutable struct GeneralizedReedSolomonCode <: AbstractLinearCode
     Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is complete known for MDS?
 end
 
@@ -33,18 +36,17 @@ elements of `γ` must be distinct.
 """
 function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})
     n = length(v)
-    1 <= k <= n || error("The dimension of the code must be between 1 and n.")
-    n == length(γ) || error("Lengths of scalars and evaluation points must be equal.")
+    1 <= k <= n || throw(DomainError("The dimension of the code must be between 1 and n."))
+    n == length(γ) || throw(DomainError("Lengths of scalars and evaluation points must be equal."))
     F = base_ring(v[1])
-    1 <= n <= Int(order(F)) || error("The length of the code must be between 1 and the order of the field.")
+    1 <= n <= Int(order(F)) || throw(DomainError("The length of the code must be between 1 and the order of the field."))
     for (i, x) in enumerate(v)
-        iszero(x) && error("The elements of v must be nonzero.")
-        parent(x) == F || error("The elements of v must be over the same field.")
-        parent(γ[i]) == F || error("The elements of γ must be over the same field as v.")
+        iszero(x) && throw(ArgumentError("The elements of v must be nonzero."))
+        parent(x) == F || throw(ArgumentError("The elements of v must be over the same field."))
+        parent(γ[i]) == F || throw(ArgumentError("The elements of γ must be over the same field as v."))
     end
-    length(distinct(γ)) == n || error("The elements of γ must be distinct.")
+    length(distinct(γ)) == n || throw(ArgumentError("The elements of γ must be distinct."))
 
-    # M = MatrixSpace(F, k, n)
     G = zero_matrix(F, k, n)
     for c in 1:n
         for r in 1:k
@@ -68,9 +70,10 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nm
     end
 
     iszero(G * transpose(H)) || error("Calculation of dual scalars failed in constructor.")
-    Gstand, Hstand = _standardform(G)
-    return GeneralizedReedSolomonCode(F, n, k, n - k + 1, v, w, γ, G, missing, H,
-        missing, Gstand, Hstand, missing)
+    Gstand, Hstand, P, rnk = _standardform(G)
+    d = n - k + 1
+    return GeneralizedReedSolomonCode(F, n, k, d, d, d, v, w, γ, G, missing, H,
+        missing, Gstand, Hstand, P, missing)
 end
 
 """
@@ -100,8 +103,9 @@ evaluationpoints(C::GeneralizedReedSolomonCode) = C.γ
 Return the dual of the Generalized Reed-Solomon code.
 """
 function dual(C::GeneralizedReedSolomonCode)
-    return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, C.k + 1,
+    d = C.k + 1
+    return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
         deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
         deepcopy(C.H), missing, deepcopy(C.G), missing, deepcopy(C.Hstand),
-        deepcopy(C.Gstand), missing)
+        deepcopy(C.Gstand), deepcopy(C.P), missing)
 end

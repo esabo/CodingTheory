@@ -5,13 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
-    F::FqNmodFiniteField
+    F::FqNmodFiniteField # base field
     R::AbstractAlgebra.Generic.ResRing{fq_nmod_poly}
-    n::Integer
-    k::Integer
-    d::Union{Integer, Missing}
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
     G::Union{fq_nmod_mat, Missing}
     H::Union{fq_nmod_mat, Missing}
+    Gstand::Union{fq_nmod_mat, Missing}
+    Hstand::Union{fq_nmod_mat, Missing}
+    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
     l::Int
     m::Int
@@ -60,13 +65,13 @@ function QuasiCyclicCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra
         H = lift(A)
         k, _ = right_kernel(H)
         W = weightmatrix(A)
-        return QuasiCyclicCode(F, R, ncols(H), k, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
+        return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
     else
         Atype = 'G'
         G = lift(A)
         k = rank(G)
         W = weightmatrix(A)
-        return QuasiCyclicCode(F, R, ncols(G), k, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
+        return QuasiCyclicCode(F, R, ncols(G), k, missing, 1, ncols(G), missing, missing, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
     end
 end
 

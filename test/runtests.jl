@@ -1,7 +1,7 @@
 using Test
 
-# # these are subject to change as they develop, let me know when it breaks
-# # TODO: add hypergraph, LDPC
+# these are subject to change as they develop, let me know when it breaks
+# TODO: add hypergraph, LDPC
 @testset "Types" begin
     using CodingTheory
 
@@ -815,5 +815,58 @@ end
     Q = LiftedGeneralizedHypergraphProductCode(A, b)
     @test length(Q) == 882
     @test dimension(Q) == 48
+
+end
+
+@testset "tilings.jl & Tanner.jl" begin
+    using Oscar, CodingTheory, Graphs, GAP
+    GAP.Packages.load("LINS");
+    # GAP.Packages.load("GUAVA")
+
+    minindex = 250;
+    maxindex = 5000;
+    F, _ = FiniteField(2, 1, "α")
+
+    # first test case
+    localcode = HammingCode(2, 3);
+    H = paritycheckmatrix(localcode)
+    locswts = Vector{Int}()
+    for i in 1:nrows(H)
+        push!(locswts, wt(H[i, :]))
+    end
+
+    g = rsgroup(3, 7);
+    sbgrps = normalsubgroups(g, maxindex)
+    for sg in sbgrps
+        # for this test case, the sg are numbers [3, 4, 5, 6, 7, 8, 9]
+        if fixedpointfree(sg, g) && GAP.Globals.Index(g.group, sg) > minindex
+            adj = sparse(transpose(cosetintersection([2, 3], [1, 3], sg, g)))
+            code = Tannercode(adj, localcode)
+            code = LinearCode(matrix(F, code), true) # remove later
+            @test code.k >= adj.n - adj.m * (localcode.n - localcode.k)
+
+            flag = true
+            for i in 1:nrows(code.Horig)
+                wt(code.Horig[i, :]) ∈ locswts || (flag = false;)
+            end
+            @test flag
+        end
+    end
+
+    # second test case
+    # C1 = GAP.Globals.BestKnownLinearCode(5, 2, GAP.Globals.GF(2))
+    # x = GAP.Globals.GeneratorMat(C1)
+    # y = [GAP.Globals.Int(x[i, j]) for i in 1:2, j in 1:5]
+    y = [0 0 1 1 1; 1 1 0 1 1]
+    F, _ = FiniteField(2, 1, "1")
+    z = matrix(F, y)
+    Cloc = LinearCode(z)
+    Gtest = Graphs.complete_graph(6)
+    EVI = sparse(transpose(incidence_matrix(Gtest)))
+    H1 = Tannercode(EVI, Cloc)
+    EVIG, left, right = edgevertexincidencegraph(Gtest)
+    H2 = Tannercode(EVIG, left, right, Cloc)
+    @test H1 == H2
+
 
 end

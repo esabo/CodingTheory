@@ -27,6 +27,8 @@ import Nemo: isprime, factor, transpose, order, polynomial, nrows, ncols, degree
 import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
+import Oscar: dual
+import Graphs: nv
 
 # don't want this here
 # GAP.Packages.load("LINS");
@@ -187,7 +189,10 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     digitstoint, isbasis, primitivebasis, #polynomialbasis, monomialbasis,
     normalbasis, dualbasis, complementarybasis, verifydualbasis,
     verifycomplementarybasis, isequivalentbasis, isselfdualbasis,
-    isprimitivebasis, isnormalbasis, isextension, polytocircmatrix#,
+    isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
+    isregular, edgevertexincidencematrix, edgevertexincidencegraph,
+    isvalidbipartition, extractbipartition
+    #, _minwtrow
     #circshift, lift
     #, _processstrings,
     #_Paulistringtosymplectic,
@@ -361,6 +366,6 @@ export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
         # Tanner.jl
 #############################
 
-export Tannergraph, Tannercode
+export Tannergraphplot, Tannergraph, Tannercode
 
 end

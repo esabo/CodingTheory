@@ -10,9 +10,8 @@
 Return the order of `n` mod `q`.
 """
 function ord(n::Integer, q::Integer)
-    if q <= 0 || n <= 0
-        error("q and n both need to be positive. Passed: q = $q, n = $n")
-    end
+    (q <= 0 || n <= 0) && 
+        throw(DomainError("q and n both need to be positive. Passed: q = $q, n = $n"))
 
     # finite stop instead of while
     for i = 1:200
@@ -47,9 +46,9 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true,
     if tosort
         sort!(temp)
     end
-    len = length(temp)
 
     if verbose
+        len = length(temp)
         print("C_$x = {")
         for (i, y) in enumerate(temp)
             if i != len
@@ -74,9 +73,7 @@ pretty print.
 function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
     verbose::Bool=false)
 
-    if n % q == 0
-        error("Cyclotomic coset requires gcd(n, q) = 1")
-    end
+    n % q == 0 && throw(DomainError("Cyclotomic coset requires gcd(n, q) = 1"))
 
     arr = [[0]]
     for x in 1:(n - 1)
@@ -133,10 +130,7 @@ function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}
                     break
                 end
             end
-
-            if !found
-                push!(compcosets, a)
-            end
+            found || (push!(compcosets, a);)
         # end
     end
     return compcosets
@@ -177,10 +171,7 @@ function qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
     return cosetpairlist, cosetreplist
 end
 
-function qcosetpairings(q::Integer, n::Integer)
-    arr = allcyclotomiccosets(q, n, false)
-    return qcosetpairings(arr, n)
-end
+qcosetpairings(q::Integer, n::Integer) = qcosetpairings(allcyclotomiccosets(q, n, false), n)
 
 function qcosettable(a::Integer, b::Integer, q::Integer)
     for n in a:b

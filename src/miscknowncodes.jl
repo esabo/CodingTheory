@@ -15,8 +15,8 @@ function RepetitionCode(q::Int, n::Int)
     M2 = MatrixSpace(F, n - 1, 1)
     M3 = MatrixSpace(F, n - 1, n - 1)
     H = hcat(M2([1 for i in 1:(n - 1)]), M3(1))
-    Gstand, Hstand = _standardform(G)
-    return LinearCode(F, n, 1, n, G, missing, H, missing, Gstand, Hstand, missing)
+    Gstand, Hstand, P, _ = _standardform(G)
+    return LinearCode(F, n, 1, n, n, n, G, missing, H, missing, Gstand, Hstand, P, missing)
 end
 
 # this is a Hamming code?
@@ -30,8 +30,8 @@ function Hexacode()
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
     # it auto-computes this H anyway but might as well skip that step
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
-    Gstand, Hstand = _standardform(G)
-    return LinearCode(F, 6, 3, 4, G, missing, H, missing, Gstand, Hstand, missing)
+    Gstand, Hstand, P, rnk = _standardform(G)
+    return LinearCode(F, 6, 3, 4, 4, 4, G, missing, H, missing, Gstand, Hstand, P, missing)
 end
 
 #############################
@@ -48,11 +48,11 @@ Return the `[(q^r - 1)/(q - 1), (q^r - 1)/(q - 1) - r, 3]` Hamming code over `GF
 * This is currently only implemented for binary codes.
 """
 function HammingCode(q::Int, r::Int)
-    2 ≤ r || error("Hamming codes require r ≥ 2; received r = $r.")
-    r < 64 || error("This Hamming code requires the implmentation of BigInts. Change if necessary.")
-    q == 2 || error("Nonbinary Hamming codes have not yet been implemented.")
+    2 ≤ r || throw(DomainError("Hamming codes require r ≥ 2; received r = $r."))
+    r < 64 || throw(DomainError("This Hamming code requires the implmentation of BigInts. Change if necessary."))
+    q == 2 || throw(DomainError("Nonbinary Hamming codes have not yet been implemented."))
     factors = factor(q)
-    length(factors) == 1 || error("There is no finite field of order $q.")
+    length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     if q == 2
         F, _ = FiniteField(2, 1, "α")
@@ -89,11 +89,11 @@ function TetraCode()
     F, _ = FiniteField(3, 1, "α")
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
-    Gstand, Hstand = _standardform(G)
+    Gstand, Hstand, P, rnk = _standardform(G)
     R, vars = PolynomialRing(Nemo.ZZ, 3)
     CWE = WeightEnumerator(vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
         3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, "complete")
-    return LinearCode(F, 4, 2, 3, G, missing, H, missing, Gstand, Hstand, CWE)
+    return LinearCode(F, 4, 2, 3, 3, 3, G, missing, H, missing, Gstand, Hstand, P, CWE)
 end
 
 #############################
@@ -114,13 +114,13 @@ recursive definition. The higher fields return `dual(HammingCode(q, r))`.
 * This is currently only implemented for binary codes.
 """
 function SimplexCode(q::Int, r::Int)
-    2 ≤ r || error("Simplex codes require 2 ≤ r; received r = $r.")
-    r < 64 || error("The weight enumerator for the simplex codes for r > 64 require BigInts. Implement if necessary.")
-    q == 2 || error("Nonbinary simplex codes have not yet been implemented.")
+    2 ≤ r || throw(DomainError("Simplex codes require 2 ≤ r; received r = $r."))
+    r < 64 || throw(DomainError("The weight enumerator for the simplex codes for r > 64 require BigInts. Implement if necessary."))
+    q == 2 || throw(DomainError("Nonbinary simplex codes have not yet been implemented."))
 
     # actually really need to check here that q^r is not over sizeof(Int)
     factors = factor(q)
-    length(factors) == 1 || error("There is no finite field of order $q.")
+    length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     # the known weight distribution is Hamming and not complete
     q > 2 && return dual(HammingCode(q, r))
@@ -187,11 +187,11 @@ function ExtendedGolayCode(p::Int)
              1 0 1 1 0 1 1 1 0 0 0 1])
         G = hcat(M(1), A)
         H = hcat(-transpose(A), M(1))
-        Gstand, Hstand = _standardform(G)
+        Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, "complete")
-        return LinearCode(F, 24, 12, 8, G, missing, H, missing, Gstand, Hstand, wtenum)
+        return LinearCode(F, 24, 12, 8, 8, 8, G, missing, H, missing, Gstand, Hstand, P, wtenum)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
         M = MatrixSpace(F, 6 , 6)
@@ -203,14 +203,14 @@ function ExtendedGolayCode(p::Int)
                1 1 -1 -1 1 0])
         G = hcat(M(1), A)
         H = hcat(-transpose(A), M(1))
-        Gstand, Hstand = _standardform(G)
+        Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         # this looks like Hamming and not complete
         # wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
         #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, "complete")
-        return LinearCode(F, 12, 6, 6, G, missing, H, missing, Gstand, Hstand, missing)
+        return LinearCode(F, 12, 6, 6, 6, 6, G, missing, H, missing, Gstand, Hstand, P, missing)
     else
-        error("Golay code not implemented for q = $q.")
+        throw(ArgumentError("Golay code not implemented for q = $q."))
     end
 end
 
@@ -231,11 +231,7 @@ a `[12, 6, 6]` if punctured and extended in the first coordinate or a
 """
 function GolayCode(p::Int)
     C = puncture(ExtendedGolayCode(p), [1])
-    if p == 2
-        C.d = 7
-    else
-        C.d = 5
-    end
+    p == 2 ? (C.d = 7;) : (C.d = 5;)
     return C
 end
 
