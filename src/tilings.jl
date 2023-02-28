@@ -103,7 +103,7 @@ t|   |r
    s
 ```
 """
-cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = tetrahedrongroup([q, 2, r, s, 2, t])
+cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = tetrahedrongroup([q, 2, t, r, 2, s])
 
 """
     normalsubgroups(g::ReflectionGroup, maxindex::Int)
