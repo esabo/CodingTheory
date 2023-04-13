@@ -1,36 +1,8 @@
-# need to make an AbstractQuantumLDPCCode
-# then AbstractQuantumLDPCCSSCode
-# then this goes below that
-# maybe make an AbastractLDPCCode <: AbstractLinearCode
-# then this can take in an LDPC code
-
-# J. Tillich, G. Zémor. "Quantum LDPC codes with positive rate and minimum distance
-# proportional to n^(1/2)". (2013) arXiv:0903.0566v2
-mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
-    F::FqNmodFiniteField # base field (symplectic)
-    E::FqNmodFiniteField # additive field
-    n::Integer
-    k::Union{Integer, Rational{BigInt}}
-    d::Union{Integer, Missing}
-    dx::Union{Integer, Missing}
-    dz::Union{Integer, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
-    C1::Union{LinearCode, Missing}
-    C2::Union{LinearCode, Missing}
-    signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
-    dualgens::fq_nmod_mat
-    logspace::Union{fq_nmod_mat, Missing}
-    logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
-    charvec::Vector{nmod}
-    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
-    overcomplete::Bool
-    Lsigns::Union{Vector{nmod}, Missing}
-end
+# Copyright (c) 2022, 2023 Eric Sabo
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 
 """
     HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
@@ -361,7 +333,7 @@ function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ:
     return CSSCode(GX, GZ)
 
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
-    # not really worth it, just use standard technique from quantumcode.jl
+    # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
@@ -424,10 +396,10 @@ function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::In
     Ek2 = Mk2(1)
 
     G = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
-    return QuantumCode(G, true)
+    return StabilizerCode(G, true)
 
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
-    # not really worth it, just use standard technique from quantumcode.jl
+    # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
@@ -665,5 +637,5 @@ function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Gener
     B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
 
     S = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
-    return QuantumCode(lift(S), true)
+    return StabilizerCode(lift(S), true)
 end

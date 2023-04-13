@@ -65,24 +65,24 @@ end
 
 Return the `SimpleGraph` object repesenting the Tanner graph of the parity-check
 matrix `H` along with the indices of the left and right vertices representing
-the bits and parity-checks, respectively.
+the bits and parity checks, respectively.
 """
 function Tannergraph(H::Union{fq_nmod_mat, Matrix{Int}})
     typeof(H) <: fq_nmod_mat ? (I = FpmattoJulia(H);) : (I = H;)
     Itr = transpose(I)
-    B = vcat(hcat(zeros(I), Itr), hcat(I, zeros(Itr)))
+    B = vcat(hcat(zeros(Itr), I), hcat(Itr, zeros(I)))
     G = SimpleGraph(B)
     nr, nc = size(H)
     # lhs - bits
-    # rhs - parity-checks
-    return G, collect(1:nc), collect(nc + 1:nc + nr)
+    # rhs - parity checks
+    return G, collect(1:nr), collect(nr + 1:nr + nc)
 end
 
 """
     Tannergraph(C::AbstractLinearCode)
 
 Return the `SimpleGraph` object repesenting the Tanner graph of `C` along with
-the indices of the left and right vertices representing the bits and parity-checks,
+the indices of the left and right vertices representing the bits and parity checks,
 respectively.
 """
 Tannergraph(C::AbstractLinearCode) = Tannergraph(paritycheckmatrix(C))

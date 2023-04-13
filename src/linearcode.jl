@@ -1,31 +1,8 @@
-# Copyright (c) 2021, 2022 Eric Sabo
+# Copyright (c) 2021, 2022, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
-struct WeightEnumerator
-    # polynomial::Union{fmpz_mpoly, LaurentMPolyElem{fmpz}}
-    polynomial::Union{fmpz_mpoly, AbstractAlgebra.Generic.MPoly{nf_elem}}
-    type::String
-end
-
-mutable struct LinearCode <: AbstractLinearCode
-    F::FqNmodFiniteField # base field
-    n::Int # length
-    k::Int # dimension
-    d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
-    G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
-    H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
-end
 
 function _standardform(G::fq_nmod_mat)
     rnk, Gstand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
@@ -580,6 +557,7 @@ The product code has generator matrix `G1 ⊗ G2` and parity-check matrix `H1 �
 # Notes
 * The resulting product is not checked for any zero columns but is checked for zero rows.
 """
+# TODO: G is def, some refs say there is no formula for H, check
 function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
 

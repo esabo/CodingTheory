@@ -1659,11 +1659,11 @@ function weightplot(S::AbstractStabilizerCode, alg::String="auto", type::String=
 end
 
 """
-    weightplotCSSX(S::AbstractCSSCode, alg::String="auto")
+    weightplotCSSX(S::AbstractStabilizerCodeCSS, alg::String="auto")
 
 Return a bar plot of the weight distribution of the `X` stabilizers.
 """
-function weightplotCSSX(S::AbstractCSSCode, alg::String="auto")
+function weightplotCSSX(S::AbstractStabilizerCodeCSS, alg::String="auto")
     C = LinearCode(S.Xstabs)
     wtdist = weightdistribution(C, alg, "full")
     xticks = findall(x->x>0, vec(wtdist)) .- 1
@@ -1676,11 +1676,11 @@ function weightplotCSSX(S::AbstractCSSCode, alg::String="auto")
 end
 
 """
-    weightplotCSSZ(S::AbstractCSSCode, alg::String="auto")
+    weightplotCSSZ(S::AbstractStabilizerCodeCSS, alg::String="auto")
 
 Return a bar plot of the weight distribution of the `Z` stabilizers.
 """
-function weightplotCSSZ(S::AbstractCSSCode, alg::String="auto")
+function weightplotCSSZ(S::AbstractStabilizerCodeCSS, alg::String="auto")
     C = LinearCode(S.Zstabs)
     wtdist = weightdistribution(C, alg, "full")
     xticks = findall(x->x>0, vec(wtdist)) .- 1
@@ -1694,12 +1694,12 @@ function weightplotCSSZ(S::AbstractCSSCode, alg::String="auto")
 end
 
 """
-    weightplotCSS(S::AbstractCSSCode, alg::String="auto")
+    weightplotCSS(S::AbstractStabilizerCodeCSS, alg::String="auto")
 
 Return bar plots of the weight distribution of the both the
 `X` and 'Z' stabilizers, separately.
 """
-function weightplotCSS(S::AbstractCSSCode, alg::String="auto")
+function weightplotCSS(S::AbstractStabilizerCodeCSS, alg::String="auto")
     C = LinearCode(S.Xstabs)
     wtdist = weightdistribution(C, alg, "full")
     xticks = findall(x->x>0, vec(wtdist)) .- 1
@@ -1803,7 +1803,7 @@ function minimumdistance(S::AbstractStabilizerCode, alg::String="auto", verbose:
     return S.d
 end
 
-function minimumdistanceXZ(S::AbstractCSSCode)
+function minimumdistanceXZ(S::AbstractStabilizerCodeCSS)
     (!ismissing(S.dz) && !ismissing(S.dx)) && return S.dz, S.dx
 
     # dz = min(CX^⟂ \ CZ)
@@ -1841,7 +1841,7 @@ function minimumdistanceXZ(S::AbstractCSSCode)
     # S.dz = maximum(exps)
 end
 
-function minimumdistanceX(S::AbstractCSSCode)
+function minimumdistanceX(S::AbstractStabilizerCodeCSS)
     ismissing(S.dx) || return S.dx
     
      # need to make these if they are missing
@@ -1862,7 +1862,7 @@ function minimumdistanceX(S::AbstractCSSCode)
     return S.dx
 end
 
-function minimumdistanceZ(S::AbstractCSSCode)
+function minimumdistanceZ(S::AbstractStabilizerCodeCSS)
     ismissing(S.dz) || return S.dz
 
     # need to make these if they are missing
@@ -1889,7 +1889,7 @@ function ispure(S::AbstractStabilizerCode)
     return S.pure
 end
 
-function ispure(S::AbstractCSSCode)
+function ispure(S::AbstractStabilizerCodeCSS)
     ismissing(S.pure) || return S.pure
     minimumdistanceXZ(S)
     return S.pure

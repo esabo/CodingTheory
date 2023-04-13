@@ -2,7 +2,15 @@
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["quantumcode.jl"]
+Pages = ["subsystemcode.jl"]
+Private = false
+```
+
+# Stabilizer Codes
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["stabilizercode.jl"]
 Private = false
 ```
 

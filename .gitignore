@@ -19,3 +19,4 @@ learninggit.txt
 .DS_Store
 *.txt
 docs/.DS_Store
+typestest.jl

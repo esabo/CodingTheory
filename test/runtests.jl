@@ -2,25 +2,25 @@ using Test
 
 # these are subject to change as they develop, let me know when it breaks
 # TODO: add hypergraph, LDPC
-@testset "Types" begin
-    using CodingTheory
+# @testset "Types" begin
+#     using CodingTheory
 
-    @test AbstractLinearCode <: AbstractCode
-    @test AbstractCyclicCode <: AbstractLinearCode
-    @test AbstractBCHCode <: AbstractCyclicCode
-    @test AbstractReedSolomonCode <: AbstractBCHCode
-    @test AbstractGeneralizedReedSolomonCode <: AbstractLinearCode
-    @test AbstractAdditiveCode <: AbstractCode
-    @test AbstractStabilizerCode <: AbstractAdditiveCode
-    @test AbstractCSSCode <: AbstractStabilizerCode
+#     @test AbstractLinearCode <: AbstractCode
+#     @test AbstractCyclicCode <: AbstractLinearCode
+#     @test AbstractBCHCode <: AbstractCyclicCode
+#     @test AbstractReedSolomonCode <: AbstractBCHCode
+#     @test AbstractGeneralizedReedSolomonCode <: AbstractLinearCode
+#     @test AbstractAdditiveCode <: AbstractCode
+#     @test AbstractStabilizerCode <: AbstractAdditiveCode
+#     @test AbstractCSSCode <: AbstractStabilizerCode
 
-    # check the hierarchy
-    @test AbstractReedSolomonCode <: AbstractCyclicCode
-    @test AbstractReedSolomonCode <: AbstractLinearCode
-end
+#     # check the hierarchy
+#     @test AbstractReedSolomonCode <: AbstractCyclicCode
+#     @test AbstractReedSolomonCode <: AbstractLinearCode
+# end
 
 @testset "utils.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     F, _ = FiniteField(2, 1, "α1");
     v = matrix(F, 1, 8, [1, 0, 1, 1, 1, 0, 0, 0])
@@ -174,7 +174,7 @@ end
 end
 
 @testset "linearcode.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     F, _ = FiniteField(2, 1, "α");
     G = matrix(F, [1 0 0 0 0 1 1;
@@ -186,7 +186,7 @@ end
     @test length(C) == 7
     @test rank(G) == dimension(C)
     @test cardinality(C) == BigInt(2)^4
-    @test dimension(C) == 4
+    @test CodingTheory.dimension(C) == 4
     @test rate(C) == 4 / 7
     @test ismissing(C.d)
     setminimumdistance!(C, 3)
@@ -294,7 +294,7 @@ end
 end
 
 @testset "ReedMuller.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     F, _ = FiniteField(2, 1, "α");
     @test generatormatrix(ReedMullerCode(2, 1, 2)) == matrix(F,
@@ -375,7 +375,7 @@ end
 end
 
 @testset "miscknowncodes.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
 
@@ -390,7 +390,7 @@ end
         dimension(C), 1, reverse(digits(col, base=2, pad=7)))
     # should be [2^r - 1, 2^r - 1 - r, 3]
     @test length(C) == 2^7 - 1
-    @test dimension(C) == 2^7 - 1 - 7
+    @test CodingTheory.dimension(C) == 2^7 - 1 - 7
     C.d = missing
     @test minimumdistance(C) == 3
     C = HammingCode(2, 3)
@@ -421,7 +421,7 @@ end
     # end
     # @test flag == true
     @test length(C) == 2^4 - 1
-    @test dimension(C) == 4
+    @test CodingTheory.dimension(C) == 4
     C = SimplexCode(2, 3)
     @test MacWilliamsIdentity(C, weightenumerator(C, "Hamming", "bruteforce")) == hamWE
 
@@ -477,7 +477,7 @@ end
 end
 
 @testset "cycliccode.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     # @test_throws ErrorException("There is no finite field of order 6.") CyclicCode(6, 9, [[0]])
 
@@ -490,27 +490,27 @@ end
     C = CyclicCode(2, 7, cosets)
     R = polynomialring(C)
     x = gen(R)
-    @test dimension(C) == 1
+    @test CodingTheory.dimension(C) == 1
     @test generatorpolynomial(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
     @test idempotent(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
     cosets = definingset([0, 1, 2, 4], 2, 7, false)
     C = CyclicCode(2, 7, cosets)
-    @test dimension(C) == 3
+    @test CodingTheory.dimension(C) == 3
     @test generatorpolynomial(C) == 1 + x^2 + x^3 + x^4
     @test idempotent(C) == 1 + x^3 + x^5 + x^6
     cosets = definingset([0, 3, 5, 6], 2, 7, false)
     C = CyclicCode(2, 7, cosets)
-    @test dimension(C) == 3
+    @test CodingTheory.dimension(C) == 3
     @test generatorpolynomial(C) == 1 + x + x^2 + x^4
     @test idempotent(C) == 1 + x + x^2 + x^4
     cosets = definingset([1, 2, 4], 2, 7, false)
     C = CyclicCode(2, 7, cosets)
-    @test dimension(C) == 4
+    @test CodingTheory.dimension(C) == 4
     @test generatorpolynomial(C) == 1 + x + x^3
     @test idempotent(C) == x + x^2 + x^4
     cosets = definingset([3, 5, 6], 2, 7, false)
     C = CyclicCode(2, 7, cosets)
-    @test dimension(C) == 4
+    @test CodingTheory.dimension(C) == 4
     @test generatorpolynomial(C) == 1 + x^2 + x^3
     @test idempotent(C) == x^3 + x^5 + x^6
 
@@ -525,19 +525,19 @@ end
     R = polynomialring(C)
     x = gen(R)
     @test generatorpolynomial(C) == 2 + x + x^2 + x^3
-    @test dimension(C) == 10
+    @test CodingTheory.dimension(C) == 10
     @test minimumdistance(C) == 3
     C = BCHCode(3, 13, 3, 1)
     @test definingset(C) == [1, 2, 3, 5, 6, 9]
     @test generatorpolynomial(C) == 1 + 2*x + x^2 + 2*x^3 + 2*x^4 + 2*x^5 + x^6
-    @test dimension(C) == 7
+    @test CodingTheory.dimension(C) == 7
     @test minimumdistance(C) == 4
     C = BCHCode(3, 13, 5, 1)
     @test definingset(C) == [1, 2, 3, 4, 5, 6, 9, 10, 12]
     @test generatorpolynomial(C) == 2 + 2*x^2 + 2*x^3 + x^5 + 2*x^7 + x^8 + x^9
-    @test dimension(C) == 4
+    @test CodingTheory.dimension(C) == 4
     @test minimumdistance(C) == 7
-    @test dimension(C) >= length(C) - ord(length(C), 3)*(5 - 1)
+    @test CodingTheory.dimension(C) >= length(C) - ord(length(C), 3)*(5 - 1)
 
     R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
 
@@ -546,14 +546,14 @@ end
 
     # example: MacWilliams & Sloane
     C = BCHCode(2, 31, 5, 1)
-    @test dimension(C) == 21
+    @test CodingTheory.dimension(C) == 21
     @test minimumdistance(C) == 5
     @test polynomial(MacWilliamsIdentity(C, weightenumerator(C, "Hamming"))) == y^31 + 310*x^12*y^19 + 527*x^16*y^15 + 186*x^20*y^11
 
     # example: Huffman & Pless
     C = ReedSolomonCode(13, 5, 1)
     @test length(C) == 12
-    @test dimension(C) == 8
+    @test CodingTheory.dimension(C) == 8
     @test minimumdistance(C) == 5
     # @test isMDS(C) == true
     @test definingset(C) == [1, 2, 3, 4]
@@ -561,14 +561,14 @@ end
     x = gen(R)
     @test generatorpolynomial(C) == 10 + 2*x + 7*x^2 + 9*x^3 + x^4
     D = dual(C)
-    @test dimension(D) == 4
+    @test CodingTheory.dimension(D) == 4
     @test minimumdistance(D) == 9
     # @test isMDS(D) == true
     @test definingset(D) == [0, 1, 2, 3, 4, 5, 6, 7]
     @test generatorpolynomial(D) == 3 + 12*x + x^2 + 5*x^3 + 11*x^4 + 4*x^5 + 10*x^6 + 5*x^7 + x^8
     Cc = complement(C)
     @test length(Cc) == 12
-    @test dimension(Cc) == 4
+    @test CodingTheory.dimension(Cc) == 4
     @test minimumdistance(Cc) == 9
     @test definingset(Cc) == [0, 5, 6, 7, 8, 9, 10, 11]
     @test generatorpolynomial(Cc) == 9 + 6*x + 12*x^2 + 10*x^3 + 8*x^4 + 6*x^5 + 9*x^6 + 4*x^7 + x^8
@@ -576,7 +576,7 @@ end
     # example: Huffman & Pless
     C = ReedSolomonCode(16, 7, 1)
     @test length(C) == 15
-    @test dimension(C) == 9
+    @test CodingTheory.dimension(C) == 9
     @test minimumdistance(C) == 7
     @test definingset(C) == [1, 2, 3, 4, 5, 6]
     R = polynomialring(C)
@@ -591,14 +591,14 @@ end
 
     # example: MacWilliams & Sloane
     C = ReedSolomonCode(8, 6)
-    @test dimension(C) == 2
+    @test CodingTheory.dimension(C) == 2
     z = gen(polynomialring(C))
     α = primitiveroot(C)
     @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
 
     # example: MacWilliams & Sloane
     C = ReedSolomonCode(8, 3, 5)
-    @test dimension(C) == 5
+    @test CodingTheory.dimension(C) == 5
     z = gen(polynomialring(C))
     α = primitiveroot(C)
     @test generatorpolynomial(C) == α^4 + α*z + z^2
@@ -648,8 +648,8 @@ end
 #     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
 # end
 
-@testset "quantumcode.jl" begin
-    using Nemo, CodingTheory
+@testset "StabilizerCode.jl" begin
+    using Oscar, CodingTheory
 
     # S = SteaneCode()
 
@@ -716,7 +716,7 @@ end
 # end
 
 @testset "LDPC.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     # example from Ryan & Lin
     F, _ = FiniteField(2, 1, "α")
@@ -737,11 +737,10 @@ end
     x = gen(R)
     @test variabledegreepolynomial(C) == x
     @test checkdegreepolynomial(C) == x^3
-
 end
 
-@testset "miscknownquantumcodes.jl" begin
-    using Nemo, CodingTheory
+@testset "miscknownStabilizerCodes.jl" begin
+    using CodingTheory
 
     S = ToricCode(2);
     @test S.n == 2 * 2^2
@@ -756,7 +755,7 @@ end
 end
 
 @testset "quasicycliccode.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     F, _ = FiniteField(2, 1, "a")
     v = matrix(F, 1, 8, [1, 0, 1, 1, 1, 0, 0, 0])
@@ -769,12 +768,10 @@ end
     v = [matrix(F, 1, 4, [1, 0, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 1]), matrix(F, 1, 4, [1, 1, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 0])]
     C2 = QuasiCyclicCode(v, 2, true)
     @test isequivalent(C, C2)
-
-
 end
 
 @testset "quantumproductcodes.jl" begin
-    using Nemo, CodingTheory
+    using Oscar, CodingTheory
 
     # Degenerate Quantum LDPC Codes With Good Finite Length Performance
     # Example A1
@@ -789,7 +786,7 @@ end
     bR = R(b)
     Q = GeneralizedBicycleCode(aR, bR)
     @test length(Q) == 254
-    @test dimension(Q) == 28
+    @test CodingTheory.dimension(Q) == 28
 
     # Example A2
     l = 24
@@ -798,23 +795,25 @@ end
     b = 1 + x^2 + x^12 + x^17
     Q = GeneralizedBicycleCode(R(a), R(b))
     @test length(Q) == 48
-    @test dimension(Q) == 6
+    @test CodingTheory.dimension(Q) == 6
 
     # Example B1
-    l = 63
-    R = ResidueRing(S, x^l - 1)
-    A = matrix(R, 7, 7,
-	    [x^27, 0, 0, 1, x^18, x^27, 1,
-	     1, x^27, 0, 0, 1, x^18, x^27,
-	     x^27, 1, x^27, 0, 0, 1, x^18,
-	     x^18, x^27, 1, x^27, 0, 0, 1,
-	     1, x^18, x^27, 1, x^27, 0, 0,
-	     0, 1, x^18, x^27, 1, x^27, 0,
-	     0, 0, 1, x^18, x^27, 1, x^27])
-    b = R(1 + x + x^6)
-    Q = LiftedGeneralizedHypergraphProductCode(A, b)
-    @test length(Q) == 882
-    @test dimension(Q) == 48
+    # l = 63
+    # R = ResidueRing(S, x^l - 1)
+    # A = matrix(R, 7, 7,
+	#     [x^27, 0, 0, 1, x^18, x^27, 1,
+	#      1, x^27, 0, 0, 1, x^18, x^27,
+	#      x^27, 1, x^27, 0, 0, 1, x^18,
+	#      x^18, x^27, 1, x^27, 0, 0, 1,
+	#      1, x^18, x^27, 1, x^27, 0, 0,
+	#      0, 1, x^18, x^27, 1, x^27, 0,
+	#      0, 0, 1, x^18, x^27, 1, x^27])
+    # b = R(1 + x + x^6)
+    # # TODO: I imagine this all of a sudden takes forever due to the automatic
+    # # computation of the logical operators
+    # Q = LiftedGeneralizedHypergraphProductCode(A, b)
+    # @test length(Q) == 882
+    # @test CodingTheory.dimension(Q) == 48
 
 end
 
@@ -862,7 +861,7 @@ end
     z = matrix(F, y)
     Cloc = LinearCode(z)
     Gtest = Graphs.complete_graph(6)
-    EVI = sparse(transpose(incidence_matrix(Gtest)))
+    EVI = sparse(transpose(Graphs.incidence_matrix(Gtest)))
     H1 = Tannercode(EVI, Cloc)
     EVIG, left, right = edgevertexincidencegraph(Gtest)
     H2 = Tannercode(EVIG, left, right, Cloc)

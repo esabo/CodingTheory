@@ -1,27 +1,8 @@
-# Copyright (c) 2021, Eric Sabo
+# Copyright (c) 2021, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
-mutable struct ReedMullerCode <: AbstractReedMullerCode
-    F::Union{FqNmodFiniteField, AbstractAlgebra.GFField{Int64}}
-    n::Int # length
-    k::Int # dimension
-    d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
-    r::Integer # order
-    m::Integer # number of variables
-    G::Union{gfp_mat, fq_nmod_mat}
-    Gorig::Union{gfp_mat, fq_nmod_mat, Missing}
-    H::Union{gfp_mat, fq_nmod_mat}
-    Horig::Union{gfp_mat, fq_nmod_mat, Missing}
-    Gstand::Union{gfp_mat, fq_nmod_mat}
-    Hstand::Union{gfp_mat, fq_nmod_mat}
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
-end
 
 """
     order(C::ReedMullerCode)

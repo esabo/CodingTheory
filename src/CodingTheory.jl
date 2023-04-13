@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -6,14 +6,9 @@
 
 module CodingTheory
 
-# change environment variable so that banner doesn't print
-ENV["NEMO_PRINT_BANNER"] = "false"
-
-# using AbstractAlgebra
-# using Nemo
+# TODO: make namespaces minimal
 using Oscar
 using CairoMakie, Graphs
-# using Plots
 using JLD2
 using Combinatorics
 using .Threads
@@ -28,159 +23,32 @@ import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==,
 import CairoMakie: save
 import Combinatorics: powerset
 import Oscar: dual
-import Graphs: nv
+import Graphs: nv, incidence_matrix
 
 # don't want this here
 # GAP.Packages.load("LINS");
 
 #############################
-        # utils.jl
+         # types.jl
 #############################
 
-include("utils.jl")
-
-#############################
-        # cyclotomic.jl
-#############################
-
-include("cyclotomic.jl")
-
-#############################
-       # linearcode.jl
-#############################
-
-abstract type AbstractCode end
-abstract type AbstractLinearCode <: AbstractCode end
-
-include("linearcode.jl")
-
-#############################
-         # LDPC.jl
-#############################
-
-abstract type AbstractLDPCCode <: AbstractLinearCode end
-
-include("LDPC.jl")
-
-#############################
-        # LDPCalgs.jl
-#############################
-
-include("LDPCalgs.jl")
-
-#############################
-    # MatrixProductCode.jl
-#############################
-
-abstract type AbstractMatrixProductCode <: AbstractLinearCode end
-
-include("MatrixProductCode.jl")
-
-#############################
-      # ReedMuller.jl
-#############################
-
-abstract type AbstractReedMullerCode <: AbstractLinearCode end
-
-include("ReedMuller.jl")
-
-#############################
-      # cycliccode.jl
-#############################
-
-abstract type AbstractCyclicCode <: AbstractLinearCode end
-abstract type AbstractBCHCode <: AbstractCyclicCode end
-abstract type AbstractReedSolomonCode <: AbstractBCHCode end
-
-include("cycliccode.jl")
-
-#############################
-    # quasicycliccode.jl
-#############################
-
-abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
-
-include("quasicycliccode.jl")
-
-#############################
-      # miscknowncodes.jl
-#############################
-
-include("miscknowncodes.jl")
-
-#############################
- # GeneralizedReedSolomon.jl
-#############################
-
-abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
-
-include("GeneralizedReedSolomon.jl")
-
-#############################
-      # quantumcode.jl
-#############################
-
-abstract type AbstractAdditiveCode <: AbstractCode end
-abstract type AbstractStabilizerCode <: AbstractAdditiveCode end
-abstract type AbstractCSSCode <: AbstractStabilizerCode end
-
-include("quantumcode.jl")
-
-#############################
-      # graphstate.jl
-#############################
-
-abstract type AbstractGraphState <: AbstractStabilizerCode end
-abstract type AbstractGraphStateCSS <: AbstractCSSCode end
-
-include("graphstate.jl")
-
-#############################
-  # miscknownquantumcodes.jl
-#############################
-
-include("miscknownquantumcodes.jl")
-
-#############################
-        # trellis.jl
-#############################
-
-include("trellis.jl")
-
-#############################
-      # weight_dist.jl
-#############################
-
-include("weight_dist.jl")
-
-#############################
-   # quantumproductcodes.jl
-#############################
-
-abstract type AbstractHypergraphProductCode <: AbstractCSSCode end
-
-include("quantumproductcodes.jl")
-
-#############################
-        # tilings.jl
-#############################
-
-include("tilings.jl")
-
-#############################
-        # Tanner.jl
-#############################
-
-include("Tanner.jl")
-
-#############################
-        # Exports
-#############################
+include("types.jl")
+# classical types
+export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
+    AbstractLinearCode, AbstractLDPCCode, AbstractMatrixProductCode, AbstractReedMullerCode,
+    AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode, AbstractQuasiCyclicCode,
+    AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode
+# quantum types
+export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
+    AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
+    AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
+    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
 
 #############################
          # utils.jl
 #############################
 
+include("utils.jl")
 export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     dist, tr, expandmatrix, symplecticinnerproduct, aresymplecticorthogonal,
     Hermitianinnerproduct, Hermitianconjugatematrix, FpmattoJulia, istriorthogonal,
@@ -198,9 +66,10 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     #_Paulistringtosymplectic,
 
 #############################
-       # cyclotomic.jl
+        # cyclotomic.jl
 #############################
 
+include("cyclotomic.jl")
 export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
     qcosetpairings, qcosetpairings, qcosettable, dualqcosets
 
@@ -208,8 +77,7 @@ export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
        # linearcode.jl
 #############################
 
-export AbstractCode, AbstractLinearCode
-
+include("linearcode.jl")
 export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate,
     relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
     originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
@@ -223,15 +91,14 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
     words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven
     # _standardform,
-
+# TODO: check what these were and they they were separated
 export dual1, dual2, dual3
 
 #############################
          # LDPC.jl
 #############################
 
-export AbstractLDPCCode
-
+include("LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
@@ -241,30 +108,27 @@ export variabledegreedistribution, checkdegreedistribution,
         # LDPCalgs.jl
 #############################
 
-# export Sternsattack
+include("LDPCalgs.jl")
 
 #############################
     # MatrixProductCode.jl
 #############################
 
-export AbstractMatrixProductCode
-
+include("MatrixProductCode.jl")
 export MatrixProductCode
 
 #############################
-       # ReedMuller.jl
+      # ReedMuller.jl
 #############################
 
-export AbstractReedMullerCode
-
+include("ReedMuller.jl")
 export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode
 
 #############################
-       # cycliccode.jl
+      # cycliccode.jl
 #############################
 
-export AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode
-
+include("cycliccode.jl")
 export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
@@ -274,17 +138,17 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     # quasicycliccode.jl
 #############################
 
-export AbstractQuasiCyclicCode
-
+include("quasicycliccode.jl")
 export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
     expansionfactor, type, polynomialmatrix, polynomialmatrixtype,
     noncirculantgeneratormatrix, noncirculantparitycheckmatrix, generators,
     circulants, issinglegenerator
 
 #############################
-     # miscknowncodes.jl
+      # miscknowncodes.jl
 #############################
 
+include("miscknowncodes.jl")
 export RepetitionCode, Hexacode, HammingCode, TetraCode, SimplexCode,
     GolayCode, ExtendedGolayCode
 
@@ -292,35 +156,42 @@ export RepetitionCode, Hexacode, HammingCode, TetraCode, SimplexCode,
  # GeneralizedReedSolomon.jl
 #############################
 
-export AbstractGeneralizedReedSolomonCode
-
+include("GeneralizedReedSolomon.jl")
 export GeneralizedReedSolomonCode, scalars, dualscalars, evaluationpoints
 
 #############################
-      # quantumcode.jl
+      # subsystemcode.jl
 #############################
 
-export AbstractAdditiveCode, AbstractStabilizerCode, AbstractCSSCode
+include("subsystemcode.jl")
+export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardinality,
+    rate, signs, Xsigns, Zsigns, stabilizers, symplecticstabilizers, Xstabilizers, Zstabilizers,
+    numXstabs, numZstabs, charactervector, isovercomplete, isCSS, relativedistance, logicals,
+    logicaloperators, barelogicals, bare, logicalsmatrix, gauges, gaugeoperators, gaugesmatrix,
+    gaugeoperatorsmatrix, dressed, dressedoperators, dressedlogicals, gaugegroup, gaugegroupmatrix,
+    gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
+    splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge, swapXZlogicals!,
+    swapXZgaugeoperators!, isisomorphic, allstabilizers, elements, printallstabilizers, printallelements
 
-export field, quadraticfield, length, numqubits, dimension, cardinality,
-    rate, signs, Xsigns, Zsigns, stabilizers, symplecticstabilizers,
-    Xstabilizers, Zstabilizers, numXstabs, numZstabs, normalizermatrix,
-    charactervector, relativedistance, splitstabilizers, isCSS, CSSCode,
-    QuantumCode, logicalspace, setlogicals!, changesigns!, Xsyndrome, Zsyndrome,
-    syndrome, allstabilizers, elements, logicals, logicalsmatrix, isisomorphic
+#############################
+      # stabilizercode.jl
+#############################
+
+include("stabilizercode.jl")
+export StabilizerCodeCSS, CSSCode, StabilizerCode, augment, expurgate
 
 #############################
       # graphstate.jl
 #############################
 
-export AbstractGraphState, AbstractGraphStateCSS
-
+include("graphstate.jl")
 export ClusterState, graphstate
 
 #############################
   # miscknownquantumcodes.jl
 #############################
 
+include("miscknownquantumcodes.jl")
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
@@ -330,6 +201,7 @@ export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913
         # trellis.jl
 #############################
 
+include("trellis.jl")
 export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
     trellisorientedformlinear,trellisprofiles, syndrometrellis,
     trellisorientedformadditive, optimalsectionalizationQ, weightQ!,
@@ -339,6 +211,7 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
       # weight_dist.jl
 #############################
 
+include("weight_dist.jl")
 export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
     weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
     weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
@@ -348,6 +221,7 @@ export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
    # quantumproductcodes.jl
 #############################
 
+include("quantumproductcodes.jl")
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
     BicycleCode, GeneralizedHypergraphProductCode, LiftedGeneralizedHypergraphProductCode,
@@ -358,6 +232,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
         # tilings.jl
 #############################
 
+include("tilings.jl")
 export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
     startetrahedrongroup, cycletetrahedrongroup, normalsubgroups, fixedpointfree,
     orientable, kcolorable, cosetintersection
@@ -366,6 +241,7 @@ export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
         # Tanner.jl
 #############################
 
+include("Tanner.jl")
 export Tannergraphplot, Tannergraph, Tannercode
 
 end

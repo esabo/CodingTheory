@@ -1,28 +1,8 @@
-# Copyright (c) 2022, Eric Sabo
+# Copyright (c) 2022, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
-mutable struct GeneralizedReedSolomonCode <: AbstractLinearCode
-    F::FqNmodFiniteField # base field
-    n::Int # length
-    k::Int # dimension
-    d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
-    scalars::Vector{fq_nmod}
-    dualscalars::Vector{fq_nmod}
-    evalpts::Vector{fq_nmod}
-    G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
-    H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is complete known for MDS?
-end
 
 """
     GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})

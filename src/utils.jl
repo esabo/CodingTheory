@@ -236,7 +236,7 @@ in symplectic form over the base field.
 """
 function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=false)
     E = base_ring(A)
-    E == base_ring(B) || error("Matices in product must both be over the same base ring.")
+    E == base_ring(B) || error("Matrices in product must both be over the same base ring.")
     if symp
         iseven(ncols(A)) || error("Expected a symplectic input but the first input matrix has an odd number of columns.")
         iseven(ncols(B)) || error("Expected a symplectic input but the second input matrix has an odd number of columns.")
@@ -389,6 +389,7 @@ function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
     gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
     UinW, _ = sub(W, gensofUinW)
     Q, WtoQ = quo(W, UinW)
+    iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
     C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
     Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
     return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))

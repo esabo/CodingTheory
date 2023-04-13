@@ -18,7 +18,7 @@
 Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
 # is a perfect code
-FiveQubitCode() = QuantumCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
+FiveQubitCode() = StabilizerCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
 Q513() = FiveQubitCode()
 
 # should also do a test for other CSS construction via Hamming code and actually make that one default
@@ -44,7 +44,7 @@ Q913() = ShorCode()
 
 Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
 Q422() = CSSCode(["XXXX", "ZZZZ"])
-Q511() = QuantumCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
+Q511() = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
     F, _ = FiniteField(2, 1, "α")
@@ -54,7 +54,7 @@ function Q823()
     0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
     0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
     0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0]);
-    return QuantumCode(S, true)
+    return StabilizerCode(S, true)
 end
 
 """
@@ -64,7 +64,7 @@ end
 Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
 ordering.
 """
-Q15RM() = QuantumCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
+Q15RM() = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
     "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
     "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ",
     "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
@@ -75,7 +75,7 @@ Q1513() = Q15RM()
 
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
-Q1573() = QuantumCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
+Q1573() = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
     "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
     "ZIZIZIZIZIZIZIZ"])
     # one can use a basis for this such that the first logical pair is transversal X, Z
@@ -365,7 +365,7 @@ function RotatedSurfaceCode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
     S, logs = _RSurfstabslogs(d)
-    Q = QuantumCode(S)
+    Q = StabilizerCode(S)
     setlogicals!(Q, logs)
     return Q
 end
@@ -464,7 +464,7 @@ function XZZXSurfaceCode(d::Int)
     d >= 3 || error("Current implementation requires d ≥ 3.")
 
     S, logs = _XZZXstabslogs(d)
-    Q = QuantumCode(S)
+    Q = StabilizerCode(S)
     setlogicals!(Q, logs)
     return Q
 end
@@ -486,106 +486,106 @@ function TriangularColorCode488(d::Int)
         @load "data/488d3stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 5
         # S, logs = _488d5trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d5stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 7
         # S, logs = _488d7trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d7stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 9
         # S, logs = _488d9trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d9stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 11
         # S, logs = _488d11trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d11stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 13
         # S, logs = _488d13trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d13stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 15
         # S, logs = _488d15trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d15stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 17
         # S, logs = _488d17trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d17stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 19
         # S, logs = _488d19trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d19stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 21
         # S, logs = _488d21trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d21stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -607,111 +607,111 @@ function TriangularColorCode666(d::Int)
     if d == 3
         # same as 4.8.8
         # S, logs = _488d3trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/488d3stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 5
         # S, logs = _666d5trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d5stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 7
         # S, logs = _666d7trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d7stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 9
         # S, logs = _666d9trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d9stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 11
         # S, logs = _666d11trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d11stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 13
         # S, logs = _666d13trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d13stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 15
         # S, logs = _666d15trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d15stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 17
         # S, logs = _666d17trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d17stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 19
         # S, logs = _666d19trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d19stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
     elseif d == 21
         # S, logs = _666d21trellis()
-        # Q = QuantumCode(S)
+        # Q = StabilizerCode(S)
         # setlogicals!(Q, logs)
         @load "data/666d21stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = QuantumCode(S, true)
+        Q = StabilizerCode(S, true)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -952,7 +952,7 @@ function XYSurfaceCode(dx::Int, dy::Int)
         end
         qubit += dx - 1
     end
-    S = QuantumCode(M, false, missing)
+    S = StabilizerCode(M, false, missing)
     # Eone = S.E(1)
     # ω = gen(S.E)
     # X1 = zero_matrix(S.E, 1, numV)
