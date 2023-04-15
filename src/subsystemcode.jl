@@ -1062,7 +1062,7 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
     is_isomorphic(S1VS, S2VS) || return false
 
     # graph states
-    if LogicalTrait(T) == HasLogicals
+    if LogicalTrait(T) == HasLogicals()
         # test logicals
         S1symlogs = quadratictosymplectic(logicalsmatrix(S1));
         S2symlogs = quadratictosymplectic(logicalsmatrix(S2));
@@ -1073,7 +1073,7 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
         return true
     end
 
-    if GaugeTrait(T) == HasGauges
+    if GaugeTrait(T) == HasGauges()
         # test gauge operators
         S1symgops = quadratictosymplectic(gaugesmatrix(S1));
         S2symgops = quadratictosymplectic(gaugesmatrix(S2));
@@ -1085,7 +1085,6 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
     end
 end
 
-# TODO: redo same as above
 function show(io::IO, S::AbstractSubsystemCode)
     if isa(S.k, Integer)
         print(io, "[[$(S.n), $(S.k)")
@@ -1117,7 +1116,7 @@ function show(io::IO, S::AbstractSubsystemCode)
         end
     end
     
-    if get(io, :compact, true) && S.n <= 20
+    if get(io, :compact, true) && S.n <= 30
         if isa(S, SubsystemCodeCSS) || isa(S, StabilizerCodeCSS) || isa(S, GraphStateStabilizerCSS)
             numX = numXstabs(S)
             if S.overcomplete

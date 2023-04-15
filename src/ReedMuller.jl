@@ -4,52 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""
-    order(C::ReedMullerCode)
-    RMr(C::ReedMullerCode)
-
-Return the order, `r`, of the `RM(r, m)` Reed-Muller code.
-"""
-order(C::ReedMullerCode) = C.r
-RMr(C::ReedMullerCode) = order(C)
-
-"""
-    numberofvariables(C::ReedMullerCode)
-    RMm(C::ReedMullerCode)
-
-Return the number of variables, `m`, of the `RM(r, m)` Reed-Muller code.
-"""
-numberofvariables(C::ReedMullerCode) = C.m
-RMm(C::ReedMullerCode) = C.m
-
-function show(io::IO, C::AbstractReedMullerCode)
-    if ismissing(C.d)
-        println(io, "[$(C.n), $(C.k)]_$(order(C.F)) Reed-Muller code RM($(C.r), $(C.m)).")
-    else
-        println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) Reed-Muller code RM($(C.r), $(C.m)).")
-    end
-    if get(io, :compact, false) && C.n <= 30
-        G = generatormatrix(C)
-        nr, nc = size(G)
-        println(io, "Generator matrix: $nr × $nc")
-        for i in 1:nr
-            print(io, "\t")
-            for j in 1:nc
-                if j != nc
-                    print(io, "$(G[i, j]) ")
-                elseif j == nc && i != nr
-                    println(io, "$(G[i, j])")
-                else
-                    print(io, "$(G[i, j])")
-                end
-            end
-        end
-        # if !ismissing(C.weightenum)
-        #     println(io, "\nComplete weight enumerator:")
-        #     print(io, "\t", C.weightenum.polynomial)
-        # end
-    end
-end
+#############################
+        # constructors
+#############################
 
 """
     ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
@@ -113,6 +70,36 @@ function ReedMullerCode(q::Integer, r::Integer, m::Integer)
     return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G, missing,
         H, missing, Gstand, Hstand, P, missing)
 end
+
+#############################
+      # getter functions
+#############################
+
+"""
+    order(C::ReedMullerCode)
+    RMr(C::ReedMullerCode)
+
+Return the order, `r`, of the `RM(r, m)` Reed-Muller code.
+"""
+order(C::ReedMullerCode) = C.r
+RMr(C::ReedMullerCode) = order(C)
+
+"""
+    numberofvariables(C::ReedMullerCode)
+    RMm(C::ReedMullerCode)
+
+Return the number of variables, `m`, of the `RM(r, m)` Reed-Muller code.
+"""
+numberofvariables(C::ReedMullerCode) = C.m
+RMm(C::ReedMullerCode) = C.m
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
 
 """
     dual(C::ReedMullerCode)

@@ -8,6 +8,10 @@
 # include("tricolorcodes666trellis.jl")
 
 #############################
+      # Stabilizer codes
+#############################
+
+#############################
         # Misc codes
 #############################
 
@@ -30,7 +34,7 @@ Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
 """
 SteaneCode() = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
 Q713() = SteaneCode()
-_SteaneCodeTrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
+# _SteaneCodeTrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
 # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
 
 """

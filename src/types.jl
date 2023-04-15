@@ -63,6 +63,7 @@ end
          # LDPC.jl
 #############################
 
+# TODO: Abstract type in struct, also don't like having this here as a subobject - rethink
 mutable struct LDPCCode <: AbstractLDPCCode
       C::AbstractLinearCode
       numedges::Int
@@ -97,7 +98,7 @@ mutable struct MatrixProductCode <: AbstractMatrixProductCode
       Hstand::fq_nmod_mat
       P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
       weightenum::Union{WeightEnumerator, Missing}
-      C::Vector{AbstractLinearCode}
+      C::Vector{AbstractLinearCode} # TODO: check this abstract type
       A::fq_nmod_mat
 end
 

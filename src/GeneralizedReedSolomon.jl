@@ -4,6 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+#############################
+        # constructors
+#############################
+
 """
     GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})
 
@@ -56,6 +60,10 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nm
         missing, Gstand, Hstand, P, missing)
 end
 
+#############################
+      # getter functions
+#############################
+
 """
     scalars(C::GeneralizedReedSolomonCode)
 
@@ -76,6 +84,14 @@ dualscalars(C::GeneralizedReedSolomonCode) = C.w
 Return the evaluation points `γ` of the Generalized Reed-Solomon code `C`.
 """
 evaluationpoints(C::GeneralizedReedSolomonCode) = C.γ
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
 
 """
     dual(C::GeneralizedReedSolomonCode)

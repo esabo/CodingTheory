@@ -4,6 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+#############################
+        # constructors
+#############################
+
+# TODO: _processcharvec, _determinesigns, remove dualgens etc from constructor
 """
     HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
@@ -207,9 +212,9 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
 end
 
 # TODO
-function HypergraphProductCode(A::fq_nmod_mat, B::fq_nmod_mat)
+# function HypergraphProductCode(A::fq_nmod_mat, B::fq_nmod_mat)
 
-end
+# end
 
 # unable to yield quantum LDPC code families with non constant minimum distance
 """
@@ -444,7 +449,7 @@ end
 #     # should probably check for F_2
 
 #     H = hcat(A, transpose(A))
-#     return CSS(H, H)
+#     return CSSCode(H, H)
 # end
     
 """
@@ -639,3 +644,15 @@ function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Gener
     S = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
     return StabilizerCode(lift(S), true)
 end
+
+#############################
+      # getter functions
+#############################
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################

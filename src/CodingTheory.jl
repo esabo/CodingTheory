@@ -90,9 +90,6 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     componentwiseproductcode, VectorSpace, setminimumdistance!,
     expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
     words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven
-    # _standardform,
-# TODO: check what these were and they they were separated
-export dual1, dual2, dual3
 
 #############################
          # LDPC.jl

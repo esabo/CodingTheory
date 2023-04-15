@@ -4,6 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+#############################
+        # constructors
+#############################
+
 """
     MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
 
@@ -53,6 +57,20 @@ function MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
     return MatrixProductCode(F, n, k, 1, ub, missing, G, missing, H, missing, Gstand,
         Hstand, P, missing, C, A)
 end
+
+#############################
+      # getter functions
+#############################
+
+# TODO: why are there no getter functions for this? C, A inputs?
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
 
 """
     dual(C::MatrixProductCode)

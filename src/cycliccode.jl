@@ -4,376 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
-    # from_roots(R, [β^i for i in Z]) - R has wrong type for this
-    g = one(R)
-    x = gen(R)
-    for i in Z
-        g *= (x - β^i)
-    end
-    return g
-end
-_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, vcat(qcosets...))
-
-function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
-    # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
-    # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
-    coeffs = collect(coefficients(g))
-    len = length(coeffs)
-    k + len - 1 <= n || error("Too many coefficients for $k shifts in _generatormatrix.")
-
-    G = zero_matrix(F, k, n)
-    for i in 1:k
-        G[i, i:i + len - 1] = coeffs
-    end
-    return G
-end
-
-"""
-    definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
-
-Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo
-`n`.
-
-If `flat` is set to true, the result will be a single flattened and sorted
-array.
-"""
-function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
-    arr = Vector{Vector{Int}}()
-    arrflat = Vector{Int}()
-    for x in nums
-        Cx = cyclotomiccoset(x, q, n)
-        if Cx[1] ∉ arrflat
-            arrflat = [arrflat; Cx]
-            push!(arr, Cx)
-        end
-    end
-
-    flat && return sort!(vcat(arr...))
-    return arr
-end
-
-function _idempotent(g::fq_nmod_poly, h::fq_nmod_poly, n::Int)
-    # solve 1 = a(x) g(x) + b(x) h(x) for a(x) then e(x) = a(x) g(x) mod x^n - 1
-    d, a, b = gcdx(g, h)
-    return mod(g * a, gen(parent(g))^n - 1)
-end
-
-# MattsonSolomontransform(f, n)
-# inverseMattsonSolomontransform
-
-"""
-    field(C::AbstractCyclicCode)
-
-Return the base field of the generator matrix as a Nemo object.
-"""
-field(C::AbstractCyclicCode) = C.F
-
-"""
-    splittingfield(C::AbstractCyclicCode)
-
-Return the splitting field of the generator polynomial as a Nemo object.
-"""
-splittingfield(C::AbstractCyclicCode) = C.E
-
-"""
-    polynomialring(C::AbstractCyclicCode)
-
-Return the polynomial ring of the generator polynomial as a Nemo object.
-"""
-polynomialring(C::AbstractCyclicCode) = C.R
-
-"""
-    primitiveroot(C::AbstractCyclicCode)
-
-Return the primitive root of the splitting field as a Nemo object.
-"""
-primitiveroot(C::AbstractCyclicCode) = C.β
-
-"""
-    offset(C::AbstractBCHCode)
-
-Return the offset of the BCH code.
-"""
-offset(C::AbstractBCHCode) = C.b
-
-"""
-    designdistance(C::AbstractBCHCode)
-
-Return the design distance of the BCH code.
-"""
-designdistance(C::AbstractBCHCode) = C.δ
-
-"""
-    mindistlowerbound(C::AbstractCyclicCode)
-
-Return a lower bound on the minimum distance of the code.
-
-At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
-refinement. The minimum distance is returned if known.
-"""
-mindistlowerbound(C::AbstractCyclicCode) = C.δ
-
-"""
-    qcosets(C::AbstractCyclicCode)
-
-Return the q-cyclotomic cosets of the cyclic code.
-"""
-qcosets(C::AbstractCyclicCode) = C.qcosets
-
-"""
-    qcosetsreps(C::AbstractCyclicCode)
-
-Return the set of representatives for the q-cyclotomic cosets of the cyclic code.
-"""
-qcosetsreps(C::AbstractCyclicCode) = C.qcosetsreps
-
-"""
-    definingset(C::AbstractCyclicCode)
-
-Return the defining set of the cyclic code.
-"""
-definingset(C::AbstractCyclicCode) = C.defset
-
-"""
-    zeros(C::AbstractCyclicCode)
-
-Return the zeros of `C`.
-"""
-zeros(C::AbstractCyclicCode) = [C.β^i for i in C.defset]
-
-"""
-    nonzeros(C::AbstractCyclicCode)
-
-Return the nonzeros of `C`.
-"""
-nonzeros(C::AbstractCyclicCode) = [C.β^i for i in setdiff(0:C.n - 1, C.defset)]
-
-"""
-    generatorpolynomial(C::AbstractCyclicCode)
-
-Return the generator polynomial of the cyclic code as a Nemo object.
-"""
-generatorpolynomial(C::AbstractCyclicCode) = C.g
-
-"""
-    paritycheckpolynomial(C::AbstractCyclicCode)
-
-Return the parity-check polynomial of the cyclic code as a Nemo object.
-"""
-paritycheckpolynomial(C::AbstractCyclicCode) = C.h
-
-"""
-    idempotent(C::AbstractCyclicCode)
-
-Return the idempotent (polynomial) of the cyclic code as a Nemo object.
-"""
-idempotent(C::AbstractCyclicCode) = C.e
-
-"""
-    isprimitive(C::AbstractBCHCode)
-
-Return `true` if the BCH code is primitive.
-"""
-isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
-
-"""
-    isnarrowsense(C::AbstractBCHCode)
-
-Return `true` if the BCH code is narrowsense.
-"""
-isnarrowsense(C::AbstractBCHCode) = iszero(C.b) # should we define this as b = 1 instead?
-
-"""
-    isreversible(C::AbstractCyclicCode)
-
-Return `true` if the cyclic code is reversible.
-"""
-isreversible(C::AbstractCyclicCode) = return [C.n - i for i in C.defset] ⊆ C.defset
-
-"""
-    isdegenerate(C::AbstractCyclicCode)
-
-Return `true` if the cyclic code is degenerate.
-
-A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
-some `r` less than the length of the code.
-"""
-function isdegenerate(C::AbstractCyclicCode)
-    x = gen(C.R)
-    for r in 1:C.n - 1
-        flag, _ = divides(x^r - 1, C.h)
-        flag && return true
-    end
-    return false
-end
-
-"""
-    BCHbound(C::AbstractCyclicCode)
-
-Return the BCH bound for `C`.
-
-This is a lower bound on the minimum distance of `C`.
-"""
-BCHbound(C::AbstractCyclicCode) = C.δ
-
-# """
-#     HTbound(C::AbstractCyclicCode)
-
-# Return the Hartmann-Tzeng refinement to the BCH bound for `C`.
-
-# This is a lower bound on the minimum distance of `C`.
-# """
-# HTbound(C::AbstractCyclicCode) = C.HT
-
-function show(io::IO, C::AbstractCyclicCode)
-    if ismissing(C.d)
-        if typeof(C) <: ReedSolomonCode
-            println(io, "[$(C.n)), $(C.k); $(C.b)]_$(order(C.F)) Reed-Solomon code")
-        elseif typeof(C) <: BCHCode
-            println(io, "[$(C.n), $(C.k); $(C.b)]_$(order(C.F)) BCH code")
-        else
-            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) cyclic code")
-        end
-    else
-        if typeof(C) <: ReedSolomonCode
-            println(io, "[$(C.n)), $(C.k), $(C.d); $(C.b)]_$(order(C.F)) Reed-Solomon code")
-        elseif typeof(C) <: BCHCode
-            println(io, "[$(C.n), $(C.k), $(C.d); $(C.b)]_$(order(C.F)) BCH code")
-        else
-            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) cyclic code")
-        end
-    end
-    if get(io, :compact, true)
-        println(io, "$(order(C.F))-Cyclotomic cosets: ")
-        len = length(qcosetsreps(C))
-        if len == 1
-            println("\tC_$(qcosetsreps(C)[1])")
-        else
-            for (i, x) in enumerate(qcosetsreps(C))
-                if i == 1
-                    print(io, "\tC_$x ∪ ")
-                elseif i == 1 && i == len
-                    println(io, "\tC_$x")
-                elseif i != len
-                    print(io, "C_$x ∪ ")
-                else
-                    println(io, "C_$x")
-                end
-            end
-        end
-        println(io, "Generator polynomial:")
-        println(io, "\t", generatorpolynomial(C))
-        if C.n <= 30
-            G = generatormatrix(C)
-            nr, nc = size(G)
-            println(io, "Generator matrix: $nr × $nc")
-            for i in 1:nr
-                print(io, "\t")
-                for j in 1:nc
-                    if j != nc
-                        print(io, "$(G[i, j]) ")
-                    elseif j == nc && i != nr
-                        println(io, "$(G[i, j])")
-                    else
-                        print(io, "$(G[i, j])")
-                    end
-                end
-            end
-        end
-        # if !ismissing(C.weightenum)
-        #     println(io, "\nComplete weight enumerator:")
-        #     print(io, "\t", polynomial(C.weightenum))
-        # end
-    end
-end
-
-"""
-    finddelta(n::Int, cosets::Vector{Vector{Int}})
-
-Return the number of consecutive elements of `cosets`, the offset for this, and
-a lower bound on the distance of the code defined with length `n` and
-cyclotomic cosets `cosets`.
-
-The lower bound is determined by applying the Hartmann-Tzeng bound refinement to
-the BCH bound.
-"""
-# TODO: check why d is sometimes lower than HT but never than BCH
-function finddelta(n::Int, cosets::Vector{Vector{Int}})
-    defset = sort!(vcat(cosets...))
-    runs = Vector{Vector{Int}}()
-    for x in defset
-        useddefset = Vector{Int}()
-        reps = Vector{Int}()
-        cosetnum = 0
-        for i in 1:length(cosets)
-            if x ∈ cosets[i]
-                cosetnum = i
-                append!(useddefset, cosets[i])
-                append!(reps, x)
-                break
-            end
-        end
-
-        y = x + 1
-        while y ∈ defset
-            if y ∈ useddefset
-                append!(reps, y)
-            else
-                cosetnum = 0
-                for i in 1:length(cosets)
-                    if y ∈ cosets[i]
-                        cosetnum = i
-                        append!(useddefset, cosets[i])
-                        append!(reps, y)
-                        break
-                    end
-                end
-            end
-            y += 1
-        end
-        push!(runs, reps)
-    end
-
-    runlens = [length(i) for i in runs]
-    (consec, ind) = findmax(runlens)
-    # there are δ - 1 consecutive numbers for designed distance δ
-    δ = consec + 1
-    # start of run
-    offset = runs[ind][1]
-    # BCH Bound is thus d ≥ δ
-
-    # moving to Hartmann-Tzeng Bound refinement
-    currbound = δ
-    # if consec > 1
-    #     for A in runs
-    #         if length(A) == consec
-    #             for b in 1:(n - 1)
-    #                 if gcd(b, n) ≤ δ
-    #                     for s in 0:(δ - 2)
-    #                         B = [mod(j * b, n) for j in 0:s]
-    #                         AB = [x + y for x in A for y in B]
-    #                         if AB ⊆ defset
-    #                             if currbound < δ + s
-    #                                 currbound = δ + s
-    #                             end
-    #                         end
-    #                     end
-    #                 end
-    #             end
-    #         end
-    #     end
-    # end
-
-    return δ, offset, currbound
-end
-
-"""
-    dualdefiningset(defset::Vector{Int}, n::Int)
-
-Return the defining set of the dual code of length `n` and defining set `defset`.
-"""
-dualdefiningset(defset::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
+#############################
+        # constructors
+#############################
+# TODO: these consctructors reuse a lot of the same code, extract
 
 """
     CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
@@ -683,6 +317,336 @@ function BCHCode(C::AbstractCyclicCode)
     error("Failed to create BCH supercode.")
 end
 
+"""
+    QuadraticResidueCode(q::Int, n::Int)
+
+Return the cyclic code whose roots are the quadratic residues of `q, n`.
+"""
+# covered nicely in van Lint and Betten et al
+QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])
+
+#############################
+      # getter functions
+#############################
+
+# """
+#     field(C::AbstractCyclicCode)
+
+# Return the base field of the generator matrix.
+# """
+# field(C::AbstractCyclicCode) = C.F
+
+"""
+    splittingfield(C::AbstractCyclicCode)
+
+Return the splitting field of the generator polynomial.
+"""
+splittingfield(C::AbstractCyclicCode) = C.E
+
+"""
+    polynomialring(C::AbstractCyclicCode)
+
+Return the polynomial ring of the generator polynomial.
+"""
+polynomialring(C::AbstractCyclicCode) = C.R
+
+"""
+    primitiveroot(C::AbstractCyclicCode)
+
+Return the primitive root of the splitting field.
+"""
+primitiveroot(C::AbstractCyclicCode) = C.β
+
+"""
+    offset(C::AbstractBCHCode)
+
+Return the offset of the BCH code.
+"""
+offset(C::AbstractBCHCode) = C.b
+
+"""
+    designdistance(C::AbstractBCHCode)
+
+Return the design distance of the BCH code.
+"""
+designdistance(C::AbstractBCHCode) = C.δ
+
+"""
+    mindistlowerbound(C::AbstractCyclicCode)
+
+Return a lower bound on the minimum distance of the code.
+
+At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
+refinement. The minimum distance is returned if known.
+"""
+mindistlowerbound(C::AbstractCyclicCode) = C.δ
+
+"""
+    qcosets(C::AbstractCyclicCode)
+
+Return the q-cyclotomic cosets of the cyclic code.
+"""
+qcosets(C::AbstractCyclicCode) = C.qcosets
+
+"""
+    qcosetsreps(C::AbstractCyclicCode)
+
+Return the set of representatives for the q-cyclotomic cosets of the cyclic code.
+"""
+qcosetsreps(C::AbstractCyclicCode) = C.qcosetsreps
+
+"""
+    definingset(C::AbstractCyclicCode)
+
+Return the defining set of the cyclic code.
+"""
+definingset(C::AbstractCyclicCode) = C.defset
+
+"""
+    zeros(C::AbstractCyclicCode)
+
+Return the zeros of `C`.
+"""
+zeros(C::AbstractCyclicCode) = [C.β^i for i in C.defset]
+
+"""
+    nonzeros(C::AbstractCyclicCode)
+
+Return the nonzeros of `C`.
+"""
+nonzeros(C::AbstractCyclicCode) = [C.β^i for i in setdiff(0:C.n - 1, C.defset)]
+
+"""
+    generatorpolynomial(C::AbstractCyclicCode)
+
+Return the generator polynomial of the cyclic code.
+"""
+generatorpolynomial(C::AbstractCyclicCode) = C.g
+
+"""
+    paritycheckpolynomial(C::AbstractCyclicCode)
+
+Return the parity-check polynomial of the cyclic code.
+"""
+paritycheckpolynomial(C::AbstractCyclicCode) = C.h
+
+"""
+    idempotent(C::AbstractCyclicCode)
+
+Return the idempotent (polynomial) of the cyclic code.
+"""
+idempotent(C::AbstractCyclicCode) = C.e
+
+"""
+    BCHbound(C::AbstractCyclicCode)
+
+Return the BCH bound for `C`.
+
+This is a lower bound on the minimum distance of `C`.
+"""
+BCHbound(C::AbstractCyclicCode) = C.δ
+
+# """
+#     HTbound(C::AbstractCyclicCode)
+
+# Return the Hartmann-Tzeng refinement to the BCH bound for `C`.
+
+# This is a lower bound on the minimum distance of `C`.
+# """
+# HTbound(C::AbstractCyclicCode) = C.HT
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
+
+"""
+    isnarrowsense(C::AbstractBCHCode)
+
+Return `true` if the BCH code is narrowsense.
+"""
+isnarrowsense(C::AbstractBCHCode) = iszero(C.b) # should we define this as b = 1 instead?
+
+"""
+    isreversible(C::AbstractCyclicCode)
+
+Return `true` if the cyclic code is reversible.
+"""
+isreversible(C::AbstractCyclicCode) = [C.n - i for i in C.defset] ⊆ C.defset
+
+"""
+    isdegenerate(C::AbstractCyclicCode)
+
+Return `true` if the cyclic code is degenerate.
+
+A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
+some `r` less than the length of the code.
+"""
+function isdegenerate(C::AbstractCyclicCode)
+    x = gen(C.R)
+    for r in 1:C.n - 1
+        flag, _ = divides(x^r - 1, C.h)
+        flag && return true
+    end
+    return false
+end
+
+"""
+    isprimitive(C::AbstractBCHCode)
+
+Return `true` if the BCH code is primitive.
+"""
+isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
+
+function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
+    # from_roots(R, [β^i for i in Z]) - R has wrong type for this
+    g = one(R)
+    x = gen(R)
+    for i in Z
+        g *= (x - β^i)
+    end
+    return g
+end
+_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, vcat(qcosets...))
+
+function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
+    # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
+    # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
+    coeffs = collect(coefficients(g))
+    len = length(coeffs)
+    k + len - 1 <= n || error("Too many coefficients for $k shifts in _generatormatrix.")
+
+    G = zero_matrix(F, k, n)
+    for i in 1:k
+        G[i, i:i + len - 1] = coeffs
+    end
+    return G
+end
+
+"""
+    definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
+
+Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo
+`n`.
+
+If `flat` is set to true, the result will be a single flattened and sorted
+array.
+"""
+function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
+    arr = Vector{Vector{Int}}()
+    arrflat = Vector{Int}()
+    for x in nums
+        Cx = cyclotomiccoset(x, q, n)
+        if Cx[1] ∉ arrflat
+            arrflat = [arrflat; Cx]
+            push!(arr, Cx)
+        end
+    end
+
+    flat && return sort!(vcat(arr...))
+    return arr
+end
+
+function _idempotent(g::fq_nmod_poly, h::fq_nmod_poly, n::Int)
+    # solve 1 = a(x) g(x) + b(x) h(x) for a(x) then e(x) = a(x) g(x) mod x^n - 1
+    d, a, b = gcdx(g, h)
+    return mod(g * a, gen(parent(g))^n - 1)
+end
+
+# TODO: these
+# MattsonSolomontransform(f, n)
+# inverseMattsonSolomontransform
+
+"""
+    finddelta(n::Int, cosets::Vector{Vector{Int}})
+
+Return the number of consecutive elements of `cosets`, the offset for this, and
+a lower bound on the distance of the code defined with length `n` and
+cyclotomic cosets `cosets`.
+
+The lower bound is determined by applying the Hartmann-Tzeng bound refinement to
+the BCH bound.
+"""
+# TODO: check why d is sometimes lower than HT but never than BCH
+function finddelta(n::Int, cosets::Vector{Vector{Int}})
+    defset = sort!(vcat(cosets...))
+    runs = Vector{Vector{Int}}()
+    for x in defset
+        useddefset = Vector{Int}()
+        reps = Vector{Int}()
+        cosetnum = 0
+        for i in 1:length(cosets)
+            if x ∈ cosets[i]
+                cosetnum = i
+                append!(useddefset, cosets[i])
+                append!(reps, x)
+                break
+            end
+        end
+
+        y = x + 1
+        while y ∈ defset
+            if y ∈ useddefset
+                append!(reps, y)
+            else
+                cosetnum = 0
+                for i in 1:length(cosets)
+                    if y ∈ cosets[i]
+                        cosetnum = i
+                        append!(useddefset, cosets[i])
+                        append!(reps, y)
+                        break
+                    end
+                end
+            end
+            y += 1
+        end
+        push!(runs, reps)
+    end
+
+    runlens = [length(i) for i in runs]
+    (consec, ind) = findmax(runlens)
+    # there are δ - 1 consecutive numbers for designed distance δ
+    δ = consec + 1
+    # start of run
+    offset = runs[ind][1]
+    # BCH Bound is thus d ≥ δ
+
+    # moving to Hartmann-Tzeng Bound refinement
+    currbound = δ
+    # if consec > 1
+    #     for A in runs
+    #         if length(A) == consec
+    #             for b in 1:(n - 1)
+    #                 if gcd(b, n) ≤ δ
+    #                     for s in 0:(δ - 2)
+    #                         B = [mod(j * b, n) for j in 0:s]
+    #                         AB = [x + y for x in A for y in B]
+    #                         if AB ⊆ defset
+    #                             if currbound < δ + s
+    #                                 currbound = δ + s
+    #                             end
+    #                         end
+    #                     end
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
+
+    return δ, offset, currbound
+end
+
+"""
+    dualdefiningset(defset::Vector{Int}, n::Int)
+
+Return the defining set of the dual code of length `n` and defining set `defset`.
+"""
+dualdefiningset(defset::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
+
 function iscyclic(C::AbstractLinearCode, construct::Bool=true)
     typeof(C) <: AbstractCyclicCode && (return true, C;)
     
@@ -846,11 +810,3 @@ end
 # Schurproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
 # Hadamardproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
 # componentwiseproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
-
-"""
-    QuadraticResidueCode(q::Int, n::Int)
-
-Return the cyclic code whose roots are the quadratic residues of `q, n`.
-"""
-# covered nicely in van Lint and Betten et al
-QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])

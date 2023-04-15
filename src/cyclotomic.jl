@@ -1,15 +1,15 @@
-# Copyright (c) 2021, Eric Sabo
+# Copyright (c) 2021, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
 """
-    ord(n::Integer, q::Integer)
+    ord(n::Int, q::Int)
 
 Return the order of `n` mod `q`.
 """
-function ord(n::Integer, q::Integer)
+function ord(n::Int, q::Int)
     (q <= 0 || n <= 0) && 
         throw(DomainError("q and n both need to be positive. Passed: q = $q, n = $n"))
 
@@ -23,7 +23,7 @@ function ord(n::Integer, q::Integer)
 end
 
 """
-    cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true, verbose::Bool=false)
+    cyclotomiccoset(x::Int, q::Int, n::Int, tosort::Bool=true, verbose::Bool=false)
 
 Return the `q`-cyclotomic coset of `x` modulo `n`.
 
@@ -31,7 +31,7 @@ If the optional parameter `tosort` is set to `false`, the result will not be
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """
-function cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true,
+function cyclotomiccoset(x::Int, q::Int, n::Int, tosort::Bool=true,
     verbose::Bool=false)
 
     temp = [mod(x, n)]
@@ -62,7 +62,7 @@ function cyclotomiccoset(x::Integer, q::Integer, n::Integer, tosort::Bool=true,
 end
 
 """
-    allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true, verbose::Bool=false)
+    allcyclotomiccosets(q::Int, n::Int, tosort::Bool=true, verbose::Bool=false)
 
 Return all `q`-cyclotomic cosets modulo `n`.
 
@@ -70,7 +70,7 @@ If the optional parameter `tosort` is set to `false`, the result will not be
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """
-function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
+function allcyclotomiccosets(q::Int, n::Int, tosort::Bool=true,
     verbose::Bool=false)
 
     n % q == 0 && throw(DomainError("Cyclotomic coset requires gcd(n, q) = 1"))
@@ -114,11 +114,11 @@ function allcyclotomiccosets(q::Integer, n::Integer, tosort::Bool=true,
 end
 
 """
-    complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+    complementqcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
 
 Return the complement of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
 """
-function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+function complementqcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
     all = allcyclotomiccosets(q, n)
     compcosets = Vector{Vector{Int64}}()
     for a in all
@@ -137,11 +137,11 @@ function complementqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}
 end
 
 """
-    qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
+    qcosetpairings(arr::Vector{Vector{Int64}}, n::Int)
 
 Return the .
 """
-function qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
+function qcosetpairings(arr::Vector{Vector{Int64}}, n::Int)
     cosetreplist = Vector{Tuple{Int64, Int64}}()
     cosetpairlist = Vector{Tuple{Vector{Int64}, Vector{Int64}}}()
     for a in arr
@@ -171,9 +171,9 @@ function qcosetpairings(arr::Vector{Vector{Int64}}, n::Integer)
     return cosetpairlist, cosetreplist
 end
 
-qcosetpairings(q::Integer, n::Integer) = qcosetpairings(allcyclotomiccosets(q, n, false), n)
+qcosetpairings(q::Int, n::Int) = qcosetpairings(allcyclotomiccosets(q, n, false), n)
 
-function qcosettable(a::Integer, b::Integer, q::Integer)
+function qcosettable(a::Int, b::Int, q::Int)
     for n in a:b
         if n % q != 0
             println("n = $n")
@@ -184,11 +184,11 @@ function qcosettable(a::Integer, b::Integer, q::Integer)
 end
 
 """
-    dualqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+    dualqcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
 
 Return the dual of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
 """
-function dualqcosets(q::Integer, n::Integer, qcosets::Vector{Vector{Int64}})
+function dualqcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
     compcosets = complementqcosets(q, n, qcosets)
     for a in compcosets
         for (i, x) in enumerate(a)

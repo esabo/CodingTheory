@@ -1,4 +1,4 @@
-# Copyright (c) 2021, Eric Sabo
+# Copyright (c) 2021, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -125,15 +125,15 @@ kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
 # ncols(A::T) where T = size(A, 2)
 
 # I think we should avoid length checking here and return it for entire matrix if given
-# Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
+# Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Int = count(i->(i != 0), v)
 """
-    Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
-    weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
-    wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer
+function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int
     count = 0
     for i in 1:length(v)
         if !iszero(v[i])
@@ -142,15 +142,15 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vect
     end
     return count
 end
-weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer = Hammingweight(v)
-wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int64, Vector{Int64}}} where S <: Integer = Hammingweight(v)
+weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
+wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
 
-function Hammingweight(v::Matrix{Int64})
+function Hammingweight(v::Matrix{Int})
     return sum(v)
 end
 
 # TODO: should do the full row, col double loop
-function wt(v::Matrix{Int64})
+function wt(v::Matrix{Int})
     count = 0
     for i in 1:length(v)
         if !iszero(v[1, i])
@@ -172,7 +172,7 @@ wt(f::fq_nmod_poly) = Hammingweight(collect(coefficients(f)))
 
 Return the minimum weight and corresponding index of the rows of `A`.
 """
-function _minwtrow(A::Union{fq_nmod_mat, Matrix{Int64}, LinearAlgebra.Adjoint{Int64, Matrix{Int64}}})
+function _minwtrow(A::Union{fq_nmod_mat, Matrix{Int}, LinearAlgebra.Adjoint{Int, Matrix{Int}}})
     nr, nc = size(A)
     w = nc
     i = 0
@@ -186,7 +186,7 @@ function _minwtrow(A::Union{fq_nmod_mat, Matrix{Int64}, LinearAlgebra.Adjoint{In
     return w, i
 end
 
-function _minwtcol(A::LinearAlgebra.Adjoint{Int64, Matrix{Int64}})
+function _minwtcol(A::LinearAlgebra.Adjoint{Int, Matrix{Int}})
     nr, nc = size(A)
     w = nr
     i = 0
@@ -201,15 +201,15 @@ function _minwtcol(A::LinearAlgebra.Adjoint{Int64, Matrix{Int64}})
 end
 
 """
-    Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
-    distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
-    dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer
+    Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
 
 Return the Hamming distance between `u` and `v`.
 """
-Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
-distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
-dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Integer = Hammingweight(u .- v)
+Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
+distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
+dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
 
 """
     symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
@@ -267,7 +267,7 @@ function Hermitianinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
     base_ring(u) == base_ring(v) || error("Vectors must be over the same field in Hermitian inner product.")
     q2 = order(base_ring(u))
     issquare(q2) || error("The Hermitian inner product is only defined over quadratic field extensions.")
-    q = Int64(sqrt(q2))
+    q = Int(sqrt(q2))
     return sum([u[i] * v[i]^q for i in 1:length(u)])
 end
 
@@ -280,7 +280,7 @@ function Hermitianconjugatematrix(A::fq_nmod_mat)
     B = copy(A)
     q2 = order(base_ring(A))
     issquare(q2) || error("The Hermitian conjugate is only defined over quadratic field extensions.")
-    q = Int64(sqrt(q2))
+    q = Int(sqrt(q2))
     return B .^ q
 end
 
@@ -300,11 +300,11 @@ end
 """
     FpmattoJulia(M::fq_nmod_mat)
 
-Return the `fq_nmod_mat` matrix `M` as a Julia Integer matrix.
+Return the `fq_nmod_mat` matrix `M` as a Julia Int matrix.
 """
 function FpmattoJulia(M::fq_nmod_mat)
-    degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the integers.")
-    A = zeros(Int64, size(M))
+    degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the Ints.")
+    A = zeros(Int, size(M))
     for c in 1:ncols(M)
         for r in 1:nrows(M)
             A[r, c] = coeff(M[r, c], 0)
@@ -416,7 +416,7 @@ function printstringarray(A::Vector{String}, withoutIs=false)
     end
 end
 printchararray(A::Vector{Vector{Char}}, withoutIs=false) = printstringarray(setchartostringarray(A), withoutIs)
-printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Integer = printstringarray(setsymplectictostringarray(A), withoutIs)
+printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Int = printstringarray(setsymplectictostringarray(A), withoutIs)
 
 """
     pseudoinverse(M::fq_nmod_mat)
@@ -461,7 +461,7 @@ Return the matrix `M` converted from the quadratic to the symplectic form.
 function quadratictosymplectic(M::fq_nmod_mat)
     E = base_ring(M)
     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-    F, _ = FiniteField(Int64(characteristic(E)), div(degree(E), 2), "ω")
+    F, _ = FiniteField(Int(characteristic(E)), div(degree(E), 2), "ω")
     nr = nrows(M)
     nc = ncols(M)
     Msym = zero_matrix(F, nr, 2 * nc)
@@ -487,7 +487,7 @@ function symplectictoquadratic(M::fq_nmod_mat)
     nr = nrows(M)
     nc = div(ncols(M), 2)
     F = base_ring(M)
-    E, ω = FiniteField(Int64(characteristic(F)), 2 * degree(F), "ω")
+    E, ω = FiniteField(Int(characteristic(F)), 2 * degree(F), "ω")
     ϕ = embed(F, E)
     Mquad = zero_matrix(E, nr, nc)
     for c in 1:nc
@@ -523,7 +523,7 @@ _Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat
 # quadratictoPaulistring
 
 function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
-    # Paulisigns = Vector{Int64}()
+    # Paulisigns = Vector{Int}()
     StrPaulistripped = Vector{String}()
     for (i, s) in enumerate(SPauli)
         if s[1] ∈ ['I', 'X', 'Y', 'Z']
@@ -561,7 +561,7 @@ function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing
     return StrPaulistripped, charvec
 end
 
-function largestconsecrun(arr::Vector{Int64})
+function largestconsecrun(arr::Vector{Int})
     n = length(arr)
     maxlen = 1
     for i = 1:n
@@ -583,7 +583,7 @@ end
 
 function _removeempty(A::fq_nmod_mat, type::String)
     type ∈ ["rows", "cols"] || error("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type")
-    del = Vector{Int64}()
+    del = Vector{Int}()
     if type == "rows"
         for r in 1:nrows(A)
             if iszero(A[r, :])
@@ -793,7 +793,7 @@ function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
     q = order(K)
     if verify
         # # shouldn't need Int casting here but just in case...
-        # Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+        # Int(characteristic(L)) == Int(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
         # degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
         flag, m = isextension(L, K)
         flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
@@ -823,7 +823,7 @@ Return the matrix constructed by expanding the elements of `M` to the subfield
 function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     L = base_ring(M)
     L == K && return M
-    Int64(characteristic(L)) == Int64(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
+    Int(characteristic(L)) == Int(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
     degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
     n = div(degree(L), degree(K))
     n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")

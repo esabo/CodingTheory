@@ -87,6 +87,13 @@ respectively.
 """
 Tannergraph(C::AbstractLinearCode) = Tannergraph(paritycheckmatrix(C))
 
+"""
+    Tannergraph(C::AbstractLDPCCode)
+
+Return the Tanner graph of `C` as a `Figure` object.
+"""
+Tannergraph(C::AbstractLDPCCode) = ismissing(C.tangr) ? (return Tannergraph(C.H);) : (return C.tangr;)
+
 # compressed sparse column (CSC) format used here so data is
 # colptr, nzvals, rowval
 # nzvals - stores all the nonzero values of the matrix
