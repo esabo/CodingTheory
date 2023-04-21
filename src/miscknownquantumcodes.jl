@@ -8,6 +8,189 @@
 # include("tricolorcodes666trellis.jl")
 
 #############################
+      # Subsystem codes
+#############################
+
+function GaugedShorCode()
+    # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
+    # [[9, 1, 4, 3]] gauged Shor code
+    S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
+    # these are the {X, Z} pairings
+    Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+    # G = S ∪ Gops
+    L = ["ZZZZZZZZZ", "XXXXXXXXX"]
+    return SubsystemCode(S, L, Gops)
+end
+Q9143() = GaugedShorCode()
+
+"""
+    BaconShorCode(m::Int, n::Int)
+
+Return the Bacon-Shor subsystem code on a `m x n` lattice.
+"""
+function BaconShorCode(m::Int, n::Int)
+    F, _ = FiniteField(2, 1, "α")
+    Fone = F(1)
+    numqubits = m * n
+
+    # X stabilizers: X[r, :] = X[r + 1, :] = 1
+    # X gauge: X[r, c] = X[r + 1, c] = 1
+    Xstabs = zero_matrix(F, m - 1, numqubits)
+    Xgauges = zero_matrix(F, (m - 1) * n, numqubits)
+    currrow = 1
+    currrowG = 1
+    for r in 1:m - 1
+        for c in 1:n
+            Xstabs[currrow, (r - 1) * m + c] = Fone
+            Xstabs[currrow, r * m + c] = Fone
+            Xgauges[currrowG, (r - 1) * m + c] = Fone
+            Xgauges[currrowG, r * m + c] = Fone
+            currrowG += 1
+        end
+        currrow += 1
+    end
+
+    # Z stabilizers: Z[:, c] = Z[:, c + 1] = 1
+    # Z gauge: Z[r, c] = Z[r, c + 1] = 1
+    Zstabs = zero_matrix(F, n - 1, numqubits)
+    Zgauges = zero_matrix(F, (n - 1) * m, numqubits)
+    currrow = 1
+    currrowG = 1
+    for c in 1:n - 1
+        for r in 1:m
+            Zstabs[currrow, (r - 1) * m + c] = Fone
+            Zstabs[currrow, (r - 1) * m + c + 1] = Fone
+            Zgauges[currrowG, (r - 1) * m + c] = Fone
+            Zgauges[currrowG, (r - 1) * m + c + 1] = Fone
+            currrowG += 1
+        end
+        currrow += 1
+    end
+
+    # X logical: X[1, :] = 1
+    Xlogical = zero_matrix(F, 1, numqubits)
+    # TODO: consider @simd or @unroll here
+    for c in 1:n
+        Xlogical[1, c] = Fone
+    end
+
+    # Z logical: Z[:, 1] = 1
+    Zlogical = zero_matrix(F, 1, numqubits)
+    # TODO: consider @simd or @unroll here
+    for r in 1:m
+        Zlogical[1, (r - 1) * m + 1] = Fone
+    end
+    
+    stabs = Xstabs ⊕ Zstabs
+    logs = Xlogical ⊕ Zlogical
+    gauges = Xgauges ⊕ Zgauges
+    # S = SubsystemCodeCSS(Xstabs, Zstabs, (Xlogical, Zlogical), {})
+    # S = SubsystemCode(stabs, logs, gauges, true)
+    S = SubsystemCode(gauges, true)
+    setstabilizers!(S, stabs, true)
+    S.Xstabs = Xstabs
+    S.Zstabs = Zstabs
+    # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
+    setlogicals!(S, logs, true)
+    m == n && setminimumdistance!(S, m)
+    # Z distance is m
+    # X distance is n
+    return S
+end
+
+"""
+    BaconShorCode(d::Int)
+
+Return the Bacon-Shor subsystem code on a `d x d` lattice.
+"""
+BaconShorCode(d::Int) = BaconShorCode(d, d)
+
+"""
+    BravyiSubsystemCode(A::fq_nmod_mat)
+    GeneralizedBaconShorCode(A::fq_nmod_mat)
+
+Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With Spatially Local
+Generators", (2011).
+"""
+# Bravyi, "Subsystem Codes With Spatially Local Generators", (2011)
+function BravyiSubsystemCode(A::fq_nmod_mat)
+    iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
+    F = base_ring(A)
+    Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
+
+    n = 0
+    nr, nc = size(A)
+    rowwts = zeros(Int, 1, nr)
+    colwts = zeros(Int, 1, nc)
+    linearindex = Dict{Tuple{Int, Int}, Int}()
+    for r in 1:nr
+        for c in 1:nc
+            if !iszero(A[r, c])
+                n += 1
+                rowwts[r] += 1
+                colwts[c] += 1
+                linearindex[(r, c)] = n
+            end
+        end
+    end
+
+    for i in 1:nr
+        rowwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+    end
+    for i in 1:nc
+        colwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+    end
+
+    totXgauges = 0
+
+    # TODO: really only need to generate every consequetive pair
+
+    # every pair of 1's in row of A gets an X gauge operator
+    Xgauges = zero_matrix(F, totXgauges, n)
+    currrow = 1
+    Fone = F(1)
+    for r in 1:nr
+        for c1 in 1:nc - 1
+            if !iszero(A[r, c1])
+                for c2 in c1 + 1:nc
+                    if !iszero(A[r, c2])
+                        Xgauges[currrow, linearindex[r, c1]] = Fone
+                        Xgauges[currrow, linearindex[r, c2]] = Fone
+                        currrow += 1
+                    end
+                end
+            end
+        end
+    end
+
+    # every pair of 1's in col of A gets a Z gauge operator
+    Zgauges = zero_matrix(F, totZgauges, n)
+    currrow = 1
+    for c in 1:nc
+        for r1 in 1:nr - 1
+            if !iszero(A[r1, c])
+                for r2 in r1 + 1:nr
+                    if !iszero(A[r2, c])
+                        Zgauges[currrow, linearindex[r1, c]] = Fone
+                        Zgauges[currrow, linearindex[r2, c]] = Fone
+                        currrow += 1
+                    end
+                end
+            end
+        end
+    end
+    S = SubsystemCode(Xgauges ⊕ Zgauges, true)
+    minrowwt = minimum(rowwts)
+    mincolwt = minimum(colwts)
+    setminimumdistance!(S, minimum([minrowwt, mincolwt]))
+    # TODO: also set dx and dz
+    return S
+end
+GeneralizedBaconShorCode(A::fq_nmod_mat) = BravyiSubsystemCode(A)
+
+# subsystem codes was described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
+
+#############################
       # Stabilizer codes
 #############################
 

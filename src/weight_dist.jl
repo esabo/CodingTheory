@@ -1895,6 +1895,8 @@ function ispure(S::AbstractStabilizerCodeCSS)
     return S.pure
 end
 
+# TODO: pure for subsystem if no weight of gauge group is less than min dist
+
 
 
 """

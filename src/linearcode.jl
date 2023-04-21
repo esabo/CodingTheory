@@ -265,7 +265,7 @@ end
 
 # a bit odd to handle all subtypes in the supertype but saves hundreds
 # of repeated lines and keeps uniform
-function show(io::IO, C::AbstractCyclicCode)
+function show(io::IO, C::AbstractLinearCode)
     print(io, "[$(C.n), $(C.k)")
     !ismissing(C.d) && print(io, ", $(C.d)")
     typeof(C) <: AbstractBCHCode && print(io, "; $(C.b)")
@@ -286,7 +286,7 @@ function show(io::IO, C::AbstractCyclicCode)
         println(io, "linear code")
     end
 
-    if get(io, :compact, false)
+    if get(io, :compact, true)
         if typeof(C) <: AbstractCyclicCode
             println(io, "$(order(C.F))-Cyclotomic cosets: ")
             len = length(qcosetsreps(C))

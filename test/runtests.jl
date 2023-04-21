@@ -869,3 +869,35 @@ end
 
 
 end
+
+@testset "subsystemcode.jl" begin
+    using Oscar, CodingTheory
+
+    # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
+    # [[9, 1, 4, 3]] gauged Shor code
+    S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
+    # these are the {X, Z} pairings
+    Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+    G = S ∪ Gops
+    L = ["ZZZZZZZZZ", "XXXXXXXXX"]
+    Q = SubsystemCode(G)
+    @test length(Q) == 9
+    @test dimension(Q) == 1
+    @test Q.r == 4
+    # @test minimumdistance(Q) == 3
+
+    Q2 = SubsystemCode(S, L, Gops)
+    @test isisomorphic(Q, Q2)
+
+    # TODO: BaconShorCode
+
+    # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
+
+    F, _ = FiniteField(2, 1, "α")
+    A = matrix(F, 3, 4, ones(Int, 3, 4))
+    Q3 = BravyiSubsystemCodes(A)
+    @test CodingTheory.dimension(Q3) == rank(A)
+    # TODO: add a test here on the min distances
+    # Q3 here should be a BaconShorCode(3, 4)
+    @test isisomorphic(Q, Q3)
+end

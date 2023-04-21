@@ -125,7 +125,7 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
 
         return StabilizerCodeCSS(D.F, base_ring(Sq2), D.n, dimcode, missing, missing, missing, Sq2,
             D.H, D.H, C, D, signs, Xsigns, Zsigns, logs, charvec,
-            missing, missing, missing, overcomp, missing)
+            missing, missing, missing, false, missing)
     else
         return GraphStateStabilizerCSS(D.F, base_ring(Sq2), D.n, 0, missing, D.d, D.d, Sq2,
             D.H, D.H, C, D, signs, Xsigns, Zsigns, charvec, missing, false)
@@ -462,10 +462,6 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
         error("Computed logicals do not have the right commutation relations.")
     return logs
 end
-
-# function Singletonbound()
-#     n - k ≧ 2(d - 1)
-# end
 
 """
     augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)

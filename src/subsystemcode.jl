@@ -29,7 +29,7 @@ function SubsystemCode(Gq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector
     # C(G) = < S, logs >
     # S = C(G) \cap G
     # C(S) = < S, logs, gauges >
-    # logs = C(S) \ G (bare operators)
+    # logs = C(G) \ S (bare operators)
     # gauge ops = G - S
     # dressed operators = < logs, gauge ops >
 
@@ -37,13 +37,15 @@ function SubsystemCode(Gq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector
     _, kerG = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
     kerG = transpose(kerG)
     V = VectorSpace(base_ring(G), ncols(kerG))
-    kerGVS, kerGtoV = sub(V, [V(kerGsym[i, :]) for i in 1:nrows(kerGsym)])
-    GVS, _ = sub(V, [V[G[i, :]] for i in 1:nrows(G)])
-    I, _ = intersect(kerGVS, GVS)
+    kerGVS, kerGtoV = sub(V, [V(kerG[i, :]) for i in 1:nrows(kerG)])
+    GVS, _ = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
+    I, ItokerG = intersect(kerGVS, GVS)
     if !iszero(AbstractAlgebra.dim(I))
-        Ibasis = [kerGtoV(g) for g in gens(I)]
-        S = vcat(Ibasis...)
+        Ibasis = [kerGtoV(ItokerG(g)) for g in gens(I)]
+        Fbasis = [[F(Ibasis[j][i]) for i in 1:AbstractAlgebra.dim(parent(Ibasis[1]))] for j in 1:length(Ibasis)]
+        S = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
         Sq2 = symplectictoquadratic(S)
+        # display(Sq2)
     else
         error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
     end
@@ -56,18 +58,22 @@ function SubsystemCode(Gq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector
         return StabilizerCode(S, true, charvec)
     end
 
-    # bare logicals (reps): ker S / G
-    _, kerS = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    kerS = transpose(kerS)
-    BL = _quotientspace(kerS, G)
+    # bare logicals (reps): ker G / S
+    # _, kerS = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # kerS = transpose(kerS)
+    # display(kerS)
+    # println(" ")
+    # display(G)
+    BL = _quotientspace(kerG, S)
     graphstate = false
     if !iszero(BL)
         BLq2 = symplectictoquadratic(BL)
+        # display(BLq2)
         barelogs = _makepairs(BLq2)
         # verify
         barelogsmat = vcat([vcat(barelogs[i]...) for i in 1:length(barelogs)]...)
         aresymplecticorthogonal(Sq2, barelogsmat) || error("Computed logicals do not commute with the codespace.")
-        BLsymmat = quadratictosymplectic(barelogsmat);
+        BLsymmat = quadratictosymplectic(barelogsmat)
         prod = hcat(BLsymmat[:, n + 1:end], -BLsymmat[:, 1:n]) * transpose(BLsymmat)
         sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
     else
@@ -83,17 +89,18 @@ function SubsystemCode(Gq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector
     gaugeopsmat = vcat([vcat(gaugeops[i]...) for i in 1:length(gaugeops)]...)
     aresymplecticorthogonal(Sq2, gaugeopsmat) || error("Computed gauge operators do not commute with the codespace.")
     aresymplecticorthogonal(barelogsmat, gaugeopsmat) || error("Computed gauge operators do not commute with the computed logicals.")
-    GOsymmat = quadratictosymplectic(gaugeopsmat);
+    GOsymmat = quadratictosymplectic(gaugeopsmat)
     prod = hcat(GOsymmat[:, n + 1:end], -GOsymmat[:, 1:n]) * transpose(GOsymmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed gauge operators do not have the right commutation relations.")
 
     # since S is computed, it automatically has full rank and is not overcomplete
     # q^n / p^k but rows is n - k
     top = BigInt(order(F))^n
-    k =  top // BigInt(p)^(nrows(S) + nrows(GOsymmat))
+    r = length(gaugeops)
+    k =  top // BigInt(p)^(nrows(S) + r)
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-    r = top // BigInt(p)^nrows(GOsymmat)
-    isinteger(r) && (r = round(Int, log(BigInt(p), r));)
+    # r = top // BigInt(p)^length(gaugeops)
+    # isinteger(r) && (r = round(Int, log(BigInt(p), r));)
 
     # determine signs
     signs = _determinesigns(S, charvec)
@@ -132,6 +139,7 @@ function SubsystemCode(Sq2::fq_nmod_mat, Lq2::Union{fq_nmod_mat, Vector{Tuple{fq
     n = ncols(Sq2)
     if symp
         S = Sq2
+        n = div(n, 2)
         # this will error properly if not correct
         Sq2 = symplectictoquadratic(Sq2)
     else
@@ -301,6 +309,7 @@ function SubsystemCode(Sq2::fq_nmod_mat, Lq2::Union{fq_nmod_mat, Vector{Tuple{fq
             prodJul = FpmattoJulia(prod)
             cols = [sum(prodJul[:, i]) for i in 1:ncpr]
             sum(cols) == ncpr || println("Detected gauges not in anticommuting pairs.")
+            # display(prod)
             gopspairsq2 = _makepairs(symplectictoquadratic(gopsmatrix))
         else
             gopsmatrix = quadratictosymplectic(Gq2)
@@ -321,9 +330,12 @@ function SubsystemCode(Sq2::fq_nmod_mat, Lq2::Union{fq_nmod_mat, Vector{Tuple{fq
         end
     end
 
-    F = base_ring(G)
+    # display(G)
+    F = base_ring(gopsmatrix)
     p = Int(characteristic(F))
-    n = ncols(Gq2)
+    # display(Gq2)
+    symp ? (n = div(ncols(Gq2), 2);) : (n = ncols(Gq2);)
+    # println(n)
     charvec = _processcharvec(charvec, p, n)
 
     # determine if the provided set of stabilizers are redundant
@@ -336,10 +348,10 @@ function SubsystemCode(Sq2::fq_nmod_mat, Lq2::Union{fq_nmod_mat, Vector{Tuple{fq
     rkG = rank(gopsmatrix)
 
     top = BigInt(order(F))^n
-    k =  top // BigInt(p)^(rkS + rkG)
+    # TODO: handle overcompleteness in inputs
+    r = div(rkG, 2)
+    k =  top // BigInt(p)^(rkS + r)
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-    r = top // BigInt(p)^rkG
-    isinteger(r) && (r = round(Int, log(BigInt(p), r));)
 
     # determine signs
     signs = _determinesigns(S, charvec)
@@ -354,6 +366,23 @@ function SubsystemCode(Sq2::fq_nmod_mat, Lq2::Union{fq_nmod_mat, Vector{Tuple{fq
 
 end
 
+# if people want to make a graph code go through the other constructor
+function SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T},
+    charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+
+    # TODO: look into stripping the charvec processing from this so not to repeat
+    SPaulistripped, charvec = _processstrings(SPauli, charvec)
+    LPaulistripped, _ = _processstrings(LPauli, charvec)
+    GPaulistripped, _ = _processstrings(GPauli, charvec)
+
+    S = _Paulistringtosymplectic(SPaulistripped)
+    iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
+    L = _Paulistringtosymplectic(LPaulistripped)
+    iszero(L) && error("The processed Pauli strings returned a set of empty logical generators.")
+    G = _Paulistringtosymplectic(GPaulistripped)
+    iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
+    return SubsystemCode(S, L, G, true, charvec)
+end
 
 # CSS construction, Euclidean and Hermitian
 # min dist is min dressed logical operator weight
@@ -570,7 +599,7 @@ Return the result of `gauges(S)` as a vertically concatenated matrix.
 """
 gaugesmatrix(S::T) where {T <: AbstractSubsystemCode} = gaugesmatrix(GaugeTrait(T), S)
 gaugesmatrix(::HasGauges, S::AbstractSubsystemCode) =
-    vcat([vcat(S.gaugeops[i]...) for i in 1:length(gaugeops)]...)
+    vcat([vcat(S.gaugeops[i]...) for i in 1:length(S.gaugeops)]...)
 gaugesmatrix(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
 gaugeoperatorsmatrix(S::AbstractSubsystemCode) = gaugesmatrix(S)
 
@@ -632,12 +661,49 @@ function changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
 end
 
 """
+    setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat, symp::Bool=true)
+
+Set the stabilizers of `S` to `stabs`.
+
+If the optional parameter `symp` is set to `true`, `stabs` is assumed to be in
+symplectic form over the base field of `S`. A check is done to make sure `stabs`
+is isomorphic to the current set of stabilizers.
+"""
+function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat, symp::Bool=true)
+    iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
+    stabs = _removeempty(stabs, "rows")
+    if symp
+        order(S.F) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+        stabs = change_base_ring(S.F, stabs)
+        if _isisomorphic(symplecticstabilizers(S), stabs)
+            S.stabs = symplectictoquadratic(stabs)
+            nrows(stabs) != S.k && (S.overcomplete = true;)
+        else
+            error("The current stabilizers are not isomorphic to the input.")
+        end
+    else
+        order(S.E) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+        stabs = change_base_ring(S.E, stabs)
+        if _isisomorphic(symplecticstabilizers(S), quadratictosymplectic(stabs))
+            S.stabs = stabs
+            nrows(stabs) != S.k && (S.overcomplete = true;)
+        else
+            error("The current stabilizers are not isomorphic to the input.")
+        end
+    end
+
+    # TODO: update signs
+    return nothing
+end
+
+"""
     setlogicals!(S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bool=false)
 
 Set the logical operators of `S` to `L`.
 
 If the optional parameter `symp` is set to `true`, `L` is assumed to be in
-symplectic form over the base field of `S`.
+symplectic form over the base field of `S`. A check is done to make sure `L`
+is isomorphic to the current set of logicals.
 """
 setlogicals!(S::T, L::fq_nmod_mat, symp::Bool=false) where {T <: AbstractSubsystemCode} = setlogicals!(LogicalTrait(T), S, L, symp)
 # TODO: also take in vector format, this probably should just be copy and paste from above
@@ -646,17 +712,18 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat, s
         Lsym = L
         size(L) == (2 * S.k, 2 * S.n) || error("Provided matrix is of incorrect size for the logical space.")
         iseven(ncols(L)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
-        S.F == F || error("The logicals must be over the same field as the code.")
+        S.F == base_ring(Lsym) || error("The logicals must be over the same field as the code.")
         L = symplectictoquadratic(L)
     else
-        F = base_ring(L)
+        E = base_ring(L)
         size(L) == (2 * S.k, S.n) || error("Provided matrix is of incorrect size for the logical space.")
-        S.E == F || error("The logicals must be over the same field as the code.")
-        iseven(degree(F)) || error("The base ring of the given matrix is not a quadratic extension.")
+        S.E == E || error("The logicals must be over the same field as the code.")
+        iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
         Lsym = quadratictosymplectic(L)
     end
-    aresymplecticorthogonal(symplecticstabilizers(S), Lsym, true) ||
-        error("Provided logicals do not commute with the code.")
+    _isisomorphic(Lsym, quadratictosymplectic(logicalsmatrix(S))) || error("The current logicals are not isomorphic to the input.")
+    # aresymplecticorthogonal(symplecticstabilizers(S), Lsym, true) ||
+    #     error("Provided logicals do not commute with the code.")
 
     # the columns in prod give the commutation relationships between the provided
     # logical operators; they ideally should only consist of {X_1, Z_i} pairs
@@ -849,7 +916,7 @@ function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{nmod}, trim::Bool=true)
     end
 end
 
-# also using this function for gauge operators
+# using this function for logical and gauge operators
 function _makepairs(L::fq_nmod_mat)
     E = base_ring(L)
     n = ncols(L)
@@ -875,6 +942,7 @@ function _makepairs(L::fq_nmod_mat)
                 end
             end
         end
+        # TODO: need to check when iszero(first)
         for c in 2:nprod
             if !iszero(prod[first, c])
                 L[c, :] += E(prod[first, c]^-1) * L[1, :]
@@ -1053,33 +1121,36 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
         S1.r == S2.r || return false
     end
 
-    V = VectorSpace(S1.F, 2 * S1.n);
-    # test stabilizers
-    S1symstabs = symplecticstabilizers(S1);
-    S2symstabs = symplecticstabilizers(S2);
-    S1VS, _ = sub(V, [V(S1symstabs[i, :]) for i in 1:nrows(S1symstabs)]);
-    S2VS, _ = sub(V, [V(S2symstabs[i, :]) for i in 1:nrows(S2symstabs)]);
-    is_isomorphic(S1VS, S2VS) || return false
+
+    # V = VectorSpace(S1.F, 2 * S1.n)
+    # # test stabilizers
+    # S1symstabs = symplecticstabilizers(S1)
+    # S2symstabs = symplecticstabilizers(S2)
+    # S1VS, _ = sub(V, [V(S1symstabs[i, :]) for i in 1:nrows(S1symstabs)])
+    # S2VS, _ = sub(V, [V(S2symstabs[i, :]) for i in 1:nrows(S2symstabs)])
+    # is_isomorphic(S1VS, S2VS) || return false
+    _isisomorphic(symplecticstabilizers(S1), symplecticstabilizers(S2)) || return false
 
     # graph states
     if LogicalTrait(T) == HasLogicals()
         # test logicals
-        S1symlogs = quadratictosymplectic(logicalsmatrix(S1));
-        S2symlogs = quadratictosymplectic(logicalsmatrix(S2));
-        S1logsVS, _ = sub(V, [V(S1symlogs[i, :]) for i in 1:nrows(S1symlogs)]);
-        S2logsVS, _ = sub(V, [V(S2symlogs[i, :]) for i in 1:nrows(S2symlogs)]);
-        is_isomorphic(S1logsVS, S2logsVS) || return false
+        # S1symlogs = quadratictosymplectic(logicalsmatrix(S1))
+        # S2symlogs = quadratictosymplectic(logicalsmatrix(S2))
+        # S1logsVS, _ = sub(V, [V(S1symlogs[i, :]) for i in 1:nrows(S1symlogs)])
+        # S2logsVS, _ = sub(V, [V(S2symlogs[i, :]) for i in 1:nrows(S2symlogs)])
+        # is_isomorphic(S1logsVS, S2logsVS) || return false
+        _isisomorphic(quadratictosymplectic(logicalsmatrix(S1)), quadratictosymplectic(logicalsmatrix(S2))) || return false
     else
         return true
     end
 
     if GaugeTrait(T) == HasGauges()
         # test gauge operators
-        S1symgops = quadratictosymplectic(gaugesmatrix(S1));
-        S2symgops = quadratictosymplectic(gaugesmatrix(S2));
-        S1gopsVS, _ = sub(V, [V(S1symgops[i, :]) for i in 1:nrows(S1symgops)]);
-        S2gopsVS, _ = sub(V, [V(S2symgops[i, :]) for i in 1:nrows(S2symgops)]);
-        return is_isomorphic(S1gopsVS, S2gopsVS)
+        # S1symgops = quadratictosymplectic(gaugesmatrix(S1))
+        # S2symgops = quadratictosymplectic(gaugesmatrix(S2))
+        # S1gopsVS, _ = sub(V, [V(S1symgops[i, :]) for i in 1:nrows(S1symgops)])
+        # S2gopsVS, _ = sub(V, [V(S2symgops[i, :]) for i in 1:nrows(S2symgops)])
+        return is_isomorphic(quadratictosymplectic(gaugesmatrix(S1)), quadratictosymplectic(gaugesmatrix(S2)))
     else
         return true
     end
@@ -1091,7 +1162,7 @@ function show(io::IO, S::AbstractSubsystemCode)
     else
         print(io, "(($(S.n), $(S.k)")
     end
-    !isa(S, AbstractStabilizerCode) && print(io, ", $(S.r)")
+    !(typeof(S) <: AbstractStabilizerCode) && print(io, ", $(S.r)")
     !ismissing(S.d) && print(io, ", $(S.d)")
     if isa(S.k, Integer)
         print(io, "]]_$(order(S.F))")
@@ -1222,3 +1293,10 @@ Print all the elements of the stabilizer group of `S`.
 """
 printallstabilizers(S::AbstractSubsystemCode) = _allstabilizers(S, true)
 printallelements(S::AbstractSubsystemCode) = printallstabilizers(S)
+
+
+# function Singletonbound()
+#     n - k ≧ 2(d - 1) for stabilizer
+#     k + r ≤ n - 2d + 2 for subsystem
+# they should be the same but with r = 0 for stabilizer
+# end

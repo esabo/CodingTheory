@@ -4,6 +4,17 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+function _isisomorphic(A::fq_nmod_mat, B::fq_nmod_mat)
+    n = ncols(A)
+    nrA = nrows(A)
+    nrB = nrows(B)
+    F = base_ring(A)
+    V = VectorSpace(F, n)
+    AVS, _ = sub(V, [V(A[i, :]) for i in 1:nrA])
+    BVS, _ = sub(V, [V(B[i, :]) for i in 1:nrB])
+    return is_isomorphic(AVS, BVS)
+end
+
 """
     reverse(v::fq_nmod_mat)
     reverse!(v::fq_nmod_mat)

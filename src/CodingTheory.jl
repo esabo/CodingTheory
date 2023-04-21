@@ -189,6 +189,10 @@ export ClusterState, graphstate
 #############################
 
 include("miscknownquantumcodes.jl")
+# subsystem
+export GaugedShorCode, Q9143, BaconShorCode
+
+# stabilizer
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
