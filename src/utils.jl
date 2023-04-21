@@ -533,7 +533,8 @@ _Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat
 # need symplectictoPaulistring
 # quadratictoPaulistring
 
-function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+# charvec::Union{Vector{nmod}, Missing}=missing)
+function _processstrings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
     # Paulisigns = Vector{Int}()
     StrPaulistripped = Vector{String}()
     for (i, s) in enumerate(SPauli)
@@ -559,17 +560,17 @@ function _processstrings(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing
         length(s) == n || error("Not all Pauli strings are the same length.")
     end
 
-    if !ismissing(charvec)
-        2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
-        R = ResidueRing(Nemo.ZZ, 4)
-        for s in charvec
-            modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
-        end
-    else
-        R = ResidueRing(Nemo.ZZ, 4)
-        charvec = [R(0) for _ in 1:2 * n]
-    end
-    return StrPaulistripped, charvec
+    # if !ismissing(charvec)
+    #     2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
+    #     R = ResidueRing(Nemo.ZZ, 4)
+    #     for s in charvec
+    #         modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+    #     end
+    # else
+    #     R = ResidueRing(Nemo.ZZ, 4)
+    #     charvec = [R(0) for _ in 1:2 * n]
+    # end
+    return StrPaulistripped#, charvec
 end
 
 function largestconsecrun(arr::Vector{Int})

@@ -250,8 +250,7 @@ determine such quantities. Use `isovercomplete` to determine if an
 function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     Missing}=missing) where T <: Union{String, Vector{Char}}
 
-    SPaulistripped, charvec = _processstrings(SPauli, charvec)
-    S = _Paulistringtosymplectic(SPaulistripped)
+    S = _Paulistringtosymplectic(_processstrings(SPauli))
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
     S = _removeempty(S, "rows")
     # the reason we repeat here and not call another constructor is the else
@@ -348,7 +347,7 @@ determine such quantities. Use `isovercomplete` to determine if an
   to make sure these signs agree with the ones computed using the character vector.
 """
 function StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
-    SPaulistripped, charvec = _processstrings(SPauli, charvec)
+    SPaulistripped = _processstrings(SPauli)
     S = _Paulistringtosymplectic(SPaulistripped)
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
     return StabilizerCode(S, true, charvec)

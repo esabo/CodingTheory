@@ -123,7 +123,7 @@ function SubsystemCode(Gq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector
 end
 
 function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
-    GPaulistripped, charvec = _processstrings(GPauli, charvec)
+    GPaulistripped = _processstrings(GPauli)
     G = _Paulistringtosymplectic(GPaulistripped)
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
     return SubsystemCode(G, true, charvec)
@@ -370,16 +370,11 @@ end
 function SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T},
     charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
-    # TODO: look into stripping the charvec processing from this so not to repeat
-    SPaulistripped, charvec = _processstrings(SPauli, charvec)
-    LPaulistripped, _ = _processstrings(LPauli, charvec)
-    GPaulistripped, _ = _processstrings(GPauli, charvec)
-
-    S = _Paulistringtosymplectic(SPaulistripped)
+    S = _Paulistringtosymplectic(_processstrings(SPauli))
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
-    L = _Paulistringtosymplectic(LPaulistripped)
+    L = _Paulistringtosymplectic(_processstrings(LPauli))
     iszero(L) && error("The processed Pauli strings returned a set of empty logical generators.")
-    G = _Paulistringtosymplectic(GPaulistripped)
+    G = _Paulistringtosymplectic(_processstrings(GPauli))
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
     return SubsystemCode(S, L, G, true, charvec)
 end
@@ -773,7 +768,7 @@ end
 
 function _processcharvec(charvec::Union{Vector{nmod}, Missing}, p::Int, n::Int)
     if !ismissing(charvec)
-        2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
+        n == length(charvec) || error("The characteristic value is of incorrect length.")
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
@@ -788,7 +783,7 @@ function _processcharvec(charvec::Union{Vector{nmod}, Missing}, p::Int, n::Int)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
-        charvec = [R(0) for _ in 1:2 * n]
+        charvec = [R(0) for _ in 1:n]
     end
     return charvec
 end
