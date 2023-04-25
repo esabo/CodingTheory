@@ -9,12 +9,12 @@
 #############################
 
 """
-    ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
+    ReedMullergeneratormatrix(q::Int, r::Int, m::Int)
 
 Return the recursive form of the generator matrix for the `RM(r, m)` Reed-Muller
 code over `GF(q)`.
 """
-function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
+function ReedMullergeneratormatrix(q::Int, r::Int, m::Int)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
     if q == 2
@@ -37,11 +37,11 @@ function ReedMullergeneratormatrix(q::Integer, r::Integer, m::Integer)
 end
 
 """
-    ReedMullerCode(q::Integer, r::Integer, m::Integer)
+    ReedMullerCode(q::Int, r::Int, m::Int)
 
 Return the `RM(r, m)` Reed-Muller code over `GF(q)`.
 """
-function ReedMullerCode(q::Integer, r::Integer, m::Integer)
+function ReedMullerCode(q::Int, r::Int, m::Int)
     (0 ≤ r < m) || throw(DomainError("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m."))
     m < 64 || throw(DomainError("This Reed-Muller code requires the implmentation of BigInts. Change if necessary."))
     q == 2 || throw(DomainError("Nonbinary Reed-Muller codes have not yet been implemented."))
