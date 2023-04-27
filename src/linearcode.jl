@@ -16,17 +16,11 @@ Return the linear code constructed with generator matrix `G`.
 If `G` is not full rank, a row-reduced form is computed for the generator matrix.
 The dimension of the code is the number of rows of the full-rank matrix, and the
 length the number of columns. If the optional paramater `parity` is set to `true`,
-a LinearCode is built with `G` as the parity-check matrix.
-
-# Arguments
-* `G`: a matrix over a finite field of type `FqNmodFiniteField`
-* `parity`: a boolean
+a linear code is built with `G` as the parity-check matrix.
 
 # Notes
 * At the moment, no convention is used for G = 0 and an error is thrown.
 * Zero columns are not removed.
-* Row reduction is based on Nemo's rref function. It should be monitored to make
-  sure that this does not introduce column swapping in a future version.
 
 # Examples
 ```julia
@@ -42,7 +36,6 @@ Generator matrix: 4 × 7
 ```
 """
 function LinearCode(Gorig::fq_nmod_mat, parity::Bool=false)
-    # TODO: if passed a VS, just ask for the basis
     iszero(Gorig) && error("Zero matrix passed into LinearCode constructor.")
 
     Gorig = _removeempty(Gorig, "rows")
@@ -71,6 +64,14 @@ function LinearCode(Gorig::fq_nmod_mat, parity::Bool=false)
             Gorig, H, missing, Gstand, Hstand, P, missing)
     end
 end
+
+"""
+LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false)
+
+Return the linear code constructed from the basis of the vector space `V`. If the optional paramater
+`parity` is set to `true`, a linear code is built with `G` as the parity-check matrix.
+"""
+LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false) = LinearCode(basis(V), parity)
 
 """
     constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode)
@@ -732,20 +733,21 @@ directsum(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊕ C2
 
 Return the (direct/tensor) product code of `C1` and `C2`.
 
-The product code has generator matrix `G1 ⊗ G2` and parity-check matrix `H1 ⊗ H2`.
-
-# Notes
-* The resulting product is not checked for any zero columns but is checked for zero rows.
+The product code has generator matrix `G1 ⊗ G2`.
 """
-# TODO: G is def, some refs say there is no formula for H, check
 function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
 
     G = generatormatrix(C1) ⊗ generatormatrix(C2)
-    H = paritycheckmatrix(C1) ⊗ paritycheckmatrix(C2)
-
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k * C2.k || error("Unexpected dimension in direct product output.")
+    if ismissing(P)
+        _, H = right_kernel(G)
+        # note the H here is transpose of the standard definition
+        H = _removeempty(transpose(H), "rows")
+    else
+        H = Hstand * P
+    end
 
     if !ismissing(C1.d) && !ismissing(C2.d)
         d = C1.d * C2.d
