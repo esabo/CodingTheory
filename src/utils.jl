@@ -1172,6 +1172,26 @@ function extractbipartition(G::SimpleGraph{Int})
     return left, right
 end
 
+# Creates a matrix with copies of `M` at every nonzero entry of `locations`.
+function _concat(locations::Union{fq_nmod_mat, Matrix}, M::fq_nmod_mat)
+    nrM, ncM = size(M)
+    nrL, ncL = size(locations)
+    output = zero_matrix(base_ring(M), nrM * nrL, ncM * ncL)
+    for jouter in 1:ncL
+        for iouter in 1:nrL
+            if !iszero(locations[iouter, jouter])
+                for j in 1:ncM
+                    for i in 1:nrM
+                        row = i + nrM * (iouter - 1)
+                        col = j + ncM * (jouter - 1)
+                        output[row, col] = M[i, j]
+                    end
+                end
+            end
+        end
+    end
+    return output
+end
 
 
 
