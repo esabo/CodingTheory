@@ -15,8 +15,8 @@ tricolorcodes*.jl
 bipartite_solutions.txt
 fig.png
 learninggit.txt
-.gitignore
 .DS_Store
 *.txt
 docs/.DS_Store
 typestest.jl
+Manifest.toml
