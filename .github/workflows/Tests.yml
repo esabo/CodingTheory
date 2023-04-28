@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - master
-#     tags: '*'
+    # tags: '*'
 #   pull_request:
 concurrency:
   # Skip intermediate builds: always.
@@ -20,7 +20,7 @@ jobs:
         version:
           - '1.7'
           - '1.8'
-          - '1.9'
+          # - '1.9'
         os:
           - ubuntu-latest
         arch:
@@ -32,6 +32,11 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
+          # WARNING: cache-registries is actually slower for Windows runners
+          cache-registries: "true"
+          # WARNING: cache-compiled can break with certain choices of OS and architecture.
+          # see https://github.com/julia-actions/cache/issues/11
+          cache-compiled: "true"
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
       - uses: julia-actions/julia-processcoverage@latest
