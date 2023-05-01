@@ -19,4 +19,4 @@ learninggit.txt
 *.txt
 docs/.DS_Store
 typestest.jl
-Manifest.toml
+# Manifest.toml
