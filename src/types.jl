@@ -63,7 +63,7 @@ end
          # LDPC.jl
 #############################
 
-# TODO: Abstract type in struct, also don't like having this here as a subobject - rethink
+# TODO: don't like having this here as a subobject - rethink
 mutable struct LDPCCode <: AbstractLDPCCode
       C::AbstractLinearCode
       numedges::Int
@@ -98,7 +98,7 @@ mutable struct MatrixProductCode <: AbstractMatrixProductCode
       Hstand::fq_nmod_mat
       P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
       weightenum::Union{WeightEnumerator, Missing}
-      C::Vector{AbstractLinearCode} # TODO: check this abstract type
+      C::Vector{AbstractLinearCode}
       A::fq_nmod_mat
 end
 
@@ -296,30 +296,30 @@ abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
 # TODO: make parents and return a vector and redo subtype
 # main relationships
-conceptualparent(::Type{AbstractAdditiveCode}) = AbstractCode
-conceptualparent(::Type{AbstractSubsystemCode}) = AbstractAdditiveCode
-conceptualparent(::Type{AbstractStabilizerCode}) = AbstractSubsystemCode
-conceptualparent(::Type{AbstractSubsystemCodeCSS}) = AbstractSubsystemCode
-conceptualparent(::Type{AbstractGraphStateSubsystem}) = AbstractSubsystemCode
-conceptualparent(::Type{AbstractStabilizerCodeCSS}) = AbstractStabilizerCode
-conceptualparent(::Type{AbstractGraphStateStabilizer}) = AbstractStabilizerCode
-conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractStabilizerCodeCSS
-conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractGraphStateStabilizer
-conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractSubsystemCodeCSS
-conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractGraphStateSubsystem
+# conceptualparent(::Type{AbstractAdditiveCode}) = AbstractCode
+# conceptualparent(::Type{AbstractSubsystemCode}) = AbstractAdditiveCode
+# conceptualparent(::Type{AbstractStabilizerCode}) = AbstractSubsystemCode
+# conceptualparent(::Type{AbstractSubsystemCodeCSS}) = AbstractSubsystemCode
+# conceptualparent(::Type{AbstractGraphStateSubsystem}) = AbstractSubsystemCode
+# conceptualparent(::Type{AbstractStabilizerCodeCSS}) = AbstractStabilizerCode
+# conceptualparent(::Type{AbstractGraphStateStabilizer}) = AbstractStabilizerCode
+# conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractStabilizerCodeCSS
+# conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractGraphStateStabilizer
+# conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractSubsystemCodeCSS
+# conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractGraphStateSubsystem
 
-issubtype(::Type{AbstractAdditiveCode}, ::Type{AbstractCode}) = true
-issubtype(::Type{AbstractSubsystemCode}, ::Type{AbstractAdditiveCode}) = true
-issubtype(::Type{AbstractStabilizerCode}, ::Type{AbstractSubsystemCode}) = true
-issubtype(::Type{AbstractSubsystemCodeCSS}, ::Type{AbstractSubsystemCode}) = true
-issubtype(::Type{AbstractGraphStateSubsystem}, ::Type{AbstractSubsystemCode}) = true
-issubtype(::Type{AbstractStabilizerCodeCSS}, ::Type{AbstractStabilizerCode}) = true
-issubtype(::Type{AbstractGraphStateStabilizer}, ::Type{AbstractStabilizerCode}) = true
-issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractStabilizerCodeCSS}) = true
-issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractGraphStateStabilizer}) = true
-issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractSubsystemCodeCSS}) = true
-issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractGraphStateSubsystem}) = true
-issubtype(::Type{S}, ::Type{T}) where {S <: AbstractCode, T <: AbstractCode} = issubtype(conceptualparent(S), T)
+# issubtype(::Type{AbstractAdditiveCode}, ::Type{AbstractCode}) = true
+# issubtype(::Type{AbstractSubsystemCode}, ::Type{AbstractAdditiveCode}) = true
+# issubtype(::Type{AbstractStabilizerCode}, ::Type{AbstractSubsystemCode}) = true
+# issubtype(::Type{AbstractSubsystemCodeCSS}, ::Type{AbstractSubsystemCode}) = true
+# issubtype(::Type{AbstractGraphStateSubsystem}, ::Type{AbstractSubsystemCode}) = true
+# issubtype(::Type{AbstractStabilizerCodeCSS}, ::Type{AbstractStabilizerCode}) = true
+# issubtype(::Type{AbstractGraphStateStabilizer}, ::Type{AbstractStabilizerCode}) = true
+# issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractStabilizerCodeCSS}) = true
+# issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractGraphStateStabilizer}) = true
+# issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractSubsystemCodeCSS}) = true
+# issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractGraphStateSubsystem}) = true
+# issubtype(::Type{S}, ::Type{T}) where {S <: AbstractCode, T <: AbstractCode} = issubtype(conceptualparent(S), T)
 
 
 #############################

@@ -17,13 +17,15 @@ using LinearAlgebra # need to remove? want only mul!
 using SparseArrays
 
 import LinearAlgebra: tr, Adjoint
-import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree, isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive, isregular
+import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
+    isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
+    isregular
 import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
 
-# don't want this here
+# TODO: don't want this here
 # GAP.Packages.load("LINS");
 
 # TODO: ResidueRing is deprecated and is used in many places, replace with residue_ring
