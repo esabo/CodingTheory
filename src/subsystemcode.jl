@@ -94,15 +94,17 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     if args[1]
         if graphstate
             return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, S, args[2], args[4],
-                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops)
+                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops, gaugeopsmat)
         end
         return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], barelogs, charvec, gaugeops, false)
+            args[3], args[5], barelogs, barelogsmat, charvec, gaugeops, gaugeopsmat, false)
     else
         if graphstate
-            return GraphStateSubsystem(F, n, 0, r, missing, S, charvec, signs, missing, false, gaugeops)
+            return GraphStateSubsystem(F, n, 0, r, missing, S, charvec, signs, missing, false, gaugeops,
+                gaugeopsmat)
         end
-        return SubsystemCode(F, n, k, r, missing, S, signs, barelogs, charvec, gaugeops, false)
+        return SubsystemCode(F, n, k, r, missing, S, signs, barelogs, barelogsmat, charvec, gaugeops,
+            gaugeopsmat, false)
     end
 end
 
@@ -138,6 +140,7 @@ function SubsystemCode(S::fq_nmod_mat, L::MatrixTypes, G::MatrixTypes,
     cols = [sum(prodJul[:, i]) for i in 1:ncpr]
     sum(cols) == ncpr || println("Detected logicals not in anticommuting pairs.")
     logpairs = _makepairs(L)
+    logsmat = vcat([vcat(logpairs[i]...) for i in 1:length(logpairs)]...)
 
     # gauge operators
     iszero(G) && error("The gauges are empty.")
@@ -157,6 +160,7 @@ function SubsystemCode(S::fq_nmod_mat, L::MatrixTypes, G::MatrixTypes,
     sum(cols) == ncpr || println("Detected gauges not in anticommuting pairs.")
     # display(prod)
     gopspairs = _makepairs(G)
+    gopsmat = vcat([vcat(gopspairs[i]...) for i in 1:length(gopspairs)]...)
 
     # display(G)
     F = base_ring(gopsmatrix)
@@ -184,10 +188,10 @@ function SubsystemCode(S::fq_nmod_mat, L::MatrixTypes, G::MatrixTypes,
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
-        return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4],
-            missing, missing, signs, args[3], args[5], logpairs, charvec, gopspairs, false)
+        return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
+            args[3], args[5], logpairs, logsmat, charvec, gopspairs, gopsmat, false)
     else
-        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, charvec, gopspairs, false)
+        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, logsmat, charvec, gopspairs, gopsmat, false)
     end
 
 end
@@ -382,7 +386,7 @@ bare(S::AbstractSubsystemCode) = logicals(S)
 Returns the result of `logicals(S)` as a vertically concatenated matrix.
 """
 logicalsmatrix(S::T) where {T <: AbstractSubsystemCode} = logicalsmatrix(LogicalTrait(T), S)
-logicalsmatrix(::HasLogicals, S::AbstractSubsystemCode) = vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
+logicalsmatrix(::HasLogicals, S::AbstractSubsystemCode) = S.logsmat
 logicalsmatrix(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")    
 
 """
@@ -405,8 +409,7 @@ gaugeoperators(S::AbstractSubsystemCode) = gauges(S)
 Return the result of `gauges(S)` as a vertically concatenated matrix.
 """
 gaugesmatrix(S::T) where {T <: AbstractSubsystemCode} = gaugesmatrix(GaugeTrait(T), S)
-gaugesmatrix(::HasGauges, S::AbstractSubsystemCode) =
-    vcat([vcat(S.gaugeops[i]...) for i in 1:length(S.gaugeops)]...)
+gaugesmatrix(::HasGauges, S::AbstractSubsystemCode) = S.gopsmat
 gaugesmatrix(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
 gaugeoperatorsmatrix(S::AbstractSubsystemCode) = gaugesmatrix(S)
 
@@ -441,8 +444,7 @@ Return a matrix giving a (maybe overcomplete) basis for the gauge group.
 Here, this is the stabilizers and the gauge operators.
 """
 gaugegroup(S::T) where {T <: AbstractSubsystemCode} = gaugegroup(GaugeTrait(T), S)
-gaugegroup(::HasGauges, S::AbstractSubsystemCode) =
-    vcat(S.stabs, vcat([vcat(S.gaugeops[i]...) for i in 1:length(S.gaugeops)]...))
+gaugegroup(::HasGauges, S::AbstractSubsystemCode) = vcat(S.stabs, S.gopsmat)
 gaugegroup(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
 gaugegroupmatrix(S::AbstractSubsystemCode) = gaugegroup(S)
 gaugegeneratorsmatrix(S::AbstractSubsystemCode) = gaugegroup(S)
@@ -536,6 +538,7 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
     end
     S.logicals = logs
+    S.logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
 end
 setlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bool=false) = error("Type $(typeof(S)) has no logicals.")
 
@@ -742,8 +745,7 @@ end
 
 _testlogicalsrelationships(S::T) where {T <: AbstractSubsystemCode} = _testlogicalsrelationships(LogicalTrait(T), S)
 function _testlogicalsrelationships(::HasLogicals, S::AbstractSubsystemCode)
-    L = vcat([vcat(S.logicals[i]...) for i in 1:S.k]...)
-    prod = hcat(L[:, S.n + 1:end], -L[:, 1:S.n]) * transpose(L)
+    prod = hcat(S.logsmat[:, S.n + 1:end], -S.logsmat[:, 1:S.n]) * transpose(S.logsmat)
     display(prod)
     return nothing
 end
@@ -757,10 +759,9 @@ Return `true` if the vector `v` anticommutes with any of the logical operators.
 # TODO: check for type stability here
 islogical(S::T, v::fq_nmod_mat) where {T <: AbstractSubsystemCode} = islogical(LogicalTrait(T), S, v)
 function islogical(::HasLogicals, S::AbstractSubsystemCode, v::fq_nmod_mat)
-    logsmat = logicalsmatrix(S)
-    nc = ncols(logsmat)
-    size(v) == (1, nc) && (return !iszero(logsmat * transpose(v));)
-    size(v) == (nc, 1) && (return !iszero(logsmat * v);)
+    nc = ncols(S.logsmat)
+    size(v) == (1, nc) && (return !iszero(S.logsmat * transpose(v));)
+    size(v) == (nc, 1) && (return !iszero(S.logsmat * v);)
     error("Vector to be tested is of incorrect dimension.")
 end
 islogical(::HasNoLogicals, S::AbstractSubsystemCode, v::fq_nmod_mat) = error("Type $(typeof(S)) has no logicals.")
@@ -830,8 +831,10 @@ function promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::
     stabs = S.stabs
     logs = S.logicals
     # will let this error naturally if pairs contains invalid elements
-    gaugeops = logs[pairs]
+    gaugeops = S.gaugeops ∪ logs[pairs]
+    gopsmat = vcat([vcat(gaugeops[i]...) for i in 1:length(gaugeops)]...)
     logs = logs[setdiff![1:S.k, pairs]]
+    logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
     # recompute k
     top = BigInt(order(F))^n
     if S.overcomplete
@@ -846,7 +849,8 @@ function promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::
     # compute r
     r = top // BigInt(p)^length(pairs)
     isinteger(r) && (r = round(Int, log(BigInt(p), r));)
-    return SubsystemCode(S.F, S.n, k, r, S.d, stabs, logs, S.charvec, S.signs, gaugeops, overcomplete)
+    return SubsystemCode(S.F, S.n, k, r, S.d, stabs, logs, logsmat, S.charvec, S.signs, gaugeops,
+        gopsmat, overcomplete)
 end
 promotelogicalstogauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
 
@@ -865,6 +869,7 @@ function swapXZlogicals!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{
         S.logicals[i][1] = S.logicals[i][2]
         S.logicals[i][2] = temp
     end
+    S.logsmat = vcat([vcat(S.logicals[i]...) for i in 1:length(S.logicals)]...)
     return nothing
 end
 swapXZlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
@@ -884,6 +889,7 @@ function swapXZgaugeoperators!(::HasGauges, S::AbstractSubsystemCode, pairs::Vec
         S.gaugeops[i][1] = S.gaugeops[i][2]
         S.gaugeops[i][2] = temp
     end
+    S.gopsmat = vcat([vcat(S.gaugeops[i]...) for i in 1:length(S.gaugeops)]...)
     return nothing
 end
 swapXZgaugeoperators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no gauges.")

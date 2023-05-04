@@ -1,5 +1,7 @@
 using Test
 
+# TODO: should setup test for traits
+
 # @testset "utils.jl" begin
 #     using Oscar, CodingTheory
 
@@ -142,7 +144,7 @@ using Test
 #     F, _ = FiniteField(2, 1, "α")
 #     S, x = PolynomialRing(F, "x")
 #     l = 3
-#     R = ResidueRing(S, x^l - 1)
+#     R = residue_ring(S, x^l - 1)
 #     A = matrix(R, 2, 3, [1, 0, 1 + x^2, 1 + x, 1 + x + x^2, x^2])
 #     @test lift(A) == matrix(F, 6, 9,
 #         [1, 0, 0, 0, 0, 0, 1, 1, 0,
@@ -629,7 +631,7 @@ using Test
 #     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
 # end
 
-# @testset "StabilizerCode.jl" begin
+# @testset "stabilizercode.jl" begin
 #     using Oscar, CodingTheory
 
 #     # S = SteaneCode()
@@ -638,11 +640,11 @@ using Test
 #     # row = stabilizers(S)[1, :]
 #     # S2 = augment(S, row)
 #     # Row is already in the stabilizer group. Nothing to update.
-#     Q = Q1573();
-#     logs = logicals(Q);
-#     newstab = logs[1][2] + logs[2][2];
-#     Q2 = augment(Q, newstab, false, false);
-#     Q3 = expurgate(Q2, [9], false);
+#     Q = Q1573()
+#     logs = logicals(Q)
+#     newstab = logs[1][2] + logs[2][2]
+#     Q2 = augment(Q, newstab, false, false)
+#     Q3 = expurgate(Q2, [9], false)
 #     @test isisomorphic(Q, Q3)
 # end
 
@@ -720,20 +722,300 @@ using Test
 #     @test checkdegreepolynomial(C) == x^3
 # end
 
-# @testset "miscknownStabilizerCodes.jl" begin
-#     using CodingTheory
+@testset "miscknownquantumcodes.jl" begin
+    using CodingTheory
 
-#     S = ToricCode(2);
-#     @test S.n == 2 * 2^2
-#     @test S.k == 2
-#     # this only prints and doesn't return
-#     # @test CodingTheory._testlogicalsrelationships(S) == [0 1 0 0; 1 0 0 0; 0 0 0 1; 0 0 1 0]
-#     S = ToricCode(3);
-#     @test S.n == 2 * 3^2
-#     @test S.k == 2
-#      # this only prints and doesn't return
-#     # @test CodingTheory._testlogicalsrelationships(S) == [0 1 0 0; 1 0 0 0; 0 0 0 1; 0 0 1 0]
-# end
+    # S = Q9143()
+    # @test S.n == 9
+    # @test S.k == 1
+    # @test S.r == 4
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasGauges()
+
+    S = Q513()
+    @test S.n == 5
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q713()
+    @test S.n == 7
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q913()
+    @test S.n == 9
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q412()
+    @test S.n == 4
+    @test S.k == 1
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q422()
+    @test S.n == 4
+    @test S.k == 2
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q511()
+    @test S.n == 5
+    @test S.k == 1
+    # @test S.d == 1
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q823()
+    @test S.n == 8
+    @test S.k == 2
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q1513()
+    @test S.n == 15
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = Q1573()
+    @test S.n == 15
+    @test S.k == 7
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = RotatedSurfaceCode(5)
+    @test S.n == 25
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    # TODO: fix bug
+    # S = RotatedSurfaceCode(4)
+    # @test S.n == 16
+    # @test S.k == 1
+    # # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+    
+    S = XZZXSurfaceCode(5)
+    @test S.n == 25
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 3
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 5
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 7
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 9
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 11
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 13
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 15
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 17
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 19
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    # d = 21
+    # S = TriangularColorCode488(d)
+    # # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    # @test S.k == 1
+    # # @test S.d == d
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 3
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 5
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 7
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 9
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 11
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 13
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 15
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 17
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 19
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    d = 21
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = ToricCode(2)
+    @test S.n == 2 * 2^2
+    @test S.k == 2
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = ToricCode(3)
+    @test S.n == 2 * 3^2
+    @test S.k == 2
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    # BUG
+    # S = PlanarSurfaceCode(3, 4)
+    # @test S.n == (3 * 4 + 2 * 3)
+    # @test S.k == 1
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    S = HCode(8)
+    @test S.n == 12
+    @test S.k == 8
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+    # TODO: need to remove quadratic
+    # S = XYSurfaceCode(3, 4)
+    # @test S.n == (3 * 4 + 2 * 3)
+    # @test S.k == 1
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
+
+end
 
 # @testset "quasicycliccode.jl" begin
 #     using Oscar, CodingTheory
@@ -751,52 +1033,58 @@ using Test
 #     @test isequivalent(C, C2)
 # end
 
-@testset "quantumproductcodes.jl" begin
-    using Oscar, CodingTheory
+# @testset "quantumproductcodes.jl" begin
+#     using Oscar, CodingTheory
 
-    # Degenerate Quantum LDPC Codes With Good Finite Length Performance
-    # Example A1
-    F, _ = FiniteField(2, 1, "α")
-    S, x = PolynomialRing(F, "x")
-    l = 127
-    R = ResidueRing(S, x^l - 1)
-    a = 1 + x^15 + x^20 + x^28 + x^66
-    b = 1 + x^58 + x^59 + x^100 + x^121
-    g = gcd(a, b, x^l - 1)
-    aR = R(a)
-    bR = R(b)
-    Q = GeneralizedBicycleCode(aR, bR)
-    @test length(Q) == 254
-    @test CodingTheory.dimension(Q) == 28
+#     # Degenerate Quantum LDPC Codes With Good Finite Length Performance
+#     # Example A1
+#     F, _ = FiniteField(2, 1, "α")
+#     S, x = PolynomialRing(F, "x")
+#     l = 127
+#     R = residue_ring(S, x^l - 1)
+#     a = 1 + x^15 + x^20 + x^28 + x^66
+#     b = 1 + x^58 + x^59 + x^100 + x^121
+#     g = gcd(a, b, x^l - 1)
+#     aR = R(a)
+#     bR = R(b)
+#     Q = GeneralizedBicycleCode(aR, bR)
+#     @test length(Q) == 254
+#     @test CodingTheory.dimension(Q) == 28
+# @test LogicalTrait(Q) == HasLogicals()
+# @test GaugeTrait(Q) == HasNoGauges()
 
-    # Example A2
-    l = 24
-    R = ResidueRing(S, x^l - 1)
-    a = 1 + x^2 + x^8 + x^15
-    b = 1 + x^2 + x^12 + x^17
-    Q = GeneralizedBicycleCode(R(a), R(b))
-    @test length(Q) == 48
-    @test CodingTheory.dimension(Q) == 6
+#     # Example A2
+#     l = 24
+#     R = residue_ring(S, x^l - 1)
+#     a = 1 + x^2 + x^8 + x^15
+#     b = 1 + x^2 + x^12 + x^17
+#     Q = GeneralizedBicycleCode(R(a), R(b))
+#     @test length(Q) == 48
+#     @test CodingTheory.dimension(Q) == 6
+# @test LogicalTrait(Q) == HasLogicals()
+#     @test GaugeTrait(Q) == HasNoGauges()
 
-    # Example B1
-    # l = 63
-    # R = ResidueRing(S, x^l - 1)
-    # A = matrix(R, 7, 7,
-	#     [x^27, 0, 0, 1, x^18, x^27, 1,
-	#      1, x^27, 0, 0, 1, x^18, x^27,
-	#      x^27, 1, x^27, 0, 0, 1, x^18,
-	#      x^18, x^27, 1, x^27, 0, 0, 1,
-	#      1, x^18, x^27, 1, x^27, 0, 0,
-	#      0, 1, x^18, x^27, 1, x^27, 0,
-	#      0, 0, 1, x^18, x^27, 1, x^27])
-    # b = R(1 + x + x^6)
-    # # TODO: I imagine this all of a sudden takes forever due to the automatic
-    # # computation of the logical operators
-    # Q = LiftedGeneralizedHypergraphProductCode(A, b)
-    # @test length(Q) == 882
-    # @test CodingTheory.dimension(Q) == 48
+#     # Example B1
+#     # l = 63
+#     # R = residue_ring(S, x^l - 1)
+#     # A = matrix(R, 7, 7,
+# 	#     [x^27, 0, 0, 1, x^18, x^27, 1,
+# 	#      1, x^27, 0, 0, 1, x^18, x^27,
+# 	#      x^27, 1, x^27, 0, 0, 1, x^18,
+# 	#      x^18, x^27, 1, x^27, 0, 0, 1,
+# 	#      1, x^18, x^27, 1, x^27, 0, 0,
+# 	#      0, 1, x^18, x^27, 1, x^27, 0,
+# 	#      0, 0, 1, x^18, x^27, 1, x^27])
+#     # b = R(1 + x + x^6)
+#     # # TODO: I imagine this all of a sudden takes forever due to the automatic
+#     # # computation of the logical operators
+#     # Q = LiftedGeneralizedHypergraphProductCode(A, b)
+#     # @test length(Q) == 882
+#     # @test CodingTheory.dimension(Q) == 48
+# @test LogicalTrait(Q) == HasLogicals()
+#     @test GaugeTrait(Q) == HasNoGauges()
 
-end
+# end
 
 # @testset "tilings.jl & Tanner.jl" begin
 #     using Oscar, CodingTheory, Graphs, GAP
@@ -866,6 +1154,8 @@ end
     @test dimension(Q) == 1
     @test Q.r == 4
     # @test minimumdistance(Q) == 3
+    @test LogicalTrait(typeof(Q)) == HasLogicals()
+    @test GaugeTrait(typeof(Q)) == HasGauges()
 
     # Q2 = SubsystemCode(S, L, Gops)
     # @test isisomorphic(Q, Q2)

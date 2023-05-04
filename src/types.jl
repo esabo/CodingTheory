@@ -315,8 +315,10 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
       Xsigns::Vector{nmod}
       Zsigns::Vector{nmod}
       logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      logsmat::fq_nmod_mat
       charvec::Vector{nmod}
       gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      gopsmat::fq_nmod_mat
       overcomplete::Bool
 end
   
@@ -328,9 +330,11 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
       d::Union{Int, Missing}
       stabs::fq_nmod_mat
       logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      logsmat::fq_nmod_mat
       charvec::Vector{nmod}
       signs::Vector{nmod}
       gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      gopsmat::fq_nmod_mat
       overcomplete::Bool
 end
 
@@ -354,6 +358,7 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
       Xsigns::Vector{nmod}
       Zsigns::Vector{nmod}
       logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      logsmat::fq_nmod_mat
       charvec::Vector{nmod}
       sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
       sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
@@ -369,6 +374,7 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
       d::Union{Int, Missing}
       stabs::fq_nmod_mat
       logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      logsmat::fq_nmod_mat
       charvec::Vector{nmod}
       signs::Vector{nmod}
       sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
@@ -394,6 +400,7 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
       wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
       overcomplete::Bool
       gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      gopsmat::fq_nmod_mat
 end
   
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
@@ -416,6 +423,7 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
       wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
       overcomplete::Bool
       gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
+      gopsmat::fq_nmod_mat
 end
   
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
