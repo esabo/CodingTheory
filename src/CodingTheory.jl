@@ -28,8 +28,6 @@ import Graphs: nv, incidence_matrix
 # TODO: don't want this here
 # GAP.Packages.load("LINS");
 
-# TODO: ResidueRing is deprecated and is used in many places, replace with residue_ring
-
 #############################
          # types.jl
 #############################
@@ -45,6 +43,8 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
+# misc
+export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges
 
 #############################
          # utils.jl
@@ -199,7 +199,7 @@ export GaugedShorCode, Q9143, BaconShorCode
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode
 
 #############################
         # trellis.jl

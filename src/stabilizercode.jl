@@ -45,7 +45,7 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # X - H(C2^⟂), Z - H(C1)
     D2 = dual(C2)
     S = directsum(D2.H, C1.H)
-    logs = _logicals(S, directsum(C1.G, D2.G))
+    logs, logsmat = _logicals(S, directsum(C1.G, D2.G))
 
     # determine signs
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(D2.H), nrows(C1.H))
@@ -57,7 +57,8 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
         return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, S, D2.H, C1.H,
-            C2, C1, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing, false, missing)
+            C2, C1, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing,
+            false, missing)
     else
         return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, S, D2.H, C1.H, C2, C1,
             signs, Xsigns, Zsigns, charvec, missing, false)
@@ -108,7 +109,7 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
     S = directsum(D.H, D.H)
-    logs = _logicals(S, directsum(D.G, D.G))
+    logs, logsmat = _logicals(S, directsum(D.G, D.G))
 
     # determine signs
     nr = nrows(D.H)
@@ -121,7 +122,8 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
         return StabilizerCodeCSS(D.F, D.n, dimcode, missing, missing, missing, S, D.H, D.H, C,
-            D, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing, false, missing)
+            D, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing, false,
+            missing)
     else
         return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, S, D.H, D.H, C, D, signs,
             Xsigns, Zsigns, charvec, missing, false)
@@ -192,7 +194,7 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - Srank)
     ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-    logs = _logicals(S, transpose(H))
+    logs, logsmat = _logicals(S, transpose(H))
 
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
@@ -201,8 +203,8 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
         return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, Xmatrix, Zmatrix,
-            missing, missing, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing,
-            overcomp, missing)
+            missing, missing, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing,
+            missing, overcomp, missing)
     else
         return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, Xmatrix, Zmatrix,
             missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp)
@@ -272,7 +274,7 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs = _logicals(S, transpose(H))
+    logs, logsmat = _logicals(S, transpose(H))
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
@@ -282,8 +284,8 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
             isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
             return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], logs, charvec, missing,
-                missing, missing, overcomp, missing)
+                args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
+                missing, missing, missing, overcomp, missing)
         else
             return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
                 args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
@@ -400,7 +402,7 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
     # n + (n - rkS)
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs = _logicals(S, transpose(H))
+    logs, logsmat = _logicals(S, transpose(H))
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -410,15 +412,15 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     if args[1]
         if rkS != n
             return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], logs, charvec, missing,
-                missing, missing, overcomp, missing)
+                args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
+                missing, missing, missing, overcomp, missing)
         else
-            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, Sq2, args[2],
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
                 args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
         end
     else
         if rkS != n
-            return StabilizerCode(F, n, dimcode, missing, S, logs, charvec, signs, missing,
+            return StabilizerCode(F, n, dimcode, missing, S, logs, logsmat, charvec, signs, missing,
                 missing, missing, overcomp, missing)
         else
             return GraphState(F, n, 0, missing, S, charvec, signs, missing, overcomp)
@@ -436,7 +438,7 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
     prod = hcat(logsmat[:, n + 1:end], -logsmat[:, 1:n]) * transpose(logsmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
-    return logs
+    return logs, logsmat
 end
 
 """
@@ -514,7 +516,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, verbose::Bool=true
     verbose && println("New logicals:")
     verbose && display(newlogs)
     Snew = StabilizerCode(newsymstabs, S.charvec)
-    Snew.logicals = fulllogs
+    setlogicals!(Snew, fulllogs)
     return Snew
 end
 
@@ -559,7 +561,7 @@ function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=t
         # set and return if good
         verbose && println("New logicals:")
         verbose && display(newlogs)
-        Snew.logicals = [fulllogs; newlogs]
+        setlogicals!(Snew, vcat(fulllogs, newlogs))
         return Snew
     else
         verbose && println("Started with all graph state. New logicals:")
