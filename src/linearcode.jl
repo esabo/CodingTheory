@@ -35,7 +35,7 @@ Generator matrix: 4 × 7
         0 0 0 1 1 1 1
 ```
 """
-function LinearCode(Gorig::fq_nmod_mat, parity::Bool=false)
+function LinearCode(Gorig::MatrixTypes, parity::Bool=false)
     iszero(Gorig) && error("Zero matrix passed into LinearCode constructor.")
 
     Gorig = _removeempty(Gorig, "rows")

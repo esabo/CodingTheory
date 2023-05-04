@@ -29,6 +29,8 @@ abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 
 # TODO: setup conceptual parents with GRS under AlgGeoC
 
+const MatrixTypes = Union{fpMatrix, fqPolyRepMatrix}
+
 #############################
       # concrete types
 #############################
@@ -288,39 +290,7 @@ abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
-# can get rid of the const below by adding this then the others under this
-# note: export if adding
-# abstract type AbstractGraphState end
-
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
-
-# TODO: make parents and return a vector and redo subtype
-# main relationships
-# conceptualparent(::Type{AbstractAdditiveCode}) = AbstractCode
-# conceptualparent(::Type{AbstractSubsystemCode}) = AbstractAdditiveCode
-# conceptualparent(::Type{AbstractStabilizerCode}) = AbstractSubsystemCode
-# conceptualparent(::Type{AbstractSubsystemCodeCSS}) = AbstractSubsystemCode
-# conceptualparent(::Type{AbstractGraphStateSubsystem}) = AbstractSubsystemCode
-# conceptualparent(::Type{AbstractStabilizerCodeCSS}) = AbstractStabilizerCode
-# conceptualparent(::Type{AbstractGraphStateStabilizer}) = AbstractStabilizerCode
-# conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractStabilizerCodeCSS
-# conceptualparent(::Type{AbstractGraphStateStabilizerCSS}) = AbstractGraphStateStabilizer
-# conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractSubsystemCodeCSS
-# conceptualparent(::Type{AbstractGraphStateSubsystemCSS}) = AbstractGraphStateSubsystem
-
-# issubtype(::Type{AbstractAdditiveCode}, ::Type{AbstractCode}) = true
-# issubtype(::Type{AbstractSubsystemCode}, ::Type{AbstractAdditiveCode}) = true
-# issubtype(::Type{AbstractStabilizerCode}, ::Type{AbstractSubsystemCode}) = true
-# issubtype(::Type{AbstractSubsystemCodeCSS}, ::Type{AbstractSubsystemCode}) = true
-# issubtype(::Type{AbstractGraphStateSubsystem}, ::Type{AbstractSubsystemCode}) = true
-# issubtype(::Type{AbstractStabilizerCodeCSS}, ::Type{AbstractStabilizerCode}) = true
-# issubtype(::Type{AbstractGraphStateStabilizer}, ::Type{AbstractStabilizerCode}) = true
-# issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractStabilizerCodeCSS}) = true
-# issubtype(::Type{AbstractGraphStateStabilizerCSS}, ::Type{AbstractGraphStateStabilizer}) = true
-# issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractSubsystemCodeCSS}) = true
-# issubtype(::Type{AbstractGraphStateSubsystemCSS}, ::Type{AbstractGraphStateSubsystem}) = true
-# issubtype(::Type{S}, ::Type{T}) where {S <: AbstractCode, T <: AbstractCode} = issubtype(conceptualparent(S), T)
-
 
 #############################
       # concrete types
@@ -331,8 +301,7 @@ abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 #############################
 
 mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Union{Int, Rational{BigInt}}
       r::Int
@@ -352,8 +321,7 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
 end
   
 mutable struct SubsystemCode <: AbstractSubsystemCode
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Union{Int, Rational{BigInt}}
       r::Int
@@ -371,8 +339,7 @@ end
 #############################
 
 mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Union{Int, Rational{BigInt}}
       d::Union{Int, Missing}
@@ -396,8 +363,7 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
 end
   
 mutable struct StabilizerCode <: AbstractStabilizerCode
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Union{Int, Rational{BigInt}}
       d::Union{Int, Missing}
@@ -417,8 +383,7 @@ end
 #############################
 
 mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Int
       r::Int
@@ -432,8 +397,7 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
 end
   
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Int
       r::Int
@@ -455,8 +419,7 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
 end
   
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Int
       d::Union{Int, Missing}
@@ -468,8 +431,7 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
 end
   
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Int
       k::Int
       d::Union{Int, Missing}
@@ -495,8 +457,7 @@ end
 # J. Tillich, G. Zémor. "Quantum LDPC codes with positive rate and minimum distance
 # proportional to n^(1/2)". (2013) arXiv:0903.0566v2
 mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
-      F::FqNmodFiniteField # base field (symplectic)
-      E::FqNmodFiniteField # additive field
+      F::FqNmodFiniteField
       n::Integer
       k::Union{Integer, Rational{BigInt}}
       d::Union{Integer, Missing}

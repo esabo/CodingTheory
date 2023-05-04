@@ -86,12 +86,12 @@ function BaconShorCode(m::Int, n::Int)
     gauges = Xgauges ⊕ Zgauges
     # S = SubsystemCodeCSS(Xstabs, Zstabs, (Xlogical, Zlogical), {})
     # S = SubsystemCode(stabs, logs, gauges, true)
-    S = SubsystemCode(gauges, true)
-    setstabilizers!(S, stabs, true)
+    S = SubsystemCode(gauges)
+    setstabilizers!(S, stabs)
     S.Xstabs = Xstabs
     S.Zstabs = Zstabs
     # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
-    setlogicals!(S, logs, true)
+    setlogicals!(S, logs)
     m == n && setminimumdistance!(S, m)
     # Z distance is m
     # X distance is n
@@ -179,7 +179,7 @@ function BravyiSubsystemCode(A::fq_nmod_mat)
             end
         end
     end
-    S = SubsystemCode(Xgauges ⊕ Zgauges, true)
+    S = SubsystemCode(Xgauges ⊕ Zgauges)
     minrowwt = minimum(rowwts)
     mincolwt = minimum(colwts)
     setminimumdistance!(S, minimum([minrowwt, mincolwt]))
@@ -226,7 +226,8 @@ Q713() = SteaneCode()
 
 Return the `[[9, 1, 3]]` Shor code.
 """
-ShorCode() = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ", "XXXXXXIII", "IIIXXXXXX"])
+ShorCode() = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ",
+    "XXXXXXIII", "IIIXXXXXX"])
 Q913() = ShorCode()
 
 Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
@@ -241,7 +242,7 @@ function Q823()
     0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
     0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
     0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0]);
-    return StabilizerCode(S, true)
+    return StabilizerCode(S)
 end
 
 """
@@ -251,10 +252,9 @@ end
 Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
 ordering.
 """
-Q15RM() = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ",
-    "IIIIIIIZZZZZZZZ", "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ",
-    "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ", "IIIIIIIIZIZIZIZ",
-    "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+Q15RM() = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ", "IIIIIIIZZZZZZZZ",
+    "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ", "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ",
+    "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
 Q1513() = Q15RM()
 
 """
@@ -262,9 +262,8 @@ Q1513() = Q15RM()
 
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
-Q1573() = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX",
-    "XIXIXIXIXIXIXIX", "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ",
-    "ZIZIZIZIZIZIZIZ"])
+Q1573() = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX", "XIXIXIXIXIXIXIX",
+    "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ", "ZIZIZIZIZIZIZIZ"])
     # one can use a basis for this such that the first logical pair is transversal X, Z
 
 #############################
@@ -288,7 +287,7 @@ function _triangularlattice(L::Int)
     return numbering
 end
 
-function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
+function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3})
     F, _ = FiniteField(2, 1, "α")
     stabilizers = zero_matrix(F, L^2, 3 * L^2)
     r = 1
@@ -319,13 +318,10 @@ function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3}, symp
             r += 1
         end
     end
-    if symp
-        return hcat(stabilizers, zero_matrix(F, L^2, 3 * L^2))
-    end
-    return stabilizers
+    return hcat(stabilizers, zero_matrix(F, L^2, 3 * L^2))
 end
 
-function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
+function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3})
     F, _ = FiniteField(2, 1, "α")
     stabilizers = zero_matrix(F, 2 * L^2, 3 * L^2)
     r = 1
@@ -350,13 +346,10 @@ function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3}, symp
             r += 1
         end
     end
-    if symp
-        return hcat(zero_matrix(F, 2 * L^2, 3 * L^2), stabilizers)
-    end
-    return stabilizers
+    return hcat(zero_matrix(F, 2 * L^2, 3 * L^2), stabilizers)
 end
 
-function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
+function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3})
     # should be 0110110110
     z = zeros(UInt8, 3 * L^2)
     logical1 = zeros(UInt8, 3 * L^2)
@@ -371,9 +364,7 @@ function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
             end
         end
     end
-    if symp
-        logical1 = [logical1; z]
-    end
+    logical1 = [logical1; z]
 
     logical2 = zeros(UInt8, 3 * L^2)
     for j in 1:L
@@ -387,11 +378,8 @@ function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
             end
         end
     end
-    if symp
-        logical2 = [logical2; z]
-    end
-
-  return [logical1, logical2]
+    logical2 = [logical2; z]
+    return [logical1, logical2]
 end
 
 function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
@@ -409,9 +397,7 @@ function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
             end
         end
     end
-    if symp
-        logical1 = [z; logical1]
-    end
+    logical1 = [z; logical1]
 
     logical2 = zeros(UInt8, 3 * L^2)
     for j in 1:L
@@ -425,18 +411,15 @@ function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
             end
         end
     end
-    if symp
-        logical2 = [z; logical2]
-    end
-
-  return [logical1, logical2]
+    logical2 = [z; logical2]
+    return [logical1, logical2]
 end
 
 function TriangularSurfaceCode(L::Int)
     numbering = _triangularlattice(L)
-    Xstabs = _triangularlatticeXstabilizers(L, numbering, false)
+    Xstabs = _triangularlatticeXstabilizers(L, numbering)
     # println(rank(Xstabs))
-    Zstabs = _triangularlatticeZstabilizers(L, numbering, false)
+    Zstabs = _triangularlatticeZstabilizers(L, numbering)
     # println(Zstabs)
     # logicals = [triangularlatticeXlogicals(L, numbering), triangularlatticeZlogicals(L, numbering)]
     return CSSCode(Xstabs[1:end - 1, :], Zstabs[1:end - 1, :])
@@ -534,11 +517,6 @@ function _RSurfstabslogs(d::Int)
     return S, logs
 end
 
-# flint is being ridiculous here
-# julia> @time Q = rotatedsurfacecode(21);
-# 226.128107 seconds (1.73 G allocations: 80.659 GiB, 18.33% gc time, 0.09% compilation time)
-# julia> Base.summarysize(Q)
-# 16872
 """
     RotatedSurfaceCode(d::Int)
 
@@ -673,7 +651,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d3stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -684,7 +662,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d5stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -695,7 +673,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d7stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -706,7 +684,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d9stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -717,7 +695,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d11stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -728,7 +706,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d13stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -739,7 +717,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d15stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -750,7 +728,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d17stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -761,7 +739,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d19stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -772,7 +750,7 @@ function TriangularColorCode488(d::Int)
         @load "data/488d21stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -799,7 +777,7 @@ function TriangularColorCode666(d::Int)
         @load "data/488d3stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -810,7 +788,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d5stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -821,7 +799,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d7stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -832,7 +810,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d9stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -843,7 +821,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d11stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -854,7 +832,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d13stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -865,7 +843,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d15stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -876,7 +854,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d17stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -887,7 +865,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d19stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -898,7 +876,7 @@ function TriangularColorCode666(d::Int)
         @load "data/666d21stabslogs_trellis.jld2" S l
         F, _ = FiniteField(2, 1, "α")
         S = matrix(F, S)
-        Q = StabilizerCode(S, true)
+        Q = StabilizerCode(S)
         l = symplectictoquadratic(matrix(F, l))
         Q.logicals = [(l[1, :], l[2, :])]
         return Q
@@ -968,7 +946,7 @@ function ToricCode(d::Int)
     # println(" ")
     # display(B)
     # println(" ")
-    S = CSSCode(A, B, missing)
+    S = CSSCode(A, B)
     Eone = S.E(1)
     ω = gen(S.E)
     X1 = zero_matrix(S.E, 1, 2 * d^2)
@@ -1067,7 +1045,7 @@ function PlanarSurfaceCode(dx::Int, dz::Int)
     # display(B)
     # println(" ")
     # display(A * transpose(B))
-    S = CSSCode(A, B, missing)
+    S = CSSCode(A, B)
     Eone = S.E(1)
     ω = gen(S.E)
     X1 = zero_matrix(S.E, 1, numV)
@@ -1139,7 +1117,7 @@ function XYSurfaceCode(dx::Int, dy::Int)
         end
         qubit += dx - 1
     end
-    S = StabilizerCode(M, false, missing)
+    S = StabilizerCode(M)
     # Eone = S.E(1)
     # ω = gen(S.E)
     # X1 = zero_matrix(S.E, 1, numV)

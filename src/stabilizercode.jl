@@ -45,7 +45,6 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # X - H(C2^⟂), Z - H(C1)
     D2 = dual(C2)
     S = directsum(D2.H, C1.H)
-    Sq2 = symplectictoquadratic(S)
     logs = _logicals(S, directsum(C1.G, D2.G))
 
     # determine signs
@@ -54,15 +53,14 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # q^n / p^k but rows is n - k
     rkS = rank(S)
     if rkS != C1.n
-        dimcode = BigInt(order(C1.F))^ncols(Sq2) // BigInt(p)^rkS
+        dimcode = BigInt(order(C1.F))^ncols(C1.n) // BigInt(p)^rkS
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(C1.F, base_ring(Sq2), C1.n, dimcode, missing, missing, missing, Sq2, D2.H, C1.H,
-            C2, C1, signs, Xsigns, Zsigns, logs, charvec, missing,
-            missing, missing, false, missing)
+        return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, S, D2.H, C1.H,
+            C2, C1, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing, false, missing)
     else
-        return GraphStateStabilizerCSS(C1.F, base_ring(Sq2), C1.n, 0, missing, D2.d, C1.d, Sq2, D2.H, C1.H,
-            C2, C1, signs, Xsigns, Zsigns, charvec, missing, false)
+        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, S, D2.H, C1.H, C2, C1,
+            signs, Xsigns, Zsigns, charvec, missing, false)
     end
 end
 CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) =
@@ -110,7 +108,6 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
     S = directsum(D.H, D.H)
-    Sq2 = symplectictoquadratic(S)
     logs = _logicals(S, directsum(D.G, D.G))
 
     # determine signs
@@ -123,12 +120,11 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
         dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rkS
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(D.F, base_ring(Sq2), D.n, dimcode, missing, missing, missing, Sq2,
-            D.H, D.H, C, D, signs, Xsigns, Zsigns, logs, charvec,
-            missing, missing, missing, false, missing)
+        return StabilizerCodeCSS(D.F, D.n, dimcode, missing, missing, missing, S, D.H, D.H, C,
+            D, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing, false, missing)
     else
-        return GraphStateStabilizerCSS(D.F, base_ring(Sq2), D.n, 0, missing, D.d, D.d, Sq2,
-            D.H, D.H, C, D, signs, Xsigns, Zsigns, charvec, missing, false)
+        return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, S, D.H, D.H, C, D, signs,
+            Xsigns, Zsigns, charvec, missing, false)
     end
 end
 CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) =
@@ -189,7 +185,6 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     end
 
     S = directsum(Xmatrix, Zmatrix)
-    Sq2 = symplectictoquadratic(S)
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(Xmatrix), nrows(Zmatrix))
 
     # find generators for S^⟂
@@ -205,13 +200,12 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
         dimcode = BigInt(order(F))^n // BigInt(p)^rkS
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(F, base_ring(Sq2), n, dimcode, missing, missing, missing, Sq2,
-            Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, logs,
-            charvec, missing, missing, missing, overcomp, missing)
+        return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, Xmatrix, Zmatrix,
+            missing, missing, signs, Xsigns, Zsigns, logs, charvec, missing, missing, missing,
+            overcomp, missing)
     else
-        return GraphStateStabilizerCSS(F, base_ring(Sq2), n, 0, missing, missing, missing, Sq2,
-            Xmatrix, Zmatrix, missing, missing, signs, Xsigns, Zsigns, charvec, missing,
-            overcomp)
+        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, Xmatrix, Zmatrix,
+            missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp)
     end
 end
 CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing) =
@@ -257,9 +251,8 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
     # statement at the bottom of this function
     # would also need to compute down to signs to call _isCSSsymplectic
     # which would allow us to call the other constructor
-    aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
-    Sq2 = symplectictoquadratic(S)
-    n = ncols(Sq2)
+    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    n = div(ncols(S), 2)
 
     F = base_ring(S)
     p = Int(characteristic(F))
@@ -288,20 +281,19 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
             dimcode = BigInt(order(F))^n // BigInt(p)^rkS
             isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-            return StabilizerCodeCSS(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
-                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-                logs, charvec, missing, missing, missing, overcomp, missing)
+            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
+                args[4], missing, missing, signs, args[3], args[5], logs, charvec, missing,
+                missing, missing, overcomp, missing)
         else
-            return GraphStateStabilizerCSS(F, base_ring(Sq2), n, 0, missing, missing, missing,
-                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-                charvec, missing, overcomp)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
         end
     else
         error("Provided Pauli strings are not CSS.")
     end
 end
-CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}} =
- StabilizerCodeCSS(SPauli, charvec)
+CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String,
+    Vector{Char}} = StabilizerCodeCSS(SPauli, charvec)
 
 """
     StabilizerCodeCSS(S::StabilizerCode)
@@ -350,7 +342,7 @@ function StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}
     SPaulistripped = _processstrings(SPauli)
     S = _Paulistringtosymplectic(SPaulistripped)
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
-    return StabilizerCode(S, true, charvec)
+    return StabilizerCode(S, charvec)
 end
 
 """
@@ -384,24 +376,14 @@ determine such quantities. Use `isovercomplete` to determine if an
 * The orthogonality of the stabilizers are automatically checked and will error
   upon failure.
 """
-function StabilizerCode(Sq2::fq_nmod_mat, symp::Bool=false,
-    charvec::Union{Vector{nmod}, Missing}=missing)
-
-    iszero(Sq2) && error("The stabilizer matrix is empty.")
-    Sq2 = _removeempty(Sq2, "rows")
-    if symp
-        S = Sq2
-        # this will error properly if not correct
-        Sq2 = symplectictoquadratic(Sq2)
-    else
-        iseven(degree(base_ring(Sq2))) || error("The base ring of the given matrix is not a quadratic extension.")
-        S = quadratictosymplectic(Sq2)
-    end
-    aresymplecticorthogonal(S, S, true) || error("The given stabilizers are not symplectic orthogonal.")
+function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
+    iszero(S) && throw(ArgumentError("The stabilizer matrix is empty."))
+    S = _removeempty(S, "rows")
+    aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
 
     F = base_ring(S)
     p = Int(characteristic(F))
-    n = ncols(Sq2)
+    n = div(ncols(S), 2)
     charvec = _processcharvec(charvec, p, n)
     signs = _determinesigns(S, charvec)
 
@@ -427,36 +409,31 @@ function StabilizerCode(Sq2::fq_nmod_mat, symp::Bool=false,
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
         if rkS != n
-            return StabilizerCodeCSS(F, base_ring(Sq2), n, dimcode, missing, missing, missing,
-                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-                logs, charvec, missing, missing, missing, overcomp, missing)
+            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
+                args[4], missing, missing, signs, args[3], args[5], logs, charvec, missing,
+                missing, missing, overcomp, missing)
         else
-            return GraphStateStabilizerCSS(F, base_ring(Sq2), n, 0, missing, missing, missing,
-                Sq2, args[2], args[4], missing, missing, signs, args[3], args[5],
-                charvec, missing, overcomp)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, Sq2, args[2],
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
         end
     else
         if rkS != n
-            return StabilizerCode(F, base_ring(Sq2), n, dimcode, missing, Sq2, logs,
-                charvec, signs, missing, missing, missing, overcomp, missing)
+            return StabilizerCode(F, n, dimcode, missing, S, logs, charvec, signs, missing,
+                missing, missing, overcomp, missing)
         else
-            return GraphState(F, base_ring(Sq2), n, 0, missing, Sq2, charvec, signs,
-                missing, overcomp)
+            return GraphState(F, n, 0, missing, S, charvec, signs, missing, overcomp)
         end
     end
 end
 
-# slow? but works without permutations
 function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
-    L = symplectictoquadratic(_quotientspace(dualgens, stabs))
+    L = _quotientspace(dualgens, stabs)
     logs = _makepairs(L)
     # verify
-    n = ncols(L)
+    n = div(ncols(L), 2)
     logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
-    F = base_ring(stabs)
-    Lsym = map_entries(x -> F(coeff(x, 0)), quadratictosymplectic(logsmat))
-    aresymplecticorthogonal(stabs, Lsym, true) || error("Computed logicals do not commute with the codespace.")
-    prod = hcat(Lsym[:, n + 1:end], -Lsym[:, 1:n]) * transpose(Lsym)
+    aresymplecticorthogonal(stabs, logsmat) || error("Computed logicals do not commute with the codespace.")
+    prod = hcat(logsmat[:, n + 1:end], -logsmat[:, 1:n]) * transpose(logsmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
     return logs
@@ -473,43 +450,27 @@ Return the code created by added `row` to the stabilizers of `S`.
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
 # TODO: redo for subsystem codes and traits
-function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)
+function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, verbose::Bool=true)
     # typeof(S) ∈ [GraphState, GraphStateStabilizerCSS] && return S
     iszero(row) && return S
     nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
 
-    # it might be extremely problematic how I create fields throughout since they are pointer equality
-    if symp
-        ncols(row) == 2 * S.n || throw(ArgumentError("Symplectic flag set but row has incorrect number of columns."))
-        base_ring(row) == S.F || throw(ArgumentError("Row must be over the same ring as the code."))
-        rowq2 = symplectictoquadratic(row)
-    else
-        ncols(row) = S.n || throw(ArgumentError("Row has incorrect number of columns."))
-        base_ring(row) == S.E || throw(ArgumentError("Row must be over the same ring as the code."))
-        rowq2 = row
-        row = quadratictosymplectic(rowq2)
-    end
-
-    # this is a more theoretically pure way to do this, probably slower than the iszero(prod) below
-    # but this avoids possibly computing the logicals if they aren't already known and aren't needed
-    symstabs = quadratictosymplectic(S.stabs)
-    rankS = rank(symstabs)
-    newstabs = vcat(S.stabs, rowq2)
-    newsymstabs = vcat(symstabs, row)
+    # think about if this approach is still good now that logicals are automatic
+    rankS = rank(S.stabs)
+    newsymstabs = vcat(S.stabs, row)
     ranknewS = rank(newsymstabs)
     if rankS == ranknewS
         verbose && println("Row is already in the stabilizer group. Nothing to update.")    
         return S
     elseif S.k == 1
         verbose && println("Row is not in the stabilizer group; the result is a graph state.")
-        return StabilizerCode(newstabs, false, S.charvec)
+        return StabilizerCode(newsymstabs, S.charvec)
     end
 
     # not a stabilizer and multiple logical pairs
     logs = logicals(S)
     logsmat = logicalsmatrix(S)
-    Lsym = quadratictosymplectic(logsmat)
-    LsymEuc = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n])
+    LsymEuc = hcat(logsmat[:, S.n + 1:end], -logsmat[:, 1:S.n])
     prod = LsymEuc * transpose(row)
     # if iszero(prod)
     #     verbose && println("Row is already in the stabilizer group. Nothing to update.")    
@@ -529,32 +490,30 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, 
     end
     if isempty(logstokeep)
         verbose && println("Row does not commute with any logicals. The entire code needs to be recomputed from scratch.")
-        Snew = StabilizerCode(newstabs, false, S.charvec)
-        _ = logicals(Snew)
+        Snew = StabilizerCode(newsymstabs, S.charvec)
         return Snew
     end
 
     verbose && println("Logical pairs not requiring updating:")
     verbose && display(logs[logpairstokeep]) # how do I want to best display this?
-    temp = quadratictosymplectic(vcat(newstabs, logsmat[logstokeep, :]))
+    temp = vcat(newsymstabs, logsmat[logstokeep, :])
     # kernel should contain newstabs and new logs but not old logs
     _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
     H = transpose(H)
     # unclear why this shouldn't be made not symplectic again
-    temp = _quotientspace(H, quadratictosymplectic(newstabs))
+    temp = _quotientspace(H, newsymstabs)
     # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
-    newlogs = _makepairs(symplectictoquadratic(temp))
+    newlogs = _makepairs(temp)
     # verify
     fulllogs = [logs[logpairstokeep]; newlogs]
     logsmat = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
-    aresymplecticorthogonal(newstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
-    Lsym = quadratictosymplectic(logsmat);
-    prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+    aresymplecticorthogonal(newsymstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
+    prod = hcat(logsmat[:, S.n + 1:end], -logsmat[:, 1:S.n]) * transpose(logsmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
     # set and return if good
     verbose && println("New logicals:")
     verbose && display(newlogs)
-    Snew = StabilizerCode(newstabs, false, S.charvec)
+    Snew = StabilizerCode(newsymstabs, S.charvec)
     Snew.logicals = fulllogs
     return Snew
 end
@@ -574,29 +533,28 @@ function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=t
     rows ⊆ 1:numstabs || throw(ArgumentError("Argument rows not a subset of the number of stabilizers."))
     verbose && println("Removing stabilizers: $rows")
     newstabs = S.stabs[setdiff(1:numstabs, rows), :]
-    Snew = StabilizerCode(newstabs, false, S.charvec)
+    Snew = StabilizerCode(newstabs, S.charvec)
     # if typeof(S) ∉ [GraphState, GraphStateStabilizerCSS]
     if true
         logs = logicals(S)
         logsmatrix = logicalsmatrix(S)
-        small = quadratictosymplectic(vcat(newstabs, logsmatrix))
+        small = vcat(newstabs, logsmatrix)
         # println(size(small))
         _, H = right_kernel(hcat(small[:, S.n + 1:end], -small[:, 1:S.n]))
         H = transpose(H)
         # println(size(H))
         # dualgenssym = hcat(H[:, S.n + 1:end], -H[:, 1:S.n])
         # println(size(dualgenssym))
-        temp = _quotientspace(H, quadratictosymplectic(newstabs))
+        temp = _quotientspace(H, newstabs)
         # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
         # using dualgenssym then switching temp here just switches {X, Z} to {Z, X}
         # but the vectors remain the same for some reason
-        newlogs = _makepairs(symplectictoquadratic(temp))
+        newlogs = _makepairs(temp)
         # verify
         fulllogs = [logs; newlogs]
         logsmatrix = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
         aresymplecticorthogonal(newstabs, logsmatrix) || error("Computed logicals do not commute with the codespace.")
-        Lsym = quadratictosymplectic(logsmatrix);
-        prod = hcat(Lsym[:, S.n + 1:end], -Lsym[:, 1:S.n]) * transpose(Lsym)
+        prod = hcat(logsmatrix[:, S.n + 1:end], -logsmatrix[:, 1:S.n]) * transpose(logsmatrix)
         sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
         # set and return if good
         verbose && println("New logicals:")
