@@ -20,15 +20,13 @@ import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
     isregular
-import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
 
 # TODO: don't want this here
 # GAP.Packages.load("LINS");
-
-# TODO: ResidueRing is deprecated and is used in many places, replace with residue_ring
 
 #############################
          # types.jl
@@ -45,6 +43,8 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
+# misc
+export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges
 
 #############################
          # utils.jl
@@ -62,10 +62,11 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
     isregular, edgevertexincidencematrix, edgevertexincidencegraph,
     isvalidbipartition, extractbipartition
-    #, _minwtrow
-    #circshift, lift
-    #, _processstrings,
-    #_Paulistringtosymplectic,
+    # , _minwtrow
+    # , circshift
+    # , lift
+    # , _processstrings
+    # , _Paulistringtosymplectic
 
 #############################
         # cyclotomic.jl
@@ -198,7 +199,7 @@ export GaugedShorCode, Q9143, BaconShorCode
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode
 
 #############################
         # trellis.jl

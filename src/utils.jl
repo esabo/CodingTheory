@@ -4,147 +4,111 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function _isisomorphic(A::fq_nmod_mat, B::fq_nmod_mat)
-    n = ncols(A)
-    nrA = nrows(A)
-    nrB = nrows(B)
+#############################
+  # Generic Helper Functions
+#############################
+
+function _isisomorphic(A::T, B::T) where T <: MatrixTypes
     F = base_ring(A)
-    V = VectorSpace(F, n)
-    AVS, _ = sub(V, [V(A[i, :]) for i in 1:nrA])
-    BVS, _ = sub(V, [V(B[i, :]) for i in 1:nrB])
+    V = VectorSpace(F, size(A, 2))
+    AVS, _ = sub(V, [V(A[i, :]) for i in axes(A, 1)])
+    BVS, _ = sub(V, [V(B[i, :]) for i in axes(B, 1)])
     return is_isomorphic(AVS, BVS)
 end
 
-"""
-    reverse(v::fq_nmod_mat)
-    reverse!(v::fq_nmod_mat)
+# """
+#     reverse(v::MatrixTypes)
+#     reverse!(v::MatrixTypes)
 
-Return the reverse of the vector `v`.
-"""
-function reverse(v::fq_nmod_mat)
-    nr, nc = size(v)
-    u = deepcopy(v)
-    if nr == 1
-        left = 1
-        right = nc
-        while left < right
-            temp = u[1, left]
-            u[1, left] = u[1, right]
-            u[1, right] = temp
-            left += 1
-            right -= 1
-        end
-        return u
-    elseif nc == 1
-        left = 1
-        right = nr
-        while left < right
-            temp = u[left, 1]
-            u[left, 1] = u[right, 1]
-            u[right, 1] = temp
-            left += 1
-            right -= 1
-        end
-        return u
-    else
-        throw(ArgumentError("Matrix must be a vector."))
-    end
-end
+# Return the reverse of the vector `v`.
+# """
+# function reverse(v::MatrixTypes)
+#     nr, nc = size(v)
+#     if nr == 1
+#         return v[:, end:-1:1]
+#     elseif nc == 1
+#         return v[end:-1:1, :]
+#     else
+#         throw(ArgumentError("Matrix must be a vector."))
+#     end
+# end
 
-function reverse!(v::fq_nmod_mat)
-    nr, nc = size(v)
-    if nr == 1      
-        left = 1
-        right = nc
-        while left < right
-            temp = v[1, left]
-            v[1, left] = v[1, right]
-            v[1, right] = temp
-            left += 1
-            right -= 1
-        end
-    elseif nc == 1
-        left = 1
-        right = nr
-        while left < right
-            temp = v[left, 1]
-            v[left, 1] = v[right, 1]
-            v[right, 1] = temp
-            left += 1
-            right -= 1
-        end
-    else
-        throw(ArgumentError("Matrix must be a vector."))
-    end
-end
+# function reverse!(v::MatrixTypes)
+#     nr, nc = size(v)
+#     if nr == 1
+#         v[:, 1:end] = v[:, end:-1:1]
+#     elseif nc == 1
+#         v[1:end, :] = v[end:-1:1, :]
+#     else
+#         throw(ArgumentError("Matrix must be a vector."))
+#     end
+# end
+
+# """
+#     circshift(v::MatrixTypes, l::Int)
+
+# Return the circular shift of the vector `v` by `l` bits.
+
+# This is an overload of Base.circshift for type `MatrixTypes`.
+# Either the number of rows or the number of columns must have dimension one.
+# """
+# function circshift(v::MatrixTypes, l::Int)
+#     nr, nc = size(v)
+#     if nr == 1
+#         l = l % nc
+#         l < 0 && (l = nc + l;)
+#         vshift = zero_matrix(base_ring(v), 1, nc)
+#         vshift[1, 1:l] = v[1, nc - l + 1:nc]
+#         vshift[1, l + 1:end] = v[1, 1:nc - l]
+#     elseif nc == 1
+#         l = l % nr
+#         l < 0 && (l = nr + l;)
+#         vshift = zero_matrix(base_ring(v), nr, 1)
+#         vshift[1:l, 1] = v[nr - l + 1:nr, 1]
+#         vshift[l + 1:end, 1] = v[1:nr - l, 1]
+#     else
+#         throw(ArgumentError("Input matrix must be a vector."))
+#     end
+#     return vshift
+# end
 
 """
-    circshift(v::fq_nmod_mat, l::Int)
-
-Return the circular shift of the vector `v` by `l` bits.
-
-This is an overload of Base.circshift for type `fq_nmod_mat`.
-Either the number of rows or the number of columns must have dimension one.1
-"""
-function circshift(v::fq_nmod_mat, l::Int)
-    nr, nc = size(v)
-    if nr == 1
-        l = l % nc
-        l < 0 && (l = nc + l;)
-        vshift = zero_matrix(base_ring(v), 1, nc)
-        vshift[1, 1:l] = v[1, nc - l + 1:nc]
-        vshift[1, l + 1:end] = v[1, 1:nc - l]
-    elseif nc == 1
-        l = l % nr
-        l < 0 && (l = nr + l;)
-        vshift = zero_matrix(base_ring(v), nr, 1)
-        vshift[1:l, 1] = v[nr - l + 1:nr, 1]
-        vshift[l + 1:end, 1] = v[1:nr - l, 1]
-    else
-        throw(ArgumentError("Input matrix must be a vector."))
-    end
-    return vshift
-end
-
-"""
-    ⊕(A::fq_nmod_mat, B::fq_nmod_mat)
-    directsum(A::fq_nmod_mat, B::fq_nmod_mat)
+    ⊕(A::MatrixTypes, B::MatrixTypes)
+    directsum(A::MatrixTypes, B::MatrixTypes)
 
 Return the direct sum of the two matrices `A` and `B`.
 """
-function ⊕(A::fq_nmod_mat, B::fq_nmod_mat)
+function ⊕(A::T, B::T) where T <: MatrixTypes
     base_ring(A) == base_ring(B) || error("Matrices must be over the same base ring in directsum.")
 
     return vcat(hcat(A, zero_matrix(base_ring(B), nrows(A), ncols(B))),
         hcat(zero_matrix(base_ring(A), nrows(B), ncols(A)), B))
 end
-directsum(A::fq_nmod_mat, B::fq_nmod_mat) = A ⊕ B
+directsum(A::T, B::T) where T <: MatrixTypes = A ⊕ B
 
 """
-    ⊗(A::fq_nmod_mat, B::fq_nmod_mat)
-    kron(A::fq_nmod_mat, B::fq_nmod_mat)
-    tensorproduct(A::fq_nmod_mat, B::fq_nmod_mat)
-    kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat)
+    ⊗(A::MatrixTypes, B::MatrixTypes)
+    kron(A::MatrixTypes, B::MatrixTypes)
+    tensorproduct(A::MatrixTypes, B::MatrixTypes)
+    kroneckerproduct(A::MatrixTypes, B::MatrixTypes)
 
 Return the Kronecker product of the two matrices `A` and `B`.
 """
-⊗(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
-kron(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
-tensorproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
-kroneckerproduct(A::fq_nmod_mat, B::fq_nmod_mat) = kronecker_product(A, B)
-# nrows(A::T) where T = size(A, 1)
-# ncols(A::T) where T = size(A, 2)
+⊗(A::MatrixTypes, B::MatrixTypes) = kronecker_product(A, B)
+kron(A::MatrixTypes, B::MatrixTypes) = kronecker_product(A, B)
+tensorproduct(A::MatrixTypes, B::MatrixTypes) = kronecker_product(A, B)
+kroneckerproduct(A::MatrixTypes, B::MatrixTypes) = kronecker_product(A, B)
 
 # I think we should avoid length checking here and return it for entire matrix if given
-# Hammingweight(v::T) where T <: Union{fq_nmod_mat, gfp_mat, Vector{S}} where S <: Int = count(i->(i != 0), v)
+# Hammingweight(v::T) where T <: Union{MatrixTypes, gfp_mat, Vector{S}} where S <: Int = count(i->(i != 0), v)
 """
-    Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
-    weight(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
-    wt(v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    Hammingweight(v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
+    weight(v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
+    wt(v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int
+function Hammingweight(v::T) where T <: Union{MatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int
     count = 0
     for i in 1:length(v)
         if !iszero(v[i])
@@ -153,8 +117,8 @@ function Hammingweight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vect
     end
     return count
 end
-weight(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
-wt(v::T) where T <: Union{fq_nmod_mat, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
+weight(v::T) where T <: Union{MatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
+wt(v::T) where T <: Union{MatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{Int, Vector{Int}}} where S <: Int = Hammingweight(v)
 
 function Hammingweight(v::Matrix{Int})
     return sum(v)
@@ -179,11 +143,11 @@ Return the number of nonzero coefficients of the polynomial `f`.
 wt(f::fq_nmod_poly) = Hammingweight(collect(coefficients(f)))
 
 """
-    _minwtrow(A::fq_nmod_mat)
+    _minwtrow(A::MatrixTypes)
 
 Return the minimum weight and corresponding index of the rows of `A`.
 """
-function _minwtrow(A::Union{fq_nmod_mat, Matrix{Int}, LinearAlgebra.Adjoint{Int, Matrix{Int}}})
+function _minwtrow(A::Union{MatrixTypes, Matrix{Int}, LinearAlgebra.Adjoint{Int, Matrix{Int}}})
     nr, nc = size(A)
     w = nc
     i = 0
@@ -212,82 +176,73 @@ function _minwtcol(A::LinearAlgebra.Adjoint{Int, Matrix{Int}})
 end
 
 """
-    Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
-    distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
-    dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int
+    Hammingdistance(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
+    distance(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
+    dist(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int
 
 Return the Hamming distance between `u` and `v`.
 """
-Hammingdistance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
-distance(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
-dist(u::T, v::T) where T <: Union{fq_nmod_mat, Vector{S}} where S <: Int = Hammingweight(u .- v)
+Hammingdistance(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int = Hammingweight(u .- v)
+distance(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int = Hammingweight(u .- v)
+dist(u::T, v::T) where T <: Union{MatrixTypes, Vector{S}} where S <: Int = Hammingweight(u .- v)
 
 """
-    symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+    symplecticinnerproduct(u::MatrixTypes, v::MatrixTypes)
 
 Return the symplectic inner product of `u` and `v`.
 """
-function symplecticinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+function symplecticinnerproduct(u::MatrixTypes, v::MatrixTypes)
     (nrows(u) == 1 || ncols(u) == 1) || error("First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).")
     (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).")
     length(u) == length(v) || error("Vectors must be the same length in symplectic inner product.")
     iseven(length(u)) || error("Vectors must have even length in symplectic inner product.")
     base_ring(u) == base_ring(v) || error("Vectors must be over the same field in symplectic inner product.")
+    
     ncols = div(length(u), 2)
     return sum([u[i + ncols] * v[i] - v[i + ncols] * u[i] for i in 1:ncols])
 end
 
 """
-    aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=false)
+    aresymplecticorthogonal(A::MatrixTypes, B::MatrixTypes, symp::Bool=false)
 
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
 
 If the optional parameter `symp` is set to `true`, `A` and `B` are assumed to be
 in symplectic form over the base field.
 """
-function aresymplecticorthogonal(A::fq_nmod_mat, B::fq_nmod_mat, symp::Bool=false)
-    E = base_ring(A)
-    E == base_ring(B) || error("Matrices in product must both be over the same base ring.")
-    if symp
-        iseven(ncols(A)) || error("Expected a symplectic input but the first input matrix has an odd number of columns.")
-        iseven(ncols(B)) || error("Expected a symplectic input but the second input matrix has an odd number of columns.")
-    else
-        iseven(degree(E)) || error("The base ring of the given matrices are not a quadratic extension.")
-        A = quadratictosymplectic(A)
-        B = quadratictosymplectic(B)
-    end
-
-    AEuc = hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)])
-    iszero(AEuc * transpose(B)) || return false
-    return true
+function aresymplecticorthogonal(A::MatrixTypes, B::MatrixTypes)
+    base_ring(A) == base_ring(B) || error("Matrices in product must both be over the same base ring.")
+    
+    return iszero(hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)]) * transpose(B))
 end
 
-# function traceinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+# function traceinnerproduct(u::MatrixTypes, v::MatrixTypes)
 #
 # end
 
 """
-    Hermitianinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+    Hermitianinnerproduct(u::MatrixTypes, v::MatrixTypes)
 
 Return the Hermitian inner product of `u` and `v`.
 """
-function Hermitianinnerproduct(u::fq_nmod_mat, v::fq_nmod_mat)
+function Hermitianinnerproduct(u::MatrixTypes, v::MatrixTypes)
     (nrows(u) == 1 || ncols(u) == 1) || error("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).")
     (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).")
     length(u) == length(v) || error("Vectors must be the same length in Hermitian inner product.")
     base_ring(u) == base_ring(v) || error("Vectors must be over the same field in Hermitian inner product.")
     q2 = order(base_ring(u))
     issquare(q2) || error("The Hermitian inner product is only defined over quadratic field extensions.")
+    
     q = Int(sqrt(q2))
     return sum([u[i] * v[i]^q for i in 1:length(u)])
 end
 
 """
-    Hermitianconjugatematrix(A::fq_nmod_mat)
+    Hermitianconjugatematrix(A::MatrixTypes)
 
 Return the Hermitian conjugate of the matrix `A`.
 """
-function Hermitianconjugatematrix(A::fq_nmod_mat)
+function Hermitianconjugatematrix(A::MatrixTypes)
     B = copy(A)
     q2 = order(base_ring(A))
     issquare(q2) || error("The Hermitian conjugate is only defined over quadratic field extensions.")
@@ -309,11 +264,12 @@ function entropy(x::Real)
 end
 
 """
-    FpmattoJulia(M::fq_nmod_mat)
+    FpmattoJulia(M::MatrixTypes)
 
-Return the `fq_nmod_mat` matrix `M` as a Julia Int matrix.
+Return the `MatrixTypes` matrix `M` as a Julia Int matrix.
 """
-function FpmattoJulia(M::fq_nmod_mat)
+# TODO: do want to remove and cease use of
+function FpmattoJulia(M::MatrixTypes)
     degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the Ints.")
     A = zeros(Int, size(M))
     for c in 1:ncols(M)
@@ -324,75 +280,7 @@ function FpmattoJulia(M::fq_nmod_mat)
     return A
 end
 
-"""
-    istriorthogonal(G::fq_nmod_mat, verbose::Bool=false)
-    istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
-
-Return `true` if the binary matrix `G` is triorthogonal (modulo 2).
-
-If the optional parameter `verbos` is set to `true`, the first pair or triple of
-non-orthogonal rows will be identified on the console.
-"""
-function istriorthogonal(G::fq_nmod_mat, verbose::Bool=false)
-    Int(order(base_ring(G))) == 2 || error("Triothogonality is only defined over 𝔽_2.")
-    nr, nc = size(G)
-    for r1 in 1:nr
-        for r2 in 1:nr
-            @views g1 = G[r1, :]
-            @views g2 = G[r2, :]
-            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]))
-                verbose && println("Rows $r1 and $r2 are not orthogonal.")
-                return false
-            end
-        end
-    end
-
-    for r1 in 1:nr
-        for r2 in 1:nr
-            for r3 in 1:nr
-                @views g1 = G[r1, :]
-                @views g2 = G[r2, :]
-                @views g3 = G[r3, :]
-                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]))
-                    verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
-
-function istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
-    nr, nc = size(G)
-    for r1 in 1:nr
-        for r2 in 1:nr
-            @views g1 = G[r1, :]
-            @views g2 = G[r2, :]
-            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]) % 2)
-                verbose && println("Rows $r1 and $r2 are not orthogonal.")
-                return false
-            end
-        end
-    end
-
-    for r1 in 1:nr
-        for r2 in 1:nr
-            for r3 in 1:nr
-                @views g1 = G[r1, :]
-                @views g2 = G[r2, :]
-                @views g3 = G[r3, :]
-                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]) % 2)
-                    verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
-                    return false
-                end
-            end
-        end
-    end
-    return true
-end
-
-function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
+function _quotientspace(big::MatrixTypes, small::MatrixTypes)
     F = base_ring(big)
     V = VectorSpace(F, ncols(big))
     U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
@@ -406,195 +294,26 @@ function _quotientspace(big::fq_nmod_mat, small::fq_nmod_mat)
     return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
 end
 
-#############################
-  # Quantum Helper Functions
-#############################
-
-function printstringarray(A::Vector{String}, withoutIs=false)
-    for a in A
-        if !withoutIs
-            println(a)
-        else
-            for i in a
-                if i == 'I'
-                    print(' ')
-                else
-                    print(i)
-                end
-            end
-            print('\n')
-        end
-    end
-end
-printchararray(A::Vector{Vector{Char}}, withoutIs=false) = printstringarray(setchartostringarray(A), withoutIs)
-printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Int = printstringarray(setsymplectictostringarray(A), withoutIs)
-
-"""
-    pseudoinverse(M::fq_nmod_mat)
-
-Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
-
-Note that this is not the Penrose-Moore pseudoinverse.
-"""
-function pseudoinverse(M::fq_nmod_mat)
-    # let this fail elsewhere if not actually over a quadratic extension
-    if degree(base_ring(M)) != 1
-        M = transpose(quadratictosymplectic(M))
-    else
-        M = transpose(M)
-    end
-
-    nr, nc = size(M)
-    MS = MatrixSpace(base_ring(M), nr, nr)
-    _, E = rref(hcat(M, MS(1)))
-    E = E[:, (nc + 1):end]
-    pinv = E[1:nc, :]
-    dual = E[nc + 1:nr, :]
-
-    # verify
-    _, Mrref = rref(M)
-    MScols = MatrixSpace(base_ring(M), nc, nc)
-    E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
-    Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
-    iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-    pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
-    transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
-    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
-    iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
-    return pinv
-end
-
-"""
-    quadratictosymplectic(M::fq_nmod_mat)
-
-Return the matrix `M` converted from the quadratic to the symplectic form.
-"""
-function quadratictosymplectic(M::fq_nmod_mat)
-    E = base_ring(M)
-    iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-    F, _ = FiniteField(Int(characteristic(E)), div(degree(E), 2), "ω")
-    nr = nrows(M)
-    nc = ncols(M)
-    Msym = zero_matrix(F, nr, 2 * nc)
-    for c in 1:nc
-        for r in 1:nr
-            # TODO: benchmark this without the branching
-            if !iszero(M[r, c])
-                Msym[r, c] = F(coeff(M[r, c], 0))
-                Msym[r, c + nc] = F(coeff(M[r, c], 1))
-            end
-        end
-    end
-    return Msym
-end
-
-"""
-    symplectictoquadratic(M::fq_nmod_mat)
-
-Return the matrix `M` converted from the symplectic to the quadratic form.
-"""
-function symplectictoquadratic(M::fq_nmod_mat)
-    iseven(ncols(M)) || error("Input to symplectictoquadratic is not of even length.")
-    nr = nrows(M)
-    nc = div(ncols(M), 2)
-    F = base_ring(M)
-    E, ω = FiniteField(Int(characteristic(F)), 2 * degree(F), "ω")
-    ϕ = embed(F, E)
-    Mquad = zero_matrix(E, nr, nc)
-    for c in 1:nc
-        for r in 1:nr
-            Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + nc]) * ω
-        end
-    end
-    return Mquad
-end
-
-function _Paulistringtosymplectic(str::T) where T <: Union{String, Vector{Char}}
-    n = length(str)
-    F, _ = FiniteField(2, 1, "ω")
-    sym = zero_matrix(F, 1, 2 * n)
-    for (i, c) in enumerate(str)
-        if c == 'X'
-            sym[1, i] = F(1)
-        elseif c == 'Z'
-            sym[1, i + n] = F(1)
-        elseif c == 'Y'
-            sym[1, i] = 1
-            sym[1, i + n] = F(1)
-        elseif c != 'I'
-            error("Encountered non-{I, X, Y, Z} character in Pauli string. This function is only defined for binary strings.")
-        end
-    end
-    return sym
-end
-_Paulistringtosymplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringtosymplectic(s) for s in A]...)
-_Paulistringstofield(str::T) where T <: Union{String, Vector{Char}} = symplectictoquadratic(_Paulistringtosymplectic(str))
-_Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringstofield(s) for s in A]...)
-# need symplectictoPaulistring
-# quadratictoPaulistring
-
-# charvec::Union{Vector{nmod}, Missing}=missing)
-function _processstrings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
-    # Paulisigns = Vector{Int}()
-    StrPaulistripped = Vector{String}()
-    for (i, s) in enumerate(SPauli)
-        if s[1] ∈ ['I', 'X', 'Y', 'Z']
-            # append!(Paulisigns, 1)
-            push!(StrPaulistripped, s)
-        elseif s[1] == '+'
-            # append!(Paulisigns, 1)
-            push!(StrPaulistripped, s[2:end])
-        elseif s[1] == '-'
-            # append!(Paulisigns, -1)
-            push!(StrPaulistripped, s[2:end])
-        else
-            error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
-        end
-    end
-
-    n = length(StrPaulistripped[1])
-    for s in StrPaulistripped
-        for i in s
-            i ∈ ['I', 'X', 'Y', 'Z'] || error("Element of provided Pauli string is not a Pauli character: $s.")
-        end
-        length(s) == n || error("Not all Pauli strings are the same length.")
-    end
-
-    # if !ismissing(charvec)
-    #     2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
-    #     R = ResidueRing(Nemo.ZZ, 4)
-    #     for s in charvec
-    #         modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
-    #     end
-    # else
-    #     R = ResidueRing(Nemo.ZZ, 4)
-    #     charvec = [R(0) for _ in 1:2 * n]
-    # end
-    return StrPaulistripped#, charvec
-end
-
 function largestconsecrun(arr::Vector{Int})
     n = length(arr)
     maxlen = 1
-    for i = 1:n
+    for i in 1:n
         mn = arr[i]
         mx = arr[i]
-
-        for j = (i + 1):n
+        for j in (i + 1):n
             mn = min(mn, arr[j])
             mx = max(mx, arr[j])
-
             if (mx - mn) == (j - i)
                 maxlen = max(maxlen, mx - mn + 1)
             end
         end
     end
-
     return maxlen
 end
 
-function _removeempty(A::fq_nmod_mat, type::String)
+function _removeempty(A::MatrixTypes, type::String)
     type ∈ ["rows", "cols"] || error("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type")
+    
     del = Vector{Int}()
     if type == "rows"
         for r in 1:nrows(A)
@@ -613,7 +332,7 @@ function _removeempty(A::fq_nmod_mat, type::String)
     end
 end
 
-function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+function _rref_no_col_swap(M::MatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
     isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
     isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
     A = deepcopy(M)
@@ -660,7 +379,7 @@ function _rref_no_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::U
     return A
 end
 
-function _rref_col_swap(M::fq_nmod_mat, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+function _rref_col_swap(M::MatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
     isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
     isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
     A = deepcopy(M)
@@ -757,7 +476,9 @@ function polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     fcoeffs[1:length(temp), 1] = temp
     A[:, 1] = fcoeffs
     for c in 2:l
-        A[:, c] = circshift(fcoeffs, c - 1)
+        # A[:, c] = circshift(fcoeffs, c - 1)
+        A[1:c-1, c] = fcoeffs[l - (c - 1) + 1:l, 1]
+        A[c:end, c] = fcoeffs[1:l - (c - 1), 1]
     end
     return A
 end
@@ -786,6 +507,262 @@ function lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Re
         end
     end
     return Alift
+end
+
+# Creates a matrix with copies of `M` at every nonzero entry of `locations`.
+function _concat(locations::Union{MatrixTypes, Matrix}, M::MatrixTypes)
+    nrM, ncM = size(M)
+    nrL, ncL = size(locations)
+    output = zero_matrix(base_ring(M), nrM * nrL, ncM * ncL)
+    for jouter in 1:ncL
+        for iouter in 1:nrL
+            if !iszero(locations[iouter, jouter])
+                for j in 1:ncM
+                    for i in 1:nrM
+                        row = i + nrM * (iouter - 1)
+                        col = j + ncM * (jouter - 1)
+                        output[row, col] = M[i, j]
+                    end
+                end
+            end
+        end
+    end
+    return output
+end
+
+#############################
+  # Quantum Helper Functions
+#############################
+
+"""
+    istriorthogonal(G::MatrixTypes, verbose::Bool=false)
+    istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
+
+Return `true` if the binary matrix `G` is triorthogonal (modulo 2).
+
+If the optional parameter `verbos` is set to `true`, the first pair or triple of
+non-orthogonal rows will be identified on the console.
+"""
+function istriorthogonal(G::MatrixTypes, verbose::Bool=false)
+    Int(order(base_ring(G))) == 2 || error("Triothogonality is only defined over 𝔽_2.")
+    nr, nc = size(G)
+    for r1 in 1:nr
+        for r2 in 1:nr
+            @views g1 = G[r1, :]
+            @views g2 = G[r2, :]
+            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]))
+                verbose && println("Rows $r1 and $r2 are not orthogonal.")
+                return false
+            end
+        end
+    end
+
+    for r1 in 1:nr
+        for r2 in 1:nr
+            for r3 in 1:nr
+                @views g1 = G[r1, :]
+                @views g2 = G[r2, :]
+                @views g3 = G[r3, :]
+                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]))
+                    verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
+function istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
+    nr, nc = size(G)
+    for r1 in 1:nr
+        for r2 in 1:nr
+            @views g1 = G[r1, :]
+            @views g2 = G[r2, :]
+            @views if !iszero(sum([g1[1, i] * g2[1, i] for i in 1:nc]) % 2)
+                verbose && println("Rows $r1 and $r2 are not orthogonal.")
+                return false
+            end
+        end
+    end
+
+    for r1 in 1:nr
+        for r2 in 1:nr
+            for r3 in 1:nr
+                @views g1 = G[r1, :]
+                @views g2 = G[r2, :]
+                @views g3 = G[r3, :]
+                @views if !iszero(sum([g1[1, i] * g2[1, i] * g3[1, i] for i in 1:nc]) % 2)
+                    verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
+function printstringarray(A::Vector{String}, withoutIs=false)
+    for a in A
+        if !withoutIs
+            println(a)
+        else
+            for i in a
+                if i == 'I'
+                    print(' ')
+                else
+                    print(i)
+                end
+            end
+            print('\n')
+        end
+    end
+end
+printchararray(A::Vector{Vector{Char}}, withoutIs=false) = printstringarray(setchartostringarray(A), withoutIs)
+printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Int = printstringarray(setsymplectictostringarray(A), withoutIs)
+
+"""
+    pseudoinverse(M::MatrixTypes)
+
+Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
+
+Note that this is not the Penrose-Moore pseudoinverse.
+"""
+function pseudoinverse(M::MatrixTypes)
+    # let this fail elsewhere if not actually over a quadratic extension
+    if degree(base_ring(M)) != 1
+        M = transpose(quadratictosymplectic(M))
+    else
+        M = transpose(M)
+    end
+
+    nr, nc = size(M)
+    MS = MatrixSpace(base_ring(M), nr, nr)
+    _, E = rref(hcat(M, MS(1)))
+    E = E[:, (nc + 1):end]
+    pinv = E[1:nc, :]
+    dual = E[nc + 1:nr, :]
+
+    # verify
+    _, Mrref = rref(M)
+    MScols = MatrixSpace(base_ring(M), nc, nc)
+    E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
+    Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
+    iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
+    pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
+    transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
+    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
+    iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
+    return pinv
+end
+
+# """
+#     quadratictosymplectic(M::MatrixTypes)
+
+# Return the matrix `M` converted from the quadratic to the symplectic form.
+# """
+# function quadratictosymplectic(M::MatrixTypes)
+#     E = base_ring(M)
+#     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
+#     F, _ = FiniteField(Int(characteristic(E)), div(degree(E), 2), "ω")
+#     nr = nrows(M)
+#     nc = ncols(M)
+#     Msym = zero_matrix(F, nr, 2 * nc)
+#     for c in 1:nc
+#         for r in 1:nr
+#             # TODO: benchmark this without the branching
+#             if !iszero(M[r, c])
+#                 Msym[r, c] = F(coeff(M[r, c], 0))
+#                 Msym[r, c + nc] = F(coeff(M[r, c], 1))
+#             end
+#         end
+#     end
+#     return Msym
+# end
+
+# """
+#     symplectictoquadratic(M::MatrixTypes)
+
+# Return the matrix `M` converted from the symplectic to the quadratic form.
+# """
+# function symplectictoquadratic(M::MatrixTypes)
+#     iseven(ncols(M)) || error("Input to symplectictoquadratic is not of even length.")
+#     nr = nrows(M)
+#     nc = div(ncols(M), 2)
+#     F = base_ring(M)
+#     E, ω = FiniteField(Int(characteristic(F)), 2 * degree(F), "ω")
+#     ϕ = embed(F, E)
+#     Mquad = zero_matrix(E, nr, nc)
+#     for c in 1:nc
+#         for r in 1:nr
+#             Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + nc]) * ω
+#         end
+#     end
+#     return Mquad
+# end
+
+function _Paulistringtosymplectic(str::T) where T <: Union{String, Vector{Char}}
+    n = length(str)
+    F, _ = FiniteField(2, 1, "ω")
+    sym = zero_matrix(F, 1, 2 * n)
+    for (i, c) in enumerate(str)
+        if c == 'X'
+            sym[1, i] = F(1)
+        elseif c == 'Z'
+            sym[1, i + n] = F(1)
+        elseif c == 'Y'
+            sym[1, i] = 1
+            sym[1, i + n] = F(1)
+        elseif c != 'I'
+            error("Encountered non-{I, X, Y, Z} character in Pauli string. This function is only defined for binary strings.")
+        end
+    end
+    return sym
+end
+_Paulistringtosymplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringtosymplectic(s) for s in A]...)
+_Paulistringstofield(str::T) where T <: Union{String, Vector{Char}} = symplectictoquadratic(_Paulistringtosymplectic(str))
+_Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringstofield(s) for s in A]...)
+# need symplectictoPaulistring
+# quadratictoPaulistring
+
+# charvec::Union{Vector{nmod}, Missing}=missing)
+function _processstrings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
+    # Paulisigns = Vector{Int}()
+    StrPaulistripped = Vector{String}()
+    for (i, s) in enumerate(SPauli)
+        if s[1] ∈ ['I', 'X', 'Y', 'Z']
+            # append!(Paulisigns, 1)
+            push!(StrPaulistripped, s)
+        elseif s[1] == '+'
+            # append!(Paulisigns, 1)
+            push!(StrPaulistripped, s[2:end])
+        elseif s[1] == '-'
+            # append!(Paulisigns, -1)
+            push!(StrPaulistripped, s[2:end])
+        else
+            error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
+        end
+    end
+
+    n = length(StrPaulistripped[1])
+    for s in StrPaulistripped
+        for i in s
+            i ∈ ['I', 'X', 'Y', 'Z'] || error("Element of provided Pauli string is not a Pauli character: $s.")
+        end
+        length(s) == n || error("Not all Pauli strings are the same length.")
+    end
+
+    # if !ismissing(charvec)
+    #     2 * n == length(charvec) || error("The characteristic value is of incorrect length.")
+    #     R = ResidueRing(Nemo.ZZ, 4)
+    #     for s in charvec
+    #         modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+    #     end
+    # else
+    #     R = ResidueRing(Nemo.ZZ, 4)
+    #     charvec = [R(0) for _ in 1:2 * n]
+    # end
+    return StrPaulistripped#, charvec
 end
 
 #############################
@@ -818,7 +795,7 @@ function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}
     return [tr(x * i) for i in basis] #, K, verify
 end
 
-function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+function _expandrow(row::MatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
     new_row = _expandelement(row[1], K, basis, verify)
     for i in 2:ncols(row)
         new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
@@ -827,12 +804,12 @@ function _expandrow(row::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmo
 end
 
 """
-    expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    expandmatrix(M::MatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod})
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the provided `basis` for the base ring of `M` over `K`.
 """
-function expandmatrix(M::fq_nmod_mat, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+function expandmatrix(M::MatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     L = base_ring(M)
     L == K && return M
     Int(characteristic(L)) == Int(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
@@ -1171,30 +1148,6 @@ function extractbipartition(G::SimpleGraph{Int})
     end
     return left, right
 end
-
-# Creates a matrix with copies of `M` at every nonzero entry of `locations`.
-function _concat(locations::Union{fq_nmod_mat, Matrix}, M::fq_nmod_mat)
-    nrM, ncM = size(M)
-    nrL, ncL = size(locations)
-    output = zero_matrix(base_ring(M), nrM * nrL, ncM * ncL)
-    for jouter in 1:ncL
-        for iouter in 1:nrL
-            if !iszero(locations[iouter, jouter])
-                for j in 1:ncM
-                    for i in 1:nrM
-                        row = i + nrM * (iouter - 1)
-                        col = j + ncM * (jouter - 1)
-                        output[row, col] = M[i, j]
-                    end
-                end
-            end
-        end
-    end
-    return output
-end
-
-
-
 
 
 
