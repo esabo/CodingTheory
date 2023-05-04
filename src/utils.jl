@@ -9,106 +9,68 @@
 #############################
 
 function _isisomorphic(A::T, B::T) where T <: MatrixTypes
-    n = ncols(A)
-    nrA = nrows(A)
-    nrB = nrows(B)
     F = base_ring(A)
-    V = VectorSpace(F, n)
-    AVS, _ = sub(V, [V(A[i, :]) for i in 1:nrA])
-    BVS, _ = sub(V, [V(B[i, :]) for i in 1:nrB])
+    V = VectorSpace(F, size(A, 2))
+    AVS, _ = sub(V, [V(A[i, :]) for i in axes(A, 1)])
+    BVS, _ = sub(V, [V(B[i, :]) for i in axes(B, 1)])
     return is_isomorphic(AVS, BVS)
 end
 
-"""
-    reverse(v::MatrixTypes)
-    reverse!(v::MatrixTypes)
+# """
+#     reverse(v::MatrixTypes)
+#     reverse!(v::MatrixTypes)
 
-Return the reverse of the vector `v`. 
-"""
-function reverse(v::MatrixTypes)
-    nr, nc = size(v)
-    u = deepcopy(v)
-    if nr == 1
-        left = 1
-        right = nc
-        while left < right
-            temp = u[1, left]
-            u[1, left] = u[1, right]
-            u[1, right] = temp
-            left += 1
-            right -= 1
-        end
-        return u
-    elseif nc == 1
-        left = 1
-        right = nr
-        while left < right
-            temp = u[left, 1]
-            u[left, 1] = u[right, 1]
-            u[right, 1] = temp
-            left += 1
-            right -= 1
-        end
-        return u
-    else
-        throw(ArgumentError("Matrix must be a vector."))
-    end
-end
+# Return the reverse of the vector `v`.
+# """
+# function reverse(v::MatrixTypes)
+#     nr, nc = size(v)
+#     if nr == 1
+#         return v[:, end:-1:1]
+#     elseif nc == 1
+#         return v[end:-1:1, :]
+#     else
+#         throw(ArgumentError("Matrix must be a vector."))
+#     end
+# end
 
-function reverse!(v::MatrixTypes)
-    nr, nc = size(v)
-    if nr == 1      
-        left = 1
-        right = nc
-        while left < right
-            temp = v[1, left]
-            v[1, left] = v[1, right]
-            v[1, right] = temp
-            left += 1
-            right -= 1
-        end
-    elseif nc == 1
-        left = 1
-        right = nr
-        while left < right
-            temp = v[left, 1]
-            v[left, 1] = v[right, 1]
-            v[right, 1] = temp
-            left += 1
-            right -= 1
-        end
-    else
-        throw(ArgumentError("Matrix must be a vector."))
-    end
-end
+# function reverse!(v::MatrixTypes)
+#     nr, nc = size(v)
+#     if nr == 1
+#         v[:, 1:end] = v[:, end:-1:1]
+#     elseif nc == 1
+#         v[1:end, :] = v[end:-1:1, :]
+#     else
+#         throw(ArgumentError("Matrix must be a vector."))
+#     end
+# end
 
-"""
-    circshift(v::MatrixTypes, l::Int)
+# """
+#     circshift(v::MatrixTypes, l::Int)
 
-Return the circular shift of the vector `v` by `l` bits.
+# Return the circular shift of the vector `v` by `l` bits.
 
-This is an overload of Base.circshift for type `MatrixTypes`.
-Either the number of rows or the number of columns must have dimension one.
-"""
-function circshift(v::MatrixTypes, l::Int)
-    nr, nc = size(v)
-    if nr == 1
-        l = l % nc
-        l < 0 && (l = nc + l;)
-        vshift = zero_matrix(base_ring(v), 1, nc)
-        vshift[1, 1:l] = v[1, nc - l + 1:nc]
-        vshift[1, l + 1:end] = v[1, 1:nc - l]
-    elseif nc == 1
-        l = l % nr
-        l < 0 && (l = nr + l;)
-        vshift = zero_matrix(base_ring(v), nr, 1)
-        vshift[1:l, 1] = v[nr - l + 1:nr, 1]
-        vshift[l + 1:end, 1] = v[1:nr - l, 1]
-    else
-        throw(ArgumentError("Input matrix must be a vector."))
-    end
-    return vshift
-end
+# This is an overload of Base.circshift for type `MatrixTypes`.
+# Either the number of rows or the number of columns must have dimension one.
+# """
+# function circshift(v::MatrixTypes, l::Int)
+#     nr, nc = size(v)
+#     if nr == 1
+#         l = l % nc
+#         l < 0 && (l = nc + l;)
+#         vshift = zero_matrix(base_ring(v), 1, nc)
+#         vshift[1, 1:l] = v[1, nc - l + 1:nc]
+#         vshift[1, l + 1:end] = v[1, 1:nc - l]
+#     elseif nc == 1
+#         l = l % nr
+#         l < 0 && (l = nr + l;)
+#         vshift = zero_matrix(base_ring(v), nr, 1)
+#         vshift[1:l, 1] = v[nr - l + 1:nr, 1]
+#         vshift[l + 1:end, 1] = v[1:nr - l, 1]
+#     else
+#         throw(ArgumentError("Input matrix must be a vector."))
+#     end
+#     return vshift
+# end
 
 """
     ⊕(A::MatrixTypes, B::MatrixTypes)
@@ -514,7 +476,9 @@ function polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     fcoeffs[1:length(temp), 1] = temp
     A[:, 1] = fcoeffs
     for c in 2:l
-        A[:, c] = circshift(fcoeffs, c - 1)
+        # A[:, c] = circshift(fcoeffs, c - 1)
+        A[1:c-1, c] = fcoeffs[l - (c - 1) + 1:l, 1]
+        A[c:end, c] = fcoeffs[1:l - (c - 1), 1]
     end
     return A
 end

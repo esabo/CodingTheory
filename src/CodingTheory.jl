@@ -20,7 +20,7 @@ import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
     isregular
-import Base: circshift, reverse, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
@@ -62,10 +62,11 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
     isregular, edgevertexincidencematrix, edgevertexincidencegraph,
     isvalidbipartition, extractbipartition
-    #, _minwtrow
-    #circshift, lift
-    #, _processstrings,
-    #_Paulistringtosymplectic,
+    # , _minwtrow
+    # , circshift
+    # , lift
+    # , _processstrings
+    # , _Paulistringtosymplectic
 
 #############################
         # cyclotomic.jl

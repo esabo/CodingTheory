@@ -103,7 +103,7 @@ function QuasiCyclicCode(v::Vector{fq_nmod_mat}, l::Int, circgens::Bool, parity:
                     topcircrow[j, 1] = row[i + (j - 1) * l]
                 end
                 # transpose to get first circulant column
-                topcircrow[2:end, :] = reverse(topcircrow[2:end, :])
+                topcircrow[2:end, :] = topcircrow[end:-1:2, :]
                 A[k, i] = R(S([topcircrow[i, 1] for i in 1:m]))
             end
         end

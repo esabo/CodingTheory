@@ -701,12 +701,8 @@ The direct sum code has generator matrix `G1 ⊕ G2` and parity-check matrix `H1
 function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
 
-    G1 = generatormatrix(C1)
-    G2 = generatormatrix(C2)
-    G = directsum(G1, G2)
-    H1 = paritycheckmatrix(C1)
-    H2 = paritycheckmatrix(C2)
-    H = directsum(H1, H2)
+    G = generatormatrix(C1) ⊕ generatormatrix(C2)
+    H = paritycheckmatrix(C1) ⊕ paritycheckmatrix(C2)
     # should just be direct sum, but need to recompute P - also direct sum?
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k + C2.k || error("Unexpected dimension in direct sum output.")
