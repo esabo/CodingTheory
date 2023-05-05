@@ -29,7 +29,8 @@ abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 
 # TODO: setup conceptual parents with GRS under AlgGeoC
 
-const MatrixTypes = Union{fpMatrix, fqPolyRepMatrix}
+# const CTMatrixTypes = Union{fpMatrix, fqPolyRepMatrix}
+const CTMatrixTypes = MatElem{<:FinFieldElem}
 
 #############################
       # concrete types

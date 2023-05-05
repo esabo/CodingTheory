@@ -2130,7 +2130,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
             
             if length(paralleledges) > 1
                 pemathsym = quadratictosymplectic(vcat(paralleledges...))
-                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(pemathsym, 1:nrows(pemathsym), 1:ncols(pemathsym)), "rows"))
+                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(pemathsym, 1:nrows(pemathsym), 1:ncols(pemathsym)), :rows))
                 paralleledges = [temp[i, :] for i in 1:nrows(temp)]
             else
                 pemathsym = quadratictosymplectic(vcat(paralleledges...))
@@ -2164,11 +2164,11 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                 temp = symplectictoquadratic(matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...)))
                 validedges = [temp[i, :] for i in 1:nrows(temp)]
             else
-                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), "rows"))
+                temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), :rows))
                 validedges = [temp[i, :] for i in 1:nrows(temp)]
             end
         else
-            temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), "rows"))
+            temp = symplectictoquadratic(_removeempty(_rref_no_col_swap(vematsym, 1:nrows(vematsym), 1:ncols(vematsym)), :rows))
             validedges = [temp[i, :] for i in 1:nrows(temp)]
         end
         println("i = $i")
