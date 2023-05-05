@@ -295,6 +295,7 @@ function largestconsecrun(arr::Vector{Int})
     return maxlen
 end
 
+# TODO: replace all calls with symbols only
 function _removeempty(A::CTMatrixTypes, type::Union{Symbol, AbstractString})
     type ∈ ("rows", "cols", :rows, :cols) ||
         error("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type")

@@ -69,7 +69,7 @@ function QuasiCyclicCode(v::Vector{fq_nmod_mat}, l::Int, circgens::Bool, parity:
         end
 
         S, x = PolynomialRing(F, "x")
-        R = ResidueRing(S, x^m - 1)
+        R = residue_ring(S, x^m - 1)
         A = zero_matrix(R, nr, l)
         for r in 1:nr
             for c in 1:l
@@ -93,7 +93,7 @@ function QuasiCyclicCode(v::Vector{fq_nmod_mat}, l::Int, circgens::Bool, parity:
         end
         
         S, x = PolynomialRing(F, "x")
-        R = ResidueRing(S, x^m - 1)
+        R = residue_ring(S, x^m - 1)
         A = zero_matrix(R, lenv, l)
         for k in 1:lenv
             for i in 1:l
