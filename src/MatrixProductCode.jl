@@ -46,7 +46,7 @@ function MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), "rows")
+        H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * P
     end

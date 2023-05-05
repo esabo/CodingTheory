@@ -174,8 +174,8 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
     p = Int(characteristic(F))
     charvec = _processcharvec(charvec, p, n)
 
-    Xmatrix = _removeempty(Xmatrix, "rows")
-    Zmatrix = _removeempty(Zmatrix, "rows")
+    Xmatrix = _removeempty(Xmatrix, :rows)
+    Zmatrix = _removeempty(Zmatrix, :rows)
 
     # determine if the provided set of stabilizers are redundant
     Xrank = rank(Xmatrix)
@@ -248,7 +248,7 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
 
     S = _Paulistringtosymplectic(_processstrings(SPauli))
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
-    S = _removeempty(S, "rows")
+    S = _removeempty(S, :rows)
     # the reason we repeat here and not call another constructor is the else
     # statement at the bottom of this function
     # would also need to compute down to signs to call _isCSSsymplectic
@@ -380,7 +380,7 @@ determine such quantities. Use `isovercomplete` to determine if an
 """
 function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
     iszero(S) && throw(ArgumentError("The stabilizer matrix is empty."))
-    S = _removeempty(S, "rows")
+    S = _removeempty(S, :rows)
     aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
 
     F = base_ring(S)

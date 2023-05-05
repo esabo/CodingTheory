@@ -10,7 +10,7 @@
 
 function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
     iszero(G) && error("The gauge matrix is empty.")
-    G = _removeempty(G, "rows")
+    G = _removeempty(G, :rows)
 
     F = base_ring(G)
     p = Int(characteristic(F))
@@ -115,19 +115,19 @@ function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=
     return SubsystemCode(G, charvec)
 end
 
-function SubsystemCode(S::fq_nmod_mat, L::MatrixTypes, G::MatrixTypes,
+function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     charvec::Union{Vector{nmod}, Missing}=missing)
 
     # all quantities, including catting all vectors if need be
     iszero(S) && error("The stabilizer matrix is empty.")
-    S = _removeempty(S, "rows")
+    S = _removeempty(S, :rows)
     n = div(ncols(S), 2)
     # check S commutes with itself
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
 
     # logicals
     iszero(L) && error("The logicals are empty.")
-    L = _removeempty(L, "rows")
+    L = _removeempty(L, :rows)
     # check S commutes with L
     aresymplecticorthogonal(S, L) || error("Logicals do not commute with the code.")
     # check L doesn't commute with itself
@@ -144,7 +144,7 @@ function SubsystemCode(S::fq_nmod_mat, L::MatrixTypes, G::MatrixTypes,
 
     # gauge operators
     iszero(G) && error("The gauges are empty.")
-    G = _removeempty(G, "rows")
+    G = _removeempty(G, :rows)
     # check S commutes with G
     aresymplecticorthogonal(S, G) || error("Gauges do not commute with the code.")
     # check L commutes with G
@@ -480,7 +480,7 @@ is isomorphic to the current set of stabilizers.
 """
 function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
-    stabs = _removeempty(stabs, "rows")
+    stabs = _removeempty(stabs, :rows)
     order(S.F) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     stabs = change_base_ring(S.F, stabs)
     if _isisomorphic(S, stabs)
