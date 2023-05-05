@@ -903,29 +903,27 @@ symplectic vector spaces.
 * Note
 - This is not intended to detect if `S1` and `S2` are permutation equivalent.
 """
-# TODO: redo hierarchy based on conceptualparent(s) or traits
 function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
     (S1.n == S2.n && S1.k == S2.k) || return false
     # can't compare fields directly because they are compared based on ptr addresses
-    (Int(order(S1.F)) == Int(order(S2.F)) && Int(order(S1.E)) == Int(order(S2.E))) || return false
+    Int(order(S1.F)) == Int(order(S2.F)) || return false
     if GaugeTrait(T) == HasGauges
         S1.r == S2.r || return false
     end
 
     # # test stabilizers
-    _isisomorphic(symplecticstabilizers(S1), symplecticstabilizers(S2)) || return false
+    _isisomorphic(S1.stabs, S2.stabs) || return false
 
-    # graph states
     if LogicalTrait(T) == HasLogicals()
         # test logicals
-        _isisomorphic(logicalsmatrix(S1), logicalsmatrix(S2)) || return false
+        _isisomorphic(S1.logsmat, S2.logsmat) || return false
     else
         return true
     end
 
     if GaugeTrait(T) == HasGauges()
         # test gauge operators
-        return is_isomorphic(gaugesmatrix(S1), gaugesmatrix(S2))
+        return is_isomorphic(S1.gopsmat, S2.gopsmat)
     else
         return true
     end

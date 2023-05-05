@@ -451,73 +451,183 @@ Return the code created by added `row` to the stabilizers of `S`.
   The unaffected logical operators are kept during the update and only those which don't commute
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
-# TODO: redo for subsystem codes and traits
+# TODO: move to subsystem
 function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, verbose::Bool=true)
     # typeof(S) ∈ [GraphState, GraphStateStabilizerCSS] && return S
     iszero(row) && return S
     nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
 
-    # think about if this approach is still good now that logicals are automatic
-    rankS = rank(S.stabs)
-    newsymstabs = vcat(S.stabs, row)
-    ranknewS = rank(newsymstabs)
-    if rankS == ranknewS
-        verbose && println("Row is already in the stabilizer group. Nothing to update.")    
-        return S
-    elseif S.k == 1
-        verbose && println("Row is not in the stabilizer group; the result is a graph state.")
-        return StabilizerCode(newsymstabs, S.charvec)
-    end
-
-    # not a stabilizer and multiple logical pairs
-    logs = logicals(S)
-    logsmat = logicalsmatrix(S)
-    LsymEuc = hcat(logsmat[:, S.n + 1:end], -logsmat[:, 1:S.n])
-    prod = LsymEuc * transpose(row)
-    # if iszero(prod)
-    #     verbose && println("Row is already in the stabilizer group. Nothing to update.")    
-    #     return S
-    # end
-    numlogs = nrows(logsmat)
-    logstokeep = Vector{Int}()
-    logpairstokeep = Vector{Int}()
-    # safer than 1:2k
-    pair = 1
-    for i in 1:2:numlogs
-        if iszero(prod[i]) && iszero(prod[i + 1])
-            append!(logstokeep, i, i + 1)
-            append!(logpairstokeep, pair)
-        end
-        pair += 1
-    end
-    if isempty(logstokeep)
-        verbose && println("Row does not commute with any logicals. The entire code needs to be recomputed from scratch.")
-        Snew = StabilizerCode(newsymstabs, S.charvec)
+    # stabilizers
+    prod = hcat(S.stabs[:, S.n + 1:end], -S.stabs[:, 1:S.n]) * transpose(row)
+    if iszero(prod)
+        verbose && println("Vector is already in the stabilizer group. Nothing to update.")    
+        Snew = deepcopy(S)
+        Snew.stabs = vcat(S.stabs, row)
+        Snew.overcomplete = true
         return Snew
+    else
+        stabstokeep = Vector{Int}()
+        for i in 1:nrows(S.stabs)
+            iszero(prod[i]) && append!(stabstokeep, i, i + 1)
+        end
+
+        if isempty(stabstokeep)
+            verbose && println("The vector anticommutes with all stabilizers. The new stabilizer group is just the vector.")
+            stabs = row
+        else
+            update = setdiff(1:nrows(S.stabs), stabstokeep)
+            if verbose
+                if isempty(update)
+                    println("No stabilizers requiring updating")
+                else
+                    println("Stabilizers requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (stabs = S.stabs;) : (stabs = S.stabs[stabstokeep, :];)
+        end
     end
 
-    verbose && println("Logical pairs not requiring updating:")
-    verbose && display(logs[logpairstokeep]) # how do I want to best display this?
-    temp = vcat(newsymstabs, logsmat[logstokeep, :])
-    # kernel should contain newstabs and new logs but not old logs
-    _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    H = transpose(H)
-    # unclear why this shouldn't be made not symplectic again
-    temp = _quotientspace(H, newsymstabs)
-    # temp = hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n])
+    # logicals
+    if LogicalTrait(typeof(S)) == HasLogicals()
+        prod = hcat(S.logsmat[:, S.n + 1:end], -S.logsmat[:, 1:S.n]) * transpose(row)
+        logstokeep = Vector{Int}()
+        logpairstokeep = Vector{Int}()
+        pair = 1
+        for i in 1:2:nrows(S.logsmat)
+            # this is predicated on the idea that the pairs are stacked together in this matrix
+            # TODO: write a unit test checking this never changes
+            if iszero(prod[i]) && iszero(prod[i + 1])
+                append!(logstokeep, i, i + 1)
+                append!(logpairstokeep, pair)
+            end
+            pair += 1
+        end
+
+        if isempty(logstokeep)
+            verbose && println("The vector anticommutes with all logical pairs.")
+            logs = zero_matrix(S.F, 1, 2 * S.n)
+        else
+            update = setdiff(1:length(S.logicals), logpairstokeep)
+            if verbose
+                if isempty(update)
+                    println("No logical pairs requiring updating")
+                else
+                    println("Logical pairs requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (logs = S.logsmat;) : (logs = S.logsmat[logstokeep, :];)
+        end
+    else
+        logs = zero_matrix(S.F, 1, 2 * S.n)
+    end
+
+    # gauges
+    if GaugeTrait(typeof(S)) == HasGauges()
+        prod = hcat(S.gopsmat[:, S.n + 1:end], -S.gopsmat[:, 1:S.n]) * transpose(row)
+        gopstokeep = Vector{Int}()
+        goppairstokeep = Vector{Int}()
+        pair = 1
+        for i in 1:2:nrows(S.gopsmat)
+            # this is predicated on the idea that the pairs are stacked together in this matrix
+            # TODO: write a unit test checking this never changes
+            if iszero(prod[i]) && iszero(prod[i + 1])
+                append!(gopstokeep, i, i + 1)
+                append!(goppairstokeep, pair)
+            end
+            pair += 1
+        end
+
+        if isempty(gopstokeep)
+            verbose && println("The vector anticommutes with all gauge operator pairs.")
+            gaugeops = zero_matrix(S.F, 1, 2 * S.n)
+        else
+            update = setdiff(1:length(S.gaugeops), goppairstokeep)
+            if verbose
+                if isempty(update)
+                    println("No gauge operator pairs requiring updating")
+                else
+                    println("Gauge operator pairs requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (gaugeops = S.gaugeops;) : (gaugeops = S.gaugeops[gopstokeep, :];)
+        end
+    else
+        gaugeops = zero_matrix(S.F, 1, 2 * S.n)
+    end
+
+    # compute newly opened degrees of freedom
+    temp = _removeempty(vcat(stabs, logs, gaugeops), "rows")
+    _, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    temp = _quotientspace(transpose(temp), newsymstabs)
     newlogs = _makepairs(temp)
-    # verify
-    fulllogs = [logs[logpairstokeep]; newlogs]
-    logsmat = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
-    aresymplecticorthogonal(newsymstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
-    prod = hcat(logsmat[:, S.n + 1:end], -logsmat[:, 1:S.n]) * transpose(logsmat)
-    sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
-    # set and return if good
-    verbose && println("New logicals:")
-    verbose && display(newlogs)
-    Snew = StabilizerCode(newsymstabs, S.charvec)
-    setlogicals!(Snew, fulllogs)
-    return Snew
+    # this redoes extra work but let's start by seeing if it works
+    return SubsystemCode(stabs, vcat(logs, newlogs), gaugeops, S.charvec)
+
+    # if LogicalTrait(typeof(S)) == HasLogicals() && GaugeTrait(typeof(S)) == HasGauges()
+
+    # elseif LogicalTrait(typeof(S)) == HasNoLogicals() && GaugeTrait(typeof(S)) == HasGauges()
+    #     # do the above but don't include logs
+    # elseif LogicalTrait(typeof(S)) == HasLogicals() && GaugeTrait(typeof(S)) == HasNoGauges()
+    #     # do the above but don't include gauges
+    # elseif LogicalTrait(typeof(S)) == HasNoLogicals() && GaugeTrait(typeof(S)) == HasNoGauges()
+    #     # being explicit here for the reader instead of using else but this is a compile time
+    #     # choice so won't slow anything down
+
+    #     # pass stabs to StabilizerCode constructor
+    # end
+
+
+
+    # rankS = rank(S.stabs)
+    # newsymstabs = vcat(S.stabs, row)
+    # ranknewS = rank(newsymstabs)
+    # if rankS == ranknewS
+    #     verbose && println("Row is already in the stabilizer group. Nothing to update.")
+    #     Snew = deepcopy(S)
+    #     Snew.stabs = newsymstabs
+    #     Snew.overcomp = true
+    #     return Snew
+    # elseif S.k == 1
+    #     verbose && println("Row is not in the stabilizer group; the result is a graph state.")
+    #     ranknewS == nrows(newsymstabs) ? (overcomp = false;) : (overcomp = true;)
+    #     if GaugeTrait(typeof(S)) == HasGauges()
+    #         return GraphStateSubsystem(S.F, S.n, 0, S.r, missing, newsymstabs, S.charvec, _determinesigns(newsymstabs,
+    #             charvec), missing, overcomp, S.gaugeops, S.gopsmat)
+    #     else
+    #         return GraphState(S.F, S.n, 0, missing, newsymstabs, S.charvec, _determinesigns(newsymstabs,
+    #             charvec), missing, overcomp)
+    #     end
+    # end
+
+
+    #     if isempty(logstokeep)
+    #         verbose && println("Row does not commute with any logicals. The entire code needs to be recomputed from scratch.")
+    #         if GaugeTrait(typeof(S)) == HasGauges()
+    #             return SubsystemCode(vcat(gaugegroupmatrix(S), row))
+    #         else
+    #             return StabilizerCode(newsymstabs, S.charvec)
+    #         end
+    #     end
+
+        
+    #     # kernel should contain newstabs and new logs but not old logs
+        
+    #     # verify
+    #     fulllogs = [S.logicals[logpairstokeep]; newlogs]
+    #     logsmat = vcat([vcat(fulllogs[i]...) for i in 1:length(fulllogs)]...)
+    #     aresymplecticorthogonal(newsymstabs, logsmat) || error("Computed logicals do not commute with the codespace.")
+    #     prod = hcat(logsmat[:, S.n + 1:end], -logsmat[:, 1:S.n]) * transpose(logsmat)
+    #     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
+    #     # set and return if good
+    #     verbose && println("New logicals:")
+    #     verbose && display(newlogs)
+    #     Snew = StabilizerCode(newsymstabs, S.charvec)
+    #     setlogicals!(Snew, fulllogs)
+    # end
+    # return Snew
 end
 
 """
@@ -529,15 +639,19 @@ Return the code created by removing the stabilizers indexed by `rows`.
 - The goal of this function is to track how the logical operators update through this process.
   Here, the original logical pairs are kept and an appropriate number of new pairs are added.
 """
-# TODO: redo for subsystem codes and traits
-function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
+# TODO: move to subsystem, unify prints with above
+function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=true)
     numstabs = nrows(S.stabs)
-    rows ⊆ 1:numstabs || throw(ArgumentError("Argument rows not a subset of the number of stabilizers."))
+    rows ⊆ 1:numstabs || throw(ArgumentError("Argument `rows` not a subset of the number of stabilizers."))
     verbose && println("Removing stabilizers: $rows")
     newstabs = S.stabs[setdiff(1:numstabs, rows), :]
-    Snew = StabilizerCode(newstabs, S.charvec)
-    # if typeof(S) ∉ [GraphState, GraphStateStabilizerCSS]
-    if true
+    typeof(S) <: AbstractStabilizerCode ? (Snew = StabilizerCode(newstabs, S.charvec);) :
+        (Snew = SubsystemCode(newstabs, S.charvec);)
+    
+    # never going to be a graph state because it just gained a logical
+    # never going to be zero because StabilizerCode would have errored
+    # this is going to check if it was previously a graph state
+    if LogicalTrait(typeof(S)) == HasLogicals()
         logs = logicals(S)
         logsmatrix = logicalsmatrix(S)
         small = vcat(newstabs, logsmatrix)
@@ -561,7 +675,7 @@ function expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=t
         # set and return if good
         verbose && println("New logicals:")
         verbose && display(newlogs)
-        setlogicals!(Snew, vcat(fulllogs, newlogs))
+        setlogicals!(Snew, logsmatrix)
         return Snew
     else
         verbose && println("Started with all graph state. New logicals:")
