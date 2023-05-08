@@ -596,6 +596,7 @@ Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
 function pseudoinverse(M::CTMatrixTypes)
     # let this fail elsewhere if not actually over a quadratic extension
     if degree(base_ring(M)) != 1
+        # TODO: quadratictosymplectic is no longer defined, this will need changed
         M = transpose(quadratictosymplectic(M))
     else
         M = transpose(M)
@@ -1037,12 +1038,8 @@ end
 Return `true` if `G` is regular.
 """
 function isregular(G::SimpleGraph{Int})
-    fadjlist = G.fadjlist
-    deg = length(fadjlist[1])
-    for v in fadjlist
-        length(v) == deg || return false
-    end
-    return true
+    deg = length(G.fadjlist[1])
+    all(length(v) == deg for v in G.fadjlist)
 end
 
 """
