@@ -5,7 +5,7 @@ using Test
 @testset "utils.jl" begin
     using Oscar, CodingTheory
 
-    F, _ = FiniteField(2, 1, "α1");
+    F = GF(2, 1, "α1")
 
     # NOTE: circshift is currently commented out, might be deleted in the future
     # v = matrix(F, 1, 8, [1, 0, 1, 1, 1, 0, 0, 0])
@@ -30,25 +30,65 @@ using Test
     @test CodingTheory._minwtrow(Mminwt3) == (1, 3)
     @test CodingTheory._minwtcol(Mminwt3) == (1, 5)
 
-    v = [0, 1, 1, 0, 1]
-    w = [0, 1, 0, 1, 1]
-    v2 = matrix(GF2, 1, 5, v)
-    w2 = matrix(GF2, 1, 5, w)
-    v3 = matrix(F, 1, 5, v)
-    w3 = matrix(F, 1, 5, w)
+    v = [0, 1, 1, 0, 1, 1]
+    w = [0, 1, 0, 1, 1, 1]
+    v2 = matrix(GF2, 1, 6, v)
+    w2 = matrix(GF2, 1, 6, w)
+    v3 = matrix(F, 1, 6, v)
+    w3 = matrix(F, 1, 6, w)
     @test Hammingdistance(v, w) == 2
     @test Hammingdistance(v2, w2) == 2
     @test Hammingdistance(v3, w3) == 2
 
-    # TODO: the following functions
-    # symplecticinnerproduct - test against aresymplecticorthogonal which is tested via every function
-    # Hermitianinnerproduct
-    # Hermitianconjugatematrix - make up test or do via Hermitiandual
+    @test symplecticinnerproduct(v2,w2) == 1
+    @test symplecticinnerproduct(v3,w3) == 1
+    @test symplecticinnerproduct(v3,v3) == 0
+    @test symplecticinnerproduct(w3,w3) == 0
+    @test aresymplecticorthogonal(v3,v3)
+    @test aresymplecticorthogonal(w3,w3)
+
+    F4 = GF(2, 2, :ω)
+    ω = gen(F4)
+    hexacode = matrix(F4, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
+    @test Hermitianinnerproduct(hexacode[1, :], matrix(F4, [1 0 0 1 1 0])) == ω
+    @test Hermitianinnerproduct(hexacode[1, :], hexacode[2, :]) == 0
+    @test iszero(matrix(F4, Hermitianconjugatematrix(hexacode)) * transpose(hexacode))
+
+
     # _removeempty
-    # _rref_no_col_swap and _rref_col_swap - come back to when going over weightdist.jl
+    M = ones(Int, rand(20:30), rand(20:30))
+    rowindex = rand(1:size(M,1))
+    colindex = rand(1:size(M,2))
+    for i in axes(M, 1)
+        M[i, colindex] = 0
+    end
+    for j in axes(M, 2)
+        M[rowindex, j] = 0
+    end
+    M2 = matrix(GF2, M)
+    M3 = matrix(F, M)
+    M2_remrow = CodingTheory._removeempty(M2, :rows)
+    M2_remcol = CodingTheory._removeempty(M2, :cols)
+    M3_remrow = CodingTheory._removeempty(M3, :rows)
+    M3_remcol = CodingTheory._removeempty(M3, :cols)
+    @test !any(iszero(M2_remrow[i, :]) for i in axes(M2_remrow, 1))
+    @test !any(iszero(M2_remcol[:, j]) for j in axes(M2_remcol, 2))
+    @test !any(iszero(M3_remrow[i, :]) for i in axes(M3_remrow, 1))
+    @test !any(iszero(M3_remcol[:, j]) for j in axes(M3_remcol, 2))
+
+    # TODO: _rref_no_col_swap and _rref_col_swap - come back to when going over weightdist.jl
+
     # digitstoint
+    @test all(d == digits(d, base = 2, pad = 15) |> reverse |> digitstoint for d in rand(0:2^15, 100))
+
     # _concat
-    # pseudoinverse
+    locations = [0 1; 1 1]
+    M1 = matrix(GF2, ones(Int, 3, 2))
+    M2 = matrix(F, ones(Int, 3, 2))
+    @test CodingTheory._concat(locations, M1) == matrix(GF2, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
+    @test CodingTheory._concat(locations, M2) == matrix(F, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
+
+    # TODO: pseudoinverse test
 
     # Tri-orthogonal matrix from Bravyi and Haah 2012, equation 3
     Mtriorth = [1 1 1 1 1 1 1 0 0 0 0 0 0 0

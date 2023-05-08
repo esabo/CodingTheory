@@ -559,7 +559,7 @@ function augment(S::AbstractStabilizerCode, row::fq_nmod_mat, verbose::Bool=true
     end
 
     # compute newly opened degrees of freedom
-    temp = _removeempty(vcat(stabs, logs, gaugeops), "rows")
+    temp = _removeempty(vcat(stabs, logs, gaugeops), :rows)
     _, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
     temp = _quotientspace(transpose(temp), newsymstabs)
     newlogs = _makepairs(temp)
