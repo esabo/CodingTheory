@@ -12,14 +12,14 @@
 """
     HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return the (symmetric) hypergraph product code of `C`.
+Return the (symmetric) hypergraph product code of `C` whose signs are determined by `charvec`.
 
-The hypergraph product is defined in "J. Tillich, G. Zémor. Quantum LDPC codes
-with positive rate and minimum distance proportional to n^(1/2). (2013)
-arXiv:0903.0566v2"
+# Notes
+* The hypergraph product is defined in "J. Tillich, G. Zémor. Quantum LDPC codes
+  with positive rate and minimum distance proportional to n^(1/2). (2013)
+  arXiv:0903.0566v2"
 """
-function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod},
-        Missing}=missing)
+function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
     # Int(order(C.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
 
@@ -40,14 +40,14 @@ function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod
     p = Int(characteristic(C.F))
     nsym = ncols(S)
     if !ismissing(charvec)
-        nsyms == length(charvec) || error("The characteristic value is of incorrect length.")
+        nsyms == length(charvec) || throw(ArgumentError("The characteristic value is of incorrect length."))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
-            modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+            modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
         end
     else
         if p == 2
@@ -103,11 +103,9 @@ end
 """
     HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return the hypergraph product code of `C1` and `C2`.
+Return the hypergraph product code of `C1` and `C2` whose signs are determined by `charvec`.
 """
-function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
-        charvec::Union{Vector{nmod}, Missing}=missing)
-
+function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     # Int(order(C1.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
     # Int(order(C2.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
 
@@ -128,14 +126,14 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     p = Int(characteristic(C1.F))
     nsym = ncols(S)
     if !ismissing(charvec)
-        nsym == length(charvec) || error("The characteristic value is of incorrect length.")
+        nsym == length(charvec) || throw(ArgumentError("The characteristic value is of incorrect length."))
         if p == 2
             R = ResidueRing(Nemo.ZZ, 4)
         else
             R = ResidueRing(Nemo.ZZ, p)
         end
         for s in charvec
-            modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+            modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
         end
     else
         if p == 2
@@ -194,14 +192,14 @@ end
     GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2`.
+Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2` whose signs are determined by `charvec`.
 
-The generalized Shor code is defined in "D. Bacon and A. Casaccino. Quantum
-error correcting subsystem codes from two classical linear codes. (2006)
-http://arxiv.org/abs/quant-ph/0610088"
+# Notes
+* The generalized Shor code is defined in "D. Bacon and A. Casaccino. Quantum
+  error correcting subsystem codes from two classical linear codes. (2006)
+  http://arxiv.org/abs/quant-ph/0610088"
 """
-function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
-        charvec::Union{Vector{nmod}, Missing}=missing)
+function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
     Int(order(C1.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
     Int(order(C2.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
@@ -217,24 +215,25 @@ function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # [[n1 * n2, k1 * k2, min(d1, d2)]]
 end
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    charvec::Union{Vector{nmod}, Missing}=missing) = GeneralizedShorCode(C1, C2,
-    charvec)
+    charvec::Union{Vector{nmod}, Missing}=missing) = GeneralizedShorCode(C1, C2, charvec)
 
 """
     HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
 
 Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
-Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
-codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
-codes with finite rate".
-
 # Arguments
 * a: A vector of length `c` of binary matrices of the same dimensions.
 * b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
 * χ: A strictly positive integer coprime with `c`.
+
+# Notes
+* Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
+  codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
+  codes with finite rate".
 """
+# TODO: charvec
 function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
@@ -307,16 +306,18 @@ end
 
 Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
-Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
-codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
-codes with finite rate".
-
 # Arguments
 * a: A vector of length `c` of binary matrices of the same dimensions.
 * b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
 * χ: A strictly positive integer coprime with `c`.
+
+# Notes
+* Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity check
+  codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
+  codes with finite rate".
 """
+# TODO: charvec
 function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
@@ -373,10 +374,12 @@ end
 
 Return the generealized bicycle code given by `A` and `B`.
 
-Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
-codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
-finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
+# Notes
+* Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
+  codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
+  finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
+# TODO: charvec
 function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
     base_ring(A) == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
     (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
@@ -392,12 +395,12 @@ end
 
 Return the generealized bicycle code determined by `a` and `b`.
 
-`l x l` circulant matrices are constructed using the coefficients of the polynomials
-`a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column.
-
-Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
-codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
-finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
+# Notes
+* `l x l` circulant matrices are constructed using the coefficients of the polynomials
+  `a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column
+* Generealized bicycle codes are are found in "Quantum ``hyperbicycle'' low-density parity check
+  codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
+  finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
 function GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
@@ -419,13 +422,15 @@ end
 Return the two matrices `HX` and `HZ` of generalized hypergraph product of `A` and `b`
 over the reside ring.
 
-The generalized hypergraph product is defined in "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
-To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
-
 # Arguments
 * `A` - an `m x n` matrix with coefficents in a residue ring over `GF(2)`.
 * `b` - a polynomial over the same residue ring
+
+# Notes
+* The generalized hypergraph product is defined in "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
+* To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
 """
+# TODO: charvec
 function GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(b)
@@ -470,11 +475,13 @@ end
 Return the CSS code produced by lifting the generalized hypergraph product of `A` and `b`
 over the underlying base field.
 """
+# TODO: charvec
 function LiftedGeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     HX, HZ = GeneralizedHypergraphProductCode(A, b)
     return CSSCode(lift(HX), lift(HZ))
 end
 
+# TODO: charvec
 function QuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
     B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
 
@@ -528,6 +535,7 @@ function QuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{Ab
     return HX, HZ
 end
 
+# TODO: charvec
 function LiftedQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
     B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
 
@@ -542,8 +550,10 @@ B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly
 Return the bias-tailored lifted product code of `A` and `B` with entries over the residue ring
 `F_2[x]/(x^m - 1)`.
 
-The bias-tailored lifted product is defined in `Bias-tailored quantum LDPC codes`.
+# Notes
+* The bias-tailored lifted product is defined in `Bias-tailored quantum LDPC codes`.
 """
+# TODO: charvec
 function BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
     B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
 
@@ -599,6 +609,7 @@ function BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.Mat
     return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
 end
 
+# TODO: charvec
 function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
     B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
 

@@ -14,9 +14,10 @@
 Return the dimension `k` Generalized Reed-Solomon code with scalars `v` and
 evaluation points `γ`.
 
-The vectors `v` and `γ` must have the same length and every element must be over
-the same field. The elements of `v` need not be distinct but must be nonzero. The
-elements of `γ` must be distinct.
+# Notes
+* The vectors `v` and `γ` must have the same length and every element must be over the same field.
+* The elements of `v` need not be distinct but must be nonzero.
+* The elements of `γ` must be distinct.
 """
 function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})
     n = length(v)

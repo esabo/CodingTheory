@@ -27,7 +27,8 @@ end
 
 Return the `q`-cyclotomic coset of `x` modulo `n`.
 
-If the optional parameter `tosort` is set to `false`, the result will not be
+# Notes
+* If the optional parameter `tosort` is set to `false`, the result will not be
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """
@@ -66,7 +67,8 @@ end
 
 Return all `q`-cyclotomic cosets modulo `n`.
 
-If the optional parameter `tosort` is set to `false`, the result will not be
+# Notes
+* If the optional parameter `tosort` is set to `false`, the result will not be
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """

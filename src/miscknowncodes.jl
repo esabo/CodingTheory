@@ -70,7 +70,7 @@ function HammingCode(q::Int, r::Int)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n*
             (vars[2] + vars[1])^div(C.n - 1, 2)*(vars[1] - vars[2])^div(C.n + 1,
-            2), C.n + 1), "complete")
+            2), C.n + 1), :complete)
         return C
     end
 
@@ -88,8 +88,9 @@ end
 
 Return the `[4, 2, 3]` tetra code over `GF(3)`.
 
-This is equiavlent to the `Hamming(3, 2, 3)` code, but the construction here is
-based on the commonly presented generator and parity-check matrices.
+# Notes
+* This is equiavlent to the `Hamming(3, 2, 3)` code, but the construction here is
+  based on the commonly presented generator and parity-check matrices.
 """
 function TetraCode()
     F, _ = FiniteField(3, 1, "α")
@@ -98,7 +99,7 @@ function TetraCode()
     Gstand, Hstand, P, rnk = _standardform(G)
     R, vars = PolynomialRing(Nemo.ZZ, 3)
     CWE = WeightEnumerator(vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
-        3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, "complete")
+        3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, :complete)
     return LinearCode(F, 4, 2, 3, 3, 3, G, missing, H, missing, Gstand, Hstand, P, CWE)
 end
 
@@ -113,10 +114,9 @@ end
 
 Return the `[(q^r - 1)/(q - 1), r]` simplex code over `GF(q)`.
 
-Generator matrices for the binary codes are constructed using the standard
-recursive definition. The higher fields return `dual(HammingCode(q, r))`.
-
 # Notes
+* Generator matrices for the binary codes are constructed using the standard
+  recursive definition. The higher fields return `dual(HammingCode(q, r))`.
 * This is currently only implemented for binary codes.
 """
 function SimplexCode(q::Int, r::Int)
@@ -152,7 +152,7 @@ function SimplexCode(q::Int, r::Int)
     # should have q^r - 1 nonzero codewords
     R, vars = PolynomialRing(Nemo.ZZ, 2)
     C.weightenum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
-        vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), "complete")
+        vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), :complete)
     setminimumdistance!(C, 2^(r - 1))
     return C
 end
@@ -188,7 +188,7 @@ function ExtendedGolayCode(p::Int)
         Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
-            vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, "complete")
+            vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
         return LinearCode(F, 24, 12, 8, 8, 8, G, missing, H, missing, Gstand, Hstand, P, wtenum)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
@@ -258,7 +258,7 @@ end
 #     R, vars = PolynomialRing(Nemo.ZZ, 2)
 #     # each non-zero codeword has a Hamming weight of exactly 2^{k-1}
 #     C.weightenum = WeightEnumerator(vars[1]^(2^m) + (2^m - 1) * vars[1]^2 *
-#         vars[2]^(2^m - 1), "complete")
+#         vars[2]^(2^m - 1), :complete)
 #     return C
 # end
 # WalshHadamardCode(m) = HadamardCode(m)

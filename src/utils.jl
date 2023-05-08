@@ -523,8 +523,9 @@ end
 
 Return `true` if the binary matrix `G` is triorthogonal.
 
-If the optional parameter `verbos` is set to `true`, the first pair or triple of
-non-orthogonal rows will be identified on the console.
+# Notes
+* If the optional parameter `verbos` is set to `true`, the first pair or triple of
+  non-orthogonal rows will be identified on the console.
 """
 function istriorthogonal(G::CTMatrixTypes, verbose::Bool=false)
     Int(order(base_ring(G))) == 2 || throw(ArgumentError("Triothogonality is only defined over 𝔽₂."))
@@ -589,7 +590,8 @@ printsymplecticarray(A::Vector{Vector{T}}, withoutIs=false) where T <: Int = pri
 
 Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
 
-Note that this is not the Penrose-Moore pseudoinverse.
+# Notes
+* This is not the Penrose-Moore pseudoinverse.
 """
 function pseudoinverse(M::CTMatrixTypes)
     # let this fail elsewhere if not actually over a quadratic extension
@@ -737,8 +739,9 @@ end
 
 Return the relative trace of `x` from its base field to the field `K`.
 
-If the optional parameter `verify` is set to `true`, the two fields are checked
-for compatibility.
+# Notes
+* If the optional parameter `verify` is set to `true`, the two fields are checked
+  for compatibility.
 """
 function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
     L = parent(x)

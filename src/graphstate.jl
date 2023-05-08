@@ -4,12 +4,17 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function graphstate(G::SimpleGraph{Int64})
+"""
+    GraphState(G::SimpleGraph{Int64})
+
+Return the graph state defined by the graph `G`.
+"""
+function GraphState(G::SimpleGraph{Int64})
     # probably need some checks on G here but maybe the function args are good enough
     A = adjacency_matrix(G)
     _, nc = size(A)
     for i in 1:nc
-        iszero(A[i, i]) || error("Graph cannot have self-loops.")
+        iszero(A[i, i]) || throw(ArgumentError("Graph cannot have self-loops."))
     end
     # are there non-binary graph states?
     F, _ = FiniteField(2, 1, "α")
@@ -22,7 +27,7 @@ function graphstate(G::SimpleGraph{Int64})
         end
     end
     # this should automatically compute everything for the GraphState constructor
-    return StabilizerCode(symstabs, true, missing)
+    return StabilizerCode(symstabs, missing)
 end
 
 """
@@ -47,5 +52,5 @@ function ClusterState(w::Int, h::Int)
             curr += 1
         end
     end
-    return StabilizerCode(A, false, missing)
+    return StabilizerCode(A, missing)
 end

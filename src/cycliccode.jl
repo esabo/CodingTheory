@@ -14,7 +14,8 @@
 
 Return the CyclicCode of length `n` over `GF(q)` with `q`-cyclotomic cosets `cosets`.
 
-This function will auto determine if the constructed code is BCH or Reed-Solomon
+# Notes
+* This function will auto determine if the constructed code is BCH or Reed-Solomon
 and call the appropriate constructor.
 
 # Examples
@@ -150,7 +151,8 @@ end
 Return the BCHCode of length `n` over `GF(q)` with design distance `δ` and offset
 `b`.
 
-This function will auto determine if the constructed code is Reed-Solomon
+# Notes
+* This function will auto determine if the constructed code is Reed-Solomon
 and call the appropriate constructor.
 
 # Examples
@@ -295,6 +297,7 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
     iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
 
+    # TODO: known weight enumerator
     return ReedSolomonCode(F, F, R, α, n, k, d, b, d, d, d, d, cosets,
         sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
         missing, Gstand, Hstand, P, missing)
@@ -320,7 +323,7 @@ end
 """
     QuadraticResidueCode(q::Int, n::Int)
 
-Return the cyclic code whose roots are the quadratic residues of `q, n`.
+Return the cyclic code whose roots are the quadratic residues of `q`, `n`.
 """
 # covered nicely in van Lint and Betten et al
 QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])
@@ -376,8 +379,9 @@ designdistance(C::AbstractBCHCode) = C.δ
 
 Return a lower bound on the minimum distance of the code.
 
-At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
-refinement. The minimum distance is returned if known.
+# Notes
+* At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
+  refinement. The minimum distance is returned if known.
 """
 mindistlowerbound(C::AbstractCyclicCode) = C.δ
 
@@ -442,7 +446,8 @@ idempotent(C::AbstractCyclicCode) = C.e
 
 Return the BCH bound for `C`.
 
-This is a lower bound on the minimum distance of `C`.
+# Notes
+* This is a lower bound on the minimum distance of `C`.
 """
 BCHbound(C::AbstractCyclicCode) = C.δ
 
@@ -482,7 +487,8 @@ isreversible(C::AbstractCyclicCode) = [C.n - i for i in C.defset] ⊆ C.defset
 
 Return `true` if the cyclic code is degenerate.
 
-A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
+# Notes
+* A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
 some `r` less than the length of the code.
 """
 function isdegenerate(C::AbstractCyclicCode)
@@ -529,11 +535,10 @@ end
 """
     definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
 
-Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo
-`n`.
+Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo `n`.
 
-If `flat` is set to true, the result will be a single flattened and sorted
-array.
+# Notes
+* If `flat` is set to true, the result will be a single flattened and sorted array.
 """
 function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
     arr = Vector{Vector{Int}}()
@@ -567,7 +572,8 @@ Return the number of consecutive elements of `cosets`, the offset for this, and
 a lower bound on the distance of the code defined with length `n` and
 cyclotomic cosets `cosets`.
 
-The lower bound is determined by applying the Hartmann-Tzeng bound refinement to
+# Notes
+* The lower bound is determined by applying the Hartmann-Tzeng bound refinement to
 the BCH bound.
 """
 # TODO: check why d is sometimes lower than HT but never than BCH
@@ -716,9 +722,6 @@ Return whether or not `C1` and `C2` have the same fields, lengths, and defining 
     dual(C::AbstractCyclicCode)
 
 Return the dual of the cyclic code `C`.
-
-Unlike with `LinearCode`, everything is recomputed here so the proper
-polynomials and cyclotomic cosets are stored.
 """
 # one is even-like and the other is odd-like
 dual(C::AbstractCyclicCode) = CyclicCode(Int(order(C.F)), C.n, dualqcosets(Int(order(C.F)), C.n, C.qcosets))

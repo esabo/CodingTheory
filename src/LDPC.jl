@@ -158,8 +158,8 @@ density(C::AbstractLDPCCode) = C.density
 
 Return `true` if the `C` is a regular LDPC code.
 
-An LDPC is regular if all the column degrees and equal and all the row degrees
-are equal.
+# Notes
+* An LDPC is regular if all the column degrees and equal and all the row degrees are equal.
 """
 isregular(C::AbstractLDPCCode) = C.isreg
 

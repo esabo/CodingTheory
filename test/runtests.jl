@@ -364,7 +364,7 @@ end
 
     # the weight distribution of RM(1, m) is [[0, 1], [2^(m - 1), 2^(m + 1) - 2], [2^m, 1]]
     C.weightenum = missing
-    wtdist = weightdistribution(C, "auto", "compact")
+    wtdist = weightdistribution(C, "auto", true)
     @test wtdist == [(2^4, 1), (2^3, 2^5 - 2), (0, 1)]
 
     # Reed-Muller codes are nested
@@ -398,7 +398,7 @@ end
     @test flag == true
 
     C = ReedMullerCode(2, 2, 5)
-    @test weightdistribution(C, "auto", "compact") == [(32, 1), (24, 620),
+    @test weightdistribution(C, "auto", true) == [(32, 1), (24, 620),
         (20, 13888), (16, 36518), (12, 13888), (8, 620), (0, 1)]
 
 end
@@ -424,7 +424,7 @@ end
     C.d = missing
     @test minimumdistance(C) == 3
     C = HammingCode(2, 3)
-    hamWE = weightenumerator(C, "Hamming")
+    hamWE = weightenumerator(C, :Hamming)
     @test polynomial(hamWE) == x^7 + 7*x^3*y^4 + 7*x^4*y^3 + y^7
     n = length(C)
     C.weightenum = missing
@@ -435,9 +435,9 @@ end
     C = SimplexCode(2, 4)
     known = C.weightenum
     # C.weightenum = missing
-    # HWEbf = weightenumerator(C, "Hamming")
+    # HWEbf = weightenumerator(C, :Hamming)
     # C.weightenum = missing
-    # HWEtrellis = weightenumerator(C, "Hamming", "trellis")
+    # HWEtrellis = weightenumerator(C, :Hamming, "trellis")
     # @test CWEtoHWE(known) == HWEbf
     # @test HWEbf == HWEtrellis
     # all nonzero codewords have weights q^{r - 1}
@@ -453,24 +453,24 @@ end
     @test length(C) == 2^4 - 1
     @test CodingTheory.dimension(C) == 4
     C = SimplexCode(2, 3)
-    @test MacWilliamsIdentity(C, weightenumerator(C, "Hamming", "bruteforce")) == hamWE
+    @test MacWilliamsIdentity(C, weightenumerator(C, :Hamming, "bruteforce")) == hamWE
 
     # Golay codes
     C = ExtendedGolayCode(2)
     @test isselfdual(C)
     C.weightenum = missing
-    @test polynomial(weightenumerator(C, "Hamming")) == y^24 + 759*x^8*y^16 + 2576*x^12*y^12 + 759*x^16*y^8 + x^24
+    @test polynomial(weightenumerator(C, :Hamming)) == y^24 + 759*x^8*y^16 + 2576*x^12*y^12 + 759*x^16*y^8 + x^24
     C = GolayCode(2)
     C.weightenum = missing
-    @test polynomial(weightenumerator(C, "Hamming")) == y^23 + 253*x^7*y^16 +
+    @test polynomial(weightenumerator(C, :Hamming)) == y^23 + 253*x^7*y^16 +
         506*x^8*y^15 + 1288*x^11*y^12 + 1288*x^12*y^11 + 506*x^15*y^8 + 253*x^16*y^7 + x^23
     C = ExtendedGolayCode(3)
     @test isselfdual(C)
     # well-known weight enumerators
     C.weightenum = missing
-    @test polynomial(weightenumerator(C, "Hamming")) == y^12 + 264*x^6*y^6 + 440*x^9*y^3 + 24*x^12
+    @test polynomial(weightenumerator(C, :Hamming)) == y^12 + 264*x^6*y^6 + 440*x^9*y^3 + 24*x^12
     C = GolayCode(3)
-    @test polynomial(weightenumerator(C, "Hamming")) == y^11 + 132*x^5*y^6 + 132*x^6*y^5 + 330*x^8*y^3 + 110*x^9*y^2 + 24*x^11
+    @test polynomial(weightenumerator(C, :Hamming)) == y^11 + 132*x^5*y^6 + 132*x^6*y^5 + 330*x^8*y^3 + 110*x^9*y^2 + 24*x^11
     # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
     # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
     # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)
@@ -478,7 +478,7 @@ end
     # tetra code
     C = TetraCode()
     C.weightenum = missing
-    CWE = polynomial(weightenumerator(C, "complete"))
+    CWE = polynomial(weightenumerator(C, :complete))
     vars = gens(parent(CWE))
     @test CWE == vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
         3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3
@@ -578,7 +578,7 @@ end
     C = BCHCode(2, 31, 5, 1)
     @test CodingTheory.dimension(C) == 21
     @test minimumdistance(C) == 5
-    @test polynomial(MacWilliamsIdentity(C, weightenumerator(C, "Hamming"))) == y^31 + 310*x^12*y^19 + 527*x^16*y^15 + 186*x^20*y^11
+    @test polynomial(MacWilliamsIdentity(C, weightenumerator(C, :Hamming))) == y^31 + 310*x^12*y^19 + 527*x^16*y^15 + 186*x^20*y^11
 
     # example: Huffman & Pless
     C = ReedSolomonCode(13, 5, 1)

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, Michael Vasmer
+# Copyright (c) 2022, 2023 Michael Vasmer, Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -35,7 +35,7 @@ end
 
 Return the Coxeter group corresponding to Schläfli symbol `{r, s}`.
 
-Corresponding Coxeter diagram:
+# Corresponding Coxeter diagram:
 ```
 o---o---o
   r   s
@@ -65,7 +65,7 @@ end
 
 Return the Coxeter group corresponding to Schläfli symbol {`q`, `r`, `s`}.
 
-Corresponding Coxeter diagram:
+# Corresponding Coxeter diagram:
 ```
 o---o---o---o
   q   r   s
@@ -78,7 +78,7 @@ qrsgroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, 2, 2, r, 2, s])
 
 Return the "star" Coxeter group with higher-order (>2) relations given by `q`, `r`, and `s`.
 
-Corresponding Coxeter diagram:
+# Corresponding Coxeter diagram:
 ```
       o
      / r
@@ -94,7 +94,7 @@ startetrahedrongroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, r, s, 2, 2, 
 
 Return the "cycle" Coxeter group with high-order (>2) relations given by `q`, `r`, `s`, and `t`.
 
-Corresponding Coxeter diagram:
+# Corresponding Coxeter diagram:
 ```
    q
  o---o
@@ -177,7 +177,8 @@ end
 
 Return the intersection of the cosets of `g/subgroup` wrt `genidxA` and wrt `genidxB`.
 
-Outputs a sparse matrix with rows indexing the `genidxA` cosets and columns indexing the `genidxB` cosets.
+# Notes
+* This outputs a sparse matrix with rows indexing the `genidxA` cosets and columns indexing the `genidxB` cosets.
 """
 function cosetintersection(genidxA::Vector{Int}, genidxB::Vector{Int}, subgroup::GapObj, g::ReflectionGroup)
     gens = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))

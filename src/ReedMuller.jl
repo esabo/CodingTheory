@@ -64,7 +64,7 @@ function ReedMullerCode(q::Int, r::Int, m::Int)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         poly = vars[1]^(2^m) + (2^(m + 1) - 2) * vars[1]^(2^m - 2^(m - 1))*vars[2]^(2^(m - 1)) + vars[2]^(2^m)
         return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G, missing,
-            H, missing, Gstand, Hstand, P, WeightEnumerator(poly, "complete"))
+            H, missing, Gstand, Hstand, P, WeightEnumerator(poly, :complete))
     end
 
     return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G, missing,
@@ -128,7 +128,8 @@ end
 
 Return the entrywise product of `C` and `D`.
 
-Note that this is known to often be the full ambient space.
+# Notes
+* This is known to often be the full ambient space.
 """
 function entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
     C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))

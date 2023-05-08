@@ -45,9 +45,9 @@ generator vectors `v`. If `circgens` is `true`, the vectors are taken to be (col
 for the circulant matrices instead of generator vectors for the code. If the optional paramater
 `parity` is set to `true`, the input is used to construct the parity-check matrix.
 
-Note:
-- If `circgens` is `false`, then the length of the code is `ncols(v[1])` and must be divisible by `l`.
-- If `circgens` is `true`, then the length of the code is `ncols(v[1]) * l`. Circulant matrices are
+# Notes
+* If `circgens` is `false`, then the length of the code is `ncols(v[1])` and must be divisible by `l`.
+* If `circgens` is `true`, then the length of the code is `ncols(v[1]) * l`. Circulant matrices are
   stacked in rows of length `l`, so `l` must divide `length(v)`.
 """
 function QuasiCyclicCode(v::Vector{fq_nmod_mat}, l::Int, circgens::Bool, parity::Bool=false)
