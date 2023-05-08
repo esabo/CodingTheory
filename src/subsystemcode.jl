@@ -8,8 +8,13 @@
         # constructors
 #############################
 
+"""
+    SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
+
+Return the subsystem code whose gauge group is determined by `G` and signs by `charvec`.
+"""
 function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
-    iszero(G) && error("The gauge matrix is empty.")
+    iszero(G) && throw(ArgumentError("The gauge matrix is empty."))
     G = _removeempty(G, :rows)
 
     F = base_ring(G)
@@ -108,6 +113,16 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     end
 end
 
+"""
+    SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+
+Return the subsystem code whose gauge group is determined by the vector of Pauli strings `GPauli`
+and signs by `charvec`.
+
+# Notes
+* Any +/- 1 characters in front of each stabilizer are stripped. No check is done
+  to make sure these signs agree with the ones computed using the character vector.
+"""
 function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
     GPaulistripped = _processstrings(GPauli)
     G = _Paulistringtosymplectic(GPaulistripped)
@@ -115,6 +130,12 @@ function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=
     return SubsystemCode(G, charvec)
 end
 
+"""
+    SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing)
+
+Return the subsystem code whose stabilizers are given by `S`, (bare) logical operators
+by `L`, gauge operators (not including stabilizers) by `G`, and signs by `charvec`.
+"""
 function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     charvec::Union{Vector{nmod}, Missing}=missing)
 
@@ -196,6 +217,12 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
 
 end
 
+"""
+    SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+
+Return the subsystem code whose stabilizers are given by the vectors of Pauli strings `SPauli`, (bare)
+logical operators by `LPauli`, gauge operators (not including stabilizers) by `GPauli`, and signs by `charvec`.    
+"""
 # if people want to make a graph code go through the other constructor
 function SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T},
     charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
@@ -221,7 +248,7 @@ end
 """
     field(S::AbstractSubsystemCode)
 
-Return the base ring of the code as a Nemo object.
+Return the base ring of the code.
 """
 field(S::AbstractSubsystemCode) = S.F
 
@@ -245,15 +272,13 @@ dimension(S::AbstractSubsystemCode) = S.k
     cardinality(S::AbstractSubsystemCode)
 
 Return the cardinality of the stabilizer group of the code.
-
-No size checking is done on the parameters of the code, returns a BitInt by default.
 """
 cardinality(S::AbstractSubsystemCode) = BigInt(characteristic(S.F))^(S.n - S.k)
 
 """
     rate(S::AbstractSubsystemCode)
 
-Return the rate, `R = k/n', of the code.
+Return the rate, `R = k/n`, of the code.
 """
 rate(S::AbstractSubsystemCode) = S.k / S.n
 
@@ -343,12 +368,6 @@ isovercomplete(S::AbstractSubsystemCode) = S.overcomplete
     isCSS(S::AbstractSubsystemCode)
 
 Return `true` is `S` is CSS.
-
-# Notes
-* This is intended to be a simple function wrapper for `typeof(S)` since the
- constructor for `SubsystemCode` automatically returns a `SubsystemCodeCSS` if possible.
- Manually changing the elements of the struct `S` without using the helper
- functions provided here is therefore not recommended.
 """
 isCSS(S::T) where {T <: AbstractSubsystemCode} = isCSS(CSSTrait(T), S)
 isCSS(::IsCSS, S::AbstractSubsystemCode) = true
@@ -395,7 +414,8 @@ logicalsmatrix(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof
 
 Return a vector of gauge operator generator pairs for `S`.
 
-Here, gauge operators refers to the gauge group minus the stabilizers.
+# Notes
+* Here, gauge operators refers to the gauge group minus the stabilizers.
 """
 gauges(S::T) where {T <: AbstractSubsystemCode} = gauges(GaugeTrait(T), S)
 gauges(::HasGauges, S::AbstractSubsystemCode) = S.gaugeops
@@ -420,7 +440,8 @@ gaugeoperatorsmatrix(S::AbstractSubsystemCode) = gaugesmatrix(S)
 
 Return a vector of pairs generators for the dressed operators of `S`.
 
-Here, the dressed operators are the logicals and the gauge operators.
+# Notes
+* Here, the dressed operators are the logicals and the gauge operators.
 """
 function dresssed(S::T) where {T <: AbstractSubsystemCode}
     if LogicalTrait(T) == HasNoLogicals
@@ -441,7 +462,8 @@ dressedlogicals(S::AbstractSubsystemCode) = dressed(S)
 
 Return a matrix giving a (maybe overcomplete) basis for the gauge group.
 
-Here, this is the stabilizers and the gauge operators.
+# Notes
+* Here, this is the stabilizers and the gauge operators.
 """
 gaugegroup(S::T) where {T <: AbstractSubsystemCode} = gaugegroup(GaugeTrait(T), S)
 gaugegroup(::HasGauges, S::AbstractSubsystemCode) = vcat(S.stabs, S.gopsmat)
@@ -461,22 +483,22 @@ Set the character vector of `S` to `charvec` and update the signs.
 """
 function changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
     R = base_ring(charactervector(S))
-    length(charvec) == 2 * S.n || error("Characteristic vector is of improper length for the code.")
+    length(charvec) == 2 * S.n || throw(ArgumentError("Characteristic vector is of improper length for the code."))
     for s in charvec
-        modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+        modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
     end
+
     S.signs = _getsigns(S.stabilizers, charvec)
     S.charvec = charvec
 end
 
 """
-    setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat, symp::Bool=true)
+    setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
 
 Set the stabilizers of `S` to `stabs`.
 
-If the optional parameter `symp` is set to `true`, `stabs` is assumed to be in
-symplectic form over the base field of `S`. A check is done to make sure `stabs`
-is isomorphic to the current set of stabilizers.
+# Notes
+* A check is done to make sure `stabs` is isomorphic to the current set of stabilizers.
 """
 function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
@@ -494,19 +516,18 @@ function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
 end
 
 """
-    setlogicals!(S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bool=false)
+    setlogicals!(S::AbstractSubsystemCode, L::fq_nmod_mat)
 
 Set the logical operators of `S` to `L`.
 
-If the optional parameter `symp` is set to `true`, `L` is assumed to be in
-symplectic form over the base field of `S`. A check is done to make sure `L`
-is isomorphic to the current set of logicals.
+# Notes
+* A check is done to make sure `L` is isomorphic to the current set of logicals.
 """
 setlogicals!(S::T, L::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setlogicals!(LogicalTrait(T), S, L)
 function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
-    size(L) == (2 * S.k, 2 * S.n) || error("Provided matrix is of incorrect size for the logical space.")
-    iseven(ncols(L)) || error("Expected a symplectic input but the input matrix has an odd number of columns.")
-    S.F == base_ring(L) || error("The logicals must be over the same field as the code.")
+    size(L) == (2 * S.k, 2 * S.n) || throw(ArgumentError("Provided matrix is of incorrect size for the logical space."))
+    iseven(ncols(L)) || throw(ArgumentError("Expected a symplectic input but the input matrix has an odd number of columns."))
+    S.F == base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
     
     _isisomorphic(L, logicalsmatrix(S)) || error("The current logicals are not isomorphic to the input.")
     # aresymplecticorthogonal(symplecticstabilizers(S), Lsym, true) ||
@@ -516,12 +537,12 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
     # logical operators; they ideally should only consist of {X_1, Z_i} pairs
     # so there should only be one nonzero element in each column
     prod = hcat(L[:, S.n + 1:end], -L[:, 1:S.n]) * transpose(L)
-    iszero(prod) && error("Provided logicals should not be symplectic self-orthogonal.")
+    iszero(prod) && throw(ArgumentError("Provided logicals should not be symplectic self-orthogonal."))
     ncpr = ncols(prod)
     # need an integer sum and this is cheaper than Nemo.ZZ
     prodJul = FpmattoJulia(prod)
     cols = [sum(prodJul[:, i]) for i in 1:ncpr]
-    sum(cols) == ncpr || error("Incorrect commutation relationships between provided logicals.")
+    sum(cols) == ncpr || throw(ArgumentError("Incorrect commutation relationships between provided logicals."))
 
     # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
     F = base_ring(L)
@@ -546,11 +567,12 @@ setlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bo
     setminimumdistance(S::AbstractSubsystemCode, d::Int)
 Set the minimum distance of the code to `d`.
 
-The only check done on the value of `d` is that `1 ≤ d ≤ n`.
+# Notes
+* The only check done on the value of `d` is that `1 ≤ d ≤ n`.
 """
 function setminimumdistance!(S::AbstractSubsystemCode, d::Int)
     # TODO: should check bounds like Singleton for possibilities
-    d > 0 && d <= S.n || error("The minimum distance of a code must be ≥ 1; received: d = $d.")
+    d > 0 && d <= S.n || throw(ArgumentError("The minimum distance of a code must be ≥ 1; received: d = $d."))
     S.d = d
 end
 
@@ -560,14 +582,14 @@ end
 
 function _processcharvec(charvec::Union{Vector{nmod}, Missing}, p::Int, n::Int)
     if !ismissing(charvec)
-        n == length(charvec) || error("The characteristic value is of incorrect length.")
+        n == length(charvec) || throw(ArgumentError("The characteristic value is of incorrect length."))
         if p == 2
             R = residue_ring(Nemo.ZZ, 4)
         else
             R = residue_ring(Nemo.ZZ, p)
         end
         for s in charvec
-            modulus(s) == modulus(R) || error("Phases are not in the correct ring.")
+            modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
         end
     else
         if p == 2
@@ -607,7 +629,7 @@ end
 function _getsigns(A::fq_nmod_mat, charvec::Vector{nmod})
     R = base_ring(charvec[1])
     nc = ncols(A)
-    length(charvec) == nc || error("Input to _getsigns is expected to be in symplectic form and of the same length as the characteristic vector.")
+    length(charvec) == nc || throw(ArgumentError("Input to _getsigns is expected to be in symplectic form and of the same length as the characteristic vector."))
     
     iszero(charvec) && return [R(0) for _ in 1:div(nc, 2)]
     signs = Vector{Int64}()
@@ -669,11 +691,11 @@ end
 Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
 stabilizers and their signs, and the remaining stabilizers and their signs.
 
-This function returns six objects of alternating types `fq_nmod_mat` and
+# Notes
+* This function returns six objects of alternating types `fq_nmod_mat` and
 `Vector{Int}` for the three sets of stabilizers and signs, respectively.
 An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
 """
-# TODO: type stability is probably shit here
 splitstabilizers(S::AbstractSubsystemCode) = _splitsymplecticstabilizers(symplecticstabilizerS(S), S.signs)
 
 # TODO: rethink how I'm returning all of this and the bottom trim stuff
@@ -754,15 +776,16 @@ _testlogicalsrelationships(::HasNoLogicals, S) = error("Type $(typeof(S)) has no
 """
     islogical(S::AbstractSubsystemCode, v::fq_nmod_mat)
 
-Return `true` if the vector `v` anticommutes with any of the logical operators.
+Return `true` if the vector `v` is a logical operator for `S`.
 """
+# TODO: need to check commutes with S.stabs
 # TODO: check for type stability here
 islogical(S::T, v::fq_nmod_mat) where {T <: AbstractSubsystemCode} = islogical(LogicalTrait(T), S, v)
 function islogical(::HasLogicals, S::AbstractSubsystemCode, v::fq_nmod_mat)
     nc = ncols(S.logsmat)
     size(v) == (1, nc) && (return !iszero(S.logsmat * transpose(v));)
     size(v) == (nc, 1) && (return !iszero(S.logsmat * v);)
-    error("Vector to be tested is of incorrect dimension.")
+    throw(ArgumentError("Vector to be tested is of incorrect dimension."))
 end
 islogical(::HasNoLogicals, S::AbstractSubsystemCode, v::fq_nmod_mat) = error("Type $(typeof(S)) has no logicals.")
 
@@ -774,7 +797,7 @@ Return the syndrome of the vector `v` with respect to the stabilizers of `S`.
 # TODO: make uniform with approach in function above
 function syndrome(S::AbstractSubsystemCode, v::fq_nmod_mat)
     (size(v) != (2 * S.n, 1) && size(v) != (1, 2 * S.n)) &&
-        error("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v)).")
+        throw(ArgumentError("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v))."))
     # base_ring(v) == field(S) || error("Vector must have the same base ring as the stabilizers.")
 
     nrows(v) != 1 || return S.stabs * transpose(v)
@@ -897,11 +920,10 @@ swapXZgaugeoperators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int
 """
     isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
 
-Return `true` if the subsystem or stabilizer codes are isomorphic as
-symplectic vector spaces.
+Return `true` if the codes are isomorphic as symplectic vector spaces.
 
-* Note
-- This is not intended to detect if `S1` and `S2` are permutation equivalent.
+# Note
+* This is not intended to detect if `S1` and `S2` are permutation equivalent.
 """
 function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
     (S1.n == S2.n && S1.k == S2.k) || return false
@@ -928,6 +950,24 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
         return true
     end
 end
+
+"""
+    fixgauge(::HasGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol)
+
+Return the code induced by adding either the first of `gaugeoperators(S)[pair]` to the stabilizers
+if `which = :X` or the second if `which = :Z`.
+"""
+fixgauge(S::T, pair::Int, which::Symbol) where {T <: AbstractSubsystemCode} = fixgauge(GaugeTrait(T), S, pair, which)
+function fixgauge(::HasGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol)
+    if which == :X
+        return augment(S, S.gaugeops[pair][1], false)
+    elseif which == :Z
+        return augment(S, S.gaugeops[pair][2], false)
+    else
+        throw(ArgumentError("Unknown type $which"))
+    end
+end
+fixgauge(::HasNoGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol) = error("Type $(typeof(S)) has no gauges.")
 
 function show(io::IO, S::AbstractSubsystemCode)
     if isa(S.k, Integer)

@@ -17,17 +17,6 @@ Return the (symmetric) hypergraph product code of `C`.
 The hypergraph product is defined in "J. Tillich, G. Zémor. Quantum LDPC codes
 with positive rate and minimum distance proportional to n^(1/2). (2013)
 arXiv:0903.0566v2"
-
-# Arguments
-* `C`: a binary linear code
-* `charvec`: a length `2n` vector with elements in the `Z/(4)`. The first `n`
-  elements specify the exponents of the `X` phases and second `n` the exponents
-  of the `Z` phases; a missing argument will be set to the all-zero vector
-
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
 """
 function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod},
         Missing}=missing)
@@ -115,22 +104,6 @@ end
     HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
 Return the hypergraph product code of `C1` and `C2`.
-
-The hypergraph product is defined in "J. Tillich, G. Zémor. Quantum LDPC codes
-with positive rate and minimum distance proportional to n^(1/2). (2013)
-arXiv:0903.0566v2"
-
-# Arguments
-* `C1`: a binary linear code
-* `C2`: a binary linear code
-* `charvec`: a length `2n` vector with elements in the `Z/(4)`. The first `n`
-  elements specify the exponents of the `X` phases and second `n` the exponents
-  of the `Z` phases; a missing argument will be set to the all-zero vector
-
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
 """
 function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
         charvec::Union{Vector{nmod}, Missing}=missing)
@@ -226,18 +199,6 @@ Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2`.
 The generalized Shor code is defined in "D. Bacon and A. Casaccino. Quantum
 error correcting subsystem codes from two classical linear codes. (2006)
 http://arxiv.org/abs/quant-ph/0610088"
-
-# Arguments
-* `C1`: a binary linear code
-* `C2`: a binary linear code
-* `charvec`: a length `2n` vector with elements in the `Z/(4)`. The first `n`
-  elements specify the exponents of the `X` phases and second `n` the exponents
-  of the `Z` phases; a missing argument will be set to the all-zero vector
-
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
 """
 function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
         charvec::Union{Vector{nmod}, Missing}=missing)
@@ -268,11 +229,11 @@ Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity che
 codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
 codes with finite rate".
 
-Inputs:
-- a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
-- b: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions,
+# Arguments
+* a: A vector of length `c` of binary matrices of the same dimensions.
+* b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
-- χ: A strictly positive integer coprime with `c`.
+* χ: A strictly positive integer coprime with `c`.
 """
 function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
     χ > 0 || throw(ArgumentError("Required χ > 0."))
@@ -350,11 +311,11 @@ Hyperbicycle codes are found in "Quantum ``hyperbicycle'' low-density parity che
 codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
 codes with finite rate".
 
-Inputs:
-- a: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions.
-- b: A vector of length `c` of binary `fq_nmod_mat` matrices of the same dimensions,
+# Arguments
+* a: A vector of length `c` of binary matrices of the same dimensions.
+* b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
-- χ: A strictly positive integer coprime with `c`.
+* χ: A strictly positive integer coprime with `c`.
 """
 function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
     χ > 0 || throw(ArgumentError("Required χ > 0."))
@@ -461,9 +422,9 @@ over the reside ring.
 The generalized hypergraph product is defined in "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
 
-Notes
-- `A`` - an `m x n`` matrix with coefficents in a residue ring over `GF(2)`.
-- `b` - a polynomial over the same residue ring
+# Arguments
+* `A` - an `m x n` matrix with coefficents in a residue ring over `GF(2)`.
+* `b` - a polynomial over the same residue ring
 """
 function GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
     @warn "Commutativity of A and b required but not yet enforced."

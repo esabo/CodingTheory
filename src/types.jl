@@ -42,7 +42,7 @@ const CTMatrixTypes = MatElem{<:FinFieldElem}
 
 struct WeightEnumerator
       polynomial::Union{fmpz_mpoly, AbstractAlgebra.Generic.MPoly{nf_elem}}
-      type::String
+      type::Symbol
 end
   
 mutable struct LinearCode <: AbstractLinearCode

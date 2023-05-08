@@ -139,7 +139,7 @@ end
 """
     qcosetpairings(arr::Vector{Vector{Int64}}, n::Int)
 
-Return the .
+Return the `q`-cyclotomic cosets modulo `n` collected into complementary pairs.
 """
 function qcosetpairings(arr::Vector{Vector{Int64}}, n::Int)
     cosetreplist = Vector{Tuple{Int64, Int64}}()

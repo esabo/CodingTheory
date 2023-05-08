@@ -18,7 +18,7 @@ end
 """
     trianglegroup(l::Int, m::Int, n::Int)
 
-Return the (`l`,`m`,`n`) triangle group.
+Return the (`l`, `m`, `n`) triangle group.
 """
 function trianglegroup(l::Int, m::Int, n::Int)
     l >= 0 && m >= 0 && n >= 0 || throw(ArgumentError("Arguments must be non-negative.")) 
@@ -33,7 +33,7 @@ end
 """
     rsgroup(r::Int, s::Int)
 
-Return the Coxeter group corresponding to Schläfli symbol {`r`,`s`}.
+Return the Coxeter group corresponding to Schläfli symbol `{r, s}`.
 
 Corresponding Coxeter diagram:
 ```
@@ -63,7 +63,7 @@ end
 """
     qrsgroup(q::Int, r::Int, s::Int)
 
-Return the Coxeter group corresponding to Schläfli symbol {`q`,`r`,`s`}.
+Return the Coxeter group corresponding to Schläfli symbol {`q`, `r`, `s`}.
 
 Corresponding Coxeter diagram:
 ```
@@ -76,7 +76,7 @@ qrsgroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, 2, 2, r, 2, s])
 """
     startetrahedrongroup(q::Int, r::Int, s::Int)
 
-Return the "star" Coxeter group with higher-order (>2) relations given by `q`,`r`,`s`.
+Return the "star" Coxeter group with higher-order (>2) relations given by `q`, `r`, and `s`.
 
 Corresponding Coxeter diagram:
 ```
@@ -92,7 +92,7 @@ startetrahedrongroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, r, s, 2, 2, 
 """
     cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int)
 
-Return the "cycle" Coxeter group with high-order (>2) relations given by `q`,`r`,`s`,`t`.
+Return the "cycle" Coxeter group with high-order (>2) relations given by `q`, `r`, `s`, and `t`.
 
 Corresponding Coxeter diagram:
 ```
@@ -146,7 +146,7 @@ end
 """
     orientable(subgroup::GapObj, g::ReflectionGroup)
 
-Return `true' if the `subgroup` of `g` is orientable; otherwise `false`.
+Return `true` if the `subgroup` of `g` is orientable; otherwise `false`.
 """
 function orientable(sbgrps::GapObj, g::ReflectionGroup)
     gens = Vector{GapObj}()

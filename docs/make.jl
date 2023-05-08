@@ -13,7 +13,7 @@ Documenter.makedocs(
 	highlightsig = true,
 	sitename = "Coding Theory Documentation",
 	expandfirst = [],
-    pages = ["Table Of Contents" => "index.md",
+    pages = ["Introduction" => "intro.md",
 		     "Linear Codes" => "linearcode.md",
 		     "Cyclic Codes" => "cycliccode.md",
 			 "Generalized Reed-Solomon Codes" => "GeneralizedReedSolomon.md",

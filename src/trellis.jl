@@ -587,8 +587,7 @@ Return the trellis oriented form of the matrix `A` assuming the row space is
 additive.
 
 # Note
-* So far this is only implemented for quadratic extensions over a prime subfield,
- i.e., `GF(p^2)`.
+* So far this is only implemented for quadratic extensions over a prime subfield, i.e., `GF(p^2)`.
 """
 function trellisorientedformadditive(A::fq_nmod_mat)
     E = base_ring(A)

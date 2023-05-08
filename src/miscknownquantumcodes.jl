@@ -213,7 +213,7 @@ Q513() = FiveQubitCode()
     Steanecode()
     Q713()
 
-Return the `[[7, 1, 3]]` Steane code with stabilizers in standard ordering.
+Return the `[[7, 1, 3]]` Steane code.
 """
 SteaneCode() = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
 Q713() = SteaneCode()
@@ -249,8 +249,7 @@ end
     Q15RM()
     Q1513()
 
-Return the `[[15, 1, 3]]` quantum Reed-Muller code with stabilizers in standard
-ordering.
+Return the `[[15, 1, 3]]` quantum Reed-Muller code.
 """
 Q15RM() = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ", "IIIIIIIZZZZZZZZ",
     "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ", "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ",

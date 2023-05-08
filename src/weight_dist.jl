@@ -57,18 +57,24 @@ function _weightenumeratorBF(G::fq_nmod_mat)
         end
         poly += termpoly
     end
-    return WeightEnumerator(poly, "complete")
+    return WeightEnumerator(poly, :complete)
 end
 
-# make private?
+"""
+    CWEtoHWE(CWE::WeightEnumerator)
+
+Return the Hamming weight enumerator associated with the complete weight enumerator `CWE`.
+"""
 function CWEtoHWE(CWE::WeightEnumerator)
+    CWE.type == :complete || throw(ArgumentError("Not a complete weight enumerator"))
+
     R, (x, y) = PolynomialRing(base_ring(CWE.polynomial), ["x", "y"])
     poly = R(0)
     for i in 1:length(CWE.polynomial)
         exps = exponent_vector(CWE.polynomial, i)
         poly += coeff(CWE.polynomial, i) * x^sum(exps[2:end]) * y^exps[1]
     end
-    return WeightEnumerator(poly, "Hamming")
+    return WeightEnumerator(poly, :Hamming)
 end
 
 #############################
@@ -181,7 +187,7 @@ end
 """
     Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
 
-Search for codewords of `C` of weight `w` using Stern's attach and return any found.
+Search for codewords of `C` of weight `w` using Stern's attack and return any found.
 """
 function Sternsattack(C::AbstractLinearCode, w::Int, p::Int, l::Int, numfind::Int=2, maxitrs::Int=50000)
     # requires 2 * x = 0
@@ -457,9 +463,6 @@ Return the minimum distance of `C` using a deterministic algorithm based on enum
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
 is found before the lower and upper bounds cross, it is returned; otherwise, `missing`
 is returned.
-
-For more information on the algorithms contained in this function see
-"Enumeration Based Algorithms" by Gregory White.
 """
 # In the thesis, the h and GrayCode for loops are switched. This seems inefficient
 # but does allow one to update the lower bound using a single matrix after every
@@ -624,6 +627,11 @@ function Graycodemindist(C::AbstractLinearCode, verbose::Bool=false)
     end
 end
 
+"""
+    wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose::Bool=false)
+
+Return all the codewords of `C` of Hamming weight in the range `[lbound, ubound]`.
+"""
 function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose::Bool=false)
     ordF = Int(order(C.F))
     ordF == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -631,7 +639,7 @@ function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose:
     1 <= lbound <= ubound <= C.n || throw(ArgumentError("Expected 1 <= lbound <= ubound <= C.n"))
     if lbound < C.n / 2 && ordF == 2
         # faster to enumerate backwards, but only in binary
-        return _wordsofweighthigh(C, lbound, ubound)
+        return _wordsofweighthigh(C, lbound, ubound, verbose)
     end
 
     p = Int(characteristic(C.F))
@@ -727,6 +735,11 @@ function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose:
     end
 end
 
+"""
+    wordsofweight(C::AbstractLinearCode, bound::Int, verbose::Bool=false)
+
+Return all the codewords of `C` of Hamming weight `bound`.
+"""
 wordsofweight(C::AbstractLinearCode, bound::Int, verbose::Bool=false) = wordsofweight(C, bound, bound, verbose)
 
 # untested
@@ -826,6 +839,16 @@ function _wordsofweighthigh(C::AbstractLinearCode, lbound::Int, ubound::Int, ver
 end
 
 #TODO: change above to BigInts
+"""
+    partialweightdistribution(C::AbstractLinearCode, bound::Int, compact::Bool=false)
+
+Return the partial weight distribution of `C` up to weight `bound`. If `compact` is false,
+the result will be a `Vector{BigInt}` of length `length(C) + 1` whose `i`th entry is the
+number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
+`Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
+above.
+"""
+# TODO: type stability of this
 function partialweightdistribution(C::AbstractLinearCode, bound::Int, compact::Bool=false)
 	1 <= bound <= C.n || throw(ArgumentError("Bound must be between 1 and n."))
 
@@ -995,12 +1018,13 @@ end
     # Weight Enumerators
 #############################
 
-function weightenumeratorC(T::Trellis, type::String="complete")
-    type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
+function weightenumeratorC(T::Trellis, type::Symbol=:complete)
+    type ∈ [:complete, :Hamming] ||
+        throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
 
-    if type == "complete" && !ismissing(T.CWE)
+    if type == :complete && !ismissing(T.CWE)
         return T.CWE
-    elseif type == "Hamming" && !ismissing(T.CWE)
+    elseif type == :Hamming && !ismissing(T.CWE)
         return CWEtoHWE(T.CWE)
     end
 
@@ -1026,7 +1050,7 @@ function weightenumeratorC(T::Trellis, type::String="complete")
             v.polynomial = outer
         end
     end
-    T.CWE = WeightEnumerator(V[end][1].polynomial, "complete")
+    T.CWE = WeightEnumerator(V[end][1].polynomial, :complete)
 
     # currently Missing is not an option but how to implement dual trellis
     if !isshifted(T) && !ismissing(T.code)
@@ -1043,24 +1067,29 @@ function weightenumeratorC(T::Trellis, type::String="complete")
         end
     end
 
-    if type == "Hamming"
-        return CWEtoHWE(T.CWE)
-    end
+    type == :Hamming && return CWEtoHWE(T.CWE)
     return T.CWE
 end
 
-function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::String="Euclidean")
-    dual ∈ ["Euclidean", "Hermitian"] ||
-        error("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.")
-    (dual == "Hermitian" && Int(order(C.F)) != 4) &&
-        error("The MacWilliams identity for the Hermitian dual is only programmed for GF(4).")
+"""
+    MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::Symbol=:Euclidean)
 
-    if W.type == "Hamming"
+Return the weight enumerator of the dual (`:Euclidean` or `:Hermitian`) of `C` obtained
+by applying the MacWilliams identities to `W`.
+"""
+# TODO: remove C from this, store in WE struct
+function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::Symbol=:Euclidean)
+    dual ∈ [:Euclidean, :Hermitian] ||
+        throw(ArgumentError("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals."))
+    (dual == :Hermitian && Int(order(C.F)) != 4) &&
+        throw(ArgumentError("The MacWilliams identity for the Hermitian dual is only programmed for GF(4)."))
+
+    if W.type == :Hamming
         # (1/|C|)W(y - x, y + (q - 1)x)
         R = parent(W.polynomial)
         vars = gens(R)
         return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
-            (Int(order(C.F)) - 1) * vars[1]), cardinality(C)), "Hamming")
+            (Int(order(C.F)) - 1) * vars[1]), cardinality(C)), :Hamming)
     end
 
     # complete weight enumerators
@@ -1070,8 +1099,8 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         R = parent(W.polynomial)
         vars = gens(R)
         return WeightEnumerator(divexact(W.polynomial(vars[1] +
-            (Int(order(C.F)) - 1)*vars[2], vars[1] - vars[2]),
-            cardinality(C)), "complete")
+            (Int(order(C.F)) - 1) * vars[2], vars[1] - vars[2]),
+            cardinality(C)), :complete)
     elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
         K, ζ = CyclotomicField(3, "ζ")
@@ -1079,11 +1108,11 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         # might have to switch this here
         poly = divexact(W.polynomial(
             vars[1] + vars[2] + vars[3],
-            vars[1] + ζ*vars[2] + ζ^2*vars[3],
-            vars[1] + ζ^2*vars[2] + ζ*vars[3]), cardinality(C))
+            vars[1] + ζ * vars[2] + ζ^2 * vars[3],
+            vars[1] + ζ^2 * vars[2] + ζ * vars[3]), cardinality(C))
         # works so far but now needs to recast down to the integer ring
         return WeightEnumerator(map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
-            parent=parent(W.polynomial)), "complete")
+            parent=parent(W.polynomial)), :complete)
     elseif Int(order(C.F)) == 4
         # these order 4 formulas are from "Self-Dual Codes" by Rains and Sloane without proof
         # the differ in order from the formula in MacWilliams and Sloane used in the general
@@ -1093,7 +1122,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
         #    x1 + x2 - x3 - x4
         #    x1 - x2 - x3 + x4
         # But that formula should depend on the chosen basis and character so I assume it's okay
-        if dual == "Euclidean"
+        if dual == :Euclidean
             # for Euclidean dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 - x_2 + x_3, x_0 - x_1 + x_2 - x_3)
             R = parent(W.polynomial)
@@ -1105,7 +1134,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
                 vars[1] - vars[2] - vars[3] + vars[4],
                 vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] + vars[3] - vars[4]), cardinality(C)),
-                "complete")
+                :complete)
         else
             # for Hermitian dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
@@ -1118,7 +1147,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
                 vars[1] - vars[2] + vars[3] - vars[4],
                 vars[1] + vars[2] - vars[3] - vars[4],
                 vars[1] - vars[2] - vars[3] + vars[4]), cardinality(C)),
-                "complete")
+                :complete)
         end
     else
         q = Int(order(C.F))
@@ -1135,7 +1164,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
                 append!(funcargs, innersum)
             end
             return WeightEnumerator(divexact(W.polynomial(funcargs), cardinality(C)),
-                "complete")
+                :complete)
         else
             K, ω = CyclotomicField(Int(characteristic(C.F)), "ω")
             R, vars = PolynomialRing(K, q)
@@ -1153,21 +1182,25 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
                 push!(funcargs, innersum)
             end
             display(funcargs)
-            return WeightEnumerator(divexact(W.polynomial(funcargs...), cardinality(C)),
-                "complete")
+            return WeightEnumerator(divexact(W.polynomial(funcargs...), cardinality(C)), :complete)
         end
     end
 end
 
-function weightenumerator(C::AbstractLinearCode, type::String="complete",
-    alg::String="auto")
+"""
+    weightenumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::String="auto")
 
-    type ∈ ["complete", "Hamming"] || error("Unsupported weight enumerator type '$type'. Expected 'complete' or 'Hamming'.")
-    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
+Return either the `:complete` or `:Hamming` weight enumerator of `C` using the algorithm `alg`.
+"""
+function weightenumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::String="auto")
+    type ∈ [:complete, :Hamming] ||
+        throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
+    alg ∈ ["auto", "trellis", "bruteforce"] ||
+        throw(ArgumentError("Algorithm `$alg` is not implemented in weightenumerator."))
 
-    if type == "complete" && !ismissing(C.weightenum)
+    if type == :complete && !ismissing(C.weightenum)
         return C.weightenum
-    elseif type == "Hamming" && !ismissing(C.weightenum)
+    elseif type == :Hamming && !ismissing(C.weightenum)
         return CWEtoHWE(C.weightenum)
     end
 
@@ -1177,7 +1210,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
             HWE = CWEtoHWE(C.weightenum)
             C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
-            type == "Hamming" && return HWE
+            type == :Hamming && return HWE
             return C.weightenum
         elseif rate(C) > 0.5
             D = dual(C)
@@ -1190,7 +1223,7 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
             HWE = CWEtoHWE(C.weightenum)
             C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
-            type == "Hamming" && return HWE
+            type == :Hamming && return HWE
             return C.weightenum
         else
             return weightenumeratorC(syndrometrellis(C, "primal", false), type)
@@ -1202,22 +1235,28 @@ function weightenumerator(C::AbstractLinearCode, type::String="complete",
         HWE = CWEtoHWE(C.weightenum)
         C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
             for i in 1:length(HWE.polynomial)]))
-        type == "Hamming" && return HWE
+        type == :Hamming && return HWE
         return C.weightenum
     end
 end
 
-# TODO: change to compact::Bool=true
-# MAGMA returns this format
-# [ <0, 1>, <4, 105>, <6, 280>, <8, 435>, <10, 168>, <12, 35> ]
-function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::String="full")
-    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weightenumerator.")
-    format ∈ ["full", "compact"] || error("Unknown value for parameter format: $format; expected `full` or `compact`.")
+"""
+    weightdistribution(C::AbstractLinearCode, alg::String="auto", compact::Bool=true)
 
-    ismissing(C.weightenum) && weightenumerator(C, "complete", alg)
+Return the weight distribution of `C` using the algorithm `alg`. If `compact` is false,
+the result will be a `Vector{BigInt}` of length `length(C) + 1` whose `i`th entry is the
+number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
+`Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
+above.
+"""
+function weightdistribution(C::AbstractLinearCode, alg::String="auto", compact::Bool=true)
+    alg ∈ ["auto", "trellis", "bruteforce"] ||
+        throw(ArgumentError("Algorithm `$alg` is not implemented in weightenumerator."))
+
+    ismissing(C.weightenum) && weightenumerator(C, :complete, alg)
     HWE = CWEtoHWE(C.weightenum)
 
-    if format == "compact"
+    if compact
         wtdist = Vector{Tuple}()
         for i in 1:length(HWE.polynomial)
             push!(wtdist, (exponent_vector(HWE.polynomial, i)[1],
@@ -1233,12 +1272,12 @@ function weightdistribution(C::AbstractLinearCode, alg::String="auto", format::S
 end
 
 """
-    weighthplot(C::AbstractLinearCode, alg::String="auto")
+    weightplot(C::AbstractLinearCode, alg::String="auto")
 
 Return a bar plot of the weight distribution of `C`.
 """
 function weightplot(C::AbstractLinearCode, alg::String="auto")
-    wtdist = weightdistribution(C, alg, "full")
+    wtdist = weightdistribution(C, alg, true)
     xticks = findall(x->x>0, vec(wtdist)) .- 1
     yticks = [wtdist[i] for i in 1:length(wtdist) if !iszero(wtdist[i])]
     ismissing(C.d) ? (title="Weight Distribution - [$(C.n), $(C.k)]";) :
@@ -1257,7 +1296,7 @@ Returns the support of `C`.
 The support of `C` is the collection of nonzero exponents of the Hamming
 weight enumerator of `C`.
 """
-support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", "compact")]
+support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", true)]
 
 #############################
      # Minimum Distance
@@ -1270,15 +1309,13 @@ support(C::AbstractLinearCode) = [i for (i, _) in weightdistribution(C, "auto", 
 Return the minimum distance of the linear code if known, otherwise computes it
 using the algorithm of `alg`. If `alg = "trellis"`, the sectionalization flag
 `sect` can be set to true to further compactify the reprsentation.
-
-
-enumeration-based algorithms using the binary, reflected Gray code such as Brouwer-Zimmermann
-and adaptions
 """
 function minimumdistance(C::AbstractLinearCode, alg::String="auto", sect::Bool=false, verbose::Bool=false)
     !ismissing(C.d) && return C.d
 
-    alg ∈ ["auto", "Gray", "trellis", "Leon", "bruteforce", "wtdist"] || throw(ArgumentError("Unexpected algorithm '$alg'."))
+    alg ∈ ["auto", "Gray", "trellis", "Leon", "bruteforce", "wtdist"] ||
+        throw(ArgumentError("Unexpected algorithm '$alg'."))
+    
     if alg == "auto"
         D = dual(C)
         if cardinality(C) <= 1e6 # random cutoff
@@ -1314,7 +1351,7 @@ function minimumdistance(C::AbstractLinearCode, alg::String="auto", sect::Bool=f
             for i in 1:length(HWE.polynomial)]))
         return C.d
     elseif alg == "wtdist"
-        HWE = weightenumerator(C, "Hamming", alg)
+        HWE = weightenumerator(C, :Hamming, alg)
         !ismissing(C.d) && return C.d
         # this line should only be needed to be run if the weight enumerator is known
         # but the minimum distance is intentionally set to missing

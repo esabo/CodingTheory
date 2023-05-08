@@ -35,16 +35,16 @@ Generator matrix: 4 × 7
         0 0 0 1 1 1 1
 ```
 """
-function LinearCode(Gorig::CTMatrixTypes, parity::Bool=false)
+function LinearCode(Gorig::MatrixTypes, parity::Bool=false)
     iszero(Gorig) && error("Zero matrix passed into LinearCode constructor.")
 
-    Gorig = _removeempty(Gorig, :rows)
+    Gorig = _removeempty(Gorig, "rows")
     G = Gorig
     Gstand, Hstand, P, k = _standardform(G)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _removeempty(transpose(H), "rows")
     else
         H = Hstand * P
     end
@@ -193,15 +193,13 @@ dimension(C::AbstractLinearCode) = C.k
     cardinality(C::AbstractLinearCode)
 
 Return the cardinality of the code.
-
-No size checking is done on the parameters of the code, returns a BitInt by default.
 """
 cardinality(C::AbstractLinearCode) = BigInt(order(C.F))^C.k
 
 """
     rate(C::AbstractLinearCode)
 
-Return the rate, `R = k/n', of the code.
+Return the rate, `R = k/n`, of the code.
 """
 rate(C::AbstractLinearCode) = C.k / C.n
 
@@ -256,7 +254,7 @@ end
 
 function _standardform(G::fq_nmod_mat)
     rnk, Gstand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
-    nrows(Gstand) > rnk && (Gstand = _removeempty(Gstand, :rows);)
+    nrows(Gstand) > rnk && (Gstand = _removeempty(Gstand, "rows");)
     A = Gstand[:, (nrows(Gstand) + 1):ncols(Gstand)]
     T = MatrixSpace(base_ring(Gstand), ncols(Gstand) - nrows(Gstand),
         ncols(Gstand) - nrows(Gstand))
@@ -450,8 +448,6 @@ Singletonbound(C::AbstractLinearCode) = Singletonbound(C.n, C.k)
     isMDS(C::AbstractLinearCode)
 
 Return `true` if code is maximum distance separable (MDS).
-
-A linear code is MDS if it saturates the Singleton bound, `d = n - k + 1`.
 """
 # TODO: inline this
 function isMDS(C::AbstractLinearCode)
@@ -471,9 +467,6 @@ numbercorrectableerrors(C::AbstractLinearCode) = Int(floor((minimumdistance(C) -
     encode(v::Union{fq_nmod_mat, Vector{Int}}, C::AbstractLinearCode)
 
 Return `v * G`, where `G` is the generator matrix of `C`.
-
-# Arguments
-* `v`: Either a `1 × k` or a `k × 1` vector.
 """
 # TODO: check quantum functions and make uniform - prefer C then v on all such functions
 # might be a breaking fix though, also check runtests.jl
@@ -497,9 +490,6 @@ end
     syndrome(v::Union{fq_nmod_mat, Vector{Int}}, C::AbstractLinearCode)
 
 Return `Hv`, where `H` is the parity-check matrix of `C`.
-
-# Arguments
-* `v`: Either a `1 × k` or a `k × 1` vector.
 """
 function syndrome(v::fq_nmod_mat, C::AbstractLinearCode)
     H = paritycheckmatrix(C)
@@ -521,8 +511,6 @@ end
     in(v::Union{fq_nmod_mat, Vector{Int}}, C::AbstractLinearCode)
 
 Return whether or not `v` is a codeword of `C`.
-
-The vector `v` is a valid codeword of `C` if and only if the syndrome of `v` is zero.
 """
 in(v::fq_nmod_mat, C::AbstractLinearCode) = iszero(syndrome(v, C))
 in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(v, C))
@@ -533,9 +521,6 @@ in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(v, C))
     issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
 Return whether or not `C1` is a subcode of `C2`.
-
-A code `C1` is a subcode of another code `C2` if each row of
-the generator matrix of `C1` is a valid codeword of `C2`.
 """
 function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
     if C1.n != C2.n || C1.n != C2.n || C1.k > C2.k
@@ -594,7 +579,7 @@ quotient(C1::AbstractLinearCode, C2::AbstractLinearCode) = codecomplement(C1, C2
     dual(C::AbstractLinearCode)
     Euclideandual(C::AbstractLinearCode)
 
-Return the dual of the code `C`.
+Return the (Euclidean) dual of the code `C`.
 """
 function dual(C::AbstractLinearCode)
     G = generatormatrix(C)
@@ -701,8 +686,12 @@ The direct sum code has generator matrix `G1 ⊕ G2` and parity-check matrix `H1
 function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
 
-    G = generatormatrix(C1) ⊕ generatormatrix(C2)
-    H = paritycheckmatrix(C1) ⊕ paritycheckmatrix(C2)
+    G1 = generatormatrix(C1)
+    G2 = generatormatrix(C2)
+    G = directsum(G1, G2)
+    H1 = paritycheckmatrix(C1)
+    H2 = paritycheckmatrix(C2)
+    H = directsum(H1, H2)
     # should just be direct sum, but need to recompute P - also direct sum?
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k + C2.k || error("Unexpected dimension in direct sum output.")
@@ -740,7 +729,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _removeempty(transpose(H), "rows")
     else
         H = Hstand * P
     end
@@ -842,12 +831,12 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int})
 
     Gorig = generatormatrix(C)
     G = Gorig[:, setdiff(1:C.n, cols)]
-    G = _removeempty(G, :rows)
+    G = _removeempty(G, "rows")
     Gstand, Hstand, P, k = _standardform(G)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _removeempty(transpose(H), "rows")
     else
         H = Hstand * P
     end
@@ -882,7 +871,7 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int})
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _removeempty(transpose(H), "rows")
     else
         H = Hstand * P
     end
@@ -908,13 +897,13 @@ function augment(C::AbstractLinearCode, M::fq_nmod_mat)
     C.F == base_ring(M) || error("Rows to augment must have the same base field as the code.")
 
     Gorig = generatormatrix(C)
-    M = _removeempty(M, :rows)
+    M = _removeempty(M, "rows")
     G = vcat(Gorig, M)
     Gstand, Hstand, P, k = _standardform(G)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _removeempty(transpose(H), "rows")
     else
         H = Hstand * P
     end
@@ -953,7 +942,7 @@ lengthen(C::AbstractLinearCode) = extend(augment(C, matrix(C.F, transpose([1 for
     uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
     Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
-Return the Plotkin- or so-called (u | u + v)-construction with `u ∈ C1` and `v ∈ C2`.
+Return the (u | u + v)-construction with `u ∈ C1` and `v ∈ C2`.
 """
 function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
     # Returns the Plotkin `(u|u+v)`-construction with u = C1 and v = C2
@@ -1154,7 +1143,7 @@ function iseven(C::AbstractLinearCode)
     # A binary code generated by G is even if and only if each row of G has
     # even weight.
     G = generatormatrix(C)
-    for r in axes(G, 1)
+    for r in 1:nrows(G)
         wt(G[r, :]) % 2 == 0 || (return false;)
     end
     return true
@@ -1172,12 +1161,13 @@ function isdoublyeven(C::AbstractLinearCode)
     # has weight divisible by 4 and the sum of any two rows of G has weight
     # divisible by 4.
     G = generatormatrix(C)
-    for r in axes(G, 1)
+    nr = nrows(G)
+    for r in 1:nr
         # TODO: allocates a lot, should redo calculation here
         wt(G[r, :]) % 4 == 0 || (return false;)
     end
-    for r1 in axes(G, 1)
-        for r2 in axes(G, 1)
+    for r1 in 1:nr
+        for r2 in 1:nr
             # or by Ward's thm can do * is % 2 == 0
             wt(G[r1, :] + G[r2, :]) % 4 == 0 || (return false;)
         end
@@ -1196,17 +1186,17 @@ function istriplyeven(C::AbstractLinearCode)
     # following Ward's divisibility theorem
     G = FpmattoJulia(generatormatrix(C))
     nr, _ = size(G)
-    for r in axes(G, 1)
+    for r in 1:nr
         wt(G[r, :]) % 8 == 0 || (return false;)
     end
-    for r1 in axes(G, 1)
-        for r2 in axes(G, 1)
+    for r1 in 1:nr
+        for r2 in 1:nr
             wt(G[r1, :] .* G[r2, :]) % 4 == 0 || (return false;)
         end
     end
-    for r1 in axes(G, 1)
-        for r2 in axes(G, 1)
-            for r3 in axes(G, 1)
+    for r1 in 1:nr
+        for r2 in 1:nr
+            for r3 in 1:nr
                 wt(G[r1, :] .* G[r2, :] .* G[r3, :])% 2 == 0 || (return false;)
             end
         end

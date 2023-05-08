@@ -12,7 +12,8 @@
 
 Return the LDPC code defined by the parity-check matrix `H`.
 
-LDPC codes are typically required to have a matrix density of less than 1%.
+# Notes
+* LDPC codes are typically required to have a matrix density of less than 1%.
 """
 function LDPCCode(H::fq_nmod_mat)
     nnz, den = _density(H)
@@ -54,7 +55,8 @@ end
 
 Return the LDPC code given by `C`.
 
-LDPC codes are typically required to have a matrix density of less than 1%.
+# Notes
+* LDPC codes are typically required to have a matrix density of less than 1%.
 """
 function LDPCCode(C::AbstractLinearCode)
     H = paritycheckmatrix(C)

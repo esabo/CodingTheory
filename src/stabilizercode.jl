@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022 Eric Sabo
+# Copyright (c) 2021, 2022, 2023 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -12,30 +12,16 @@
     StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return a CSS code using the CSS construction on two linear codes `C1 = [n, k1, d1]`
-and `C2 = [n, k2, d2]` with `C2 ⊆ C1`.
-
-The resulting code has dimension `k = k1 - k2` and minimum distance
-`d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
-of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
-
-# Arguments
-* `C1`: a linear code
-* `C2`: a subcode of `C1`
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
+Return the CSS code given by the CSS construction on two linear codes `C1 = [n, k1, d1]`
+and `C2 = [n, k2, d2]` with `C2 ⊆ C1` and whose signs by `charvec`.
 
 # Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
+* The resulting code has dimension `k = k1 - k2` and minimum distance
+  `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
+  of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 """
-function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    charvec::Union{Vector{nmod}, Missing}=missing)
-
-    C2 ⊆ C1 || error("The second argument must be a subset of the first in the CSS construction.")
+function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
+    C2 ⊆ C1 || throw(ArgumentError("The second argument must be a subset of the first in the CSS construction."))
     p = Int(characteristic(C1.F))
     charvec = _processcharvec(charvec, p, C1.n)
 
@@ -71,36 +57,18 @@ CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nm
     StabilizerCodeCSS(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return a CSS code using the CSS construction on a self-orthogonal linear code
-`C`, i.e., `C ⊆ C^⟂`.
-
-Setting `C1 = C^⟂` and `C2 = C`, the resulting code has dimension `k = k1 - k2`
-and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the
-parity-check matrix of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
-
-It is often desirable in quantum error correction to work with a set of
-overcomplete stabilizers. Therefore this constructor does not simplify any
-provided set of stabilizers. The dimension of the code is computed based on the
-rank, and the user should not use the matrix dimension of the stabilizers to
-determine such quantities. Use `isovercomplete` to determine if an
-`AbstractStabilizerCode` is overcomplete.
-
-# Arguments
-* `C`: a self-orthogonal linear code
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
+Return the CSS code given by the CSS construction on a self-orthogonal linear code
+`C`, i.e., `C ⊆ C^⟂`, and whose signs by `charvec`.
 
 # Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
+* Setting `C1 = C^⟂` and `C2 = C`, the resulting code has dimension `k = k1 - k2`
+  and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the
+  parity-check matrix of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 """
 function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     # this should have Xstabs = Zstabs
     D = dual(C)
-    C ⊆ D || error("The single code CSS construction requires C ⊆ C^⟂.")
+    C ⊆ D || throw(ArgumentError("The single code CSS construction requires C ⊆ C^⟂."))
     p = Int(characteristic(D.F))
     charvec = _processcharvec(charvec, p, D.n)
 
@@ -129,48 +97,22 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
             Xsigns, Zsigns, charvec, missing, false)
     end
 end
-CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) =
-    StabilizerCodeCSS(C, charvec)
+CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) = StabilizerCodeCSS(C, charvec)
 
 """
     StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
     CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return a CSS code using the matrix `Xmatrix` as the `X` stabilizer matrix
-and `Zmatrix` as the `Z` stabilizer matrix.
-
-It is often desirable in quantum error correction to work with a set of
-overcomplete stabilizers. Therefore this constructor does not simplify any
-provided set of stabilizers. The dimension of the code is computed based on the
-rank, and the user should not use the matrix dimension of the stabilizers to
-determine such quantities. Use `isovercomplete` to determine if an
-`AbstractStabilizerCode` is overcomplete.
-
-# Arguments
-* `Xmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
-* `Zmatrix`: a matrix over a finite field of type `FqNmodFiniteField`
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
-
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
-* The orthogonality of the `X` and `Z` stabilizers are automatically checked and
-  will error upon failure.
+Return a CSS code whose `X`-stabilizers are given by `Xmatrix`, `Z`-stabilizers by `Zmatrix`, and signs by `charvec`.
 """
-function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat,
-    charvec::Union{Vector{nmod}, Missing}=missing)
-
-    iszero(Xmatrix) && error("The `X` stabilizer matrix is empty.")
-    iszero(Zmatrix) && error("The `Z` stabilizer matrix is empty.")
+function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
+    iszero(Xmatrix) && throw(ArgumentError("The `X` stabilizer matrix is empty."))
+    iszero(Zmatrix) && throw(ArgumentError("The `Z` stabilizer matrix is empty."))
     n = ncols(Xmatrix)
-    n ==  ncols(Zmatrix) || error("Both matrices must have the same length in the CSS construction.")
+    n ==  ncols(Zmatrix) || throw(ArgumentError("Both matrices must have the same length in the CSS construction."))
     F = base_ring(Xmatrix)
-    F == base_ring(Zmatrix) || error("Both matrices must be over the same base field in the CSS construction.")
-    iszero(Zmatrix * transpose(Xmatrix)) || error("The given matrices are not symplectic orthogonal.")
+    F == base_ring(Zmatrix) || throw(ArgumentError("Both matrices must be over the same base field in the CSS construction."))
+    iszero(Zmatrix * transpose(Xmatrix)) || throw(ArgumentError("The given matrices are not symplectic orthogonal."))
     p = Int(characteristic(F))
     charvec = _processcharvec(charvec, p, n)
 
@@ -217,43 +159,21 @@ CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod},
     StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
     CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
-Return a CSS code using the vector of Pauli strings `SPauli` as stabilizers.
-
-It is often desirable in quantum error correction to work with a set of
-overcomplete stabilizers. Therefore this constructor does not simplify any
-provided set of stabilizers. The dimension of the code is computed based on the
-rank, and the user should not use the matrix dimension of the stabilizers to
-determine such quantities. Use `isovercomplete` to determine if an
-`AbstractStabilizerCode` is overcomplete.
-
-# Arguments
-* `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
+Return the CSS code whose stabilizers are determined by the vector of Pauli strings `SPauli` and signs by `charvec`.
 
 # Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
-* The orthogonality of the `X` and `Z` stabilizers are automatically checked and
-  will error upon failure.
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
-* Will error when the provided strings are not CSS.
 """
-function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod},
-    Missing}=missing) where T <: Union{String, Vector{Char}}
-
+function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
     S = _Paulistringtosymplectic(_processstrings(SPauli))
-    iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
+    iszero(S) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
     S = _removeempty(S, :rows)
     # the reason we repeat here and not call another constructor is the else
     # statement at the bottom of this function
     # would also need to compute down to signs to call _isCSSsymplectic
     # which would allow us to call the other constructor
-    aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
     n = div(ncols(S), 2)
 
     F = base_ring(S)
@@ -303,7 +223,6 @@ CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where 
 
 Return the `[[2n, 2k, S.d <= d <= 2 S.d]]` CSS code derived by splitting the stabilizers of `S`.
 """
-# TODO: wait, gotta be a typo here since it only has S.n columns
 function StabilizerCodeCSS(S::StabilizerCode)
 	X = S.stabs[:, 1:S.n]
 	Z = S.stabs[:, S.n + 1:end]
@@ -315,68 +234,23 @@ CSSCode(S::StabilizerCode) = StabilizerCodeCSS(S)
 """
     StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
-Return a stabilizer code using the vector of Pauli strings `SPauli` as stabilizers.
-
-It is often desirable in quantum error correction to work with a set of
-overcomplete stabilizers. Therefore this constructor does not simplify any
-provided set of stabilizers. The dimension of the code is computed based on the
-rank, and the user should not use the matrix dimension of the stabilizers to
-determine such quantities. Use `isovercomplete` to determine if an
-`AbstractStabilizerCode` is overcomplete.
-
-# Arguments
-* `SPauli`: a vector of Strings or Char vectors containing the letters {I, X, Y, Z}
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
+Return the stabilizer code whose stabilizers are determined by the vector of Pauli strings `SPauli` and signs by `charvec`.
 
 # Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
-* The orthogonality of the stabilizers are automatically checked and will error
-  upon failure.
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
 function StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
     SPaulistripped = _processstrings(SPauli)
     S = _Paulistringtosymplectic(SPaulistripped)
-    iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
+    iszero(S) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
     return StabilizerCode(S, charvec)
 end
 
 """
-    StabilizerCode(Sq2::fq_nmod_mat, symp::Bool=false, charvec::Union{Vector{nmod}, Missing}=missing)
+    StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return a stabilizer code using the matrix `Sq2` as the stabilizer matrix.
-
-The matrix `Sq2` is assumed to be an `n` column matrix over the quadratic extension.
-If the optional parameter `symp` is set to `true`, `Sq2` is assumed to be in
-symplectic form over the base field.
-
-It is often desirable in quantum error correction to work with a set of
-overcomplete stabilizers. Therefore this constructor does not simplify any
-provided set of stabilizers. The dimension of the code is computed based on the
-rank, and the user should not use the matrix dimension of the stabilizers to
-determine such quantities. Use `isovercomplete` to determine if an
-`AbstractStabilizerCode` is overcomplete.
-
-# Arguments
-* `Sq2`: a matrix over a finite field of type `FqNmodFiniteField`
-* `symp`: a boolean
-* `charvec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
-
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
-* The orthogonality of the stabilizers are automatically checked and will error
-  upon failure.
+Return the stabilizer code whose stabilizers is determined by `S` and signs by `charvec`.
 """
 function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
     iszero(S) && throw(ArgumentError("The stabilizer matrix is empty."))
@@ -442,12 +316,12 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
 end
 
 """
-    augment(S::AbstractStabilizerCode, row::fq_nmod_mat, symp::Bool=false, verbose::Bool=true)
+    augment(S::AbstractStabilizerCode, row::fq_nmod_mat, verbose::Bool=true)
 
 Return the code created by added `row` to the stabilizers of `S`.
 
-* Notes:
-- The goal of this function is to track how the logical operators update given the new stabilizer.
+# Notes
+* The goal of this function is to track how the logical operators update given the new stabilizer.
   The unaffected logical operators are kept during the update and only those which don't commute
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
@@ -635,8 +509,8 @@ end
 
 Return the code created by removing the stabilizers indexed by `rows`.
 
-* Notes:
-- The goal of this function is to track how the logical operators update through this process.
+# Notes
+* The goal of this function is to track how the logical operators update through this process.
   Here, the original logical pairs are kept and an appropriate number of new pairs are added.
 """
 # TODO: move to subsystem, unify prints with above

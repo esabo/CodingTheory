@@ -79,7 +79,7 @@ end
 Return the direct sum of the two matrices `A` and `B`.
 """
 function ⊕(A::T, B::T) where T <: CTMatrixTypes
-    base_ring(A) == base_ring(B) || error("Matrices must be over the same base ring in directsum.")
+    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices must be over the same base ring in directsum."))
 
     return vcat(hcat(A, zero_matrix(base_ring(B), nrows(A), ncols(B))),
         hcat(zero_matrix(base_ring(A), nrows(B), ncols(A)), B))
@@ -173,26 +173,23 @@ dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer =
 Return the symplectic inner product of `u` and `v`.
 """
 function symplecticinnerproduct(u::CTMatrixTypes, v::CTMatrixTypes)
-    (nrows(u) == 1 || ncols(u) == 1) || error("First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).")
-    (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).")
-    length(u) == length(v) || error("Vectors must be the same length in symplectic inner product.")
-    iseven(length(u)) || error("Vectors must have even length in symplectic inner product.")
-    base_ring(u) == base_ring(v) || error("Vectors must be over the same field in symplectic inner product.")
+    (nrows(u) == 1 || ncols(u) == 1) || throw(ArgumentError("First argument of symplectic inner product is not a vector: dims = $(size(u, 1))."))
+    (nrows(v) == 1 || ncols(v) == 1) || throw(ArgumentError("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1))."))
+    length(u) == length(v) || throw(ArgumentError("Vectors must be the same length in symplectic inner product."))
+    iseven(length(u)) || throw(ArgumentError("Vectors must have even length in symplectic inner product."))
+    base_ring(u) == base_ring(v) || throw(ArgumentError("Vectors must be over the same field in symplectic inner product."))
     
     ncols = div(length(u), 2)
     return sum(u[i + ncols] * v[i] - v[i + ncols] * u[i] for i in 1:ncols)
 end
 
 """
-    aresymplecticorthogonal(A::CTMatrixTypes, B::CTMatrixTypes, symp::Bool=false)
+    aresymplecticorthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
 
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
-
-If the optional parameter `symp` is set to `true`, `A` and `B` are assumed to be
-in symplectic form over the base field.
 """
 function aresymplecticorthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
-    base_ring(A) == base_ring(B) || error("Matrices in product must both be over the same base ring.")
+    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices in product must both be over the same base ring."))
     
     return iszero(hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)]) * transpose(B))
 end
@@ -207,12 +204,12 @@ end
 Return the Hermitian inner product of `u` and `v`.
 """
 function Hermitianinnerproduct(u::CTMatrixTypes, v::CTMatrixTypes)
-    (nrows(u) == 1 || ncols(u) == 1) || error("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).")
-    (nrows(v) == 1 || ncols(v) == 1) || error("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).")
-    length(u) == length(v) || error("Vectors must be the same length in Hermitian inner product.")
-    base_ring(u) == base_ring(v) || error("Vectors must be over the same field in Hermitian inner product.")
+    (nrows(u) == 1 || ncols(u) == 1) || throw(ArgumentError("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1))."))
+    (nrows(v) == 1 || ncols(v) == 1) || throw(ArgumentError("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1))."))
+    length(u) == length(v) || throw(ArgumentError("Vectors must be the same length in Hermitian inner product."))
+    base_ring(u) == base_ring(v) || throw(ArgumentError("Vectors must be over the same field in Hermitian inner product."))
     q2 = order(base_ring(u))
-    issquare(q2) || error("The Hermitian inner product is only defined over quadratic field extensions.")
+    issquare(q2) || throw(ArgumentError("The Hermitian inner product is only defined over quadratic field extensions."))
     
     q = Int(sqrt(q2, check = false))
     return sum(u[i] * v[i]^q for i in 1:length(u))
@@ -225,7 +222,8 @@ Return the Hermitian conjugate of the matrix `A`.
 """
 function Hermitianconjugatematrix(A::CTMatrixTypes)
     q2 = order(base_ring(A))
-    issquare(q2) || error("The Hermitian conjugate is only defined over quadratic field extensions.")
+    issquare(q2) || throw(ArgumentError("The Hermitian conjugate is only defined over quadratic field extensions."))
+
     q = Int(sqrt(q2, check = false))
     return A .^ q
 end
@@ -244,14 +242,15 @@ end
 #     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
 # end
 
-"""
-    FpmattoJulia(M::CTMatrixTypes)
+# """
+#     FpmattoJulia(M::CTMatrixTypes)
 
-Return the `CTMatrixTypes` matrix `M` as a Julia Int matrix.
-"""
+# Return the `CTMatrixTypes` matrix `M` as a Julia Int matrix.
+# """
 # TODO: want to remove and cease use of FpmattoJulia
 function FpmattoJulia(M::CTMatrixTypes)
-    degree(base_ring(M)) == 1 || error("Cannot promote higher order elements to the Ints.")
+    degree(base_ring(M)) == 1 || throw(ArgumentError("Cannot promote higher order elements to the Ints."))
+
     A = zeros(Int, size(M))
     for c in 1:ncols(M)
         for r in 1:nrows(M)
@@ -278,37 +277,36 @@ end
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
 #   largestconsecrun([1,1,1,4]) == 4
-function largestconsecrun(arr::Vector{Int})
-    n = length(arr)
-    maxlen = 1
-    for i in 1:n
-        mn = arr[i]
-        mx = arr[i]
-        for j in (i + 1):n
-            mn = min(mn, arr[j])
-            mx = max(mx, arr[j])
-            if (mx - mn) == (j - i)
-                maxlen = max(maxlen, mx - mn + 1)
-            end
-        end
-    end
-    return maxlen
-end
+# function largestconsecrun(arr::Vector{Int})
+#     n = length(arr)
+#     maxlen = 1
+#     for i in 1:n
+#         mn = arr[i]
+#         mx = arr[i]
+#         for j in (i + 1):n
+#             mn = min(mn, arr[j])
+#             mx = max(mx, arr[j])
+#             if (mx - mn) == (j - i)
+#                 maxlen = max(maxlen, mx - mn + 1)
+#             end
+#         end
+#     end
+#     return maxlen
+# end
 
 # TODO: replace all calls with symbols only
-function _removeempty(A::CTMatrixTypes, type::Union{Symbol, AbstractString})
-    type ∈ ("rows", "cols", :rows, :cols) ||
-        error("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type")
+function _removeempty(A::CTMatrixTypes, type::Symbol)
+    type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type"))
     
     del = Vector{Int}()
-    if type == "rows" || type == :rows
+    if type == :rows
         for r in axes(A, 1)
             if iszero(A[r, :])
                 append!(del, r)
             end
         end
         return isempty(del) ? A : A[setdiff(1:nrows(A), del), :]
-    elseif type == "cols" || type == :cols
+    elseif type == :cols
         for c in axes(A, 2)
             if iszero(A[:, c])
                 append!(del, c)
@@ -523,13 +521,13 @@ end
     istriorthogonal(G::CTMatrixTypes, verbose::Bool=false)
     istriorthogonal(G::Matrix{Int}, verbose::Bool=false)
 
-Return `true` if the binary matrix `G` is triorthogonal (modulo 2).
+Return `true` if the binary matrix `G` is triorthogonal.
 
 If the optional parameter `verbos` is set to `true`, the first pair or triple of
 non-orthogonal rows will be identified on the console.
 """
 function istriorthogonal(G::CTMatrixTypes, verbose::Bool=false)
-    Int(order(base_ring(G))) == 2 || error("Triothogonality is only defined over 𝔽₂.")
+    Int(order(base_ring(G))) == 2 || throw(ArgumentError("Triothogonality is only defined over 𝔽₂."))
     nr, nc = size(G)
     for r1 in 1:nr
         for r2 in (r1 + 1):nr
@@ -777,28 +775,28 @@ Return the matrix constructed by expanding the elements of `M` to the subfield
 function expandmatrix(M::CTMatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod})
     L = base_ring(M)
     L == K && return M
-    Int(characteristic(L)) == Int(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
-    degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
+    Int(characteristic(L)) == Int(characteristic(K)) || throw(ArgumentError("The given field is not a subfield of the base ring of the element."))
+    degree(L) % degree(K) == 0 || throw(ArgumentError("The given field is not a subfield of the base ring of the element."))
     n = div(degree(L), degree(K))
-    n == length(basis) || error("Provided basis is of incorrect size for the given field and subfield.")
+    n == length(basis) || throw(ArgumentError("Provided basis is of incorrect size for the given field and subfield."))
     # should really check if it is a basis
     flag, m = isextension(L, K)
     flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
     m == length(basis) || throw(ArgumentError("Basis does not have length degree of the extension."))
     flag, _ = _isbasis(L, basis, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
+
     return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
 end
 
 """
     quadraticresidues(q::Int, n::Int)
 
-Return the set of quadratic resides and quadratic non-residues of `q` and `n`.
+Return the sets of quadratic resides and quadratic non-residues of `q` and `n`.
 """
-# TODO: improve this description
 function quadraticresidues(q::Int, n::Int)
-    isodd(n) && isprime(n) || error("n must be an odd prime in quadratic residues")
-    q^div(n - 1, 2) % n == 1 || error("q^(n - 1)/2 ≅ 1 mod n in quadratic residues")
+    isodd(n) && isprime(n) || throw(ArgumentError("n must be an odd prime in quadratic residues"))
+    q^div(n - 1, 2) % n == 1 || throw(ArgumentError("q^(n - 1)/2 ≅ 1 mod n in quadratic residues"))
 
     # F, _ = FiniteField(n, 1, "α")
     # elms = collect(F)
@@ -867,6 +865,7 @@ function isbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nm
     for i in 1:m
         parent(basis[i]) == E || throw(ArgumentError("The basis must be elements of the extension field."))
     end
+
     return _isbasis(E, basis, Int(order(F)))
 end
 
@@ -960,7 +959,7 @@ verifycomplementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vect
 """
     isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
 
-Return `true` if `basis` is a scalar multiple of `basis2`.`
+Return `true` if `basis` is a scalar multiple of `basis2`.
 """
 function isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
     m = length(basis)
