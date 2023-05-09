@@ -362,6 +362,8 @@ function _rref_no_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange:
     end
     return A
 end
+_rref_no_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:rowrange.stop, 1:colrange.stop)
+_rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
     isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_col_swap."))
@@ -430,6 +432,8 @@ function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::Un
     end
     return rnk, A, P
 end
+_rref_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo{Int}) = _rref_col_swap(M, 1:rowrange.stop, 1:colrange.stop)
+_rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
 function digitstoint(x::Vector{Int}, base::Int=2)
     res = 0
