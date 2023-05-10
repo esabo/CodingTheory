@@ -307,7 +307,7 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
     logs = _makepairs(L)
     # verify
     n = div(ncols(L), 2)
-    logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
+    logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
     aresymplecticorthogonal(stabs, logsmat) || error("Computed logicals do not commute with the codespace.")
     prod = hcat(logsmat[:, n + 1:end], -logsmat[:, 1:n]) * transpose(logsmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||

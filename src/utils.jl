@@ -8,13 +8,7 @@
   # Generic Helper Functions
 #############################
 
-function _isisomorphic(A::T, B::T) where T <: CTMatrixTypes
-    F = base_ring(A)
-    V = VectorSpace(F, size(A, 2))
-    AVS, _ = sub(V, [V(A[i, :]) for i in axes(A, 1)])
-    BVS, _ = sub(V, [V(B[i, :]) for i in axes(B, 1)])
-    return is_isomorphic(AVS, BVS)
-end
+_hasequivalentrowspaces(A::T, B::T) where T <: CTMatrixTypes = return rref(A) == rref(B)
 
 # """
 #     reverse(v::CTMatrixTypes)
@@ -272,7 +266,7 @@ function _quotientspace(big::CTMatrixTypes, small::CTMatrixTypes)
     iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
     C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
     Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-    return matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
+    return matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
 end
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
@@ -685,11 +679,8 @@ function _Paulistringtosymplectic(str::T) where T <: Union{String, Vector{Char}}
     end
     return sym
 end
-_Paulistringtosymplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringtosymplectic(s) for s in A]...)
-_Paulistringstofield(str::T) where T <: Union{String, Vector{Char}} = symplectictoquadratic(_Paulistringtosymplectic(str))
-_Paulistringstofield(A::Vector{T}) where T <: Union{String, Vector{Char}} = vcat([_Paulistringstofield(s) for s in A]...)
+_Paulistringtosymplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = reduce(vcat, [_Paulistringtosymplectic(s) for s in A])
 # need symplectictoPaulistring
-# quadratictoPaulistring
 
 # charvec::Union{Vector{nmod}, Missing}=missing)
 function _processstrings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
@@ -790,7 +781,7 @@ function expandmatrix(M::CTMatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_n
     flag, _ = _isbasis(L, basis, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
 
-    return vcat([_expandrow(M[r, :], K, basis) for r in 1:nrows(M)]...)
+    return reduce(vcat, [_expandrow(M[r, :], K, basis) for r in 1:nrows(M)])
 end
 
 """
@@ -961,11 +952,11 @@ end
 verifycomplementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod}) = verifydualbasis(E, F, basis, dualbasis)
 
 """
-    isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+    areequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
 
 Return `true` if `basis` is a scalar multiple of `basis2`.
 """
-function isequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+function areequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
     m = length(basis)
     length(basis2) == m || throw(ArgumentError("The two vectors must have the same length."))
     c = basis[1] * basis2[1]^-1

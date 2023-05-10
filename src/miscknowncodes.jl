@@ -64,7 +64,7 @@ function HammingCode(q::Int, r::Int)
         F, _ = FiniteField(2, 1, "α")
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
-        H = matrix(F, hcat([reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]...))
+        H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
         C = LinearCode(H, true)
         setminimumdistance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)

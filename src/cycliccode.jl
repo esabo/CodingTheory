@@ -37,11 +37,11 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     R, x = PolynomialRing(E, "x")
     β = α^(div(BigInt(q)^deg - 1, n))
 
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, vcat(comcosets...))
+    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -107,7 +107,7 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
         dic[β^i] = i
     end
     cosets = definingset(sort!([dic[rt] for rt in roots(gE)]), q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
@@ -187,11 +187,11 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     β = α^(div(q^deg - 1, n))
 
     cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, vcat(comcosets...))
+    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -277,11 +277,11 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
 
     n = q - 1
     cosets = definingset([i for i = b:(b + d - 2)], q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, α, defset)
-    h = _generatorpolynomial(R, α, vcat(comcosets...))
+    h = _generatorpolynomial(R, α, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -516,7 +516,7 @@ function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     end
     return g
 end
-_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, vcat(qcosets...))
+_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, reduce(vcat, qcosets))
 
 function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
@@ -551,7 +551,7 @@ function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
         end
     end
 
-    flat && return sort!(vcat(arr...))
+    flat && return sort!(reduce(vcat, arr))
     return arr
 end
 
@@ -578,7 +578,7 @@ the BCH bound.
 """
 # TODO: check why d is sometimes lower than HT but never than BCH
 function finddelta(n::Int, cosets::Vector{Vector{Int}})
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     runs = Vector{Vector{Int}}()
     for x in defset
         useddefset = Vector{Int}()
