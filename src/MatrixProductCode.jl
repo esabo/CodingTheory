@@ -54,7 +54,7 @@ function MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
     ub = minimum([ub1, ub2])
-    return MatrixProductCode(F, n, k, 1, ub, missing, G, missing, H, missing, Gstand,
+    return MatrixProductCode(F, n, k, 1, ub, missing, G, H, Gstand,
         Hstand, P, missing, C, A)
 end
 

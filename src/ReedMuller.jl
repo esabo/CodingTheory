@@ -63,12 +63,12 @@ function ReedMullerCode(q::Int, r::Int, m::Int)
     if q == 2 && r == 1
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         poly = vars[1]^(2^m) + (2^(m + 1) - 2) * vars[1]^(2^m - 2^(m - 1))*vars[2]^(2^(m - 1)) + vars[2]^(2^m)
-        return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G, missing,
-            H, missing, Gstand, Hstand, P, WeightEnumerator(poly, :complete))
+        return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G,
+            H, Gstand, Hstand, P, WeightEnumerator(poly, :complete))
     end
 
-    return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G, missing,
-        H, missing, Gstand, Hstand, P, missing)
+    return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G,
+        H, Gstand, Hstand, P, missing)
 end
 
 #############################
@@ -111,7 +111,7 @@ function dual(C::ReedMullerCode)
     if Int(characteristic(C.F)) == 2
         d = 2^(C.r + 1)
         return ReedMullerCode(C.F, C.n, C.n - C.k, d, d, d,
-            C.m - C.r - 1, C.m, C.H, missing, C.G, missing, C.Hstand, C.Gstand,
+            C.m - C.r - 1, C.m, C.H, C.G, C.Hstand, C.Gstand,
             C.P, missing)
     end
 

@@ -40,12 +40,12 @@ using Test
     @test Hammingdistance(v2, w2) == 2
     @test Hammingdistance(v3, w3) == 2
 
-    @test symplecticinnerproduct(v2,w2) == 1
-    @test symplecticinnerproduct(v3,w3) == 1
-    @test symplecticinnerproduct(v3,v3) == 0
-    @test symplecticinnerproduct(w3,w3) == 0
-    @test aresymplecticorthogonal(v3,v3)
-    @test aresymplecticorthogonal(w3,w3)
+    @test symplecticinnerproduct(v2, w2) == 1
+    @test symplecticinnerproduct(v3, w3) == 1
+    @test symplecticinnerproduct(v3, v3) == 0
+    @test symplecticinnerproduct(w3, w3) == 0
+    @test aresymplecticorthogonal(v3, v3)
+    @test aresymplecticorthogonal(w3, w3)
 
     F4 = GF(2, 2, :ω)
     ω = gen(F4)
@@ -53,7 +53,6 @@ using Test
     @test Hermitianinnerproduct(hexacode[1, :], matrix(F4, [1 0 0 1 1 0])) == ω
     @test Hermitianinnerproduct(hexacode[1, :], hexacode[2, :]) == 0
     @test iszero(matrix(F4, Hermitianconjugatematrix(hexacode)) * transpose(hexacode))
-
 
     # _removeempty
     M = ones(Int, rand(20:30), rand(20:30))
@@ -262,7 +261,6 @@ end
     @test minimumdistance(C) == 3
     @test numbercorrectableerrors(C) == 1
     @test G == generatormatrix(C)
-    @test G == originalgeneratormatrix(C)
     H = paritycheckmatrix(C)
     @test iszero(G * transpose(H))
     @test iszero(H * transpose(G))
@@ -294,7 +292,6 @@ end
     @test rank(GandG) == dimension(CGandG)
     @test G == generatormatrix(CGandG)
     # this fails, is of wrong size, probably a transpose mistake
-    # @test GandG == originalgeneratormatrix(CGandG)
 
     # puncturing examples from Huffman/Pless
     G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
@@ -797,7 +794,6 @@ end
         0 0 1 0 0 1 0 1 0 1;
         0 0 0 1 0 0 1 0 1 1])
     C = LDPCCode(H)
-    # @test originalparitycheckmatrix(C) == H
     @test columnrowbounds(C) == (2, 4)
     # @test rate(C) == 3 / 5
     @test isregular(C)

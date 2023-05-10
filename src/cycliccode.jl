@@ -65,18 +65,18 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
             # known distance, should probably not do δ, HT here
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+                H, Gstand, Hstand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
             cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            missing, H, missing, Gstand, Hstand, P, missing)
+            H, Gstand, Hstand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 """
@@ -128,18 +128,18 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
         if deg == 1 && n == q - 1
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+                H, Gstand, Hstand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
             cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            missing, H, missing, Gstand, Hstand, P, missing)
+            H, Gstand, Hstand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 # self orthogonal cyclic codes are even-like
@@ -213,13 +213,13 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     if deg == 1 && n == q - 1
         d = n - k + 1
         return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-            H, missing, Gstand, Hstand, P, missing)
+            sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+            H, Gstand, Hstand, P, missing)
     end
 
     return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 """
@@ -299,8 +299,8 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
 
     # TODO: known weight enumerator
     return ReedSolomonCode(F, F, R, α, n, k, d, b, d, d, d, d, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-        missing, Gstand, Hstand, P, missing)
+        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, H,
+        Gstand, Hstand, P, missing)
 end
 
 """

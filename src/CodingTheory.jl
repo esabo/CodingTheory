@@ -82,8 +82,8 @@ export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
 
 include("linearcode.jl")
 export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate,
-    relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
-    originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
+    relativedistance, generatormatrix, paritycheckmatrix, genus, Singletonbound,
+    numbercorrectableerrors,
     encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
     Hermitiandual, isequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
     directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
@@ -171,14 +171,15 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     gaugeoperatorsmatrix, dressed, dressedoperators, dressedlogicals, gaugegroup, gaugegroupmatrix,
     gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
     splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge, swapXZlogicals!,
-    swapXZgaugeoperators!, isisomorphic, allstabilizers, elements, printallstabilizers, printallelements
+    swapXZgaugeoperators!, allstabilizers, elements, printallstabilizers, printallelements,
+    augment, expurgate, fixgauge
 
 #############################
       # stabilizercode.jl
 #############################
 
 include("stabilizercode.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode, augment, expurgate
+export StabilizerCodeCSS, CSSCode, StabilizerCode
 
 #############################
       # graphstate.jl
