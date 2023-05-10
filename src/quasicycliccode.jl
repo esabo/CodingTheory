@@ -181,11 +181,6 @@ Return the type of the quasi-cycle code `C`.
 """
 type(C::AbstractQuasiCyclicCode) = C.type
 
-# need these because C::AbstractLinearCode requires it
-originalgeneratormatrix(C::AbstractQuasiCyclicCode) = missing
-
-originalparitycheckmatrix(C::AbstractQuasiCyclicCode) = missing
-
 """
     polynomialmatrix(C::AbstractQuasiCyclicCode)
 

@@ -57,8 +57,8 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nm
     iszero(G * transpose(H)) || error("Calculation of dual scalars failed in constructor.")
     Gstand, Hstand, P, rnk = _standardform(G)
     d = n - k + 1
-    return GeneralizedReedSolomonCode(F, n, k, d, d, d, v, w, γ, G, missing, H,
-        missing, Gstand, Hstand, P, missing)
+    return GeneralizedReedSolomonCode(F, n, k, d, d, d, v, w, γ, G, H,
+        Gstand, Hstand, P, missing)
 end
 
 #############################
@@ -103,6 +103,6 @@ function dual(C::GeneralizedReedSolomonCode)
     d = C.k + 1
     return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
         deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
-        deepcopy(C.H), missing, deepcopy(C.G), missing, deepcopy(C.Hstand),
+        deepcopy(C.H), deepcopy(C.G), deepcopy(C.Hstand),
         deepcopy(C.Gstand), deepcopy(C.P), missing)
 end

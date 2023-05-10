@@ -40,12 +40,14 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     if !iszero(AbstractAlgebra.dim(I))
         Ibasis = [kerGtoV(ItokerG(g)) for g in gens(I)]
         Fbasis = [[F(Ibasis[j][i]) for i in 1:AbstractAlgebra.dim(parent(Ibasis[1]))] for j in 1:length(Ibasis)]
-        S = matrix(F, length(Fbasis), length(Fbasis[1]), vcat(Fbasis...))
+        S = matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
     else
         error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
     end
 
     # check if this subsystem code is really a stabilizer code
+    # this should be fine because if they are the same dimension then they are the same
+    # don't need to check row space equivalence
     if is_isomorphic(I, GVS)
         println("Stabilizer code detected.")
         # this is duplicating some of the initial work done in this function,
@@ -54,17 +56,12 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     end
 
     # bare logicals (reps): ker G / S
-    # _, kerS = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # kerS = transpose(kerS)
-    # display(kerS)
-    # println(" ")
-    # display(G)
     BL = _quotientspace(kerG, S)
     graphstate = false
     if !iszero(BL)
         barelogs = _makepairs(BL)
         # verify
-        barelogsmat = vcat([vcat(barelogs[i]...) for i in 1:length(barelogs)]...)
+        barelogsmat = reduce(vcat, [reduce(vcat, barelogs[i]) for i in 1:length(barelogs)])
         aresymplecticorthogonal(S, barelogsmat) || error("Computed logicals do not commute with the codespace.")
         prod = hcat(barelogsmat[:, n + 1:end], -barelogsmat[:, 1:n]) * transpose(barelogsmat)
         sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
@@ -77,7 +74,7 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     GO = _quotientspace(G, S)
     gaugeops = _makepairs(GO)
     # verify
-    gaugeopsmat = vcat([vcat(gaugeops[i]...) for i in 1:length(gaugeops)]...)
+    gaugeopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
     aresymplecticorthogonal(S, gaugeopsmat) || error("Computed gauge operators do not commute with the codespace.")
     aresymplecticorthogonal(barelogsmat, gaugeopsmat) || error("Computed gauge operators do not commute with the computed logicals.")
     prod = hcat(gaugeopsmat[:, n + 1:end], -gaugeopsmat[:, 1:n]) * transpose(gaugeopsmat)
@@ -161,7 +158,7 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     cols = [sum(prodJul[:, i]) for i in 1:ncpr]
     sum(cols) == ncpr || println("Detected logicals not in anticommuting pairs.")
     logpairs = _makepairs(L)
-    logsmat = vcat([vcat(logpairs[i]...) for i in 1:length(logpairs)]...)
+    logsmat = reduce(vcat, [reduce(vcat, logpairs[i]) for i in 1:length(logpairs)])
 
     # gauge operators
     iszero(G) && error("The gauges are empty.")
@@ -181,7 +178,7 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     sum(cols) == ncpr || println("Detected gauges not in anticommuting pairs.")
     # display(prod)
     gopspairs = _makepairs(G)
-    gopsmat = vcat([vcat(gopspairs[i]...) for i in 1:length(gopspairs)]...)
+    gopsmat = reduce(vcat, [reduce(vcat, gopspairs[i]) for i in 1:length(gopspairs)])
 
     # display(G)
     F = base_ring(gopsmatrix)
@@ -238,8 +235,6 @@ end
 
 # CSS construction, Euclidean and Hermitian
 # min dist is min dressed logical operator weight
-
-# common codes to implement: GeneralizedBaconShor, CompassCode
 
 #############################
       # getter functions
@@ -498,18 +493,18 @@ end
 Set the stabilizers of `S` to `stabs`.
 
 # Notes
-* A check is done to make sure `stabs` is isomorphic to the current set of stabilizers.
+* A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
 function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
     stabs = _removeempty(stabs, :rows)
     order(S.F) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     stabs = change_base_ring(S.F, stabs)
-    if _isisomorphic(S, stabs)
+    if _hasequivalentrowspaces(S.stabs, stabs)
         S.stabs = stabs
         nrows(stabs) != S.k && (S.overcomplete = true;)
     else
-        error("The current stabilizers are not isomorphic to the input.")
+        error("The current stabilizers are not equivalent to the input.")
     end
     # TODO: update signs
     return nothing
@@ -521,7 +516,7 @@ end
 Set the logical operators of `S` to `L`.
 
 # Notes
-* A check is done to make sure `L` is isomorphic to the current set of logicals.
+* A check is done to make sure `L` are eqivalent to the current set of logicals (up to stabilizers).
 """
 setlogicals!(S::T, L::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setlogicals!(LogicalTrait(T), S, L)
 function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
@@ -529,7 +524,7 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
     iseven(ncols(L)) || throw(ArgumentError("Expected a symplectic input but the input matrix has an odd number of columns."))
     S.F == base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
     
-    _isisomorphic(L, logicalsmatrix(S)) || error("The current logicals are not isomorphic to the input.")
+    _hasequivalentrowspaces(vcat(S.logsmat, S.stabs), vcat(L, S.stabs)) || error("The current logicals are not equivalent to the input.")
     # aresymplecticorthogonal(symplecticstabilizers(S), Lsym, true) ||
     #     error("Provided logicals do not commute with the code.")
 
@@ -559,7 +554,7 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
         L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
     end
     S.logicals = logs
-    S.logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
+    S.logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
 end
 setlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bool=false) = error("Type $(typeof(S)) has no logicals.")
 
@@ -674,13 +669,13 @@ function _splitsymplecticstabilizers(S::fq_nmod_mat, signs::Vector{nmod})
     end
 
     if !isempty(Xstabs)
-        Xstabs = vcat(Xstabs...)
+        Xstabs = reduce(vcat, Xstabs)
     end
     if !isempty(Zstabs)
-        Zstabs = vcat(Zstabs...)
+        Zstabs = reduce(vcat, Zstabs)
     end
     if !isempty(mixedstabs)
-        mixedstabs = vcat(mixedstabs...)
+        mixedstabs = reduce(vcat, mixedstabs)
     end
     return Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
 end
@@ -778,11 +773,10 @@ _testlogicalsrelationships(::HasNoLogicals, S) = error("Type $(typeof(S)) has no
 
 Return `true` if the vector `v` is a logical operator for `S`.
 """
-# TODO: need to check commutes with S.stabs
-# TODO: check for type stability here
 islogical(S::T, v::fq_nmod_mat) where {T <: AbstractSubsystemCode} = islogical(LogicalTrait(T), S, v)
 function islogical(::HasLogicals, S::AbstractSubsystemCode, v::fq_nmod_mat)
     nc = ncols(S.logsmat)
+    aresymplecticorthogonal(S.stabs, v) || return false
     size(v) == (1, nc) && (return !iszero(S.logsmat * transpose(v));)
     size(v) == (nc, 1) && (return !iszero(S.logsmat * v);)
     throw(ArgumentError("Vector to be tested is of incorrect dimension."))
@@ -846,8 +840,6 @@ Zsyndrome(::IsNotCSS, S::AbstractSubsystemCode, v::fq_nmod_mat) = error("Only va
 Return a new `AbstractSubsystemCode` where the logical pairs in `pairs` are
 now considered as gauge operators.
 """
-# TODO: graph states, CSS codes, probably won't work due to quadratic
-# can fix both by simply recalling the constructor
 promotelogicalstogauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = logicalpromotelogicalstogauges(LogicalTrait(T), S, pairs)
 function promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
@@ -855,9 +847,9 @@ function promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::
     logs = S.logicals
     # will let this error naturally if pairs contains invalid elements
     gaugeops = S.gaugeops ∪ logs[pairs]
-    gopsmat = vcat([vcat(gaugeops[i]...) for i in 1:length(gaugeops)]...)
+    gopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
     logs = logs[setdiff![1:S.k, pairs]]
-    logsmat = vcat([vcat(logs[i]...) for i in 1:length(logs)]...)
+    logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
     # recompute k
     top = BigInt(order(F))^n
     if S.overcomplete
@@ -892,7 +884,7 @@ function swapXZlogicals!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{
         S.logicals[i][1] = S.logicals[i][2]
         S.logicals[i][2] = temp
     end
-    S.logsmat = vcat([vcat(S.logicals[i]...) for i in 1:length(S.logicals)]...)
+    S.logsmat = reduce(vcat, [reduce(vcat, S.logicals[i]) for i in 1:length(S.logicals)])
     return nothing
 end
 swapXZlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
@@ -912,20 +904,20 @@ function swapXZgaugeoperators!(::HasGauges, S::AbstractSubsystemCode, pairs::Vec
         S.gaugeops[i][1] = S.gaugeops[i][2]
         S.gaugeops[i][2] = temp
     end
-    S.gopsmat = vcat([vcat(S.gaugeops[i]...) for i in 1:length(S.gaugeops)]...)
+    S.gopsmat = reduce(vcat, [reduce(vcat, S.gaugeops[i]) for i in 1:length(S.gaugeops)])
     return nothing
 end
 swapXZgaugeoperators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no gauges.")
 
 """
-    isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
+    areequivalent(S1::T, S2::T) where T <: AbstractSubsystemCode
 
-Return `true` if the codes are isomorphic as symplectic vector spaces.
+Return `true` if the codes are equivalent as symplectic vector spaces.
 
 # Note
 * This is not intended to detect if `S1` and `S2` are permutation equivalent.
 """
-function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
+function areequivalent(S1::T, S2::T) where T <: AbstractSubsystemCode
     (S1.n == S2.n && S1.k == S2.k) || return false
     # can't compare fields directly because they are compared based on ptr addresses
     Int(order(S1.F)) == Int(order(S2.F)) || return false
@@ -934,18 +926,16 @@ function isisomorphic(S1::T, S2::T) where T <: AbstractSubsystemCode
     end
 
     # # test stabilizers
-    _isisomorphic(S1.stabs, S2.stabs) || return false
+    _hasequivalentrowspaces(S1.stabs, S2.stabs) || return false
 
     if LogicalTrait(T) == HasLogicals()
         # test logicals
-        _isisomorphic(S1.logsmat, S2.logsmat) || return false
-    else
-        return true
+        _hasequivalentrowspaces(vcat(S1.logsmat, S1.stabs), vcat(S2.logsmat, S2.stabs)) || return false
     end
 
     if GaugeTrait(T) == HasGauges()
         # test gauge operators
-        return is_isomorphic(S1.gopsmat, S2.gopsmat)
+        return _hasequivalentrowspaces(vcat(S1.gopsmat, S1.stabs), vcat(S2.gopsmat, S2.stabs))
     else
         return true
     end
@@ -1114,3 +1104,239 @@ printallelements(S::AbstractSubsystemCode) = printallstabilizers(S)
 #     k + r ≤ n - 2d + 2 for subsystem
 # they should be the same but with r = 0 for stabilizer
 # end
+
+"""
+    permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+    permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+
+Return the code permuted by `σ`.
+
+# Notes
+* If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
+"""
+function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+    if typeof(σ) <: Perm
+        perm1 = matrix(S.F, Array(matrix_repr(σ)))
+        perm = perm1 ⊕ perm1
+        S.stabs = S.stabs * perm
+        S.charvec = S.charvec * perm
+
+        W = typeof(S)
+        if CSSTrait(W) == IsCSS()
+            S.Xstabs = S.Xstabs * perm1
+            S.Zstabs = S.Zstabs * perm1
+        end
+
+        if LogicalTrait(W) == HasLogicals()
+            S.logsmat = S.logsmat * perm
+            for (i, pair) in enumerate(S.logicals)
+                S.logicals[i] = (pair[1] * perm, pair[2] * perm)
+            end
+        end
+
+        if GaugeTrait(W) == HasGauges()
+            S.gopsmat = S.gopsmat * perm
+            for (i, pair) in enumerate(S.gaugeops)
+                S.gaugeops[i] = (pair[1] * perm, pair[2] * perm)
+            end
+        end
+    else
+        length(unique(σ)) == S.n || throw(ArgumentError("Incorrect number of digits in permutation."))
+        (1 == minimum(σ) && S.n == maximum(σ)) || throw(ArgumentError("Digits are not in the range `1:$(S.n)`."))
+
+        σ = σ ∪ (σ .+ S.n)
+        S.stabs = S.stabs[:, σ]
+        S.charvec = S.charvec[:, σ]
+        W = typeof(S)
+        if CSSTrait(W) == IsCSS()
+            S.Xstabs = S.Xstabs[:, σ]
+            S.Zstabs = S.Zstabs[:, σ]
+        end
+
+        if LogicalTrait(W) == HasLogicals()
+            S.logsmat = S.logsmat[:, σ]
+            for (i, pair) in enumerate(S.logicals)
+                S.logicals[i] = (pair[1][:, σ], pair[2][:, σ])
+            end
+        end
+
+        if GaugeTrait(W) == HasGauges()
+            S.gopsmat = S.gopsmat[:, σ]
+            for (i, pair) in enumerate(S.gaugeops)
+                S.gaugeops[i] = (pair[1][:, σ], pair[2][:, σ])
+            end
+        end
+    end
+    return S
+end
+
+permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int = (Snew = deepcopy(S); return permutecode!(Snew, σ);)
+
+"""
+    augment(S::AbstractSubsystemCode, row::fq_nmod_mat, verbose::Bool=true)
+
+Return the code created by added `row` to the stabilizers of `S`.
+
+# Notes
+* The goal of this function is to track how the logical operators update given the new stabilizer.
+  The unaffected logical operators are kept during the update and only those which don't commute
+  with the new stabilizer are recomputed. Use `verbose` to better 
+"""
+function augment(S::AbstractSubsystemCode, row::fq_nmod_mat, verbose::Bool=true)
+    iszero(row) && return S
+    nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
+
+    # stabilizers
+    prod = hcat(S.stabs[:, S.n + 1:end], -S.stabs[:, 1:S.n]) * transpose(row)
+    if iszero(prod)
+        verbose && println("Vector is already in the stabilizer group. Nothing to update.")    
+        Snew = deepcopy(S)
+        Snew.stabs = vcat(S.stabs, row)
+        Snew.overcomplete = true
+        return Snew
+    else
+        stabstokeep = Vector{Int}()
+        for i in 1:nrows(S.stabs)
+            iszero(prod[i]) && append!(stabstokeep, i, i + 1)
+        end
+
+        if isempty(stabstokeep)
+            verbose && println("The vector anticommutes with all stabilizers. The new stabilizer group is just the vector.")
+            stabs = row
+        else
+            update = setdiff(1:nrows(S.stabs), stabstokeep)
+            if verbose
+                if isempty(update)
+                    println("No stabilizers requiring updating")
+                else
+                    println("Stabilizers requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (stabs = S.stabs;) : (stabs = S.stabs[stabstokeep, :];)
+        end
+    end
+
+    # logicals
+    if LogicalTrait(typeof(S)) == HasLogicals()
+        prod = hcat(S.logsmat[:, S.n + 1:end], -S.logsmat[:, 1:S.n]) * transpose(row)
+        logstokeep = Vector{Int}()
+        logpairstokeep = Vector{Int}()
+        pair = 1
+        for i in 1:2:nrows(S.logsmat)
+            # this is predicated on the idea that the pairs are stacked together in this matrix
+            # TODO: write a unit test checking this never changes
+            if iszero(prod[i]) && iszero(prod[i + 1])
+                append!(logstokeep, i, i + 1)
+                append!(logpairstokeep, pair)
+            end
+            pair += 1
+        end
+
+        if isempty(logstokeep)
+            verbose && println("The vector anticommutes with all logical pairs.")
+            logs = zero_matrix(S.F, 1, 2 * S.n)
+        else
+            update = setdiff(1:length(S.logicals), logpairstokeep)
+            if verbose
+                if isempty(update)
+                    println("No logical pairs requiring updating")
+                else
+                    println("Logical pairs requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (logs = S.logsmat;) : (logs = S.logsmat[logstokeep, :];)
+        end
+    else
+        logs = zero_matrix(S.F, 1, 2 * S.n)
+    end
+
+    # gauges
+    if GaugeTrait(typeof(S)) == HasGauges()
+        prod = hcat(S.gopsmat[:, S.n + 1:end], -S.gopsmat[:, 1:S.n]) * transpose(row)
+        gopstokeep = Vector{Int}()
+        goppairstokeep = Vector{Int}()
+        pair = 1
+        for i in 1:2:nrows(S.gopsmat)
+            # this is predicated on the idea that the pairs are stacked together in this matrix
+            # TODO: write a unit test checking this never changes
+            if iszero(prod[i]) && iszero(prod[i + 1])
+                append!(gopstokeep, i, i + 1)
+                append!(goppairstokeep, pair)
+            end
+            pair += 1
+        end
+
+        if isempty(gopstokeep)
+            verbose && println("The vector anticommutes with all gauge operator pairs.")
+            gaugeops = zero_matrix(S.F, 1, 2 * S.n)
+        else
+            update = setdiff(1:length(S.gaugeops), goppairstokeep)
+            if verbose
+                if isempty(update)
+                    println("No gauge operator pairs requiring updating")
+                else
+                    println("Gauge operator pairs requiring updating:")
+                    display(update)
+                end
+            end
+            isempty(update) ? (gaugeops = S.gaugeops;) : (gaugeops = S.gaugeops[gopstokeep, :];)
+        end
+    else
+        gaugeops = zero_matrix(S.F, 1, 2 * S.n)
+    end
+
+    # compute newly opened degrees of freedom
+    temp = _removeempty(vcat(stabs, logs, gaugeops), :rows)
+    _, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    temp = _quotientspace(transpose(temp), newsymstabs)
+    newlogs = _makepairs(temp)
+    return SubsystemCode(stabs, vcat(logs, newlogs), gaugeops, S.charvec)
+end
+
+"""
+    expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
+
+Return the code created by removing the stabilizers indexed by `rows`.
+
+# Notes
+* The goal of this function is to track how the logical operators update through this process.
+  Here, the original logical pairs are kept and an appropriate number of new pairs are added.
+"""
+function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=true)
+    numstabs = nrows(S.stabs)
+    rows ⊆ 1:numstabs || throw(ArgumentError("Argument `rows` not a subset of the number of stabilizers."))
+    rows == 1:numstabs && throw(ArgumentError("Cannot remove all stabilizers"))
+
+    verbose && println("Removing stabilizers: $rows")
+    newstabs = S.stabs[setdiff(1:numstabs, rows), :]
+    temp = newstabs
+    if LogicalTrait(typeof(S)) == HasLogicals()
+        temp = vcat(temp, S.logsmat)
+    end
+    if GaugeTrait(typeof(S)) == HasGauges()
+        temp = vcat(temp, S.gopsmat)
+    end
+    _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    H = transpose(H)
+    newlogs = _quotientspace(H, newstabs)
+    if iszero(newlogs)
+        verbose && println("No new logicals need to be add")
+        Snew = deepcopy(S)
+        Snew.stabs = newstabs
+        rank(newstabs) == nrows(newstabs) ? (S.overcomplete = false;) : (S.overcomplete = true;)
+        return Snew
+    else
+        newlogpairs = _makepairs(newlogs)
+        verbose && println("New logical pairs:")
+        verbose && display(newlogpairs)
+        if GaugeTrait(typeof(S)) == HasGauges()
+            return SubsystemCode(newstabs, vcat(S.logsmat, reduce(vcat, reduce(vcat, newlogpairs))), S.gopsmat, S.charvec)
+        else
+            Snew = StabilizerCode(newstabs, S.charvec)
+            setlogicals!(Snew, vcat(S.logsmat, reduce(vcat, reduce(vcat, newlogpairs))))
+            return Snew
+        end
+    end
+end

@@ -40,12 +40,12 @@ using Test
     @test Hammingdistance(v2, w2) == 2
     @test Hammingdistance(v3, w3) == 2
 
-    @test symplecticinnerproduct(v2,w2) == 1
-    @test symplecticinnerproduct(v3,w3) == 1
-    @test symplecticinnerproduct(v3,v3) == 0
-    @test symplecticinnerproduct(w3,w3) == 0
-    @test aresymplecticorthogonal(v3,v3)
-    @test aresymplecticorthogonal(w3,w3)
+    @test symplecticinnerproduct(v2, w2) == 1
+    @test symplecticinnerproduct(v3, w3) == 1
+    @test symplecticinnerproduct(v3, v3) == 0
+    @test symplecticinnerproduct(w3, w3) == 0
+    @test aresymplecticorthogonal(v3, v3)
+    @test aresymplecticorthogonal(w3, w3)
 
     F4 = GF(2, 2, :ω)
     ω = gen(F4)
@@ -53,7 +53,6 @@ using Test
     @test Hermitianinnerproduct(hexacode[1, :], matrix(F4, [1 0 0 1 1 0])) == ω
     @test Hermitianinnerproduct(hexacode[1, :], hexacode[2, :]) == 0
     @test iszero(matrix(F4, Hermitianconjugatematrix(hexacode)) * transpose(hexacode))
-
 
     # _removeempty
     M = ones(Int, rand(20:30), rand(20:30))
@@ -221,7 +220,7 @@ using Test
     flag, _ = isbasis(E, F, basis)
     @test flag
     basis2 = [α * basis[i] for i in 1:2]
-    @test isequivalentbasis(basis, basis2)
+    @test areequivalentbasis(basis, basis2)
 
     F, _ = FiniteField(2, 1, "α1");
     flag, _ = isextension(E, F)
@@ -262,7 +261,6 @@ end
     @test minimumdistance(C) == 3
     @test numbercorrectableerrors(C) == 1
     @test G == generatormatrix(C)
-    @test G == originalgeneratormatrix(C)
     H = paritycheckmatrix(C)
     @test iszero(G * transpose(H))
     @test iszero(H * transpose(G))
@@ -270,8 +268,8 @@ end
     D = dual(C)
     @test !(C ⊆ D)
     @test !issubcode(C, D)
-    @test !isequivalent(C, D)
-    @test isequivalent(C, C)
+    @test !areequivalent(C, D)
+    @test areequivalent(C, C)
     @test !isselfdual(C)
     @test !isselforthogonal(C)
     cw = matrix(F, [1 0 0 0 0 1 1]);
@@ -294,7 +292,6 @@ end
     @test rank(GandG) == dimension(CGandG)
     @test G == generatormatrix(CGandG)
     # this fails, is of wrong size, probably a transpose mistake
-    # @test GandG == originalgeneratormatrix(CGandG)
 
     # puncturing examples from Huffman/Pless
     G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
@@ -321,12 +318,12 @@ end
     # shortening examples from Huffman/Pless
     shC = shorten(C, [5, 6])
     shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
-    @test isequivalent(shC, shCtest)
+    @test areequivalent(shC, shCtest)
 
     # need to fix Hermitian stuff, can't find Hermitianconjugatematrix
     # C = Hexacode()
     # D = Hermitiandual(C)
-    # @test isequivalent(C, D)
+    # @test areequivalent(C, D)
 
 
 
@@ -340,10 +337,10 @@ end
     C = Hexacode();
     dualbasis = [ω^2, K(1)]; # dual?
     CF2 = subfieldsubcode(C, F, dualbasis)
-    @test isequivalent(CF2, RepetitionCode(2, 6))
+    @test areequivalent(CF2, RepetitionCode(2, 6))
 
     # # test Delsarte's theorem
-    # @test isequivalent(CF2, dual(tracecode(dual(C), F)))
+    # @test areequivalent(CF2, dual(tracecode(dual(C), F)))
 
     # to test perms
     # C = HammingCode(2, 3)
@@ -391,14 +388,14 @@ end
     @test length(C) == 2^5
     @test isselfdual(C)
     # RM(0, m) is the length 2^m repetition code
-    @test isequivalent(ReedMullerCode(2, 0, 3), RepetitionCode(2, 8))
+    @test areequivalent(ReedMullerCode(2, 0, 3), RepetitionCode(2, 8))
     # puncturing RM(1, m) and taking the even subcode is the simplex code S_m
     # random parameters
     C = ReedMullerCode(2, 1, 4)
     pC = puncture(C, [1])
     epC = evensubcode(pC)
     S = SimplexCode(2, 4)
-    @test isequivalent(epC, S)
+    @test areequivalent(epC, S)
     C.d = missing
     @test minimumdistance(C) == 8
 
@@ -529,7 +526,7 @@ end
     # G = matrix(F, [1 0 2 2 ; 0 1 2 1])
     # H = matrix(F, [1 1 1 0; 1 2 0 1])
     # C2 = LinearCode(F, 4, 2, 3, G, G, H, H, G, H, missing)
-    # @test isequivalent(C, C2)
+    # @test areequivalent(C, C2)
 
     # Hadamard code
     # the dual code of the Hamming code is the shortened Hadamard code
@@ -676,7 +673,7 @@ end
     # C2 = BCHCode(2, 21, 3, 1) # maybe not b = 1?
     # z2 = gen(polynomialring(C2))
     # @test generatorpolynomial(C2) == 1 + z2 + z2^2 + z2^4 + z2^6
-    # @test isequivalent(expC, C2)
+    # @test areequivalent(expC, C2)
 
     # # example: MacWilliams & Sloane
     # # extended Reed-Solomon codes have distance d + 1
@@ -706,7 +703,7 @@ end
     # C = ReedSolomonCode(7, 3)
     # H = HammingCode(2, 3)
     # @test iscyclic(H, false) == false
-    # _, C2 = iscyclic(C, true) # this true is construct, can do an isequivalent here
+    # _, C2 = iscyclic(C, true) # this true is construct, can do an areequivalent here
 
 end
 
@@ -732,7 +729,7 @@ end
     newstab = logs[1][2] + logs[2][2]
     Q2 = augment(Q, newstab, false)
     Q3 = expurgate(Q2, [9], false)
-    @test isisomorphic(Q, Q3)
+    @test areequivalent(Q, Q3)
 end
 
 # TODO: fix
@@ -797,7 +794,6 @@ end
         0 0 1 0 0 1 0 1 0 1;
         0 0 0 1 0 0 1 0 1 1])
     C = LDPCCode(H)
-    # @test originalparitycheckmatrix(C) == H
     @test columnrowbounds(C) == (2, 4)
     # @test rate(C) == 3 / 5
     @test isregular(C)
@@ -1117,7 +1113,7 @@ end
     C = QuasiCyclicCode([v, v2], 2, false)
     v = [matrix(F, 1, 4, [1, 0, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 1]), matrix(F, 1, 4, [1, 1, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 0])]
     C2 = QuasiCyclicCode(v, 2, true)
-    @test isequivalent(C, C2)
+    @test areequivalent(C, C2)
 end
 
 @testset "quantumproductcodes.jl" begin
@@ -1201,8 +1197,8 @@ end
             @test code.k >= adj.n - adj.m * (localcode.n - localcode.k)
 
             flag = true
-            for i in 1:nrows(code.Horig)
-                wt(code.Horig[i, :]) ∈ locswts || (flag = false;)
+            for i in 1:nrows(code.H)
+                wt(code.H[i, :]) ∈ locswts || (flag = false;)
             end
             @test flag
         end
@@ -1245,7 +1241,7 @@ end
     @test GaugeTrait(typeof(Q)) == HasGauges()
 
     # Q2 = SubsystemCode(S, L, Gops)
-    # @test isisomorphic(Q, Q2)
+    # @test areequivalent(Q, Q2)
 
     # # TODO: BaconShorCode
 
@@ -1257,5 +1253,5 @@ end
     # @test CodingTheory.dimension(Q3) == rank(A)
     # # TODO: add a test here on the min distances
     # # Q3 here should be a BaconShorCode(3, 4)
-    # @test isisomorphic(Q, Q3)
+    # @test areequivalent(Q, Q3)
 end

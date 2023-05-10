@@ -58,7 +58,7 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     quadratictosymplectic, symplectictoquadratic, _removeempty, quadraticresidues,
     digitstoint, isbasis, primitivebasis, #polynomialbasis, monomialbasis,
     normalbasis, dualbasis, complementarybasis, verifydualbasis,
-    verifycomplementarybasis, isequivalentbasis, isselfdualbasis,
+    verifycomplementarybasis, areequivalentbasis, isselfdualbasis,
     isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
     isregular, edgevertexincidencematrix, edgevertexincidencegraph,
     isvalidbipartition, extractbipartition
@@ -82,10 +82,10 @@ export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
 
 include("linearcode.jl")
 export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate,
-    relativedistance, generatormatrix, originalgeneratormatrix, paritycheckmatrix,
-    originalparitycheckmatrix, genus, Singletonbound, numbercorrectableerrors,
+    relativedistance, generatormatrix, paritycheckmatrix, genus, Singletonbound,
+    numbercorrectableerrors,
     encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
-    Hermitiandual, isequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
+    Hermitiandual, areequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
     directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
     expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
     juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
@@ -171,14 +171,15 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     gaugeoperatorsmatrix, dressed, dressedoperators, dressedlogicals, gaugegroup, gaugegroupmatrix,
     gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
     splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge, swapXZlogicals!,
-    swapXZgaugeoperators!, isisomorphic, allstabilizers, elements, printallstabilizers, printallelements
+    swapXZgaugeoperators!, allstabilizers, elements, printallstabilizers, printallelements,
+    augment, expurgate, fixgauge
 
 #############################
       # stabilizercode.jl
 #############################
 
 include("stabilizercode.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode, augment, expurgate
+export StabilizerCodeCSS, CSSCode, StabilizerCode
 
 #############################
       # graphstate.jl

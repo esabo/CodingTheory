@@ -22,7 +22,7 @@ function RepetitionCode(q::Int, n::Int)
     M3 = MatrixSpace(F, n - 1, n - 1)
     H = hcat(M2([1 for i in 1:(n - 1)]), M3(1))
     Gstand, Hstand, P, _ = _standardform(G)
-    return LinearCode(F, n, 1, n, n, n, G, missing, H, missing, Gstand, Hstand, P, missing)
+    return LinearCode(F, n, 1, n, n, n, G, H, Gstand, Hstand, P, missing)
 end
 
 # this is a Hamming code?
@@ -37,7 +37,7 @@ function Hexacode()
     # it auto-computes this H anyway but might as well skip that step
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
     Gstand, Hstand, P, rnk = _standardform(G)
-    return LinearCode(F, 6, 3, 4, 4, 4, G, missing, H, missing, Gstand, Hstand, P, missing)
+    return LinearCode(F, 6, 3, 4, 4, 4, G, H, Gstand, Hstand, P, missing)
 end
 
 #############################
@@ -64,7 +64,7 @@ function HammingCode(q::Int, r::Int)
         F, _ = FiniteField(2, 1, "α")
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
-        H = matrix(F, hcat([reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]...))
+        H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
         C = LinearCode(H, true)
         setminimumdistance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
@@ -100,7 +100,7 @@ function TetraCode()
     R, vars = PolynomialRing(Nemo.ZZ, 3)
     CWE = WeightEnumerator(vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
         3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, :complete)
-    return LinearCode(F, 4, 2, 3, 3, 3, G, missing, H, missing, Gstand, Hstand, P, CWE)
+    return LinearCode(F, 4, 2, 3, 3, 3, G, H, Gstand, Hstand, P, CWE)
 end
 
 #############################
@@ -189,7 +189,7 @@ function ExtendedGolayCode(p::Int)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
-        return LinearCode(F, 24, 12, 8, 8, 8, G, missing, H, missing, Gstand, Hstand, P, wtenum)
+        return LinearCode(F, 24, 12, 8, 8, 8, G, H, Gstand, Hstand, P, wtenum)
     elseif p == 3
         F, _ = FiniteField(3, 1, "α")
         M = MatrixSpace(F, 6 , 6)
@@ -206,7 +206,7 @@ function ExtendedGolayCode(p::Int)
         # this looks like Hamming and not complete
         # wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
         #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, "complete")
-        return LinearCode(F, 12, 6, 6, 6, 6, G, missing, H, missing, Gstand, Hstand, P, missing)
+        return LinearCode(F, 12, 6, 6, 6, 6, G, H, Gstand, Hstand, P, missing)
     else
         throw(ArgumentError("Golay code not implemented for q = $q."))
     end

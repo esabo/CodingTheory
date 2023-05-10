@@ -51,9 +51,7 @@ mutable struct LinearCode <: AbstractLinearCode
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -92,9 +90,7 @@ mutable struct MatrixProductCode <: AbstractMatrixProductCode
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -117,9 +113,7 @@ mutable struct ReedMullerCode <: AbstractReedMullerCode
     r::Integer # order
     m::Integer # number of variables
     G::Union{gfp_mat, fq_nmod_mat}
-    Gorig::Union{gfp_mat, fq_nmod_mat, Missing}
     H::Union{gfp_mat, fq_nmod_mat}
-    Horig::Union{gfp_mat, fq_nmod_mat, Missing}
     Gstand::Union{gfp_mat, fq_nmod_mat}
     Hstand::Union{gfp_mat, fq_nmod_mat}
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -150,9 +144,7 @@ mutable struct CyclicCode <: AbstractCyclicCode
     h::fq_nmod_poly
     e::fq_nmod_poly
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -179,9 +171,7 @@ mutable struct BCHCode <: AbstractBCHCode
     h::fq_nmod_poly
     e::fq_nmod_poly
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -208,9 +198,7 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     h::fq_nmod_poly
     e::fq_nmod_poly
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
@@ -258,9 +246,7 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     dualscalars::Vector{fq_nmod}
     evalpts::Vector{fq_nmod}
     G::fq_nmod_mat
-    Gorig::Union{fq_nmod_mat, Missing}
     H::fq_nmod_mat
-    Horig::Union{fq_nmod_mat, Missing}
     Gstand::fq_nmod_mat
     Hstand::fq_nmod_mat
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand

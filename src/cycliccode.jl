@@ -37,11 +37,11 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     R, x = PolynomialRing(E, "x")
     β = α^(div(BigInt(q)^deg - 1, n))
 
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, vcat(comcosets...))
+    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -65,18 +65,18 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
             # known distance, should probably not do δ, HT here
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+                H, Gstand, Hstand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
             cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            missing, H, missing, Gstand, Hstand, P, missing)
+            H, Gstand, Hstand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 """
@@ -107,7 +107,7 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
         dic[β^i] = i
     end
     cosets = definingset(sort!([dic[rt] for rt in roots(gE)]), q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
@@ -128,18 +128,18 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
         if deg == 1 && n == q - 1
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-                H, missing, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+                H, Gstand, Hstand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
             cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            missing, H, missing, Gstand, Hstand, P, missing)
+            H, Gstand, Hstand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 # self orthogonal cyclic codes are even-like
@@ -187,11 +187,11 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     β = α^(div(q^deg - 1, n))
 
     cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, vcat(comcosets...))
+    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -213,13 +213,13 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     if deg == 1 && n == q - 1
         d = n - k + 1
         return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing,
-            H, missing, Gstand, Hstand, P, missing)
+            sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
+            H, Gstand, Hstand, P, missing)
     end
 
     return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
         cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        missing, H, missing, Gstand, Hstand, P, missing)
+        H, Gstand, Hstand, P, missing)
 end
 
 """
@@ -277,11 +277,11 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
 
     n = q - 1
     cosets = definingset([i for i = b:(b + d - 2)], q, n, false)
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     k = n - length(defset)
     comcosets = complementqcosets(q, n, cosets)
     g = _generatorpolynomial(R, α, defset)
-    h = _generatorpolynomial(R, α, vcat(comcosets...))
+    h = _generatorpolynomial(R, α, reduce(vcat, comcosets))
     e = _idempotent(g, h, n)
     G = _generatormatrix(F, n, k, g)
     H = _generatormatrix(F, n, n - k, reverse(h))
@@ -299,8 +299,8 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
 
     # TODO: known weight enumerator
     return ReedSolomonCode(F, F, R, α, n, k, d, b, d, d, d, d, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, missing, H,
-        missing, Gstand, Hstand, P, missing)
+        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, H,
+        Gstand, Hstand, P, missing)
 end
 
 """
@@ -516,7 +516,7 @@ function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     end
     return g
 end
-_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, vcat(qcosets...))
+_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, reduce(vcat, qcosets))
 
 function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
@@ -551,7 +551,7 @@ function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
         end
     end
 
-    flat && return sort!(vcat(arr...))
+    flat && return sort!(reduce(vcat, arr))
     return arr
 end
 
@@ -578,7 +578,7 @@ the BCH bound.
 """
 # TODO: check why d is sometimes lower than HT but never than BCH
 function finddelta(n::Int, cosets::Vector{Vector{Int}})
-    defset = sort!(vcat(cosets...))
+    defset = sort!(reduce(vcat, cosets))
     runs = Vector{Vector{Int}}()
     for x in defset
         useddefset = Vector{Int}()
