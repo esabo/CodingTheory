@@ -1,6 +1,8 @@
 using Test
 
 # TODO: should setup test for traits
+# TODO: add tests for _standardformstabilizer
+# TODO: add tests for _logicalsstandardform
 
 @testset "utils.jl" begin
     using Oscar, CodingTheory
@@ -1218,8 +1220,6 @@ end
     EVIG, left, right = edgevertexincidencegraph(Gtest)
     H2 = Tannercode(EVIG, left, right, Cloc)
     @test H1 == H2
-
-
 end
 
 @testset "subsystemcode.jl" begin

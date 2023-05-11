@@ -319,8 +319,9 @@ _rref_no_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.On
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_no_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
-    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
+    # don't do anything to A if the range is empty
+    isempty(rowrange) && return nothing
+    isempty(colrange) && return nothing
 
     i = rowrange.start
     j = colrange.start
@@ -373,8 +374,11 @@ _rref_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo
 _rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_col_swap."))
-    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_col_swap."))
+
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(rowrange) && return 0, missing
+    isempty(colrange) && return 0, missing
+
     # permutation matrix required to return to rowspace if column swap done
     P = missing
     ncA = ncols(A)
@@ -399,7 +403,7 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
             for k in j + 1:nc
                 for l in i:nr
                     if !iszero(A[l, k])
-                        ismissing(P) && (P = identity_matrix(base_ring(A), nc);)
+                        ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
                         swap_cols!(A, k, j)
                         swap_rows!(P, k, j)
                         ind = l
@@ -411,7 +415,7 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
 
         # if true, the rest of the submatrix is zero
         if iszero(ind)
-            return rnk, A, P
+            return rnk, P
         else
             # normalize pivot
             if !isone(A[ind, j])
@@ -437,76 +441,6 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
         rnk += 1
     end
     return rnk, P
-end
-
-function _standardformstabilizer(M::CTMatrixTypes)
-    @assert iseven(size(M, 2))
-
-    S = deepcopy(M)
-    _rref_no_col_swap!(S, 1:size(S,1), 1:size(S,2))
-    S = _removeempty(S, :rows)
-    n = div(size(S, 2), 2)
-    nrows = size(S, 1)
-    k = n - nrows
-
-    r, P1 = _rref_col_swap!(S, 1:nrows, 1:n)
-    _, P2 = _rref_col_swap!(S, (r + 1):nrows, (n + r + 1):2n)
-
-    # return S, P1*P2, r
-
-    R = base_ring(S)
-    logs = zero_matrix(R, 2k, 2n)
-    E = S[(r + 1):nrows, (2n - k + 1):2n]
-    C1 = S[1:r, (n + r + 1):(2n - k)]
-    C1E = C1 * E
-    for i in 1:k
-        for j in 1:(n - k - r)
-            # copy in E^T
-            logs[i, j + r] = S[r + j, 2n - k + i]
-        end
-        for j in 1:k
-            # copy in I in a couple of places
-            logs[i, n - k - r + j] = one(R)
-            logs[k + i, 2n - k + j] = one(R)
-        end
-        for j in 1:r
-            # E^T * C1^T + C2^T
-            logs[i, n + j] = C1E[j, i] + S[j, 2n - k + i]
-
-            # A2^T
-            logs[k + i, n + j] = S[j, n - k + i]
-        end
-    end
-
-    return logs
-end
-
-function _logicals(S::CTMatrixTypes)
-
-    logs = zero_matrix(R, 2k, 2n)
-    E = S[(r + 1):nrows, (2n - k + 1):2n]
-    C1 = S[1:r, (n + r + 1):(2n - k)]
-    C1E = C1 * E
-    for i in 1:k
-        for j in 1:(n - k - r)
-            # copy in E^T
-            logs[i, j + r] = S[r + j, 2n - k + i]
-        end
-        for j in 1:k
-            # copy in I in a couple of places
-            logs[i, n - k - r + j] = one(R)
-            logs[k + i, 2n - k + j] = one(R)
-        end
-        for j in 1:r
-            # E^T * C1^T + C2^T
-            logs[i, n + j] = C1E[j, i] + S[j, 2n - k + i]
-
-            # A2^T
-            logs[k + i, n + j] = S[j, n - k + i]
-        end
-    end
-
-    return logs
 end
 
 function digitstoint(x::Vector{Int}, base::Int=2)

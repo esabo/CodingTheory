@@ -305,6 +305,9 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
     gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
     gopsmat::fq_nmod_mat
     overcomplete::Bool
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct SubsystemCode <: AbstractSubsystemCode
@@ -321,6 +324,9 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
     gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
     gopsmat::fq_nmod_mat
     overcomplete::Bool
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -350,6 +356,9 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
     sCWElogs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
     pure::Union{Bool, Missing}
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct StabilizerCode <: AbstractStabilizerCode
@@ -367,6 +376,9 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
     sCWElogs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
     pure::Union{Bool, Missing}
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -386,6 +398,9 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
     overcomplete::Bool
     gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
     gopsmat::fq_nmod_mat
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
@@ -409,6 +424,9 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     overcomplete::Bool
     gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
     gopsmat::fq_nmod_mat
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
@@ -421,6 +439,9 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
     signs::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
@@ -441,6 +462,9 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
     charvec::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
+    standardform::CTMatrixTypes
+    standr::Int
+    permutation::Union{CTMatrixTypes, Missing}
 end
 
 #############################
