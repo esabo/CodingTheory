@@ -405,7 +405,7 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
                     if !iszero(A[l, k])
                         ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
                         swap_cols!(A, k, j)
-                        swap_rows!(P, k, j)
+                        swap_cols!(P, k, j)
                         ind = l
                         break
                     end
