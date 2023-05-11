@@ -92,6 +92,8 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # determine signs
     signs = _determinesigns(S, charvec)
@@ -167,6 +169,8 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # gauge operators
     iszero(G) && error("The gauges are empty.")
@@ -1262,6 +1266,8 @@ function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) w
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     S.standardform, S.permutation, S.standr = _standardformstabilizer(S.stabs)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
     
 
     return S
@@ -1458,8 +1464,8 @@ function _standardformstabilizer(M::CTMatrixTypes)
     k = n - nr
 
     # put S in standard form
-    r, P1 = _rref_col_swap!(S, 1:nr, 1:n)
-    _, P2 = _rref_col_swap!(S, (r + 1):nr, (n + r + 1):2n)
+    r, P1 = _rref_symp_col_swap!(S, 1:nr, 1:n)
+    _, P2 = _rref_symp_col_swap!(S, (r + 1):nr, (n + r + 1):2n)
 
     P = if ismissing(P1) && ismissing(P2)
         missing
@@ -1474,7 +1480,7 @@ function _standardformstabilizer(M::CTMatrixTypes)
     return S, P, r
 end
 
-function _logicalsstandardform(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
+function _logicalsstandardform(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer, P::Union{Missing, CTMatrixTypes})
     R = base_ring(S)
     logs = zero_matrix(R, 2k, 2n)
 
@@ -1512,10 +1518,10 @@ function _logicalsstandardform(S::CTMatrixTypes, n::Integer, k::Integer, r::Inte
     # logs[k + 1:2k, n + 1:n + r] = transpose(A2)
     # logs[k + 1:2k, 2n - k + 1:2n] = identity_matrix(R, k)
 
-    return logs
+    return ismissing(P) ? logs : logs * inv(P)
 end
 function _logicalsstandardform(C::AbstractSubsystemCode)
-    _logicalsstandardform(C.standardform, C.n, C.k, C.standr)
+    _logicalsstandardform(C.standardform, C.n, C.k, C.standr, C.permutation)
 end
 
 function _standardformA(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
@@ -1542,23 +1548,3 @@ end
 function _standardformE(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
     @view S[r + 1:n - k, 2n - k + 1:2n]
 end
-
-# DELETE the following once it's no longer useful
-# function teststabs(C::AbstractSubsystemCode)
-#     stabs = false
-#     logs = false
-#     permuted = false
-#     if ismissing(C.permutation)
-#         stabs = _hasequivalentrowspaces(C.stabs, C.standardform)
-#         logs = _hasequivalentrowspaces(vcat(C.stabs, C.logsmat),
-#                                        vcat(C.standardform, _logicalsstandardform(C))) 
-#     else
-#         stabs = _hasequivalentrowspaces(C.stabs, C.standardform * inv(C.permutation))
-#         logs = _hasequivalentrowspaces(vcat(C.stabs, C.logsmat),
-#                                        vcat(C.standardform, _logicalsstandardform(C)) * inv(C.permutation)) 
-#         permuted = true
-#     end
-#     @show (stabs, logs, permuted)
-#     return nothing
-# end
-# export teststabs

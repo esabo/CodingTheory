@@ -36,6 +36,8 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # determine signs
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(D2.H), nrows(C1.H))
@@ -86,6 +88,8 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # determine signs
     nr = nrows(D.H)
@@ -149,6 +153,8 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
@@ -211,6 +217,8 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
@@ -297,6 +305,8 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
