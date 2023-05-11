@@ -363,16 +363,21 @@ end
     using Oscar, CodingTheory
 
     F, _ = FiniteField(2, 1, "α");
-    @test generatormatrix(ReedMullerCode(2, 1, 2)) == matrix(F,
+    # Huffman, Pless, p. 34
+    # identity used for RM(1, 1)
+    @test generatormatrix(ReedMullerCode(2, 1, 1)) == matrix(F,
+        [1 0;
+         0 1]);
+    @test generatormatrix(ReedMullerCode(2, 1, 2, true)) == matrix(F,
         [1 0 1 0;
          0 1 0 1;
          0 0 1 1]);
-    @test generatormatrix(ReedMullerCode(2, 1, 3)) == matrix(F,
+    @test generatormatrix(ReedMullerCode(2, 1, 3, true)) == matrix(F,
         [1 0 1 0 1 0 1 0;
          0 1 0 1 0 1 0 1;
          0 0 1 1 0 0 1 1;
          0 0 0 0 1 1 1 1])
-    @test generatormatrix(ReedMullerCode(2, 2, 3)) == matrix(F,
+    @test generatormatrix(ReedMullerCode(2, 2, 3, true)) == matrix(F,
         [1 0 0 0 1 0 0 0;
          0 1 0 0 0 1 0 0;
          0 0 1 0 0 0 1 0;
@@ -380,6 +385,21 @@ end
          0 0 0 0 1 0 1 0;
          0 0 0 0 0 1 0 1;
          0 0 0 0 0 0 1 1])
+
+    # Ling & Xing, p. 119
+    # other sources, using [1 1; 0 1] for RM(1, 1)
+    @test generatormatrix(ReedMullerCode(2, 1, 1)) == matrix(F,
+        [1 1;
+         0 1]);
+    @test generatormatrix(ReedMullerCode(2, 1, 2)) == matrix(F,
+        [1 1 1 1;
+         0 1 0 1;
+         0 0 1 1]);
+    @test generatormatrix(ReedMullerCode(2, 1, 3)) == matrix(F,
+        [1 1 1 1 1 1 1 1;
+         0 1 0 1 0 1 0 1;
+         0 0 1 1 0 0 1 1;
+         0 0 0 0 1 1 1 1])
 
     # if m is odd and r = (m - 1)/2 then RM(r, m) = RM((m - 1)/2, m) is self-dual
     # random m

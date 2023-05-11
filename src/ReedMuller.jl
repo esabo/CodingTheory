@@ -9,17 +9,23 @@
 #############################
 
 """
-    ReedMullergeneratormatrix(q::Int, r::Int, m::Int)
+    ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
 
 Return the recursive form of the generator matrix for the `RM(r, m)` Reed-Muller
 code over `GF(q)`.
+
+# Notes
+* If `alt` is `true`, the identity is used for the generator matrix for `RM(1, 1)`, as in common in some sources.
+  Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
-function ReedMullergeneratormatrix(q::Int, r::Int, m::Int)
+function ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
     if q == 2
         F, _ = FiniteField(2, 1, "α")
-        if r == m
+        if r == 1 && m == 1 && !alt
+            return matrix(F, 2, 2, [1, 1, 0, 1])
+        elseif r == m
             M = MatrixSpace(F, 2^m, 2^m)
             return M(1)
         elseif r == 0
@@ -40,8 +46,12 @@ end
     ReedMullerCode(q::Int, r::Int, m::Int)
 
 Return the `RM(r, m)` Reed-Muller code over `GF(q)`.
+
+# Notes
+* If `alt` is `true`, the identity is used for the generator matrix for `RM(1, 1)`, as in common in some sources.
+  Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
-function ReedMullerCode(q::Int, r::Int, m::Int)
+function ReedMullerCode(q::Int, r::Int, m::Int, alt::Bool=false)
     (0 ≤ r < m) || throw(DomainError("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m."))
     m < 64 || throw(DomainError("This Reed-Muller code requires the implmentation of BigInts. Change if necessary."))
     q == 2 || throw(DomainError("Nonbinary Reed-Muller codes have not yet been implemented."))
@@ -49,8 +59,8 @@ function ReedMullerCode(q::Int, r::Int, m::Int)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
     # (p, t), = factors
 
-    G = ReedMullergeneratormatrix(q, r, m)
-    H = ReedMullergeneratormatrix(q, m - r - 1, m)
+    G = ReedMullergeneratormatrix(q, r, m, alt)
+    H = ReedMullergeneratormatrix(q, m - r - 1, m, alt)
     Gstand, Hstand, P, rnk = _standardform(G)
 
     # verify

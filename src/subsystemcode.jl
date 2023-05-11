@@ -472,6 +472,7 @@ gaugegroupgeneratorsmatrix(S::AbstractSubsystemCode) = gaugegroup(S)
 #############################
 
 """
+    changesigns(S::AbstractSubsystemCode, charvec::Vector{nmod})
     changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
 
 Set the character vector of `S` to `charvec` and update the signs.
@@ -487,7 +488,10 @@ function changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
     S.charvec = charvec
 end
 
+changesigns(S::AbstractSubsystemCode, charvec::Vector{nmod}) = (Snew = deepcopy(S); return changesigns!(Snew, charvec))
+
 """
+    setstabilizers(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
 
 Set the stabilizers of `S` to `stabs`.
@@ -497,8 +501,9 @@ Set the stabilizers of `S` to `stabs`.
 """
 function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
-    stabs = _removeempty(stabs, :rows)
     order(S.F) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+
+    stabs = _removeempty(stabs, :rows)
     stabs = change_base_ring(S.F, stabs)
     if _hasequivalentrowspaces(S.stabs, stabs)
         S.stabs = stabs
@@ -506,11 +511,85 @@ function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
-    # TODO: update signs
+    S.signs = _determinesigns(stabs, charvec)
+
+    if CSSTrait(typeof(S)) == IsCSS()
+        flag, Xstabs, Xsigns, Zstabs, Zsigns = _isCSSsymplectic(stabs, S.signs, true)
+        flag || error("Detected equivalent stabilizers but is no longer CSS.")
+        S.Xstabs = Xstabs
+        S.Xsigns = Xsigns
+        S.Zstabs = Zstabs
+        S.Zsigns = Zsigns
+    end
     return nothing
 end
 
+setstabilizers(S::AbstractSubsystemCode, stabs::fq_nmod_mat) = (Snew = deepcopy(S); return setstabilizers!(Snew, stabs))
+
 """
+    setXstabilizers(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
+    setXstabilizers!(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
+
+Set the `X` stabilizers of `S` to `Xstabs`.
+
+# Notes
+* A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
+"""
+setXstabilizers!(S::T, Xstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs)
+function setXstabilizers!(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
+    iszero(Xstabs) && throw(ArgumentError("The stabilizers cannot be zero."))
+    order(S.F) == order(base_ring(Xstabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+
+    Xstabs = _removeempty(Xstabs, :rows)
+    Xstabs = change_base_ring(S.F, Xstabs)
+    if _hasequivalentrowspaces(S.Xstabs, Xstabs)
+        S.Xstabs = Xstabs
+        nrows(Xstabs) != rank(Xstabs) && (S.overcomplete = true;)
+    else
+        error("The current stabilizers are not equivalent to the input.")
+    end
+    S.Xsigns = _determinesigns(Xstabs, charvec)
+    return nothing
+end
+setXstabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = error("X stabilizers are only defined for CSS codes")
+
+setXstabilizers(S::T, Xstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs)
+setXstabilizers(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = (Snew = deepcopy(S); return setXstabilizers!(Snew, Xstabs))
+setXstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = error("X stabilizers are only defined for CSS codes")
+
+"""
+    setZstabilizers(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
+    setZstabilizers!(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
+
+Set the `Z` stabilizers of `S` to `Zstabs`.
+
+# Notes
+* A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
+"""
+setZstabilizers!(S::T, Zstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs)
+function setZstabilizers!(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
+    iszero(Zstabs) && throw(ArgumentError("The stabilizers cannot be zero."))
+    order(S.F) == order(base_ring(Zstabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+
+    Zstabs = _removeempty(Zstabs, :rows)
+    Zstabs = change_base_ring(S.F, Zstabs)
+    if _hasequivalentrowspaces(S.Zstabs, Zstabs)
+        S.Zstabs = Zstabs
+        nrows(Zstabs) != rank(Zstabs) && (S.overcomplete = true;)
+    else
+        error("The current stabilizers are not equivalent to the input.")
+    end
+    S.Zsigns = _determinesigns(Zstabs, charvec)
+    return nothing
+end
+setZstabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = error("Z stabilizers are only defined for CSS codes")
+
+setZstabilizers(S::T, Zstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs)
+setZstabilizers(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = (Snew = deepcopy(S); return setZstabilizers!(Snew, Zstabs))
+setZstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = error("Z stabilizers are only defined for CSS codes")
+
+"""
+    setlogicals(S::AbstractSubsystemCode, L::fq_nmod_mat)
     setlogicals!(S::AbstractSubsystemCode, L::fq_nmod_mat)
 
 Set the logical operators of `S` to `L`.
@@ -556,7 +635,11 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat)
     S.logicals = logs
     S.logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
 end
-setlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat, symp::Bool=false) = error("Type $(typeof(S)) has no logicals.")
+setlogicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat) = error("Type $(typeof(S)) has no logicals.")
+
+setlogicals(S::T, L::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setlogicals(LogicalTrait(T), S, L)
+setlogicals(::HasLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat) = (Snew = deepcopy(S); return setlogicals!(Snew, L))
+setlogicals(::HasNoLogicals, S::AbstractSubsystemCode, L::fq_nmod_mat) = error("Type $(typeof(S)) has no logicals.")
 
 """
     setminimumdistance(S::AbstractSubsystemCode, d::Int)

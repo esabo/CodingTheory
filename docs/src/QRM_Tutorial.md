@@ -142,3 +142,39 @@ demo this and setup the code in this fashion (hcat)
 
 intersect stabilizers of QRM(m + 1) and QRM(m) to find common subset
 need to build this in a way that the logical doesn't move
+
+
+
+
+
+
+
+RM13 = ReedMullerCode(2, 1, 3)
+RM14 = ReedMullerCode(2, 1, 4)
+RM14s = shorten(C2, 1)
+RM14salt = LinearCode(generatormatrix(RM14s)[2:end, 2:end])
+areequivalent(RM14s, RM14salt)
+RM24 = ReedMullerCode(2, 2, 4)
+RM24s = shorten(RM24, 1)
+RM24salt = LinearCode(generatormatrix(RM24s)[2:end, 2:end])
+areequivalent(RM24s, RM24salt)
+However, it is convenient to use the explicit form of the generator matrices in `RM14salt` and `RM24salt`. We can do this by either passing explicit `X`- and `Z`-stabilizer matrices into the constructor directly via `CSSCode(generatormatrix(RM24salt), generatormatrix(RM14salt))` or using the command `setstabilizers!` to change the form of the stabilizers of an already existing code. The latter automatically checks that the old stabilizers and the new stabilizers have equivalent row spaces and errors if they don't.
+```
+setXstabilizers!(S, generatormatrix(RM14salt))
+setZstabilizers!(S, generatormatrix(RM24salt))
+S
+```
+
+
+
+
+julia> ReedMullerCode(2, 2, 4) / ReedMullerCode(2, 1, 4)
+[16, 6]_2 linear code
+Generator matrix: 6 × 16
+        0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1
+        0 0 0 0 0 1 0 1 0 0 0 0 0 1 0 1
+        1 1 1 1 1 1 0 0 0 0 0 0 0 0 1 1
+        0 1 0 1 0 1 0 1 0 0 0 0 0 0 0 0
+        1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0
+        1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+

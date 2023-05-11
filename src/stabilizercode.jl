@@ -39,7 +39,7 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
     # q^n / p^k but rows is n - k
     rkS = rank(S)
     if rkS != C1.n
-        dimcode = BigInt(order(C1.F))^ncols(C1.n) // BigInt(p)^rkS
+        dimcode = BigInt(order(C1.F))^C1.n // BigInt(p)^rkS
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
         return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, S, D2.H, C1.H,
