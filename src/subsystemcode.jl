@@ -89,6 +89,10 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     # r = top // BigInt(p)^length(gaugeops)
     # isinteger(r) && (r = round(Int, log(BigInt(p), r));)
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # determine signs
     signs = _determinesigns(S, charvec)
 
@@ -96,17 +100,17 @@ function SubsystemCode(G::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mis
     if args[1]
         if graphstate
             return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, S, args[2], args[4],
-                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops, gaugeopsmat)
+                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops, gaugeopsmat, standardform, standr, perms)
         end
         return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], barelogs, barelogsmat, charvec, gaugeops, gaugeopsmat, false)
+            args[3], args[5], barelogs, barelogsmat, charvec, gaugeops, gaugeopsmat, false, standardform, standr, perms)
     else
         if graphstate
             return GraphStateSubsystem(F, n, 0, r, missing, S, charvec, signs, missing, false, gaugeops,
-                gaugeopsmat)
+                gaugeopsmat, standardform, standr, perms)
         end
         return SubsystemCode(F, n, k, r, missing, S, signs, barelogs, barelogsmat, charvec, gaugeops,
-            gaugeopsmat, false)
+            gaugeopsmat, false, standardform, standr, perms)
     end
 end
 
@@ -160,6 +164,10 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     logpairs = _makepairs(L)
     logsmat = reduce(vcat, [reduce(vcat, logpairs[i]) for i in 1:length(logpairs)])
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # gauge operators
     iszero(G) && error("The gauges are empty.")
     G = _removeempty(G, :rows)
@@ -207,9 +215,9 @@ function SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes,
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], logpairs, logsmat, charvec, gopspairs, gopsmat, false)
+            args[3], args[5], logpairs, logsmat, charvec, gopspairs, gopsmat, false, standardform, standr, perms)
     else
-        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, logsmat, charvec, gopspairs, gopsmat, false)
+        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, logsmat, charvec, gopspairs, gopsmat, false, standardform, standr, perms)
     end
 
 end

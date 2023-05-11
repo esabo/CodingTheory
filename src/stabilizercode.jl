@@ -33,6 +33,10 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
     S = directsum(D2.H, C1.H)
     logs, logsmat = _logicals(S, directsum(C1.G, D2.G))
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # determine signs
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(D2.H), nrows(C1.H))
 
@@ -44,10 +48,10 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
 
         return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, S, D2.H, C1.H,
             C2, C1, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing,
-            false, missing)
+            false, missing, standardform, standr, perms)
     else
         return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, S, D2.H, C1.H, C2, C1,
-            signs, Xsigns, Zsigns, charvec, missing, false)
+            signs, Xsigns, Zsigns, charvec, missing, false, standardform, standr, perms)
     end
 end
 CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) =
@@ -79,6 +83,10 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     S = directsum(D.H, D.H)
     logs, logsmat = _logicals(S, directsum(D.G, D.G))
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # determine signs
     nr = nrows(D.H)
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nr, nr)
@@ -91,10 +99,10 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
 
         return StabilizerCodeCSS(D.F, D.n, dimcode, missing, missing, missing, S, D.H, D.H, C,
             D, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing, false,
-            missing)
+            missing, standardform, standr, perms)
     else
         return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, S, D.H, D.H, C, D, signs,
-            Xsigns, Zsigns, charvec, missing, false)
+            Xsigns, Zsigns, charvec, missing, false, standardform, standr, perms)
     end
 end
 CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) = StabilizerCodeCSS(C, charvec)
@@ -138,6 +146,10 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::
     ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
     logs, logsmat = _logicals(S, transpose(H))
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
     if rkS != n
@@ -146,10 +158,10 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::
 
         return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, Xmatrix, Zmatrix,
             missing, missing, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing,
-            missing, overcomp, missing)
+            missing, overcomp, missing, standardform, standr, perms)
     else
         return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, Xmatrix, Zmatrix,
-            missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp)
+            missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp, standardform, standr, perms)
     end
 end
 CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing) =
@@ -196,6 +208,10 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
     logs, logsmat = _logicals(S, transpose(H))
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
@@ -205,10 +221,10 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
 
             return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
-                missing, missing, missing, overcomp, missing)
+                missing, missing, missing, overcomp, missing, standardform, standr, perms)
         else
             return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, standardform, standr, perms)
         end
     else
         error("Provided Pauli strings are not CSS.")
@@ -278,6 +294,10 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
     logs, logsmat = _logicals(S, transpose(H))
 
+    # new stuff from Ben
+    # TODO: replace logicals above with getting logicals from here
+    standardform, perms, standr = _standardformstabilizer(S)
+
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
     isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
@@ -287,17 +307,17 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
         if rkS != n
             return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
-                missing, missing, missing, overcomp, missing)
+                missing, missing, missing, overcomp, missing, standardform, standr, perms)
         else
             return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp)
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, standardform, standr, perms)
         end
     else
         if rkS != n
             return StabilizerCode(F, n, dimcode, missing, S, logs, logsmat, charvec, signs, missing,
-                missing, missing, overcomp, missing)
+                missing, missing, overcomp, missing, standardform, standr, perms)
         else
-            return GraphState(F, n, 0, missing, S, charvec, signs, missing, overcomp)
+            return GraphState(F, n, 0, missing, S, charvec, signs, missing, overcomp, standardform, standr, perms)
         end
     end
 end
@@ -313,6 +333,74 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
     return logs, logsmat
+end
+
+function _standardformstabilizer(M::CTMatrixTypes)
+    @assert iseven(size(M, 2))
+
+    S = deepcopy(M)
+
+    # If the stabilizer is overdetermined, remove unnecessary rows
+    _rref_no_col_swap!(S, 1:size(S, 1), 1:size(S, 2))
+    nr = size(S, 1)
+    for i in size(S, 1):-1:1
+        nr = i
+        iszero(S[i, :]) || break
+    end
+    if nr != size(S, 1)
+        S = S[1:nr, :]
+    end
+
+    n = div(size(S, 2), 2)
+    k = n - nr
+
+    # put S in standard form
+    r, P1 = _rref_col_swap!(S, 1:nr, 1:n)
+    _, P2 = _rref_col_swap!(S, (r + 1):nr, (n + r + 1):2n)
+
+    P = if ismissing(P1) && ismissing(P2)
+        missing
+    elseif ismissing(P1)
+        P2
+    elseif ismissing(P2)
+        P1
+    else
+        P1 * P2
+    end
+
+    return S, P, r
+end
+
+function _logicalsstandardform(C::AbstractSubsystemCode)
+    n = C.n
+    k = C.k
+    r = C.standr
+    S = C.standardform
+    R = base_ring(S)
+    logs = zero_matrix(R, 2k, 2n)
+    E = S[(r + 1):size(S,1), (2n - k + 1):2n]
+    C1 = S[1:r, (n + r + 1):(2n - k)]
+    C1E = C1 * E
+    for i in 1:k
+        for j in 1:(n - k - r)
+            # E^T
+            logs[i, j + r] = S[r + j, 2n - k + i]
+        end
+        for j in 1:k
+            # I in a couple of places
+            logs[i, n - k - r + j] = one(R)
+            logs[k + i, 2n - k + j] = one(R)
+        end
+        for j in 1:r
+            # E^T * C1^T + C2^T
+            logs[i, n + j] = C1E[j, i] + S[j, 2n - k + i]
+
+            # A2^T
+            logs[k + i, n + j] = S[j, n - k + i]
+        end
+    end
+
+    return logs
 end
 
 #############################

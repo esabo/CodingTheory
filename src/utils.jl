@@ -311,9 +311,17 @@ function _removeempty(A::CTMatrixTypes, type::Symbol)
 end
 
 function _rref_no_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_no_col_swap."))
-    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_no_col_swap."))
     A = deepcopy(M)
+    _rref_no_col_swap!(A, rowrange, colrange)
+    return A
+end
+_rref_no_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:rowrange.stop, 1:colrange.stop)
+_rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
+
+function _rref_no_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+    # don't do anything to A if the range is empty
+    isempty(rowrange) && return nothing
+    isempty(colrange) && return nothing
 
     i = rowrange.start
     j = colrange.start
@@ -354,13 +362,23 @@ function _rref_no_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange:
         end
         j += 1
     end
-    return A
+    return nothing
 end
 
 function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-    isempty(rowrange) && throw(ArgumentError("The row range cannot be empty in _rref_col_swap."))
-    isempty(colrange) && throw(ArgumentError("The column range cannot be empty in _rref_col_swap."))
     A = deepcopy(M)
+    rnk, P = _rref_col_swap!(A, rowrange, colrange)
+    return rnk, A, P
+end
+_rref_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo{Int}) = _rref_col_swap(M, 1:rowrange.stop, 1:colrange.stop)
+_rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
+
+function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(rowrange) && return 0, missing
+    isempty(colrange) && return 0, missing
+
     # permutation matrix required to return to rowspace if column swap done
     P = missing
     ncA = ncols(A)
@@ -385,7 +403,7 @@ function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::Un
             for k in j + 1:nc
                 for l in i:nr
                     if !iszero(A[l, k])
-                        ismissing(P) && (P = identity_matrix(base_ring(A), nc);)
+                        ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
                         swap_cols!(A, k, j)
                         swap_rows!(P, k, j)
                         ind = l
@@ -397,7 +415,7 @@ function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::Un
 
         # if true, the rest of the submatrix is zero
         if iszero(ind)
-            return rnk, A, P
+            return rnk, P
         else
             # normalize pivot
             if !isone(A[ind, j])
@@ -422,7 +440,7 @@ function _rref_col_swap(M::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::Un
         j += 1
         rnk += 1
     end
-    return rnk, A, P
+    return rnk, P
 end
 
 function digitstoint(x::Vector{Int}, base::Int=2)
