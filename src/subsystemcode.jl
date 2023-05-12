@@ -543,6 +543,7 @@ Set the `X` stabilizers of `S` to `Xstabs`.
 # Notes
 * A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
+# TODO: need to set full stabilizers and signs after this, are these trimed?
 setXstabilizers!(S::T, Xstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs)
 function setXstabilizers!(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
     iszero(Xstabs) && throw(ArgumentError("The stabilizers cannot be zero."))
@@ -787,6 +788,7 @@ splitstabilizers(S::AbstractSubsystemCode) = _splitsymplecticstabilizers(symplec
 # TODO: rethink how I'm returning all of this and the bottom trim stuff
 # probably need to simply redo the above to simply start with zero matrix
 # and then either set first or add to it (return matrix[2:end, L])
+# TODO: need more robust CSS detection, what if I add and X and Z stabilizer and use it implace of the Z
 function _isCSSsymplectic(S::fq_nmod_mat, signs::Vector{nmod}, trim::Bool=true)
     Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
     if typeof(mixedstabs) <: Vector{fq_nmod_mat}
