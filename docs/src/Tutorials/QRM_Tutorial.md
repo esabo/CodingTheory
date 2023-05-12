@@ -30,7 +30,7 @@ setZstabilizers!(QRM3, generatormatrix(RM13salt))
 Similarly, we know the logicals of this code is the all-ones vector and can use this form if desired.
 ```
 logicals(QRM3)
-F = base_ring(QRM3)
+F = field(QRM3)
 newlogs = zero_matrix(F, 2, 2 * length(QRM3))
 for i in 1:length(QRM3)
     newlogs[1, i] = F(1)
@@ -115,10 +115,29 @@ Notice that the first three rows of $\overline{G}(1, 4)$ are of the form $(\over
 ```
 Xstabilizers(QRM4)[1:3, :] == hcat(generatormatrix(RM13salt), zero_matrix(F, 3, 1), generatormatrix(RM13salt))
 ```
+It's less clear that the $Z$ stabilizers also contain the two copies of the Steane code in this sense. To see this, let's first define a new stabilizer code whose $X$ and $Z$ stabilizers are of this form.
+```
+test = CSSCode(Xstabilizers(QRM4)[1:3, :], Xstabilizers(QRM4)[1:3, :])
+```
+Now we can remove these stabilizers from `QRM4`,
+```
+quo1 = CodingTheory._quotientspace(stabilizers(QRM4), stabilizers(test))
+```
+Let's set the stabilizers of `QRM4` to make this more explicit.
+```
+setstabilizers!(QRM4, vcat(stabilizers(test), quo1))
+```
+
+
 
 In order for the information to not be disturbed...
 
+```
 
+L = vcat(hcat(logicalsmatrix(QRM3)[1, :], zero_matrix(F, 1, length(QRM4) + 1)),
+	hcat(zero_matrix(F, 1, length(QRM4)), logicalsmatrix(QRM3)[1, :], zero_matrix(F, 1, 1)))
+CodingTheory._quotientspace(logicalsmatrix(test), L)
+```
 
 
 [1]: Anderson, Duclos-Cianci, Poulin, "Fault-tolerant conversion between the Steane and Reed-Muller quantum codes", (2014)

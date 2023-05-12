@@ -523,7 +523,7 @@ function setstabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
-    S.signs = _determinesigns(stabs, charvec)
+    S.signs = _determinesigns(stabs, S.charvec)
 
     if CSSTrait(typeof(S)) == IsCSS()
         flag, Xstabs, Xsigns, Zstabs, Zsigns = _isCSSsymplectic(stabs, S.signs, true)
@@ -539,67 +539,94 @@ end
 setstabilizers(S::AbstractSubsystemCode, stabs::fq_nmod_mat) = (Snew = deepcopy(S); return setstabilizers!(Snew, stabs))
 
 """
-    setXstabilizers(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
-    setXstabilizers!(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
+    setXstabilizers(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true)
+    setXstabilizers!(S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true)
 
-Set the `X` stabilizers of `S` to `Xstabs`.
+Set the `X` stabilizers of `S` to `Xstabs`. If `trimmed` is `true`, `Xstabs` are assumed
+to have `length(S)` columns; otherwise, they are assumed to be in symplectic form with
+`2 * length(S)` columns.
 
 # Notes
 * A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
-# TODO: need to set full stabilizers and signs after this, are these trimed?
-setXstabilizers!(S::T, Xstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs)
-function setXstabilizers!(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat)
+setXstabilizers!(S::T, Xstabs::fq_nmod_mat, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs, trimmed)
+function setXstabilizers!(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true)
     iszero(Xstabs) && throw(ArgumentError("The stabilizers cannot be zero."))
     order(S.F) == order(base_ring(Xstabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+    if trimmed
+        ncols(Xstabs) == S.n || throw(ArgumentError("Trimmed set and input of wrong size"))
+        Xtrimmed = Xstabs
+    else
+        ncols(Xstabs) == 2 * S.n || throw(ArgumentError("Trimmed not set and input of wrong size"))
+        iszero(Xstabs[:, S.n + 1:end]) || throw(ArgumentError("Input is not in CSS form"))
+        Xtrimmed = Xstabs[:, 1:S.n]
+    end
 
-    Xstabs = _removeempty(Xstabs, :rows)
-    Xstabs = change_base_ring(S.F, Xstabs)
-    if _hasequivalentrowspaces(S.Xstabs, Xstabs)
-        S.Xstabs = Xstabs
-        nrows(Xstabs) != rank(Xstabs) && (S.overcomplete = true;)
+    Xtrimmed = _removeempty(Xtrimmed, :rows)
+    Xtrimmed = change_base_ring(S.F, Xtrimmed)
+    if _hasequivalentrowspaces(S.Xstabs, Xtrimmed)
+        S.Xstabs = Xtrimmed
+        nrows(Xtrimmed) != rank(Xtrimmed) && (S.overcomplete = true;)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
-    S.Xsigns = _determinesigns(Xstabs, charvec)
+    S.Xsigns = _determinesigns(Xtrimmed, S.charvec)
+
+    S.stabs = vcat(hcat(Xtrimmed, zero_matrix(S.F, nrows(Xtrimmed), S.n)),
+        hcat(zero_matrix(S.F, nrows(S.Zstabs), S.n), S.Zstabs))
+    S.signs = S.Xsigns ∪ S.Zsigns
     return nothing
 end
-setXstabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = error("X stabilizers are only defined for CSS codes")
+setXstabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true) = error("X stabilizers are only defined for CSS codes")
 
-setXstabilizers(S::T, Xstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs)
-setXstabilizers(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = (Snew = deepcopy(S); return setXstabilizers!(Snew, Xstabs))
-setXstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat) = error("X stabilizers are only defined for CSS codes")
+setXstabilizers(S::T, Xstabs::fq_nmod_mat, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = setXstabilizers!(CSSTrait(T), S, Xstabs, trimmed)
+setXstabilizers(::IsCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true) = (Snew = deepcopy(S); return setXstabilizers!(Snew, Xstabs, trimmed))
+setXstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Xstabs::fq_nmod_mat, trimmed::Bool=true) = error("X stabilizers are only defined for CSS codes")
 
 """
-    setZstabilizers(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
-    setZstabilizers!(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
+    setZstabilizers(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat, trimmed::Bool=true)
+    setZstabilizers!(S::AbstractSubsystemCode, Zstabs::fq_nmod_mat, trimmed::Bool=true)
 
-Set the `Z` stabilizers of `S` to `Zstabs`.
+Set the `Z` stabilizers of `S` to `Zstabs`. If `trimmed` is `true`, `Zstabs` are assumed
+to have `length(S)` columns; otherwise, they are assumed to be in symplectic form with
+`2 * length(S)` columns.
 
 # Notes
 * A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
-setZstabilizers!(S::T, Zstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs)
-function setZstabilizers!(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat)
+setZstabilizers!(S::T, Zstabs::fq_nmod_mat, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs, trimmed)
+function setZstabilizers!(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat, trimmed::Bool=true)
     iszero(Zstabs) && throw(ArgumentError("The stabilizers cannot be zero."))
     order(S.F) == order(base_ring(Zstabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+    if trimmed
+        ncols(Zstabs) == S.n || throw(ArgumentError("Trimmed set and input of wrong size"))
+        Ztrimmed = Zstabs
+    else
+        ncols(Zstabs) == 2 * S.n || throw(ArgumentError("Trimmed not set and input of wrong size"))
+        iszero(Zstabs[:, 1:S.n]) || throw(ArgumentError("Input is not in CSS form"))
+        Ztrimmed = Zstabs[:, S.n + 1:end]
+    end
 
-    Zstabs = _removeempty(Zstabs, :rows)
-    Zstabs = change_base_ring(S.F, Zstabs)
-    if _hasequivalentrowspaces(S.Zstabs, Zstabs)
-        S.Zstabs = Zstabs
-        nrows(Zstabs) != rank(Zstabs) && (S.overcomplete = true;)
+    Ztrimmed = _removeempty(Ztrimmed, :rows)
+    Ztrimmed = change_base_ring(S.F, Ztrimmed)
+    if _hasequivalentrowspaces(S.Zstabs, Ztrimmed)
+        S.Zstabs = Ztrimmed
+        nrows(Ztrimmed) != rank(Ztrimmed) && (S.overcomplete = true;)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
-    S.Zsigns = _determinesigns(Zstabs, charvec)
+    S.Zsigns = _determinesigns(Ztrimmed, S.charvec)
+
+    S.stabs = vcat(hcat(S.Xstabs, zero_matrix(S.F, nrows(S.Xstabs), S.n)),
+        hcat(zero_matrix(S.F, nrows(Ztrimmed), S.n), Ztrimmed))
+    S.signs = S.Xsigns ∪ S.Zsigns
     return nothing
 end
 setZstabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = error("Z stabilizers are only defined for CSS codes")
 
-setZstabilizers(S::T, Zstabs::fq_nmod_mat) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs)
-setZstabilizers(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = (Snew = deepcopy(S); return setZstabilizers!(Snew, Zstabs))
-setZstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat) = error("Z stabilizers are only defined for CSS codes")
+setZstabilizers(S::T, Zstabs::fq_nmod_mat, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = setZstabilizers!(CSSTrait(T), S, Zstabs, trimmed)
+setZstabilizers(::IsCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat, trimmed::Bool=true) = (Snew = deepcopy(S); return setZstabilizers!(Snew, Zstabs, trimmed))
+setZstabilizers(::IsNotCSS, S::AbstractSubsystemCode, Zstabs::fq_nmod_mat, trimmed::Bool=true) = error("Z stabilizers are only defined for CSS codes")
 
 """
     setlogicals(S::AbstractSubsystemCode, L::fq_nmod_mat)
