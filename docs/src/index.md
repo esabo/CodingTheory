@@ -1,3 +1,4 @@
+# CodingTheory
 
 It is often desirable in quantum error correction to work with a set of
 overcomplete stabilizers. Therefore this constructor does not simplify any
@@ -9,5 +10,3 @@ determine such quantities. Use `isovercomplete` to determine if an
 Credit to Tommy Hofmann of the AbstractAlgebra/Nemo/Hecke packages for help with
 debugging and providing the most elegant implementation now used here.
 
-```@contents
-```

@@ -32,8 +32,8 @@ function ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
             M = MatrixSpace(F, 1, 2^m)
             return M([1 for i in 1:2^m])
         else
-            Grm1 = ReedMullergeneratormatrix(q, r, m - 1)
-            Gr1m1 = ReedMullergeneratormatrix(q, r - 1, m - 1)
+            Grm1 = ReedMullergeneratormatrix(q, r, m - 1, alt)
+            Gr1m1 = ReedMullergeneratormatrix(q, r - 1, m - 1, alt)
             M = MatrixSpace(F, nrows(Gr1m1), ncols(Gr1m1))
             return vcat(hcat(Grm1, Grm1), hcat(M(0), Gr1m1))
         end
@@ -57,7 +57,6 @@ function ReedMullerCode(q::Int, r::Int, m::Int, alt::Bool=false)
     q == 2 || throw(DomainError("Nonbinary Reed-Muller codes have not yet been implemented."))
     factors = factor(q)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
-    # (p, t), = factors
 
     G = ReedMullergeneratormatrix(q, r, m, alt)
     H = ReedMullergeneratormatrix(q, m - r - 1, m, alt)

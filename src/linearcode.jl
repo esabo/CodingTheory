@@ -365,11 +365,11 @@ function encode(v::Vector{Int}, C::AbstractLinearCode)
 end
 
 """
-    syndrome(v::Union{fq_nmod_mat, Vector{Int}}, C::AbstractLinearCode)
+    syndrome(C::AbstractLinearCode, v::Union{fq_nmod_mat, Vector{Int}})
 
 Return `Hv`, where `H` is the parity-check matrix of `C`.
 """
-function syndrome(v::fq_nmod_mat, C::AbstractLinearCode)
+function syndrome(C::AbstractLinearCode, v::fq_nmod_mat)
     H = paritycheckmatrix(C)
     nc = ncols(H)
     (size(v) != (nc, 1) && size(v) != (1, nc)) &&
@@ -379,7 +379,7 @@ function syndrome(v::fq_nmod_mat, C::AbstractLinearCode)
     return H * v
 end
 # TODO: combine these two functions
-function syndrome(v::Vector{Int}, C::AbstractLinearCode)
+function syndrome(C::AbstractLinearCode, v::Vector{Int})
     length(v) == C.n ||
         throw(ArgumentError(("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")))
     return syndrome(matrix(C.F, transpose(v)), C)
@@ -390,8 +390,8 @@ end
 
 Return whether or not `v` is a codeword of `C`.
 """
-in(v::fq_nmod_mat, C::AbstractLinearCode) = iszero(syndrome(v, C))
-in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(v, C))
+in(v::fq_nmod_mat, C::AbstractLinearCode) = iszero(syndrome(C, v))
+in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
     ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
@@ -401,7 +401,7 @@ in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(v, C))
 Return whether or not `C1` is a subcode of `C2`.
 """
 function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
-    if C1.n != C2.n || C1.n != C2.n || C1.k > C2.k
+    if C1.F != C2.F || C1.n != C2.n || C1.k > C2.k
         return false
     end
 

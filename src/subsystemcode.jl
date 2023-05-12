@@ -450,7 +450,7 @@ Return a vector of pairs generators for the dressed operators of `S`.
 # Notes
 * Here, the dressed operators are the logicals and the gauge operators.
 """
-function dresssed(S::T) where {T <: AbstractSubsystemCode}
+function dressed(S::T) where {T <: AbstractSubsystemCode}
     if LogicalTrait(T) == HasNoLogicals
         error("Type $T has no logicals.")
     elseif GaugeTrait(S) == HasNoGauges

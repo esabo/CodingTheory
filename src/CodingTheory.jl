@@ -61,7 +61,7 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     verifycomplementarybasis, areequivalentbasis, isselfdualbasis,
     isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
     isregular, edgevertexincidencematrix, edgevertexincidencegraph,
-    isvalidbipartition, extractbipartition
+    isvalidbipartition, extractbipartition, isHermitianselforthogonal
     # , _minwtrow
     # , circshift
     # , lift
@@ -92,7 +92,9 @@ export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate
     entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
     componentwiseproductcode, VectorSpace, setminimumdistance!,
     expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
-    words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven
+    words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven,
+    characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining, isLCD,
+    Hermitianhull, hull, isHermitianselfdual, isdualcontaining, subcodeofdimensionbetweencodes
 
 #############################
          # LDPC.jl
@@ -102,7 +104,7 @@ include("LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
-    checkdegreepolynomial, columnrowbounds
+    checkdegreepolynomial, columnrowbounds, limited
 
 #############################
         # LDPCalgs.jl
@@ -122,7 +124,7 @@ export MatrixProductCode
 #############################
 
 include("ReedMuller.jl")
-export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode
+export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode, numberofvariables
 
 #############################
       # cycliccode.jl
@@ -132,7 +134,8 @@ include("cycliccode.jl")
 export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
-    CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode
+    CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
+    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros
 
 #############################
     # quasicycliccode.jl
@@ -142,7 +145,7 @@ include("quasicycliccode.jl")
 export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
     expansionfactor, type, polynomialmatrix, polynomialmatrixtype,
     noncirculantgeneratormatrix, noncirculantparitycheckmatrix, generators,
-    circulants, issinglegenerator
+    circulants, issinglegenerator, lift
 
 #############################
       # miscknowncodes.jl
@@ -172,7 +175,9 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
     splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge, swapXZlogicals!,
     swapXZgaugeoperators!, allstabilizers, elements, printallstabilizers, printallelements,
-    augment, expurgate, fixgauge
+    augment, expurgate, fixgauge, setXstabilizers, setZstabilizers, setstabilizers,
+    setZstabilizers!, setdistancelowerbound!, permutecode!, permutecode, setstabilizers!,
+    setXstabilizers!
 
 #############################
       # stabilizercode.jl
@@ -186,7 +191,7 @@ export StabilizerCodeCSS, CSSCode, StabilizerCode
 #############################
 
 include("graphstate.jl")
-export ClusterState, graphstate
+export ClusterState, GraphState
 
 #############################
   # miscknownquantumcodes.jl
@@ -220,7 +225,8 @@ include("weight_dist.jl")
 export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
     weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
     weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
-    minimumdistanceZ, ispure, Sternsattack, Graycodemindist
+    minimumdistanceZ, ispure, Sternsattack, Graycodemindist, minimumwords,
+    wordsofweight
 
 #############################
    # quantumproductcodes.jl

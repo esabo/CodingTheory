@@ -2,6 +2,6 @@
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["MatrixProductCode.jl", "quantumproductcodes.jl"]
+Pages = ["MatrixProductCode.jl"]
 Private = false
 ```

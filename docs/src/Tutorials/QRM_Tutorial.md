@@ -12,7 +12,7 @@ RM13 = ReedMullerCode(2, 1, m)
 RM13s = shorten(RM13, 1)
 QRM3 = CSSCode(RM13s)
 ```
-We can check that $\overline{RM}(1, 3)$ satisfies the requirements of the single-code CSS construction
+We can check that $\overline{\mathcal{RM}}(1, 3)$ satisfies the requirements of the single-code CSS construction
 ```
 isselforthogonal(RM13s)
 ```
@@ -40,7 +40,7 @@ setlogicals!(QRM3, newlogs)
 ```
 As before, this will automatically check if the input is equivalent to the automatically computed logicals up to stabilizers.
 
-In general, the $X$ stabilizers of $QRM(m)$ are given by the generators of $\overline{RM}(1, m)$ and the $Z$ stabilizers are given by the generators of $\overline{RM}(m - 2,  m)$, producing the parameters $$[[2^m − 1, 1, 3]]$$. For $QRM(4)$, we have,
+In general, the $X$ stabilizers of $QRM(m)$ are given by the generators of $\overline{\mathcal{RM}}(1, m)$ and the $Z$ stabilizers are given by the generators of $\overline{\mathcal{RM}}(m - 2,  m)$, producing the parameters $$[[2^m − 1, 1, 3]]$$. For $QRM(4)$, we have,
 ```
 m = 4
 RM14 = ReedMullerCode(2, 1, m)
@@ -61,58 +61,56 @@ One may compare these stabilizers to the built-in commands `SteaneCode()` and `Q
 
 ## Viewing $QRM(m)$ As Subsystem Codes
 It was long known that the Steane code is contained in the 15-qubit Reed-Muller code, but [1] extended this idea to show that this is not only true for $QRM(m)$ and $QRM(m + 1)$ but also that this can be viewed as gauge fixes of a single subsystem code. To understand this, consider the generator matrices of the Reed-Muller family. They are constructed recursively via
-$$
-G(r, m) = \begin{matrix}{cc}
+
+$$G(r, m) = \begin{pmatrix}
     G(r, m - 1) & G(r, m - 1)\\
     0 & G(r - 1, m - 1)
-\end{matrix},
-$$
+\end{pmatrix},$$
+
 with the base case that
-$$
-G(1, 1) = \begin{matrix} 1 & 1\\ 0 & 1 \end{matrix},
-$$
+
+$$G(1, 1) = \begin{pmatrix} 1 & 1\\ 0 & 1 \end{pmatrix},$$
+
 $G(m, m)$ is the identity otherwise, and $G(0, m)$ is the length $2^m$ all-ones vector. Thus,
-$$
-G(1, 2) = \begin{matrix}
+
+$$G(1, 2) = \begin{pmatrix}
     1 & 1 & 1 & 1\\
     0 & 1 & 0 & 1\\
     0 & 0 & 1 & 1
-\end{matrix}
-$$
-$$
-G(1, 3) = \begin{matrix}
+\end{pmatrix}$$
+
+$$G(1, 3) = \begin{pmatrix}
     1 & 1 & 1 & 1 & 1 & 1 & 1 & 1\\
     0 & 1 & 0 & 1 & 0 & 1 & 0 & 1\\
     0 & 0 & 1 & 1 & 0 & 0 & 1 & 1\\
     0 & 0 & 0 & 0 & 1 & 1 & 1 & 1
-\end{matrix}
-$$
-$$
-G(1, 4) = \begin{matrix}
+\end{pmatrix}$$
+
+$$G(1, 4) = \begin{pmatrix}
     1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1\\
     0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1\\
     0 & 0 & 1 & 1 & 0 & 0 & 1 & 1 & 0 & 0 & 1 & 1 & 0 & 0 & 1 & 1\\
     0 & 0 & 0 & 0 & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 1\\
     0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1
-\end{matrix}
-$$
+\end{pmatrix}$$
+
 The generator matrices of the shortened codes are therefore
-$$
-\overline{G}(1, 3) = \begin{matrix}
+
+$$\overline{G}(1, 3) = \begin{pmatrix}
     1 & 0 & 1 & 0 & 1 & 0 & 1\\
     0 & 1 & 1 & 0 & 0 & 1 & 1\\
     0 & 0 & 0 & 1 & 1 & 1 & 1
-\end{matrix}
-$$
+\end{pmatrix}$$
+
 and
-$$
-\overline{G}(1, 4) = \begin{matrix}
+
+$$\overline{G}(1, 4) = \begin{pmatrix}
     1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1\\
     0 & 1 & 1 & 0 & 0 & 1 & 1 & 0 & 0 & 1 & 1 & 0 & 0 & 1 & 1\\
     0 & 0 & 0 & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 1\\
     0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1
-\end{matrix}
-$$
+\end{pmatrix}$$
+
 Notice that the first three rows of $\overline{G}(1, 4)$ are of the form $(\overline{G}(1, 3) \mid 0 \mid \overline{G}(1, 3))$, where the notation $( \, \mid \, )$ denotes horizontal concatenation. In this sense we see that the 15-qubit Reed-Muller code really contains *two* copies of the Steane code. We can see this in the $X$ stabilizers of `QRM4`,
 ```
 Xstabilizers(QRM4)[1:3, :] == hcat(generatormatrix(RM13salt), zero_matrix(F, 3, 1), generatormatrix(RM13salt))
@@ -124,6 +122,7 @@ In order for the information to not be disturbed...
 
 
 [1]: Anderson, Duclos-Cianci, Poulin, "Fault-tolerant conversion between the Steane and Reed-Muller quantum codes", (2014)
+
 [2]: Chamberlin paper
 
 
