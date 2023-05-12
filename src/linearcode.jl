@@ -159,7 +159,7 @@ end
      # general functions
 #############################
 
-function _standardform(G::fq_nmod_mat)
+function _standardform(G::CTMatrixTypes)
     rnk, Gstand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
     nrows(Gstand) > rnk && (Gstand = _removeempty(Gstand, :rows);)
     A = Gstand[:, (nrows(Gstand) + 1):ncols(Gstand)]
@@ -348,7 +348,7 @@ Return `v * G`, where `G` is the generator matrix of `C`.
 """
 # TODO: check quantum functions and make uniform - prefer C then v on all such functions
 # might be a breaking fix though, also check runtests.jl
-function encode(v::fq_nmod_mat, C::AbstractLinearCode)
+function encode(v::CTMatrixTypes, C::AbstractLinearCode)
     G = generatormatrix(C)
     nr = nrows(G)
     (size(v) != (1, nr) && size(v) != (nr, 1)) &&
@@ -369,12 +369,18 @@ end
 
 Return `Hv`, where `H` is the parity-check matrix of `C`.
 """
-function syndrome(C::AbstractLinearCode, v::fq_nmod_mat)
+function syndrome(C::AbstractLinearCode, v::CTMatrixTypes)
     H = paritycheckmatrix(C)
     nc = ncols(H)
     (size(v) != (nc, 1) && size(v) != (1, nc)) &&
         throw(ArgumentError("Vector has incorrect dimension; expected length $nc, received: $(size(v))."))
-    base_ring(v) == C.F || throw(ArgumentError("Vector must have the same base ring as the parity-check matrix."))
+    if base_ring(v) != C.F
+        if order(base_ring(v)) == order(C.F)
+            @warn "Fields are of different types, but have the same order."
+        else
+            throw(ArgumentError("Vector must have the same base ring as the parity-check matrix."))
+        end
+    end
     nrows(v) != 1 || return H * transpose(v)
     return H * v
 end
@@ -390,7 +396,7 @@ end
 
 Return whether or not `v` is a codeword of `C`.
 """
-in(v::fq_nmod_mat, C::AbstractLinearCode) = iszero(syndrome(C, v))
+in(v::CTMatrixTypes, C::AbstractLinearCode) = iszero(syndrome(C, v))
 in(v::Vector{Int}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
@@ -402,7 +408,11 @@ Return whether or not `C1` is a subcode of `C2`.
 """
 function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
     if C1.F != C2.F || C1.n != C2.n || C1.k > C2.k
-        return false
+        if order(C1.F) == order(C2.F)
+            @warn "Fields are of different types, but have the same order."
+        else
+            return false
+        end
     end
 
     # eachrow doesn't work on these objects
@@ -759,7 +769,7 @@ Return the code of `C` whose generator matrix is augmented with `M`.
 # Notes
 * Vertically joins the matrix `M` to the bottom of the generator matrix of `C`.
 """
-function augment(C::AbstractLinearCode, M::fq_nmod_mat)
+function augment(C::AbstractLinearCode, M::CTMatrixTypes)
     iszero(M) && throw(ArgumentError("Zero matrix passed to augment."))
     C.n == ncols(M) || throw(ArgumentError("Rows to augment must have the same number of columns as the generator matrix."))
     C.F == base_ring(M) || throw(ArgumentError("Rows to augment must have the same base field as the code."))
@@ -998,7 +1008,7 @@ Return the expanded code of `C` constructed by exapnding the generator matrix
 to the subfield `K` using the provided dual `basis` for the field of `C`
 over `K`.
 """
-expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod}) = LinearCode(expandmatrix(generatormatrix(C), K, basis))
+expandedcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem}) = LinearCode(expandmatrix(generatormatrix(C), K, basis))
 
 # """
 #     subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField)
@@ -1018,7 +1028,7 @@ expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod}
 Return the subfield subcode code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K`.
 """
-subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod}) = LinearCode(transpose(expandmatrix(transpose(paritycheckmatrix(C)), K, basis)), true)
+subfieldsubcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem}) = LinearCode(transpose(expandmatrix(transpose(paritycheckmatrix(C)), K, basis)), true)
 
 """
     tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
@@ -1026,7 +1036,7 @@ subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nm
 Return the trace code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K` using Delsarte's theorem.
 """
-tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod}) = dual(subfieldsubcode(dual(C), K, basis))
+tracecode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dual(subfieldsubcode(dual(C), K, basis))
 
 # R.Pellikaan, On decoding by error location and dependent sets of error
 # positions, Discrete Mathematics, 106107 (1992), 369-381.

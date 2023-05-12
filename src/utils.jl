@@ -103,22 +103,22 @@ kroneckerproduct(A::CTMatrixTypes, B::CTMatrixTypes) = kronecker_product(A, B)
 
 Return the Hamming weight of `v`.
 """
-function Hammingweight(v::T) where T <: Union{CTMatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer
+function Hammingweight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer
     count(x -> !iszero(x), v)
 end
-weight(v::T) where T <: Union{CTMatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hammingweight(v)
-wt(v::T) where T <: Union{CTMatrixTypes, Vector{fq_nmod}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hammingweight(v)
+weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hammingweight(v)
+wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hammingweight(v)
 
 # Hammingweight(v::Matrix{Int}) = return sum(v)
 
 # wt(v::Matrix{Int}) = count(x -> !iszero(x), v)
 
 """
-    wt(f::fq_nmod_poly)
+    wt(f::CTPolyRingElem)
 
 Return the number of nonzero coefficients of the polynomial `f`.
 """
-wt(f::fq_nmod_poly) = Hammingweight(collect(coefficients(f)))
+wt(f::CTPolyRingElem) = Hammingweight(collect(coefficients(f)))
 
 # """
 #     _minwtrow(A::CTMatrixTypes)
@@ -527,11 +527,11 @@ function digitstoint(x::Vector{Int}, base::Int=2)
 end
 
 """
-    polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    polytocircmatrix(f::AbstractAlgebra.Generic.Res{T}) where T <: CTPolyRingElem
 
 Return the circulant matrix whose first column is the coefficients of `f`.
 """
-function polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+function polytocircmatrix(f::AbstractAlgebra.Generic.Res{T}) where T <: CTPolyRingElem
     R = parent(f)
     S = base_ring(R)
     F = base_ring(S)
@@ -554,11 +554,11 @@ function polytocircmatrix(f::AbstractAlgebra.Generic.Res{fq_nmod_poly})
 end
 
 """
-    lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+    lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
 
 Return the matrix whose polynomial elements are converted to circulant matrices over the base field.
 """
-function lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
@@ -828,7 +828,7 @@ Return the relative trace of `x` from its base field to the field `K`.
 * If the optional parameter `verify` is set to `true`, the two fields are checked
   for compatibility.
 """
-function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
+function tr(x::CTFieldElem, K::CTFieldTypes, verify::Bool=false)
     L = parent(x)
     q = order(K)
     if verify
@@ -842,11 +842,11 @@ function tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
     return sum([x^(q^i) for i in 0:(n - 1)])
 end
 
-function _expandelement(x::fq_nmod, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
     return [tr(x * i) for i in basis] #, K, verify
 end
 
-function _expandrow(row::CTMatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod}, verify::Bool=false)
+function _expandrow(row::CTMatrixTypes, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
     new_row = _expandelement(row[1], K, basis, verify)
     for i in 2:ncols(row)
         new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
@@ -860,7 +860,7 @@ end
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the provided `basis` for the base ring of `M` over `K`.
 """
-function expandmatrix(M::CTMatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+function expandmatrix(M::CTMatrixTypes, K::CTFieldTypes, basis::Vector{<:CTFieldElem})
     L = base_ring(M)
     L == K && return M
     Int(characteristic(L)) == Int(characteristic(K)) || throw(ArgumentError("The given field is not a subfield of the base ring of the element."))
@@ -899,10 +899,9 @@ function quadraticresidues(q::Int, n::Int)
     return qres, nqres
 end
 
-function _isbasis(E::FqNmodFiniteField, basis::Vector{fq_nmod}, q::Int)
+function _isbasis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
     m = length(basis)
-    M = MatrixSpace(E, m, m)
-    B = M(0)
+    B = zero_matrix(E, m, m)
     for r in 1:m
         for c in 1:m
             B[r, c] = basis[r]^(q^(c - 1))
@@ -924,7 +923,7 @@ end
 
 Return `true` if `E/F` is a valid field extension.
 """
-function isextension(E::FqNmodFiniteField, F::FqNmodFiniteField)
+function isextension(E::CTFieldTypes, F::CTFieldTypes)
     p = Int(characteristic(E))
     Int(characteristic(F)) == p || return false, missing
     degE = degree(E)
@@ -946,7 +945,7 @@ end
 Return `true` and the dual (complementary) basis if `basis` is a basis for `E/F`,
 otherwise return `false, missing`.
 """
-function isbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+function isbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, m = isextension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
     length(basis) == m || throw(ArgumentError("Basis does not have length degree of the extension."))
@@ -962,7 +961,7 @@ end
 
 Return a primitive basis for `E/F` and its dual (complementary) basis.
 """
-function primitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+function primitivebasis(E::CTFieldTypes, F::CTFieldTypes)
     flag, m = isextension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
     α = gen(E)
@@ -981,7 +980,7 @@ Return a normal basis for `E/F` and its dual (complementary) basis.
 """
 # "Normal Bases over Finite Fields" by Shuhong Gao has algorithms for this but they are
 # complicated for the field sizes intended in this work
-function normalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+function normalbasis(E::CTFieldTypes, F::CTFieldTypes)
     flag, m = isextension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
 
@@ -1001,12 +1000,12 @@ end
 
 Return the dual (complentary) basis of `basis` for the extension `E/F`.
 """
-function dualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+function dualbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, λ = isbasis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return λ
 end
-complementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}) = dualbasis(E, F, basis)
+complementarybasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dualbasis(E, F, basis)
 
 """
     verifydualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod})
@@ -1014,7 +1013,7 @@ complementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_
 
 Return `true` if `basis` is the dual of `dualbasis` for `E/F`, otherwise return `false`.
 """
-function verifydualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod})
+function verifydualbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dualbasis::Vector{<:CTFieldElem})
     flag, m = isextension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
 
@@ -1042,14 +1041,14 @@ function verifydualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vect
     end
     return B * Binv == M(1)
 end
-verifycomplementarybasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dualbasis::Vector{fq_nmod}) = verifydualbasis(E, F, basis, dualbasis)
+verifycomplementarybasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dualbasis::Vector{<:CTFieldElem}) = verifydualbasis(E, F, basis, dualbasis)
 
 """
     areequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
 
 Return `true` if `basis` is a scalar multiple of `basis2`.
 """
-function areequivalentbasis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+function areequivalentbasis(basis::Vector{<:CTFieldElem}, basis2::Vector{<:CTFieldElem})
     m = length(basis)
     length(basis2) == m || throw(ArgumentError("The two vectors must have the same length."))
     c = basis[1] * basis2[1]^-1
@@ -1068,7 +1067,7 @@ end
 
 Return `true` if `basis` is equal to its dual.
 """
-function isselfdualbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+function isselfdualbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, λ = isbasis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return basis == λ
@@ -1079,7 +1078,7 @@ end
 
 Return `true` if `basis` is a primitive basis for `E/F`.
 """
-function isprimitivebasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+function isprimitivebasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, _ = isbasis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     isone(basis[1]) ? (x = basis[2];) : (x = basis[1];)
@@ -1095,7 +1094,7 @@ end
 
 Return `true` if `basis` is a normal basis for `E/F`.
 """
-function isnormalbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+function isnormalbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, _ = isbasis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     isone(basis[1]) ? (return false;) : (x = basis[1];)

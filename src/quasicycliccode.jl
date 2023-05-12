@@ -206,13 +206,13 @@ polynomialmatrixtype(C::AbstractQuasiCyclicCode) = C.Atype
 #############################
 
 """
-    basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
-    protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
-    weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+    basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+    protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+    weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
 
 Return the base/protograph/weight matrix of `A`.
 """
-function weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
     nr, nc = size(A)
     W = zeros(Int, nr, nc)
     for c in 1:nc
@@ -222,8 +222,8 @@ function weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Ge
     end
     return W
 end
-basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}) = weightmatrix(A)
-protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}) = weightmatrix(A)
+basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem = weightmatrix(A)
+protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem = weightmatrix(A)
 
 """
     issinglegenerator(C::AbstractQuasiCyclicCode)

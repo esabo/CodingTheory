@@ -27,8 +27,12 @@ abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
 abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 
-# const CTMatrixTypes = Union{fpMatrix, fqPolyRepMatrix}
-const CTMatrixTypes = MatElem{<:FinFieldElem}
+# easy to change later if necessary:
+const CTFieldTypes = FinField
+const CTFieldElem = FinFieldElem
+const CTMatrixTypes = MatElem{<:CTFieldElem}
+const CTPolyRing = PolyRing{<:CTFieldElem}
+const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 
 #############################
       # concrete types
@@ -44,17 +48,17 @@ struct WeightEnumerator
 end
   
 mutable struct LinearCode <: AbstractLinearCode
-    F::FqNmodFiniteField # base field
+    F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
@@ -83,17 +87,17 @@ end
 #############################
 
 mutable struct MatrixProductCode <: AbstractMatrixProductCode
-    F::FqNmodFiniteField # base field
+    F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
     C::Vector{AbstractLinearCode}
     A::fq_nmod_mat
@@ -104,7 +108,7 @@ end
 #############################
 
 mutable struct ReedMullerCode <: AbstractReedMullerCode
-    F::Union{FqNmodFiniteField, AbstractAlgebra.GFField{Int64}}
+    F::CTFieldTypes
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
@@ -112,11 +116,11 @@ mutable struct ReedMullerCode <: AbstractReedMullerCode
     ubound::Int # upper bound on d
     r::Integer # order
     m::Integer # number of variables
-    G::Union{gfp_mat, fq_nmod_mat}
-    H::Union{gfp_mat, fq_nmod_mat}
-    Gstand::Union{gfp_mat, fq_nmod_mat}
-    Hstand::Union{gfp_mat, fq_nmod_mat}
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
@@ -125,10 +129,10 @@ end
 #############################
 
 mutable struct CyclicCode <: AbstractCyclicCode
-    F::FqNmodFiniteField # base field
-    E::FqNmodFiniteField # splitting field
-    R::FqNmodPolyRing # polynomial ring of generator polynomial
-    β::fq_nmod # n-th root of primitive element of splitting field
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # splitting field
+    R::CTPolyRing # polynomial ring of generator polynomial
+    β::CTFieldElem # n-th root of primitive element of splitting field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
@@ -140,22 +144,22 @@ mutable struct CyclicCode <: AbstractCyclicCode
     qcosets::Vector{Vector{Int}}
     qcosetsreps::Vector{Int}
     defset::Vector{Int}
-    g::fq_nmod_poly
-    h::fq_nmod_poly
-    e::fq_nmod_poly
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    g::CTPolyRingElem
+    h::CTPolyRingElem
+    e::CTPolyRingElem
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
   
 mutable struct BCHCode <: AbstractBCHCode
-    F::FqNmodFiniteField # base field
-    E::FqNmodFiniteField # splitting field
-    R::FqNmodPolyRing # polynomial ring of generator polynomial
-    β::fq_nmod # n-th root of primitive element of splitting field
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # splitting field
+    R::CTPolyRing # polynomial ring of generator polynomial
+    β::CTFieldElem # n-th root of primitive element of splitting field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
@@ -167,22 +171,22 @@ mutable struct BCHCode <: AbstractBCHCode
     qcosets::Vector{Vector{Int}}
     qcosetsreps::Vector{Int}
     defset::Vector{Int}
-    g::fq_nmod_poly
-    h::fq_nmod_poly
-    e::fq_nmod_poly
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    g::CTPolyRingElem
+    h::CTPolyRingElem
+    e::CTPolyRingElem
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
   
 mutable struct ReedSolomonCode <: AbstractReedSolomonCode
-    F::FqNmodFiniteField # base field
-    E::FqNmodFiniteField # splitting field
-    R::FqNmodPolyRing # polynomial ring of generator polynomial
-    β::fq_nmod # n-th root of primitive element of splitting field
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # splitting field
+    R::CTPolyRing # polynomial ring of generator polynomial
+    β::CTFieldElem # n-th root of primitive element of splitting field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
@@ -194,14 +198,14 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     qcosets::Vector{Vector{Int}}
     qcosetsreps::Vector{Int}
     defset::Vector{Int}
-    g::fq_nmod_poly
-    h::fq_nmod_poly
-    e::fq_nmod_poly
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
-    P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    g::CTPolyRingElem
+    h::CTPolyRingElem
+    e::CTPolyRingElem
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    P::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
 end
 
