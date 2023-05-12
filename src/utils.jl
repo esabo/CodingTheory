@@ -405,7 +405,81 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
                     if !iszero(A[l, k])
                         ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
                         swap_cols!(A, k, j)
-                        swap_rows!(P, k, j)
+                        swap_cols!(P, k, j)
+                        ind = l
+                        break
+                    end
+                end
+            end
+        end
+
+        # if true, the rest of the submatrix is zero
+        if iszero(ind)
+            return rnk, P
+        else
+            # normalize pivot
+            if !isone(A[ind, j])
+                A[ind, :] *= inv(A[ind, j])
+            end
+
+            # swap to put the pivot in the next row
+            ind != i && swap_rows!(A, ind, i)
+
+            # eliminate
+            for k = rowrange.start:nr
+                if k != i
+                    # do a manual loop here to reduce allocations
+                    d = A[k, j]
+                    @simd for l = 1:ncA
+                        A[k, l] = (A[k, l] - d * A[i, l])
+                    end
+                end
+            end
+        end
+        i += 1
+        j += 1
+        rnk += 1
+    end
+    return rnk, P
+end
+
+function _rref_symp_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
+
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(rowrange) && return 0, missing
+    isempty(colrange) && return 0, missing
+
+    # permutation matrix required to return to rowspace if column swap done
+    P = missing
+    ncA = ncols(A)
+
+    rnk = 0
+    i = rowrange.start
+    j = colrange.start
+    nr = rowrange.stop
+    nc = colrange.stop
+    while i <= nr && j <= nc
+        # find first pivot
+        ind = 0
+        for k in i:nr
+            if !iszero(A[k, j])
+                ind = k
+                break
+            end
+        end
+
+        # need to column swap
+        if iszero(ind)
+            for k in j + 1:nc
+                for l in i:nr
+                    if !iszero(A[l, k])
+                        ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
+                        k_symp = mod1(k + div(ncA, 2), ncA)
+                        j_symp = mod1(j + div(ncA, 2), ncA)
+                        swap_cols!(A, k, j)
+                        swap_cols!(P, k, j)
+                        swap_cols!(A, k_symp, j_symp)
+                        swap_cols!(P, k_symp, j_symp)
                         ind = l
                         break
                     end

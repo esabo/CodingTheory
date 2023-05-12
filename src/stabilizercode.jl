@@ -36,6 +36,8 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # determine signs
     signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(D2.H), nrows(C1.H))
@@ -86,6 +88,8 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # determine signs
     nr = nrows(D.H)
@@ -149,6 +153,8 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     rkS = Xrank + Zrank
@@ -211,6 +217,8 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(S, signs, true)
@@ -297,6 +305,8 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
     standardform, perms, standr = _standardformstabilizer(S)
+    # it will look like:
+    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # q^n / p^k but rows is n - k
     dimcode = BigInt(order(F))^n // BigInt(p)^rkS
@@ -333,74 +343,6 @@ function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
     return logs, logsmat
-end
-
-function _standardformstabilizer(M::CTMatrixTypes)
-    @assert iseven(size(M, 2))
-
-    S = deepcopy(M)
-
-    # If the stabilizer is overdetermined, remove unnecessary rows
-    _rref_no_col_swap!(S, 1:size(S, 1), 1:size(S, 2))
-    nr = size(S, 1)
-    for i in size(S, 1):-1:1
-        nr = i
-        iszero(S[i, :]) || break
-    end
-    if nr != size(S, 1)
-        S = S[1:nr, :]
-    end
-
-    n = div(size(S, 2), 2)
-    k = n - nr
-
-    # put S in standard form
-    r, P1 = _rref_col_swap!(S, 1:nr, 1:n)
-    _, P2 = _rref_col_swap!(S, (r + 1):nr, (n + r + 1):2n)
-
-    P = if ismissing(P1) && ismissing(P2)
-        missing
-    elseif ismissing(P1)
-        P2
-    elseif ismissing(P2)
-        P1
-    else
-        P1 * P2
-    end
-
-    return S, P, r
-end
-
-function _logicalsstandardform(C::AbstractSubsystemCode)
-    n = C.n
-    k = C.k
-    r = C.standr
-    S = C.standardform
-    R = base_ring(S)
-    logs = zero_matrix(R, 2k, 2n)
-    E = S[(r + 1):size(S,1), (2n - k + 1):2n]
-    C1 = S[1:r, (n + r + 1):(2n - k)]
-    C1E = C1 * E
-    for i in 1:k
-        for j in 1:(n - k - r)
-            # E^T
-            logs[i, j + r] = S[r + j, 2n - k + i]
-        end
-        for j in 1:k
-            # I in a couple of places
-            logs[i, n - k - r + j] = one(R)
-            logs[k + i, 2n - k + j] = one(R)
-        end
-        for j in 1:r
-            # E^T * C1^T + C2^T
-            logs[i, n + j] = C1E[j, i] + S[j, 2n - k + i]
-
-            # A2^T
-            logs[k + i, n + j] = S[j, n - k + i]
-        end
-    end
-
-    return logs
 end
 
 #############################
