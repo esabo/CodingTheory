@@ -45,7 +45,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         # note the H here is transpose of the standard definition
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = Hstand * transpose(P)
     end
 
     if parity
@@ -53,7 +53,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         ub2, _ = _minwtrow(Hstand)
         ub = minimum([ub1, ub2])
         # treat G as the parity-check matrix H
-        return LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, P, missing)
+        return LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, transpose(P), missing)
     else
         ub1, _ = _minwtrow(Gnew)
         ub2, _ = _minwtrow(Gstand)
@@ -382,7 +382,7 @@ end
 function syndrome(C::AbstractLinearCode, v::Vector{Int})
     length(v) == C.n ||
         throw(ArgumentError(("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")))
-    return syndrome(matrix(C.F, transpose(v)), C)
+    return syndrome(C, matrix(C.F, transpose(v)))
 end
 
 """
@@ -564,7 +564,7 @@ function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     H1 = paritycheckmatrix(C1)
     H2 = paritycheckmatrix(C2)
     H = directsum(H1, H2)
-    # should just be direct sum, but need to recompute P - also direct sum?
+    # TODO: should just be direct sum, but need to recompute P - also direct sum?
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k + C2.k || error("Unexpected dimension in direct sum output.")
 
@@ -602,7 +602,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
         # note the H here is transpose of the standard definition
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = Hstand * transpose(P)
     end
 
     if !ismissing(C1.d) && !ismissing(C2.d)
@@ -707,7 +707,7 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int})
         # note the H here is transpose of the standard definition
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = Hstand * transpose(P)
     end
 
     ub1, _ = _minwtrow(G)
@@ -741,7 +741,7 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int})
         # note the H here is transpose of the standard definition
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = Hstand * transpose(P)
     end
 
     ub1, _ = _minwtrow(G)
@@ -772,7 +772,7 @@ function augment(C::AbstractLinearCode, M::fq_nmod_mat)
         # note the H here is transpose of the standard definition
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = Hstand * transpose(P)
     end
 
     ub1, _ = _minwtrow(G)
