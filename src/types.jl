@@ -214,7 +214,7 @@ end
 #############################
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
-    F::FqNmodFiniteField # base field
+    F::CTFieldTypes # base field
     R::AbstractAlgebra.Generic.ResRing{fq_nmod_poly}
     n::Int # length
     k::Int # dimension
@@ -240,7 +240,7 @@ end
 #############################
 
 mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
-    F::FqNmodFiniteField # base field
+    F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
@@ -290,7 +290,7 @@ abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 #############################
 
 mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Union{Int, Rational{BigInt}}
     r::Int
@@ -315,7 +315,7 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
 end
   
 mutable struct SubsystemCode <: AbstractSubsystemCode
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Union{Int, Rational{BigInt}}
     r::Int
@@ -338,7 +338,7 @@ end
 #############################
 
 mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Union{Int, Rational{BigInt}}
     d::Union{Int, Missing}
@@ -366,7 +366,7 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
 end
   
 mutable struct StabilizerCode <: AbstractStabilizerCode
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Union{Int, Rational{BigInt}}
     d::Union{Int, Missing}
@@ -390,7 +390,7 @@ end
 #############################
 
 mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Int
     r::Int
@@ -408,7 +408,7 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
 end
   
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Int
     r::Int
@@ -434,7 +434,7 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
 end
   
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Int
     d::Union{Int, Missing}
@@ -449,7 +449,7 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
 end
   
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Int
     k::Int
     d::Union{Int, Missing}
@@ -478,7 +478,7 @@ end
 # J. Tillich, G. Zémor. "Quantum LDPC codes with positive rate and minimum distance
 # proportional to n^(1/2)". (2013) arXiv:0903.0566v2
 mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
-    F::FqNmodFiniteField
+    F::CTFieldTypes
     n::Integer
     k::Union{Integer, Rational{BigInt}}
     d::Union{Integer, Missing}

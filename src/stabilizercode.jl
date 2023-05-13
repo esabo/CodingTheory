@@ -146,9 +146,11 @@ function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, 
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    H = _removeempty(transpose(H), :rows)
     # n + (n - Srank)
-    ncols(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, transpose(H))
+    nrows(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
+    logs, logsmat = _logicals(S, H)
 
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
@@ -210,9 +212,11 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    H = _removeempty(transpose(H), :rows)
     # n + (n - rkS)
-    ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, transpose(H))
+    nrows(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
+    logs, logsmat = _logicals(S, H)
 
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here
@@ -298,9 +302,11 @@ function StabilizerCode(S::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=
     # find generators for S^⟂
     # note the H here is transpose of the standard definition
     _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    H = _removeempty(transpose(H), :rows)
     # n + (n - rkS)
-    ncols(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, transpose(H))
+    nrows(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
+    logs, logsmat = _logicals(S, H)
 
     # new stuff from Ben
     # TODO: replace logicals above with getting logicals from here

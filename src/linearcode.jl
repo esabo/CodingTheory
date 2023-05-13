@@ -43,6 +43,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     if ismissing(P)
         _, H = right_kernel(Gnew)
         # note the H here is transpose of the standard definition
+        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * transpose(P)
@@ -610,6 +611,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
+        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * transpose(P)
@@ -715,6 +717,7 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int})
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
+        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * transpose(P)
@@ -749,6 +752,7 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int})
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
+        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * transpose(P)
@@ -780,6 +784,7 @@ function augment(C::AbstractLinearCode, M::CTMatrixTypes)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
+        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
         H = Hstand * transpose(P)

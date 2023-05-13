@@ -32,7 +32,8 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
 
     # stabilizer group: ker G ∩ G
     _, kerG = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
-    kerG = transpose(kerG)
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    kerG = _removeempty(transpose(kerG), :rows)
     V = VectorSpace(base_ring(G), ncols(kerG))
     kerGVS, kerGtoV = sub(V, [V(kerG[i, :]) for i in 1:nrows(kerG)])
     GVS, _ = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
@@ -638,7 +639,7 @@ Set the logical operators of `S` to `L`.
 * A check is done to make sure `L` are eqivalent to the current set of logicals (up to stabilizers).
 """
 setlogicals!(S::T, L::W) where {T <: AbstractSubsystemCode, W <: CTMatrixTypes} = setlogicals!(LogicalTrait(T), S, L)
-function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes)
+function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where W <: CTMatrixTypes
     size(L) == (2 * S.k, 2 * S.n) || throw(ArgumentError("Provided matrix is of incorrect size for the logical space."))
     iseven(ncols(L)) || throw(ArgumentError("Expected a symplectic input but the input matrix has an odd number of columns."))
     S.F == base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
@@ -1423,7 +1424,9 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=tru
     # compute newly opened degrees of freedom
     temp = _removeempty(vcat(stabs, logs, gaugeops), :rows)
     _, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    temp = _quotientspace(transpose(temp), newsymstabs)
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    temp = _removeempty(transpose(temp), :rows)
+    temp = _quotientspace(temp, newsymstabs)
     newlogs = _makepairs(temp)
     return SubsystemCode(stabs, vcat(logs, newlogs), gaugeops, S.charvec)
 end
@@ -1452,7 +1455,8 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=tr
         temp = vcat(temp, S.gopsmat)
     end
     _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    H = transpose(H)
+    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    H = _removeempty(transpose(H), :rows)
     newlogs = _quotientspace(H, newstabs)
     if iszero(newlogs)
         verbose && println("No new logicals need to be add")

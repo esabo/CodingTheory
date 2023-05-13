@@ -890,13 +890,12 @@ using Test
     @test LogicalTrait(typeof(S)) == HasLogicals()
     @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-    # BUG: in Oscar itself - reported
-    # S = Q823()
-    # @test S.n == 8
-    # @test S.k == 2
-    # # @test S.d == 3
-    # @test LogicalTrait(typeof(S)) == HasLogicals()
-    # @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q823()
+    @test S.n == 8
+    @test S.k == 2
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
     S = Q1513()
     @test S.n == 15
