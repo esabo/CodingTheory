@@ -15,7 +15,7 @@ Return the LDPC code defined by the parity-check matrix `H`.
 # Notes
 * LDPC codes are typically required to have a matrix density of less than 1%.
 """
-function LDPCCode(H::fq_nmod_mat)
+function LDPCCode(H::CTMatrixTypes)
     nnz, den = _density(H)
     den <= 0.01 || (@warn "LDPC codes (generally) require a density of less than 1%.";)
 
@@ -185,7 +185,7 @@ checkdegreepolynomial(C::AbstractLDPCCode) = C.ρ
      # general functions
 #############################
 
-function _degreedistribution(H::fq_nmod_mat)
+function _degreedistribution(H::CTMatrixTypes)
     nr, nc = size(H)
     cols = zeros(Int, 1, nc)
     @inbounds @views @simd for i in 1:nc
@@ -198,7 +198,7 @@ function _degreedistribution(H::fq_nmod_mat)
     return vec(cols), vec(rows)
 end
 
-function _density(H::fq_nmod_mat)
+function _density(H::CTMatrixTypes)
     count = 0
     nr, nc = size(H)
     for c in 1:nc

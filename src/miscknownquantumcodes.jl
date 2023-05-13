@@ -29,7 +29,8 @@ Q9143() = GaugedShorCode()
 Return the Bacon-Shor subsystem code on a `m x n` lattice.
 """
 function BaconShorCode(m::Int, n::Int)
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     Fone = F(1)
     numqubits = m * n
 
@@ -113,7 +114,7 @@ Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With
 Generators", (2011).
 """
 # Bravyi, "Subsystem Codes With Spatially Local Generators", (2011)
-function BravyiSubsystemCode(A::fq_nmod_mat)
+function BravyiSubsystemCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
     F = base_ring(A)
     Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
@@ -186,7 +187,7 @@ function BravyiSubsystemCode(A::fq_nmod_mat)
     # TODO: also set dx and dz
     return S
 end
-GeneralizedBaconShorCode(A::fq_nmod_mat) = BravyiSubsystemCode(A)
+GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
 
 # subsystem codes was described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
 
@@ -235,7 +236,8 @@ Q422() = CSSCode(["XXXX", "ZZZZ"])
 Q511() = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     S = matrix(F, [1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
     0 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0;
     0 1 0 0 1 1 1 0 0 0 1 1 1 0 1 0;
@@ -287,7 +289,8 @@ function _triangularlattice(L::Int)
 end
 
 function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3})
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     stabilizers = zero_matrix(F, L^2, 3 * L^2)
     r = 1
     for i in 1:L
@@ -321,7 +324,8 @@ function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3})
 end
 
 function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3})
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     stabilizers = zero_matrix(F, 2 * L^2, 3 * L^2)
     r = 1
     for i in 1:L
@@ -430,7 +434,8 @@ end
 
 function _RSurfstabslogs(d::Int)
     n = d^2
-    F, _ = FiniteField(2, 1, "ω")
+    # F, _ = FiniteField(2, 1, "ω")
+    F = GF(2)
     Fone = F(1)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
@@ -541,7 +546,8 @@ end
 
 function _XZZXstabslogs(d::Int)
     n = d^2
-    F, _ = FiniteField(2, 1, "ω")
+    # F, _ = FiniteField(2, 1, "ω")
+    F = GF(2)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
     Fone = F(1)
@@ -649,7 +655,8 @@ function TriangularColorCode488(d::Int)
     if d == 3
         # S, logs = _488d3trellis()
         @load "../data/488d3stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -661,7 +668,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d5stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -673,7 +681,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d7stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -685,7 +694,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d9stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -697,7 +707,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d11stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -709,7 +720,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d13stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -721,7 +733,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d15stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -733,7 +746,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d17stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -745,7 +759,8 @@ function TriangularColorCode488(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d19stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -758,6 +773,7 @@ function TriangularColorCode488(d::Int)
     #     # setlogicals!(Q, logs)
     #     @load "../data/488d21stabslogs_trellis.jld2" S l
     #     F, _ = FiniteField(2, 1, "α")
+    #     F = GF(2)
     #     stabs = matrix(F, S)
     #     S = StabilizerCode(stabs)
     #     l = matrix(F, l)
@@ -785,7 +801,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/488d3stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -797,7 +814,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d5stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -809,7 +827,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d7stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -821,7 +840,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d9stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -833,7 +853,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d11stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -845,7 +866,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d13stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -857,7 +879,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d15stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -869,7 +892,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d17stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -881,7 +905,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d19stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -893,7 +918,8 @@ function TriangularColorCode666(d::Int)
         # S = StabilizerCode(stabs)
         # setlogicals!(Q, logs)
         @load "../data/666d21stabslogs_trellis.jld2" S l
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
@@ -917,7 +943,8 @@ The lattice orientation used here follows the picture at https://errorcorrection
 function ToricCode(d::Int)
     2 <= d || throw(DomainError("Distance must be at least two."))
 
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     Fone = F(1)
     A = zero_matrix(F, d^2, 2 * d^2) # stars, X stabilizers
     B = zero_matrix(F, d^2, 2 * d^2) # faces, Z stabilizers
@@ -1001,7 +1028,8 @@ The top and bottom boundaries are "smooth" (`Z`) and the left and right are "rou
 function PlanarSurfaceCode(dx::Int, dz::Int)
     (2 <= dx && 2 <= dz) || throw(DomainError("Distances must be at least two."))
 
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     Fone = F(1)
     numV = dx * dz + (dx - 1) * (dz - 1)
     A = zero_matrix(F, dx * (dz - 1) + 1, numV) # stars, X stabilizers
@@ -1075,7 +1103,8 @@ The top and bottom boundaries are "smooth" (`Y`) and the left and right are "rou
 function XYSurfaceCode(dx::Int, dy::Int)
     (2 <= dx && 2 <= dy) || throw(DomainError("Distances must be at least two."))
 
-    F, _ = FiniteField(2, 1, "ω")
+    # F, _ = FiniteField(2, 1, "ω")
+    F = GF(2)
     Fone = F(1)
     numV = dx * dy + (dx - 1) * (dy - 1)
     M = zero_matrix(F, numV - 1, 2 * numV)
@@ -1204,7 +1233,8 @@ Return the `[[k + 4, k, 2]]` H code from `https://errorcorrectionzoo.org/c/quant
 function HCode(k::Int)
     (2 <= k && iseven(k)) || throw(DomainError("Input must be >= 2 and even.")) 
 
-    F, _ = FiniteField(2, 1, "α")
+    # F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     Fone = F(1)
     X = zero_matrix(F, 2, k + 4)
     Z = zero_matrix(F, 2, k + 4)

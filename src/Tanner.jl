@@ -70,7 +70,8 @@ the bits and parity checks, respectively.
 function Tannergraph(H::Union{fq_nmod_mat, Matrix{Int}})
     typeof(H) <: fq_nmod_mat ? (I = FpmattoJulia(H);) : (I = H;)
     Itr = transpose(I)
-    B = vcat(hcat(zeros(Itr), I), hcat(Itr, zeros(I)))
+    # TODO: fix B - no zeros for this type
+    B = vcat(hcat(zeros(Int, size(Itr)), I), hcat(Itr, zeros(Int, size(I))))
     G = SimpleGraph(B)
     nr, nc = size(H)
     # lhs - bits
@@ -125,11 +126,12 @@ function Tannercode(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
     
     # pre-store all the information about Hloc
     # this could be a bit redundant if Hloc is sparse
-    Hloc = FpmattoJulia(paritycheckmatrix(C))
+    # Hloc = FpmattoJulia(paritycheckmatrix(C))
+    Hloc = paritycheckmatrix(C)
     nrHloc, ncHloc = size(Hloc)
-    Hlocind = Vector{Vector{Tuple{Int, Int}}}()
+    Hlocind = Vector{Vector{Tuple{typeof(Hloc[1, 1]), Int}}}()
     for r in 1:nrHloc
-        temp = Vector{Tuple{Int, Int}}()
+        temp = Vector{Tuple{typeof(Hloc[1, 1]), Int}}()
         for c in 1:ncHloc
             Hloc[r, c] != 0 && (push!(temp, (Hloc[r, c], c)))
         end
@@ -139,7 +141,8 @@ function Tannercode(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
     Hlocindlens = [length(Hlocind[i]) for i in 1:nrHloc]
 
     currrow = 0
-    H = zeros(Int, numV * nrHloc, numE)
+    # H = zeros(Int, numV * nrHloc, numE)
+    H = zero_matrix(C.F, numV * nrHloc, numE)
     # look at every edge attached to a vertex, so check every row for a fixed column
     for c in 1:numV
         count = 0
@@ -163,7 +166,7 @@ function Tannercode(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
         currrow += nrHloc
         Hrowsitrloc[:] .= 1
     end
-    return H
+    return LinearCode(H, true)
 end 
 
 """
@@ -192,11 +195,11 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int}, 
     
     # pre-store all the information about Hloc
     # this could be a bit redundant if Hloc is sparse
-    Hloc = FpmattoJulia(paritycheckmatrix(C))
+    Hloc = paritycheckmatrix(C)
     nrHloc, ncHloc = size(Hloc)
-    Hlocind = Vector{Vector{Tuple{Int, Int}}}()
+    Hlocind = Vector{Vector{Tuple{typeof(Hloc[1, 1]), Int}}}()
     for r in 1:nrHloc
-        temp = Vector{Tuple{Int, Int}}()
+        temp = Vector{Tuple{typeof(Hloc[1, 1]), Int}}()
         for c in 1:ncHloc
             Hloc[r, c] != 0 && (push!(temp, (Hloc[r, c], c)))
         end
@@ -207,7 +210,7 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int}, 
     # this should use sizehint now so no longer slower than the standard loop
     edgemap = Dict(lv => i for (i, lv) in enumerate(left))
     currrow = 0
-    H = zeros(Int, length(right) * nrHloc, length(left))
+    H = zero_matrix(C.F, length(right) * nrHloc, length(left))
     for rv in right
         for r in 1:nrHloc
             @simd for c in Hlocind[r]
@@ -216,7 +219,7 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int}, 
         end
         currrow += nrHloc
     end
-    return H
+    return LinearCode(H, true)
 end
 
 # TODO: currently untested
@@ -233,11 +236,11 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int},
     
     # pre-store all the information about Hloc
     # this could be a bit redundant if Hloc is sparse
-    Hloc = FpmattoJulia(paritycheckmatrix(C1))
+    Hloc = paritycheckmatrix(C1)
     nrHloc, ncHloc = size(Hloc)
-    Hlocind = Vector{Vector{Tuple{Int, Int}}}()
+    Hlocind = Vector{Vector{Tuple{typeof(Hloc[1, 1]), Int}}}()
     for r in 1:nrHloc
-        temp = Vector{Tuple{Int, Int}}()
+        temp = Vector{Tuple{typeof(Hloc[1, 1]), Int}}()
         for c in 1:ncHloc
             Hloc[r, c] != 0 && (push!(temp, (Hloc[r, c], c)))
         end
@@ -248,7 +251,7 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int},
     # this should use sizehint now so no longer slower than the standard loop
     edgemap = Dict(lv => i for (i, lv) in enumerate(left))
     currrow = 0
-    H = zeros(Int, (length(right1) + length(right2)) * nrHloc, length(left))
+    H = zero_matrix(C.F, (length(right1) + length(right2)) * nrHloc, length(left))
     for rv in right1
         for r in 1:nrHloc
             @simd for c in Hlocind[r]
@@ -259,11 +262,11 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int},
     end
 
     # do second code
-    Hloc = FpmattoJulia(paritycheckmatrix(C2))
+    Hloc = paritycheckmatrix(C2)
     nrHloc, ncHloc = size(Hloc)
-    Hlocind = Vector{Vector{Tuple{Int, Int}}}()
+    Hlocind = Vector{Vector{Tuple{typeof(Hloc[1, 1]), Int}}}()
     for r in 1:nrHloc
-        temp = Vector{Tuple{Int, Int}}()
+        temp = Vector{Tuple{typeof(Hloc[1, 1]), Int}}()
         for c in 1:ncHloc
             Hloc[r, c] != 0 && (push!(temp, (Hloc[r, c], c)))
         end
@@ -279,5 +282,5 @@ function Tannercode(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int},
         currrow += nrHloc
     end
 
-    return H
+    return LinearCode(H, true)
 end

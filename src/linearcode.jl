@@ -23,7 +23,7 @@ Return the linear code constructed with generator matrix `G`.
 
 # Examples
 ```julia
-julia> F, _ = FiniteField(2, 1, "α");
+julia> F = GF(2);
 julia> G = matrix(F, 4, 7, [1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]);
 julia> C = LinearCode(G)
 [7, 4]_2 linear code.

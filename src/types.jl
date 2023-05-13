@@ -249,10 +249,10 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     scalars::Vector{fq_nmod}
     dualscalars::Vector{fq_nmod}
     evalpts::Vector{fq_nmod}
-    G::fq_nmod_mat
-    H::fq_nmod_mat
-    Gstand::fq_nmod_mat
-    Hstand::fq_nmod_mat
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
     P::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is complete known for MDS?
 end
@@ -295,19 +295,19 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
     k::Union{Int, Rational{BigInt}}
     r::Int
     d::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
+    stabs::CTMatrixTypes
+    Xstabs::CTMatrixTypes
+    Zstabs::CTMatrixTypes
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
     signs::Vector{nmod}
     Xsigns::Vector{nmod}
     Zsigns::Vector{nmod}
-    logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    logsmat::fq_nmod_mat
+    logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    logsmat::CTMatrixTypes
     charvec::Vector{nmod}
-    gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    gopsmat::fq_nmod_mat
+    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    gopsmat::CTMatrixTypes
     overcomplete::Bool
     standardform::CTMatrixTypes
     standr::Int
@@ -320,13 +320,13 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
     k::Union{Int, Rational{BigInt}}
     r::Int
     d::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    logsmat::fq_nmod_mat
+    stabs::CTMatrixTypes
+    logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    logsmat::CTMatrixTypes
     charvec::Vector{nmod}
     signs::Vector{nmod}
-    gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    gopsmat::fq_nmod_mat
+    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    gopsmat::CTMatrixTypes
     overcomplete::Bool
     standardform::CTMatrixTypes
     standr::Int
@@ -344,16 +344,16 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
     d::Union{Int, Missing}
     dx::Union{Int, Missing}
     dz::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
+    stabs::CTMatrixTypes
+    Xstabs::CTMatrixTypes
+    Zstabs::CTMatrixTypes
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
     signs::Vector{nmod}
     Xsigns::Vector{nmod}
     Zsigns::Vector{nmod}
-    logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    logsmat::fq_nmod_mat
+    logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    logsmat::CTMatrixTypes
     charvec::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
@@ -370,9 +370,9 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
     n::Int
     k::Union{Int, Rational{BigInt}}
     d::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    logicals::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    logsmat::fq_nmod_mat
+    stabs::CTMatrixTypes
+    logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    logsmat::CTMatrixTypes
     charvec::Vector{nmod}
     signs::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
@@ -395,13 +395,13 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
     k::Int
     r::Int
     d::Union{Int, Missing}
-    stabs::fq_nmod_mat
+    stabs::CTMatrixTypes
     charvec::Vector{nmod}
     signs::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
-    gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    gopsmat::fq_nmod_mat
+    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    gopsmat::CTMatrixTypes
     standardform::CTMatrixTypes
     standr::Int
     permutation::Union{CTMatrixTypes, Missing}
@@ -415,9 +415,9 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     d::Union{Int, Missing}
     dx::Union{Int, Missing}
     dz::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
+    stabs::CTMatrixTypes
+    Xstabs::CTMatrixTypes
+    Zstabs::CTMatrixTypes
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
     signs::Vector{nmod}
@@ -426,8 +426,8 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     charvec::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
-    gaugeops::Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}
-    gopsmat::fq_nmod_mat
+    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    gopsmat::CTMatrixTypes
     standardform::CTMatrixTypes
     standr::Int
     permutation::Union{CTMatrixTypes, Missing}
@@ -438,7 +438,7 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
     n::Int
     k::Int
     d::Union{Int, Missing}
-    stabs::fq_nmod_mat
+    stabs::CTMatrixTypes
     charvec::Vector{nmod}
     signs::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
@@ -455,9 +455,9 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
     d::Union{Int, Missing}
     dx::Union{Int, Missing}
     dz::Union{Int, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
+    stabs::CTMatrixTypes
+    Xstabs::CTMatrixTypes
+    Zstabs::CTMatrixTypes
     Xorigcode::Union{LinearCode, Missing}
     ZorigCode::Union{LinearCode, Missing}
     signs::Vector{nmod}
@@ -484,17 +484,17 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
     d::Union{Integer, Missing}
     dx::Union{Integer, Missing}
     dz::Union{Integer, Missing}
-    stabs::fq_nmod_mat
-    Xstabs::fq_nmod_mat
-    Zstabs::fq_nmod_mat
+    stabs::CTMatrixTypes
+    Xstabs::CTMatrixTypes
+    Zstabs::CTMatrixTypes
     C1::Union{LinearCode, Missing}
     C2::Union{LinearCode, Missing}
     signs::Vector{nmod}
     Xsigns::Vector{nmod}
     Zsigns::Vector{nmod}
-    dualgens::fq_nmod_mat
+    dualgens::CTMatrixTypes
     logspace::Union{fq_nmod_mat, Missing}
-    logicals::Union{Vector{Tuple{fq_nmod_mat, fq_nmod_mat}}, Missing}
+    logicals::Union{Vector{Tuple{T, T}}, Missing} where T <: CTMatrixTypes
     charvec::Vector{nmod}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂

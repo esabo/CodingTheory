@@ -117,7 +117,7 @@ CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) = 
 
 Return a CSS code whose `X`-stabilizers are given by `Xmatrix`, `Z`-stabilizers by `Zmatrix`, and signs by `charvec`.
 """
-function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
+function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing) where T <: CTMatrixTypes
     iszero(Xmatrix) && throw(ArgumentError("The `X` stabilizer matrix is empty."))
     iszero(Zmatrix) && throw(ArgumentError("The `Z` stabilizer matrix is empty."))
     n = ncols(Xmatrix)
@@ -170,7 +170,7 @@ function StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::
             missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp, standardform, standr, perms)
     end
 end
-CSSCode(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing) =
+CSSCode(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing) where T <: CTMatrixTypes =
     StabilizerCodeCSS(Xmatrix, Zmatrix, charvec)
 
 """
@@ -276,7 +276,7 @@ end
 
 Return the stabilizer code whose stabilizers is determined by `S` and signs by `charvec`.
 """
-function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
+function StabilizerCode(S::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing)
     iszero(S) && throw(ArgumentError("The stabilizer matrix is empty."))
     S = _removeempty(S, :rows)
     aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
@@ -332,7 +332,7 @@ function StabilizerCode(S::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=mi
     end
 end
 
-function _logicals(stabs::fq_nmod_mat, dualgens::fq_nmod_mat)
+function _logicals(stabs::T, dualgens::T) where T <: CTMatrixTypes
     L = _quotientspace(dualgens, stabs)
     logs = _makepairs(L)
     # verify

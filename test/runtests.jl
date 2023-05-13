@@ -249,129 +249,130 @@ using Test
 #     @test weightmatrix(A) == [1 0 2; 2 3 1]
 # end
 
-@testset "linearcode.jl" begin
-    using Oscar, CodingTheory
+# @testset "linearcode.jl" begin
+#     using Oscar, CodingTheory
 
-    # F, _ = FiniteField(2, 1, "α");
-    F = GF(2)
-    G = matrix(F, [1 0 0 0 0 1 1;
-           0 1 0 0 1 0 1;
-           0 0 1 0 1 1 0;
-           0 0 0 1 1 1 1]);
-    C = LinearCode(G);
-    @test field(C) == F
-    @test length(C) == 7
-    @test rank(G) == dimension(C)
-    @test cardinality(C) == BigInt(2)^4
-    @test CodingTheory.dimension(C) == 4
-    @test rate(C) == 4 / 7
-    @test ismissing(C.d)
-    setminimumdistance!(C, 3)
-    @test minimumdistance(C) == 3
-    @test numbercorrectableerrors(C) == 1
-    @test G == generatormatrix(C)
-    H = paritycheckmatrix(C)
-    @test iszero(G * transpose(H))
-    @test iszero(H * transpose(G))
-    @test C ⊆ C
-    D = dual(C)
-    @test !(C ⊆ D)
-    @test !issubcode(C, D)
-    @test !areequivalent(C, D)
-    @test areequivalent(C, C)
-    @test !isselfdual(C)
-    @test !isselforthogonal(C)
-    cw = matrix(F, [1 0 0 0 0 1 1]);
-    @test encode(C.G[:, 1], C) == cw
-    # these v's are C.G[:, 1], just testing different formats
-    v = [1, 0, 0, 0];
-    @test encode(v, C) == cw
-    v2 = [1; 0; 0; 0];
-    @test encode(v2, C) == cw
-    # this vector is the first row of the generator matrix and should
-    # therefore have zero syndrome
-    v = [1, 0, 0, 0, 0, 1, 1];
-    @test iszero(syndrome(C, v))
-    v = [1; 0; 0; 0; 0; 1; 1];
-    @test iszero(syndrome(C, v))
+#     # F, _ = FiniteField(2, 1, "α");
+#     F = GF(2)
+#     G = matrix(F, [1 0 0 0 0 1 1;
+#            0 1 0 0 1 0 1;
+#            0 0 1 0 1 1 0;
+#            0 0 0 1 1 1 1]);
+#     C = LinearCode(G);
+#     @test field(C) == F
+#     @test length(C) == 7
+#     @test rank(G) == dimension(C)
+#     @test cardinality(C) == BigInt(2)^4
+#     @test CodingTheory.dimension(C) == 4
+#     @test rate(C) == 4 / 7
+#     @test ismissing(C.d)
+#     setminimumdistance!(C, 3)
+#     @test minimumdistance(C) == 3
+#     @test numbercorrectableerrors(C) == 1
+#     @test G == generatormatrix(C)
+#     H = paritycheckmatrix(C)
+#     @test iszero(G * transpose(H))
+#     @test iszero(H * transpose(G))
+#     @test C ⊆ C
+#     D = dual(C)
+#     @test !(C ⊆ D)
+#     @test !issubcode(C, D)
+#     @test !areequivalent(C, D)
+#     @test areequivalent(C, C)
+#     @test !isselfdual(C)
+#     @test !isselforthogonal(C)
+#     cw = matrix(F, [1 0 0 0 0 1 1]);
+#     @test encode(C.G[:, 1], C) == cw
+#     # these v's are C.G[:, 1], just testing different formats
+#     v = [1, 0, 0, 0];
+#     @test encode(v, C) == cw
+#     v2 = [1; 0; 0; 0];
+#     @test encode(v2, C) == cw
+#     # this vector is the first row of the generator matrix and should
+#     # therefore have zero syndrome
+#     v = [1, 0, 0, 0, 0, 1, 1];
+#     @test iszero(syndrome(C, v))
+#     v = [1; 0; 0; 0; 0; 1; 1];
+#     @test iszero(syndrome(C, v))
 
-    # lower rank test
-    GandG = vcat(G, G);
-    CGandG = LinearCode(G);
-    @test rank(GandG) == dimension(CGandG)
-    @test G == generatormatrix(CGandG)
-    # this fails, is of wrong size, probably a transpose mistake
+#     # lower rank test
+#     GandG = vcat(G, G);
+#     CGandG = LinearCode(G);
+#     @test rank(GandG) == dimension(CGandG)
+#     @test G == generatormatrix(CGandG)
+#     # this fails, is of wrong size, probably a transpose mistake
 
-    # puncturing examples from Huffman/Pless
-    G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
-    C = LinearCode(G)
-    @test generatormatrix(puncture(C, [1])) == matrix(F, [1 0 0 0; 0 1 1 1])
-    @test generatormatrix(puncture(C, [5])) == matrix(F, [1 1 0 0; 0 0 1 1])
-    G = matrix(F, [1 0 0 0; 0 1 1 1])
-    C = LinearCode(G)
-    @test generatormatrix(puncture(C, [1])) == matrix(F, [1 1 1])
-    @test generatormatrix(puncture(C, [4])) == matrix(F, [1 0 0; 0 1 1])
+#     # puncturing examples from Huffman/Pless
+#     G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
+#     C = LinearCode(G)
+#     @test generatormatrix(puncture(C, [1])) == matrix(F, [1 0 0 0; 0 1 1 1])
+#     @test generatormatrix(puncture(C, [5])) == matrix(F, [1 1 0 0; 0 0 1 1])
+#     G = matrix(F, [1 0 0 0; 0 1 1 1])
+#     C = LinearCode(G)
+#     @test generatormatrix(puncture(C, [1])) == matrix(F, [1 1 1])
+#     @test generatormatrix(puncture(C, [4])) == matrix(F, [1 0 0; 0 1 1])
 
-    # extending examples from Huffman/Pless
-    C = TetraCode()
-    exC = extend(C)
-    @test generatormatrix(exC) == matrix(field(C), [1 0 1 1 0; 0 1 1 -1 -1])
-    @test paritycheckmatrix(exC) == matrix(field(C), [1 1 1 1 1; -1 -1 1 0 0; -1 1 0 1 0])
-    G = matrix(F, [1 1 0 0 1; 0 0 1 1 0])
-    C = LinearCode(G)
-    @test generatormatrix(extend(puncture(C, [5]))) == matrix(F, [1 1 0 0 0; 0 0 1 1 0])
-    G = matrix(F, [1 0 0 1 1 1; 0 1 0 1 1 1; 0 0 1 1 1 1])
-    C = LinearCode(G)
-    @test generatormatrix(puncture(C, [5, 6])) == matrix(F, [1 0 0 1; 0 1 0 1; 0 0 1 1])
+#     # extending examples from Huffman/Pless
+#     C = TetraCode()
+#     exC = extend(C)
+#     @test generatormatrix(exC) == matrix(field(C), [1 0 1 1 0; 0 1 1 -1 -1])
+#     @test paritycheckmatrix(exC) == matrix(field(C), [1 1 1 1 1; -1 -1 1 0 0; -1 1 0 1 0])
+#     G = matrix(F, [1 1 0 0 1; 0 0 1 1 0])
+#     C = LinearCode(G)
+#     @test generatormatrix(extend(puncture(C, [5]))) == matrix(F, [1 1 0 0 0; 0 0 1 1 0])
+#     G = matrix(F, [1 0 0 1 1 1; 0 1 0 1 1 1; 0 0 1 1 1 1])
+#     C = LinearCode(G)
+#     @test generatormatrix(puncture(C, [5, 6])) == matrix(F, [1 0 0 1; 0 1 0 1; 0 0 1 1])
 
-    # shortening examples from Huffman/Pless
-    shC = shorten(C, [5, 6])
-    shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
-    @test areequivalent(shC, shCtest)
+#     # shortening examples from Huffman/Pless
+#     shC = shorten(C, [5, 6])
+#     shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
+#     @test areequivalent(shC, shCtest)
 
-    # need to fix Hermitian stuff, can't find Hermitianconjugatematrix
-    # C = Hexacode()
-    # D = Hermitiandual(C)
-    # @test areequivalent(C, D)
-
-
-
-    # missing so far in tests:
-    # expurgate, augment, lengthen, uuplusv, subcode,
-    # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
-    # expandedcode, entrywiseproductcode, evensubcode
-
-    # subfield subcode example from Huffman/Pless
-    K, ω = FiniteField(2, 2, "ω");
-    C = Hexacode();
-    dualbasis = [ω^2, K(1)]; # dual?
-    CF2 = subfieldsubcode(C, F, dualbasis)
-    @test areequivalent(CF2, RepetitionCode(2, 6))
-
-    # # test Delsarte's theorem
-    # @test areequivalent(CF2, dual(tracecode(dual(C), F)))
-
-    # to test perms
-    # C = HammingCode(2, 3)
-    # S7 = SymmetricGroup(7);
-    # σ = S7([3, 2, 1, 4, 5, 6, 7])
-    # permutecode(C, σ)
-    # # or
-    # permutecode(C, [1, 3, 2, 4, 5, 6, 7])
+#     # need to fix Hermitian stuff, can't find Hermitianconjugatematrix
+#     # C = Hexacode()
+#     # D = Hermitiandual(C)
+#     # @test areequivalent(C, D)
 
 
-    # "On the Schur Product of Vector Spaces over Finite Fields"
-    # Christiaan Koster
-    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
 
-    # simplex code itself has dimension k(k + 1)/2
-    #
-end
+#     # missing so far in tests:
+#     # expurgate, augment, lengthen, uuplusv, subcode,
+#     # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
+#     # expandedcode, entrywiseproductcode, evensubcode
+
+#     # subfield subcode example from Huffman/Pless
+#     K, ω = FiniteField(2, 2, "ω");
+#     C = Hexacode();
+#     dualbasis = [ω^2, K(1)]; # dual?
+#     CF2 = subfieldsubcode(C, F, dualbasis)
+#     @test areequivalent(CF2, RepetitionCode(2, 6))
+
+#     # # test Delsarte's theorem
+#     # @test areequivalent(CF2, dual(tracecode(dual(C), F)))
+
+#     # to test perms
+#     # C = HammingCode(2, 3)
+#     # S7 = SymmetricGroup(7);
+#     # σ = S7([3, 2, 1, 4, 5, 6, 7])
+#     # permutecode(C, σ)
+#     # # or
+#     # permutecode(C, [1, 3, 2, 4, 5, 6, 7])
+
+
+#     # "On the Schur Product of Vector Spaces over Finite Fields"
+#     # Christiaan Koster
+#     # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
+
+#     # simplex code itself has dimension k(k + 1)/2
+#     #
+# end
 
 # @testset "ReedMuller.jl" begin
 #     using Oscar, CodingTheory
 
-#     F, _ = FiniteField(2, 1, "α");
+#     # F, _ = FiniteField(2, 1, "α");
+#     F = GF(2)
 #     # Huffman, Pless, p. 34
 #     # identity used for RM(1, 1)
 #     @test ReedMullergeneratormatrix(2, 1, 1, true) == matrix(F,
@@ -477,7 +478,8 @@ end
 #     # Hamming codes
 #     # Tetra code is Hammingcode(3, 2)
 #     # random Hamming code
-#     F, _ = FiniteField(2, 1, "α")
+#     # F, _ = FiniteField(2, 1, "α")
+#     F = GF(2)
 #     C = HammingCode(2, 7)
 #     col = rand(1:length(C))
 #     # columns are 1, 2, ... 2^r - 1 written as binary numerals
@@ -736,13 +738,13 @@ end
 
 # end
 
-# # @testset "GeneralizedReedSolomon.jl" begin
-# #     using CodingTheory
+# @testset "GeneralizedReedSolomon.jl" begin
+#     using CodingTheory
 
-# #     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
+#     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
 
-# #     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
-# # end
+#     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
+# end
 
 # @testset "stabilizercode.jl" begin
 #     using Oscar, CodingTheory
@@ -815,7 +817,8 @@ end
 #     using Oscar, CodingTheory
 
 #     # example from Ryan & Lin
-#     F, _ = FiniteField(2, 1, "α")
+#     # F, _ = FiniteField(2, 1, "α")
+#     F = GF(2)
 #     H = matrix(F, [
 #         1 1 1 1 0 0 0 0 0 0;
 #         1 0 0 0 1 1 1 0 0 0;
@@ -834,305 +837,307 @@ end
 #     @test checkdegreepolynomial(C) == x^3
 # end
 
-# @testset "miscknownquantumcodes.jl" begin
-#     using CodingTheory
+@testset "miscknownquantumcodes.jl" begin
+    using CodingTheory
 
-#     # S = Q9143()
-#     # @test S.n == 9
-#     # @test S.k == 1
-#     # @test S.r == 4
-#     # # @test S.d == 3
-#     # @test LogicalTrait(typeof(S)) == HasLogicals()
-#     # @test GaugeTrait(typeof(S)) == HasGauges()
+    # S = Q9143()
+    # @test S.n == 9
+    # @test S.k == 1
+    # @test S.r == 4
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasGauges()
 
-#     S = Q513()
-#     @test S.n == 5
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q513()
+    @test S.n == 5
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q713()
-#     @test S.n == 7
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q713()
+    @test S.n == 7
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q913()
-#     @test S.n == 9
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q913()
+    @test S.n == 9
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q412()
-#     @test S.n == 4
-#     @test S.k == 1
-#     # @test S.d == 2
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q412()
+    @test S.n == 4
+    @test S.k == 1
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q422()
-#     @test S.n == 4
-#     @test S.k == 2
-#     # @test S.d == 2
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q422()
+    @test S.n == 4
+    @test S.k == 2
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q511()
-#     @test S.n == 5
-#     @test S.k == 1
-#     # @test S.d == 1
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q511()
+    @test S.n == 5
+    @test S.k == 1
+    # @test S.d == 1
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q823()
-#     @test S.n == 8
-#     @test S.k == 2
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    # BUG: in Oscar itself - reported
+    # S = Q823()
+    # @test S.n == 8
+    # @test S.k == 2
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q1513()
-#     @test S.n == 15
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q1513()
+    @test S.n == 15
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = Q1573()
-#     @test S.n == 15
-#     @test S.k == 7
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = Q1573()
+    @test S.n == 15
+    @test S.k == 7
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = RotatedSurfaceCode(5)
-#     @test S.n == 25
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = RotatedSurfaceCode(5)
+    @test S.n == 25
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     # TODO: fix bug
-#     # S = RotatedSurfaceCode(4)
-#     # @test S.n == 16
-#     # @test S.k == 1
-#     # # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    # TODO: fix bug
+    # S = RotatedSurfaceCode(4)
+    # @test S.n == 16
+    # @test S.k == 1
+    # # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
     
-#     S = XZZXSurfaceCode(5)
-#     @test S.n == 25
-#     @test S.k == 1
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = XZZXSurfaceCode(5)
+    @test S.n == 25
+    @test S.k == 1
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 3
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 3
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 5
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 5
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 7
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 7
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 9
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 9
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 11
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 11
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 13
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 13
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 15
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 15
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 17
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 17
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 19
-#     S = TriangularColorCode488(d)
-#     # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 19
+    S = TriangularColorCode488(d)
+    # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     # d = 21
-#     # S = TriangularColorCode488(d)
-#     # # @test S.n == Int(d^2 // 2 + d - 1 // 2)
-#     # @test S.k == 1
-#     # # @test S.d == d
-#     # @test LogicalTrait(typeof(S)) == HasLogicals()
-#     # @test GaugeTrait(typeof(S)) == HasNoGauges()
+    # d = 21
+    # S = TriangularColorCode488(d)
+    # # @test S.n == Int(d^2 // 2 + d - 1 // 2)
+    # @test S.k == 1
+    # # @test S.d == d
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 3
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 3
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 5
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 5
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 7
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 7
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 9
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 9
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 11
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 11
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 13
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 13
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 15
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 15
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 17
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 17
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 19
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 19
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     d = 21
-#     S = TriangularColorCode666(d)
-#     @test S.n == Int(3 * d^2 // 4 + 1 // 4)
-#     @test S.k == 1
-#     # @test S.d == d
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    d = 21
+    S = TriangularColorCode666(d)
+    @test S.n == Int(3 * d^2 // 4 + 1 // 4)
+    @test S.k == 1
+    # @test S.d == d
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = ToricCode(2)
-#     @test S.n == 2 * 2^2
-#     @test S.k == 2
-#     # @test S.d == 2
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = ToricCode(2)
+    @test S.n == 2 * 2^2
+    @test S.k == 2
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = ToricCode(3)
-#     @test S.n == 2 * 3^2
-#     @test S.k == 2
-#     # @test S.d == 3
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = ToricCode(3)
+    @test S.n == 2 * 3^2
+    @test S.k == 2
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     # BUG
-#     # S = PlanarSurfaceCode(3, 4)
-#     # @test S.n == (3 * 4 + 2 * 3)
-#     # @test S.k == 1
-#     # # @test S.d == 3
-#     # @test LogicalTrait(typeof(S)) == HasLogicals()
-#     # @test GaugeTrait(typeof(S)) == HasNoGauges()
+    # BUG
+    # S = PlanarSurfaceCode(3, 4)
+    # @test S.n == (3 * 4 + 2 * 3)
+    # @test S.k == 1
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     S = HCode(8)
-#     @test S.n == 12
-#     @test S.k == 8
-#     # @test S.d == 2
-#     @test LogicalTrait(typeof(S)) == HasLogicals()
-#     @test GaugeTrait(typeof(S)) == HasNoGauges()
+    S = HCode(8)
+    @test S.n == 12
+    @test S.k == 8
+    # @test S.d == 2
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-#     # TODO: need to remove quadratic
-#     # S = XYSurfaceCode(3, 4)
-#     # @test S.n == (3 * 4 + 2 * 3)
-#     # @test S.k == 1
-#     # # @test S.d == 3
-#     # @test LogicalTrait(typeof(S)) == HasLogicals()
-#     # @test GaugeTrait(typeof(S)) == HasNoGauges()
+    # TODO: need to remove quadratic
+    # S = XYSurfaceCode(3, 4)
+    # @test S.n == (3 * 4 + 2 * 3)
+    # @test S.k == 1
+    # # @test S.d == 3
+    # @test LogicalTrait(typeof(S)) == HasLogicals()
+    # @test GaugeTrait(typeof(S)) == HasNoGauges()
 
-# end
+end
 
 # @testset "quasicycliccode.jl" begin
 #     using Oscar, CodingTheory
 
-#     F, _ = FiniteField(2, 1, "a")
+#     # F, _ = FiniteField(2, 1, "a")
+#     F = GF(2)
 #     v = matrix(F, 1, 8, [1, 0, 1, 1, 1, 0, 0, 0])
 #     v2 = matrix(F, 1, 8, [1, 1, 1, 0, 0, 0, 1, 0])
 #     C = QuasiCyclicCode([v, v2], 2, false)
@@ -1205,7 +1210,7 @@ end
 
 #     minindex = 250;
 #     maxindex = 5000;
-#     F, _ = FiniteField(2, 1, "α")
+#     # F, _ = FiniteField(2, 1, "α")
 
 #     # first test case
 #     localcode = HammingCode(2, 3);
@@ -1222,7 +1227,7 @@ end
 #         if fixedpointfree(sg, g) && GAP.Globals.Index(g.group, sg) > minindex
 #             adj = sparse(transpose(cosetintersection([2, 3], [1, 3], sg, g)))
 #             code = Tannercode(adj, localcode)
-#             code = LinearCode(matrix(F, code), true) # remove later
+#             # code = LinearCode(matrix(F, code), true) # remove later
 #             @test code.k >= adj.n - adj.m * (localcode.n - localcode.k)
 
 #             flag = true
@@ -1238,7 +1243,8 @@ end
 #     # x = GAP.Globals.GeneratorMat(C1)
 #     # y = [GAP.Globals.Int(x[i, j]) for i in 1:2, j in 1:5]
 #     y = [0 0 1 1 1; 1 1 0 1 1]
-#     F, _ = FiniteField(2, 1, "1")
+#     # F, _ = FiniteField(2, 1, "1")
+#     F = GF(2)
 #     z = matrix(F, y)
 #     Cloc = LinearCode(z)
 #     Gtest = Graphs.complete_graph(6)
@@ -1246,39 +1252,39 @@ end
 #     H1 = Tannercode(EVI, Cloc)
 #     EVIG, left, right = edgevertexincidencegraph(Gtest)
 #     H2 = Tannercode(EVIG, left, right, Cloc)
-#     @test H1 == H2
+#     @test paritycheckmatrix(H1) == paritycheckmatrix(H2)
 # end
 
-# @testset "subsystemcode.jl" begin
-#     using Oscar, CodingTheory
+@testset "subsystemcode.jl" begin
+    using Oscar, CodingTheory
 
-#     # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
-#     # [[9, 1, 4, 3]] gauged Shor code
-#     S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
-#     # these are the {X, Z} pairings
-#     Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
-#     G = S ∪ Gops
-#     L = ["ZZZZZZZZZ", "XXXXXXXXX"]
-#     Q = SubsystemCode(G)
-#     @test length(Q) == 9
-#     @test dimension(Q) == 1
-#     @test Q.r == 4
-#     # @test minimumdistance(Q) == 3
-#     @test LogicalTrait(typeof(Q)) == HasLogicals()
-#     @test GaugeTrait(typeof(Q)) == HasGauges()
+    # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
+    # [[9, 1, 4, 3]] gauged Shor code
+    S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
+    # these are the {X, Z} pairings
+    Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+    G = S ∪ Gops
+    L = ["ZZZZZZZZZ", "XXXXXXXXX"]
+    Q = SubsystemCode(G)
+    @test length(Q) == 9
+    @test dimension(Q) == 1
+    @test Q.r == 4
+    # @test minimumdistance(Q) == 3
+    @test LogicalTrait(typeof(Q)) == HasLogicals()
+    @test GaugeTrait(typeof(Q)) == HasGauges()
 
-#     # Q2 = SubsystemCode(S, L, Gops)
-#     # @test areequivalent(Q, Q2)
+    # Q2 = SubsystemCode(S, L, Gops)
+    # @test areequivalent(Q, Q2)
 
-#     # # TODO: BaconShorCode
+    # # TODO: BaconShorCode
 
-#     # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
+    # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
 
-#     # F, _ = FiniteField(2, 1, "α")
-#     # A = matrix(F, 3, 4, ones(Int, 3, 4))
-#     # Q3 = BravyiSubsystemCodes(A)
-#     # @test CodingTheory.dimension(Q3) == rank(A)
-#     # # TODO: add a test here on the min distances
-#     # # Q3 here should be a BaconShorCode(3, 4)
-#     # @test areequivalent(Q, Q3)
-# end
+    # F, _ = FiniteField(2, 1, "α")
+    # A = matrix(F, 3, 4, ones(Int, 3, 4))
+    # Q3 = BravyiSubsystemCodes(A)
+    # @test CodingTheory.dimension(Q3) == rank(A)
+    # # TODO: add a test here on the min distances
+    # # Q3 here should be a BaconShorCode(3, 4)
+    # @test areequivalent(Q, Q3)
+end

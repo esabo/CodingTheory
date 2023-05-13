@@ -29,7 +29,7 @@ function ==(W1::WeightEnumerator, W2::WeightEnumerator)
 end
 
 # TODO: test with other iterator
-function _weightenumeratorBF(G::fq_nmod_mat)
+function _weightenumeratorBF(G::CTMatrixTypes)
     E = base_ring(G)
     ordE = Int(order(E))
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
@@ -397,7 +397,7 @@ end
 
 # TODO: this does not produce the optimal set of matrices
 # see section 7.3 of White's thesis for comments on this
-function _getinformationsets(G::fq_nmod_mat, alg::String)
+function _getinformationsets(G::CTMatrixTypes, alg::String)
     # alg ∈ ["Brouwer", "Zimmermann", "White", "Chen"] || throw(ArgumentError("Expected 'Brouwer', 'Zimmermann', or 'White'."))
     nr, nc = size(G)
     genmats = []
@@ -689,7 +689,7 @@ function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose:
         end
     end
 
-    W = Set{fq_nmod_mat}()
+    W = Set{typeof(G)}()
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
             lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
@@ -709,7 +709,7 @@ function wordsofweight(C::AbstractLinearCode, lbound::Int, ubound::Int, verbose:
             return W
         end
 
-        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Ws = [Set{typeof(G)}() for _ in 1:numthrds]
         Threads.@threads for m in 1:numthrds
             c = zeros(Int, C.n)
             prefix = digits(m - 1, base=2, pad=power)
@@ -792,7 +792,7 @@ function _wordsofweighthigh(C::AbstractLinearCode, lbound::Int, ubound::Int, ver
         end
     end
 
-    W = Set{fq_nmod_mat}()
+    W = Set{typeof(G)}()
     for r in C.k:-1:1
         if typeof(C) <: AbstractCyclicCode
             upper = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
@@ -812,7 +812,7 @@ function _wordsofweighthigh(C::AbstractLinearCode, lbound::Int, ubound::Int, ver
             return W
         end
 
-        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Ws = [Set{typeof(G)}() for _ in 1:numthrds]
         Threads.@threads for m in 1:numthrds
             c = zeros(Int, C.n)
             prefix = digits(m - 1, base=2, pad=power)
@@ -951,7 +951,7 @@ function minimumwords(C::AbstractLinearCode)
         end
     end
 
-    W = Set{fq_nmod_mat}()
+    W = Set{typeof(G)}()
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
             lower = _lowerbounds(r, C.n, C.k, 0, [0], "Chen")
@@ -974,7 +974,7 @@ function minimumwords(C::AbstractLinearCode)
         end
 
         uppers = [upper for _ in 1:numthrds]
-        Ws = [Set{fq_nmod_mat}() for _ in 1:numthrds]
+        Ws = [Set{typeof(G)}() for _ in 1:numthrds]
         Threads.@threads for m in 1:numthrds
             c = zeros(Int, C.n)
             prefix = digits(m - 1, base=2, pad=power)
@@ -990,7 +990,7 @@ function minimumwords(C::AbstractLinearCode)
                         if w < uppers[m]
                             uppers[m] = w
                             verbose && println("Adjusting upper bound: $upper")
-                            Ws[m] = Set{fq_nmod_mat}()
+                            Ws[m] = Set{typeof(G)}()
                         end
                         # TODO: this is very expensive just to get erased
                         # maybe keep perms[m] and adjust outside loop
@@ -1005,7 +1005,7 @@ function minimumwords(C::AbstractLinearCode)
         loc = argmin(uppers)
         if upper > uppers[loc]
             upper = uppers[loc]
-            W = Set{fq_nmod_mat}()
+            W = Set{typeof(G)}()
         end
         for m in 1:numthrds
             if uppers[m] == upper
@@ -1374,7 +1374,7 @@ end
 #############################
 
 # TODO: test with other iterator
-function _weightenumeratorBFQ(G::fq_nmod_mat, charvec::Vector{nmod},
+function _weightenumeratorBFQ(G::CTMatrixTypes, charvec::Vector{nmod},
     R::Union{AbstractAlgebra.Generic.MPolyRing{nf_elem}, Missing})
     # this should be the quadratic extension field
     E = base_ring(G)

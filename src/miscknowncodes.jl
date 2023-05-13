@@ -15,8 +15,10 @@
 
 Return the `[n, 1, n]` repetition code over `GF(q)`.
 """
+# TODO: factor and decide on field constructor
 function RepetitionCode(q::Int, n::Int)
     F, _ = FiniteField(q, 1, "α")
+    # F = GF(2)
     G = matrix(F, 1, n, [1 for i in 1:n])
     M2 = MatrixSpace(F, n - 1, 1)
     M3 = MatrixSpace(F, n - 1, n - 1)
@@ -61,7 +63,8 @@ function HammingCode(q::Int, r::Int)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     if q == 2
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
         H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
@@ -93,7 +96,8 @@ Return the `[4, 2, 3]` tetra code over `GF(3)`.
   based on the commonly presented generator and parity-check matrices.
 """
 function TetraCode()
-    F, _ = FiniteField(3, 1, "α")
+    # F, _ = FiniteField(3, 1, "α")
+    F = GF(3)
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
     Gstand, Hstand, P, rnk = _standardform(G)
@@ -132,7 +136,8 @@ function SimplexCode(q::Int, r::Int)
     q > 2 && return dual(HammingCode(q, r))
 
     # binary simplex codes
-    F, _ = FiniteField(2, 1, "α");
+    # F, _ = FiniteField(2, 1, "α");
+    F = GF(2)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
         C = LinearCode(G2)
@@ -169,7 +174,8 @@ extended ternary Golay code if `p == 3`.
 """
 function ExtendedGolayCode(p::Int)
     if p == 2
-        F, _ = FiniteField(2, 1, "α")
+        # F, _ = FiniteField(2, 1, "α")
+        F = GF(2)
         M = MatrixSpace(F, 12 , 12)
         A = M([0 1 1 1 1 1 1 1 1 1 1 1;
              1 1 1 0 1 1 1 0 0 0 1 0;
@@ -191,7 +197,8 @@ function ExtendedGolayCode(p::Int)
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
         return LinearCode(F, 24, 12, 8, 8, 8, G, H, Gstand, Hstand, P, wtenum)
     elseif p == 3
-        F, _ = FiniteField(3, 1, "α")
+        # F, _ = FiniteField(3, 1, "α")
+        F = GF(3)
         M = MatrixSpace(F, 6 , 6)
         A = M([0 1 1 1 1 1;
                1 0 1 -1 -1 1;
@@ -252,7 +259,7 @@ end
 # function HadamardCode(m)
 #     m < 64 || error("This Hadamard code requires the implmentation of BigInts. Change if necessary.")
 #
-#     F, _ = FiniteField(2, 1, "α")
+#     F = GF(2)
 #     G ...
 #     C = LinearCode(G)
 #     R, vars = PolynomialRing(Nemo.ZZ, 2)
