@@ -256,22 +256,65 @@ function FpmattoJulia(M::CTMatrixTypes)
 end
 FpmattoJulia(M::fpMatrix) = data.(M)
 
-function _quotientspace(big::CTMatrixTypes, small::CTMatrixTypes)
-    F = base_ring(big)
-    V = VectorSpace(F, ncols(big))
-    U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
-    W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
-    gensofUinW = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
-    # gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
-    Threads.@threads for i in 1:length(gens(U))
-        gensofUinW[i] = preimage(WtoV, UtoV(gens(U)[i]))
+function _nonpivotcols(A::CTMatrixTypes, type::Symbol=:nsp)
+    type ∈ [:sp, :nsp]
+    if type == :sp
+        return setdiff(collect(1:ncols(A)), [x.pos[1] for x in A])
+    else #if type == :nsp - not sparse
+        nonpivots = Vector{Int}()
+        i = 1
+        j = 1
+        nr, nc = size(A)
+        while i <= nr && j <= nc
+            if isone(A[i, j])
+                i += 1
+                j += 1
+            else
+                push!(nonpivots, j)
+                j += 1
+            end
+        end
+        append!(nonpivots, j:nc)
+        return nonpivots
     end
-    UinW, _ = sub(W, gensofUinW)
-    Q, WtoQ = quo(W, UinW)
-    iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
-    C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
-    Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
-    return matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
+end
+
+function _quotientspace(big::T, small::T, alg::Symbol=:syseqs) where T <: CTMatrixTypes
+    alg ∈ [:VS, :syseqs] || throw(ArgumentError("Unknown algorithm type"))
+
+    if alg == :VS
+        F = base_ring(big)
+        V = VectorSpace(F, ncols(big))
+        U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
+        W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
+        gensofUinW = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
+        # gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
+        Threads.@threads for i in 1:length(gens(U))
+            gensofUinW[i] = preimage(WtoV, UtoV(gens(U)[i]))
+        end
+        UinW, _ = sub(W, gensofUinW)
+        Q, WtoQ = quo(W, UinW)
+        iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
+        C2modC1basis = [WtoV(x) for x in [preimage(WtoQ, g) for g in gens(Q)]]
+        Fbasis = [[F(C2modC1basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2modC1basis[1]))] for j in 1:length(C2modC1basis)]
+        return matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
+    else
+        # solve the system x big = small
+        # sol contains the way to write the rows of small in terms of the rows of big
+        # if big is of the form (big = small ∪ (big / small)), then this will have zeros for the rows
+        # corresponding to the basis of the quotient
+        # in the general case, anything without a pivot in the row reduction is not required to make
+        # the elements of small and therefore lie in the quotient space
+        flag, sol = can_solve_with_solution(big, small, side=:left)
+        !flag && error("Cannot solve system for quotient")
+        _, rrefsol = rref(sol)
+        if typeof(rrefsol) <: SMat{W, Vector{W}} where W <: CTFieldElem
+            nonpivots = _nonpivotcols(rrefsol, :sp)
+            return reduce(vcat, [big[r, :] for r in nonpivots])
+        else
+            return big[_nonpivotcols(rrefsol, :nsp), :]
+        end
+    end
 end
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
