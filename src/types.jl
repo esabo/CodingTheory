@@ -311,6 +311,7 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
     overcomplete::Bool
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
   
@@ -330,6 +331,7 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
     overcomplete::Bool
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
 
@@ -362,6 +364,7 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
     pure::Union{Bool, Missing}
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
   
@@ -382,6 +385,7 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
     pure::Union{Bool, Missing}
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
 
@@ -404,6 +408,7 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
     gopsmat::CTMatrixTypes
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
   
@@ -430,6 +435,7 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     gopsmat::CTMatrixTypes
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
   
@@ -445,6 +451,7 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
     overcomplete::Bool
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
   
@@ -468,6 +475,7 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
     overcomplete::Bool
     stabsstand::CTMatrixTypes
     standr::Int
+    standk::Int
     Pstand::Union{CTMatrixTypes, Missing}
 end
 

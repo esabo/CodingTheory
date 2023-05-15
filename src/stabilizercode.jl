@@ -20,7 +20,10 @@ and `C2 = [n, k2, d2]` with `C2 ⊆ C1` and whose signs by `charvec`.
   `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
   of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 """
-function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
+function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm)
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     C2 ⊆ C1 || throw(ArgumentError("The second argument must be a subset of the first in the CSS construction."))
     p = Int(characteristic(C1.F))
     charvec = _processcharvec(charvec, p, C1.n)
@@ -30,34 +33,33 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charv
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
     D2 = dual(C2)
-    S = directsum(D2.H, C1.H)
-    logs, logsmat = _logicals(S, directsum(C1.G, D2.G))
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
-
-    # determine signs
-    signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(D2.H), nrows(C1.H))
+    stabs = directsum(D2.H, C1.H)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, C1.n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            logs, logsmat = _logicals(stabs, directsum(C1.G, D2.G), logsalg)
+        end
+    end
+    signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(D2.H), nrows(C1.H))
 
     # q^n / p^k but rows is n - k
-    rkS = rank(S)
-    if rkS != C1.n
-        dimcode = BigInt(order(C1.F))^C1.n // BigInt(p)^rkS
+    if !iszero(standk)
+        dimcode = BigInt(order(C1.F))^C1.n // BigInt(p)^rnk
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, S, D2.H, C1.H,
+        return StabilizerCodeCSS(C1.F, C1.n, dimcode, missing, missing, missing, stabs, D2.H, C1.H,
             C2, C1, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing,
-            false, missing, standardform, standr, perms)
+            false, missing, stabsstand, standr, standk, Pstand)
     else
-        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, S, D2.H, C1.H, C2, C1,
-            signs, Xsigns, Zsigns, charvec, missing, false, standardform, standr, perms)
+        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, stabs, D2.H, C1.H, C2, C1,
+            signs, Xsigns, Zsigns, charvec, missing, false, stabsstand, standr, standk, Pstand)
     end
 end
-CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) =
-    StabilizerCodeCSS(C1, C2, charvec)
+CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) = StabilizerCodeCSS(C1, C2, charvec, logsalg)
 
 """
     StabilizerCodeCSS(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
@@ -71,7 +73,10 @@ Return the CSS code given by the CSS construction on a self-orthogonal linear co
   and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the
   parity-check matrix of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 """
-function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
+function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm)
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     # this should have Xstabs = Zstabs
     D = dual(C)
     C ⊆ D || throw(ArgumentError("The single code CSS construction requires C ⊆ C^⟂."))
@@ -82,34 +87,34 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     # k = k1 - k2
     # d >= minimum(d1, d2^⟂)
     # X - H(C2^⟂), Z - H(C1)
-    S = directsum(D.H, D.H)
-    logs, logsmat = _logicals(S, directsum(D.G, D.G))
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
-
-    # determine signs
+    stabs = directsum(D.H, D.H)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, C.n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            logs, logsmat = _logicals(stabs, directsum(D.G, D.G), logsalg)
+        end
+    end
     nr = nrows(D.H)
-    signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nr, nr)
+    signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nr, nr)
 
     # q^n / p^k but rows is n - k
-    rkS = rank(S)
-    if rkS != D.n
-        dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rkS
+    if !iszero(standk)
+        dimcode = BigInt(order(D.F))^D.n // BigInt(p)^rnk
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(D.F, D.n, dimcode, missing, missing, missing, S, D.H, D.H, C,
+        return StabilizerCodeCSS(D.F, D.n, dimcode, missing, missing, missing, stabs, D.H, D.H, C,
             D, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing, missing, false,
-            missing, standardform, standr, perms)
+            missing, stabsstand, standr, standk, Pstand)
     else
-        return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, S, D.H, D.H, C, D, signs,
-            Xsigns, Zsigns, charvec, missing, false, standardform, standr, perms)
+        return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, stabs, D.H, D.H, C, D, signs,
+            Xsigns, Zsigns, charvec, missing, false, stabsstand, standr, standk, Pstand)
     end
 end
-CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) = StabilizerCodeCSS(C, charvec)
+CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) = StabilizerCodeCSS(C, charvec, logsalg)
 
 """
     StabilizerCodeCSS(Xmatrix::fq_nmod_mat, Zmatrix::fq_nmod_mat, charvec::Union{Vector{nmod}, Missing}=missing)
@@ -117,7 +122,10 @@ CSSCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing) = 
 
 Return a CSS code whose `X`-stabilizers are given by `Xmatrix`, `Z`-stabilizers by `Zmatrix`, and signs by `charvec`.
 """
-function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing) where T <: CTMatrixTypes
+function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     iszero(Xmatrix) && throw(ArgumentError("The `X` stabilizer matrix is empty."))
     iszero(Zmatrix) && throw(ArgumentError("The `Z` stabilizer matrix is empty."))
     n = ncols(Xmatrix)
@@ -134,46 +142,43 @@ function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, 
     # determine if the provided set of stabilizers are redundant
     Xrank = rank(Xmatrix)
     Zrank = rank(Zmatrix)
-    if nrows(Xmatrix) > Xrank || nrows(Zmatrix) > Zrank
-        overcomp = true
-    else
-        overcomp = false
+    nrows(Xmatrix) > Xrank || nrows(Zmatrix) > Zrank ? (overcomp = true) : (overcomp = false)
+    stabs = directsum(Xmatrix, Zmatrix)
+
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            # find generators for S^⟂
+            # note the H here is transpose of the standard definition
+            _, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+            H = _removeempty(transpose(H), :rows)
+            # n + (n - Srank)
+            nrows(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
+            logs, logsmat = _logicals(stabs, H)
+        end
     end
-
-    S = directsum(Xmatrix, Zmatrix)
-    signs, Xsigns, Zsigns = _determinesignsCSS(S, charvec, nrows(Xmatrix), nrows(Zmatrix))
-
-    # find generators for S^⟂
-    # note the H here is transpose of the standard definition
-    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    H = _removeempty(transpose(H), :rows)
-    # n + (n - Srank)
-    nrows(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, H)
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
+    signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(Xmatrix), nrows(Zmatrix))
 
     # q^n / p^k but rows is n - k
-    rkS = Xrank + Zrank
-    if rkS != n
-        dimcode = BigInt(order(F))^n // BigInt(p)^rkS
+    if !iszero(standk)
+        dimcode = BigInt(order(F))^n // BigInt(p)^rnk
         isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-        return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, Xmatrix, Zmatrix,
+        return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, stabs, Xmatrix, Zmatrix,
             missing, missing, signs, Xsigns, Zsigns, logs, logsmat, charvec, missing, missing,
-            missing, overcomp, missing, standardform, standr, perms)
+            missing, overcomp, missing, stabsstand, standr, standk, Pstand)
     else
-        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, Xmatrix, Zmatrix,
-            missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp, standardform, standr, perms)
+        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, Xmatrix, Zmatrix,
+            missing, missing, signs, Xsigns, Zsigns, charvec, missing, overcomp, stabsstand, standr,
+            standk, Pstand)
     end
 end
-CSSCode(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing) where T <: CTMatrixTypes =
-    StabilizerCodeCSS(Xmatrix, Zmatrix, charvec)
+CSSCode(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes = StabilizerCodeCSS(Xmatrix, Zmatrix, charvec, logsalg)
 
 """
     StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
@@ -185,65 +190,64 @@ Return the CSS code whose stabilizers are determined by the vector of Pauli stri
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
-    S = _Paulistringtosymplectic(_processstrings(SPauli))
-    iszero(S) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
-    S = _removeempty(S, :rows)
+function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: Union{String, Vector{Char}}
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    stabs = _Paulistringtosymplectic(_processstrings(SPauli))
+    iszero(stabs) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
+    stabs = _removeempty(stabs, :rows)
     # the reason we repeat here and not call another constructor is the else
     # statement at the bottom of this function
     # would also need to compute down to signs to call _isCSSsymplectic
     # which would allow us to call the other constructor
-    aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
-    n = div(ncols(S), 2)
-
-    F = base_ring(S)
-    p = Int(characteristic(F))
-    charvec = _processcharvec(charvec, p, 2 * n)
-    signs = _determinesigns(S, charvec)
+    aresymplecticorthogonal(stabs, stabs) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
     
-    # determine if the provided set of stabilizers are redundant
-    rkS = rank(S)
-    if nrows(S) > rkS
-        overcomp = true
-    else
-        overcomp = false
+    n = div(ncols(stabs), 2)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            # find generators for S^⟂
+            # note the H here is transpose of the standard definition
+            _, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+            H = _removeempty(transpose(H), :rows)
+            # n + (n - Srank)
+            nrows(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
+            logs, logsmat = _logicals(stabs, H)
+        end
     end
 
-    # find generators for S^⟂
-    # note the H here is transpose of the standard definition
-    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    H = _removeempty(transpose(H), :rows)
-    # n + (n - rkS)
-    nrows(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, H)
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
+    F = base_ring(stabs)
+    p = Int(characteristic(F))
+    charvec = _processcharvec(charvec, p, 2 * n)
+    signs = _determinesigns(stabs, charvec)
+    nrows(stabs) > rnk ? (overcomp = true) : (overcomp = false)
 
     # q^n / p^k but rows is n - k
-    args = _isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(stabs, signs, true)
     if args[1]
-        if rkS != n
+        if !iszero(standk)
             dimcode = BigInt(order(F))^n // BigInt(p)^rkS
             isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
+            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, stabs, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
-                missing, missing, missing, overcomp, missing, standardform, standr, perms)
+                missing, missing, missing, overcomp, missing, stabsstand, standr, standk, Pstand)
         else
-            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, standardform, standr, perms)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, stabsstand,
+                standr, standk, Pstand)
         end
     else
         error("Provided Pauli strings are not CSS.")
     end
 end
-CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String,
-    Vector{Char}} = StabilizerCodeCSS(SPauli, charvec)
+CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: Union{String, Vector{Char}} = StabilizerCodeCSS(SPauli, charvec, logsalg)
 
 """
     StabilizerCodeCSS(S::StabilizerCode)
@@ -251,12 +255,12 @@ CSSCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where 
 
 Return the `[[2n, 2k, S.d <= d <= 2 S.d]]` CSS code derived by splitting the stabilizers of `S`.
 """
-function StabilizerCodeCSS(S::StabilizerCode)
+function StabilizerCodeCSS(S::StabilizerCode, logsalg::Symbol=:stndfrm)
 	X = S.stabs[:, 1:S.n]
 	Z = S.stabs[:, S.n + 1:end]
-	return StabilizerCodeCSS(X, Z, S.charvec)
+	return StabilizerCodeCSS(X, Z, S.charvec, logsalg)
 end
-CSSCode(S::StabilizerCode) = StabilizerCodeCSS(S)
+CSSCode(S::StabilizerCode, logsalg::Symbol=:stndfrm) = StabilizerCodeCSS(S, logsalg)
 
 # entanglement-assisted is not symplectic orthogonal
 """
@@ -268,11 +272,13 @@ Return the stabilizer code whose stabilizers are determined by the vector of Pau
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+function StabilizerCode(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: Union{String, Vector{Char}}
+
     SPaulistripped = _processstrings(SPauli)
-    S = _Paulistringtosymplectic(SPaulistripped)
-    iszero(S) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
-    return StabilizerCode(S, charvec)
+    stabs = _Paulistringtosymplectic(SPaulistripped)
+    iszero(stabs) && throw(ArgumentError("The processed Pauli strings returned a set of empty stabilizer generators."))
+    return StabilizerCode(stabs, charvec, logsalg)
 end
 
 """
@@ -280,66 +286,66 @@ end
 
 Return the stabilizer code whose stabilizers is determined by `S` and signs by `charvec`.
 """
-function StabilizerCode(S::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing)
-    iszero(S) && throw(ArgumentError("The stabilizer matrix is empty."))
-    S = _removeempty(S, :rows)
-    aresymplecticorthogonal(S, S) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
+function StabilizerCode(stabs::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm)
 
-    F = base_ring(S)
-    p = Int(characteristic(F))
-    n = div(ncols(S), 2)
-    charvec = _processcharvec(charvec, p, n)
-    signs = _determinesigns(S, charvec)
-
-    # determine if the provided set of stabilizers are redundant
-    rkS = rank(S)
-    if nrows(S) > rkS
-        overcomp = true
-    else
-        overcomp = false
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    iszero(stabs) && throw(ArgumentError("The stabilizer matrix is empty."))
+    stabs = _removeempty(stabs, :rows)
+    aresymplecticorthogonal(stabs, stabs) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
+    
+    n = div(ncols(stabs), 2)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            _, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+            H = _removeempty(transpose(H), :rows)
+            # n + (n - Srank)
+            nrows(H) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
+            logs, logsmat = _logicals(stabs, H)
+        end
     end
 
-    # find generators for S^⟂
-    # note the H here is transpose of the standard definition
-    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    H = _removeempty(transpose(H), :rows)
-    # n + (n - rkS)
-    nrows(H) == 2 * n - rkS || error("Normalizer matrix is not size n + k.")
-    logs, logsmat = _logicals(S, H)
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
+    F = base_ring(stabs)
+    p = Int(characteristic(F))
+    charvec = _processcharvec(charvec, p, n)
+    signs = _determinesigns(stabs, charvec)
+    nrows(stabs) > rnk ? (overcomp = true) : (overcomp = false)
 
     # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(F))^n // BigInt(p)^rkS
+    dimcode = BigInt(order(F))^n // BigInt(p)^rnk
     isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-    args = _isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(stabs, signs, true)
     if args[1]
-        if rkS != n
-            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, S, args[2],
+        if !iszero(standk)
+            return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, stabs, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logsmat, charvec,
-                missing, missing, missing, overcomp, missing, standardform, standr, perms)
+                missing, missing, missing, overcomp, missing, stabsstand, standr, standk, Pstand)
         else
-            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, S, args[2],
-                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, standardform, standr, perms)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
+                args[4], missing, missing, signs, args[3], args[5], charvec, missing, overcomp, stabsstand,
+                standr, standk, Pstand)
         end
     else
-        if rkS != n
-            return StabilizerCode(F, n, dimcode, missing, S, logs, logsmat, charvec, signs, missing,
-                missing, missing, overcomp, missing, standardform, standr, perms)
+        if !iszero(standk)
+            return StabilizerCode(F, n, dimcode, missing, stabs, logs, logsmat, charvec, signs, missing,
+                missing, missing, overcomp, missing, stabsstand, standr, standk, Pstand)
         else
-            return GraphState(F, n, 0, missing, S, charvec, signs, missing, overcomp, standardform, standr, perms)
+            return GraphStateStabilizer(F, n, 0, missing, stabs, charvec, signs, missing, overcomp, stabsstand,
+                standr, standk, Pstand)
         end
     end
 end
 
-function _logicals(stabs::T, dualgens::T) where T <: CTMatrixTypes
-    L = _quotientspace(dualgens, stabs)
+function _logicals(stabs::T, dualgens::T, logsalgs::Symbol=:syseqs) where T <: CTMatrixTypes
+    logsalg ∈ [:syseqs, :VS] || throw(ArgumentError("Unrecognized logicals algorithm"))
+
+    L = _quotientspace(dualgens, stabs, logsalgs)
     logs = _makepairs(L)
     # verify
     n = div(ncols(L), 2)

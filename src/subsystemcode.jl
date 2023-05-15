@@ -316,11 +316,71 @@ Zsigns(::IsCSS, S::AbstractSubsystemCode) = S.Zsigns
 Zsigns(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    stabilizers(S::AbstractSubsystemCode)
+    stabilizers(S::AbstractSubsystemCode, standform::Bool=false)
 
 Return the stabilizer matrix of the code.
+
+# Notes
+* If the optional parameter `standform` is set to `true`, the standard form of the
+  stabilizer matrix is returned instead.
 """
-stabilizers(S::AbstractSubsystemCode) = S.stabs
+stabilizers(S::AbstractSubsystemCode, standform::Bool=false) = standform ? (return S.stabsstand) : (return S.stabs)
+
+"""
+    standardformA(S::AbstractSubsystemCode)
+
+Return the named matrix `A` from the standard form of the stabilizer matrix.
+"""
+standardformA(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, S.standr + 1:S.n]
+
+"""
+    standardformA1(S::AbstractSubsystemCode)
+    
+Return the named matrix `A1` from the standard form of the stabilizer matrix.
+"""
+standardformA1(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, S.standr + 1:S.n - S.standk]
+
+"""
+    standardformA2(S::AbstractSubsystemCode)
+    
+Return the named matrix `A2` from the standard form of the stabilizer matrix.
+"""
+standardformA2(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, S.n - S.standk + 1:S.n]
+
+"""
+    standardformB(S::AbstractSubsystemCode)
+    
+Return the named matrix `B` from the standard form of the stabilizer matrix.
+"""
+standardformB(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, S.n + 1:S.n + S.standr]
+
+"""
+    standardformC1(S::AbstractSubsystemCode)
+    
+Return the named matrix `C1` from the standard form of the stabilizer matrix.
+"""
+standardformC1(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, S.n + S.standr + 1:2 * S.n - S.standk]
+
+"""
+    standardformC2(S::AbstractSubsystemCode)
+    
+Return the named matrix `C2` from the standard form of the stabilizer matrix.
+"""
+standardformC2(S::AbstractSubsystemCode) = S.stabsstand[1:S.standr, 2 * S.n - S.standk + 1:2 * S.n]
+
+"""
+    standardformD(S::AbstractSubsystemCode)
+    
+Return the named matrix `D` from the standard form of the stabilizer matrix.
+"""
+standardformD(S::AbstractSubsystemCode) = S.stabsstand[S.standr + 1:S.n - S.standk, S.n + 1:S.n + S.standr]
+
+"""
+    standardformE(S::AbstractSubsystemCode)
+    
+Return the named matrix `E` from the standard form of the stabilizer matrix.
+"""
+standardformE(S::AbstractSubsystemCode) = S.stabsstand[S.standr + 1:S.n - S.standk, 2 * S.n - S.standk + 1:2 * S.n]
 
 """
     Xstabilizers(S::AbstractSubsystemCode)
@@ -414,7 +474,16 @@ Returns the result of `logicals(S)` as a vertically concatenated matrix.
 """
 logicalsmatrix(S::T) where {T <: AbstractSubsystemCode} = logicalsmatrix(LogicalTrait(T), S)
 logicalsmatrix(::HasLogicals, S::AbstractSubsystemCode) = S.logsmat
-logicalsmatrix(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")    
+logicalsmatrix(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
+
+"""
+    logicalsstandardform(S::AbstractSubsystemCode)
+
+Return the a matrix of logical operators as determined by the stabilizers in standard form.
+"""
+logicalsstandardform(S::T) where {T <: AbstractSubsystemCode} = logicalsstandardform(LogicalsTrait(T), S)
+logicalsstandardform(::HasLogicals, S::AbstractSubsystemCode) = _logicalsstandardform(S.stabsstand, S.n, S.standk,S.standr, S.Pstand)
+logicalsstandardform(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
 
 """
     gauges(S::AbstractSubsystemCode)
@@ -1479,27 +1548,23 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=tr
 end
 
 function _standardformstabilizer(M::CTMatrixTypes)
-    @assert iseven(size(M, 2))
-
-    S = deepcopy(M)
-
-    # If the stabilizer is overdetermined, remove unnecessary rows
-    _rref_no_col_swap!(S, 1:size(S, 1), 1:size(S, 2))
-    nr = size(S, 1)
-    for i in size(S, 1):-1:1
+    stabs = deepcopy(M)
+    # if the stabilizer is overdetermined, remove unnecessary rows
+    _rref_no_col_swap!(stabs, 1:size(stabs, 1), 1:size(stabs, 2))
+    nr = size(stabs, 1)
+    for i in size(stabs, 1):-1:1
         nr = i
-        iszero(S[i, :]) || break
+        iszero(stabs[i, :]) || break
     end
-    if nr != size(S, 1)
-        S = S[1:nr, :]
+    if nr != size(stabs, 1)
+        stabs = stabs[1:nr, :]
     end
 
-    n = div(size(S, 2), 2)
+    n = div(size(stabs, 2), 2)
     k = n - nr
-
     # put S in standard form
-    r, P1 = _rref_symp_col_swap!(S, 1:nr, 1:n)
-    _, P2 = _rref_symp_col_swap!(S, (r + 1):nr, (n + r + 1):2n)
+    r, P1 = _rref_symp_col_swap!(stabs, 1:nr, 1:n)
+    _, P2 = _rref_symp_col_swap!(stabs, (r + 1):nr, (n + r + 1):2n)
 
     P = if ismissing(P1) && ismissing(P2)
         missing
@@ -1510,75 +1575,34 @@ function _standardformstabilizer(M::CTMatrixTypes)
     else
         P1 * P2
     end
-
-    return S, P, r
+    return stabs, P, r, n, n - k
 end
 
-function _logicalsstandardform(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer, P::Union{Missing, CTMatrixTypes})
-    R = base_ring(S)
-    logs = zero_matrix(R, 2k, 2n)
+function _logicalsstandardform(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::Union{Missing, CTMatrixTypes})
+    F = base_ring(stabs)
+    Fone = F(1)
+    logs = zero_matrix(F, 2k, 2n)
 
-    # TODO: can these loops be put in a good order for speed? (low priority)
-    E = _standardformE(S, n, k, r)
-    C1 = _standardformC1(S, n, k, r)
+    E = stabs[r + 1:n - k, 2n - k + 1:2n]
+    C1 = stabs[1:r, n + r + 1:2n - k]
     C1E = C1 * E
     for i in 1:k
         # put I in a couple of places
-        logs[i, n - k + i] = one(R)
-        logs[k + i, 2n - k + i] = one(R)
+        logs[i, n - k + i] = Fone
+        logs[k + i, 2n - k + i] = Fone
 
         # put in E^T
         for j in 1:(n - k - r)
-            logs[i, j + r] = S[r + j, 2n - k + i]
+            logs[i, j + r] = stabs[r + j, 2n - k + i]
         end
 
         for j in 1:r
             # put in E^T * C1^T + C2^T
-            logs[i, n + j] = C1E[j, i] + S[j, 2n - k + i]
-
+            logs[i, n + j] = C1E[j, i] + stabs[j, 2n - k + i]
             # put in A2^T
-            logs[k + i, n + j] = S[j, n - k + i]
+            logs[k + i, n + j] = stabs[j, n - k + i]
         end
     end
-
-    ### slower method, but far more obvious:
-    # A2 = _standardformA2(S, n, k, r)
-    # C1 = _standardformC1(S, n, k, r)
-    # C2 = _standardformC2(S, n, k, r)
-    # E = _standardformE(S, n, k, r)
-    # logs[1:k, r + 1:n - k] = transpose(E)
-    # logs[1:k, n - k + 1:n] = identity_matrix(R, k)
-    # logs[1:k, n + 1:n + r] = transpose(C1 * E + C2)
-    # logs[k + 1:2k, n + 1:n + r] = transpose(A2)
-    # logs[k + 1:2k, 2n - k + 1:2n] = identity_matrix(R, k)
-
-    return ismissing(P) ? logs : logs * inv(P)
-end
-function _logicalsstandardform(C::AbstractSubsystemCode)
-    _logicalsstandardform(C.standardform, C.n, C.k, C.standr, C.permutation)
-end
-
-function _standardformA(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, r + 1:n]
-end
-function _standardformA1(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, r + 1:n - k]
-end
-function _standardformA2(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, n - k + 1:n]
-end
-function _standardformB(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, n + 1:n + r]
-end
-function _standardformC1(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, n + r + 1:2n - k]
-end
-function _standardformC2(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[1:r, 2n - k + 1:2n]
-end
-function _standardformD(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[r + 1:n - k, n + 1:n + r]
-end
-function _standardformE(S::CTMatrixTypes, n::Integer, k::Integer, r::Integer)
-    @view S[r + 1:n - k, 2n - k + 1:2n]
+    ismissing(P) ? println("missing") : println("has perm")
+    ismissing(P) ? (return logs) : (return logs * inv(P))
 end

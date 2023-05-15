@@ -45,6 +45,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         # note the H here is transpose of the standard definition
         # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
+        # TODO: should probably just grab columns 1:rank(H) which is returned but not used
     else
         H = Hstand * transpose(P)
     end
@@ -117,7 +118,7 @@ Return the generator matrix of the code.
 
 # Notes
 * If the optional parameter `standform` is set to `true`, the standard form of the
-generator matrix is returned instead.
+  generator matrix is returned instead.
 """
 generatormatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? (return C.Gstand;) : (return C.G;)
 
