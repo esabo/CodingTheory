@@ -1575,7 +1575,7 @@ function _standardformstabilizer(M::CTMatrixTypes)
     else
         P1 * P2
     end
-    return stabs, P, r, n, n - k
+    return stabs, P, r, k, n - k
 end
 
 function _logicalsstandardform(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::Union{Missing, CTMatrixTypes})
@@ -1603,6 +1603,5 @@ function _logicalsstandardform(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::
             logs[k + i, n + j] = stabs[j, n - k + i]
         end
     end
-    ismissing(P) ? println("missing") : println("has perm")
-    ismissing(P) ? (return logs) : (return logs * inv(P))
+    return ismissing(P) ? logs : logs * inv(P)
 end
