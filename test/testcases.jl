@@ -82,7 +82,7 @@ isselfdual(C)
 isselforthogonal(C)
 
 # finally, one may encode a length k vector by C using
-encode(C.G[:, 1], C)
+encode(C, C.G[:, 1])
 # here the vector to be encoded is an element of MatrixSpace(Nemo.GF(2), 4, 1)
 # allowing for proper matrix multiplication between it and the generator matrix
 # one may also pass in a Vector{Int64} of the proper length and the appropriate
@@ -93,9 +93,9 @@ encode(C.G[:, 1], C)
 # it will not however accept objects of type adjoint such as v'
 generatormatrix(C)[:, 1]
 v = [1, 0, 0, 0];
-encode(v, C)
+encode(C, v)
 v2 = [1; 0; 0; 0];
-encode(v2, C)
+encode(C, v2)
 generatormatrix(C)[1, :]
 v = [1, 0, 0, 0, 0, 1, 1];
 syndrome(v, C)

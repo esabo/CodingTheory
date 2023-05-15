@@ -282,12 +282,12 @@ using Test
 #     @test !isselfdual(C)
 #     @test !isselforthogonal(C)
 #     cw = matrix(F, [1 0 0 0 0 1 1]);
-#     @test encode(C.G[:, 1], C) == cw
+#     @test encode(C, C.G[:, 1]) == cw
 #     # these v's are C.G[:, 1], just testing different formats
 #     v = [1, 0, 0, 0];
-#     @test encode(v, C) == cw
+#     @test encode(C, v) == cw
 #     v2 = [1; 0; 0; 0];
-#     @test encode(v2, C) == cw
+#     @test encode(C, v2) == cw
 #     # this vector is the first row of the generator matrix and should
 #     # therefore have zero syndrome
 #     v = [1, 0, 0, 0, 0, 1, 1];

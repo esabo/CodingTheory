@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023 Eric Sabo
+# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -52,13 +52,13 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     if parity
         ub1, _ = _minwtrow(H)
         ub2, _ = _minwtrow(Hstand)
-        ub = minimum([ub1, ub2])
+        ub = min(ub1, ub2)
         # treat G as the parity-check matrix H
         return LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, transpose(P), missing)
     else
         ub1, _ = _minwtrow(Gnew)
         ub2, _ = _minwtrow(Gstand)
-        ub = minimum([ub1, ub2])
+        ub = min(ub1, ub2)
         return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, H, Gstand, Hstand, P, missing)
     end
 end
@@ -119,7 +119,7 @@ Return the generator matrix of the code.
 * If the optional parameter `standform` is set to `true`, the standard form of the
 generator matrix is returned instead.
 """
-generatormatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? (return C.Gstand;) : (return C.G;)
+generatormatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? C.Gstand : C.G
 
 """
     paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
@@ -130,7 +130,7 @@ Return the parity-check matrix of the code.
 * If the optional parameter `standform` is set to `true`, the standard form of the
   parity-check matrix is returned instead.
 """
-paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? (return C.Hstand;) : (return C.H;)
+paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? C.Hstand : C.H
 
 """
     standardformpermutation(C::AbstractLinearCode)
@@ -147,14 +147,14 @@ standardformpermutation(C::AbstractLinearCode) = C.Pstand
 Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
 otherwise return `missing`.
 """
-relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? (return missing) : (return C.d // C.n)
+relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? missing :  C.d // C.n
 
 """
     genus(C::AbstractLinearCode)
 
 Return the genus, `n + 1 - k - d`, of the code.
 """
-genus(C::AbstractLinearCode) = ismissing(C.d) ? (return missing) : (return C.n + 1 - C.k - minimumdistance(C))
+genus(C::AbstractLinearCode) = ismissing(C.d) ? missing : C.n + 1 - C.k - minimumdistance(C)
 
 """
     minimumdistancelowerbound(C::AbstractLinearCode)
@@ -175,8 +175,7 @@ minimumdistanceupperbound(C::AbstractLinearCode) = C.ubound
 
 Return `true` if code is maximum distance separable (MDS).
 """
-isMDS(C::AbstractLinearCode) = ismissing(C.d) ? (return missing) :
-    (minimumdistance(C) != Singletonbound(C.n, C.k) ? (return true) : (return false))
+isMDS(C::AbstractLinearCode) = ismissing(C.d) ? missing : minimumdistance(C) != Singletonbound(C.n, C.k)
 
 """
     numbercorrectableerrors(C::AbstractLinearCode)
@@ -186,7 +185,7 @@ Return the number of correctable errors for the code.
 # Notes
 * The number of correctable errors is `t = floor((d - 1) / 2)`.
 """
-numbercorrectableerrors(C::AbstractLinearCode) = ismissing(C.d) ? (return missing) : (return Int(floor((minimumdistance(C) - 1) / 2)))
+numbercorrectableerrors(C::AbstractLinearCode) = ismissing(C.d) ? missing : Int(fld(minimumdistance(C) - 1, 2))
 
 #############################
       # setter functions
@@ -201,7 +200,7 @@ function setdistancelowerbound!(C::AbstractLinearCode, l::Int)
     1 <= l <= C.ubound || throw(DomainError("The lower bound must be between 1 and the upper bound."))
     C.lbound < l && (C.lbound = l;)
     if C.lbound == C.ubound
-        @warn "The new lower bound is equal to the upper bound; setting the minimum distance."
+        @info "The new lower bound is equal to the upper bound; setting the minimum distance."
         C.d = C.lbound
     end
 end
@@ -215,7 +214,7 @@ function setdistanceupperbound!(C::AbstractLinearCode, u::Int)
     C.lbound <= u <= C.n || throw(DomainError("The upper bound must be between the lower bound and the code length."))
     u < C.ubound && (C.ubound = u;)
     if C.lbound == C.ubound
-        @warn "The new upper bound is equal to the lower bound; setting the minimum distance."
+        @info "The new upper bound is equal to the lower bound; setting the minimum distance."
         C.d = C.lbound
     end
 end
@@ -353,13 +352,11 @@ end
 Singletonbound(C::AbstractLinearCode) = Singletonbound(C.n, C.k)
 
 """
-    encode(v::Union{fq_nmod_mat, Vector{Int}}, C::AbstractLinearCode)
+    encode(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
 
 Return `v * G`, where `G` is the generator matrix of `C`.
 """
-# TODO: check quantum functions and make uniform - prefer C then v on all such functions
-# might be a breaking fix though, also check runtests.jl
-function encode(v::CTMatrixTypes, C::AbstractLinearCode)
+function encode(C::AbstractLinearCode, v::CTMatrixTypes)
     G = generatormatrix(C)
     nr = nrows(G)
     (size(v) != (1, nr) && size(v) != (nr, 1)) &&
@@ -369,10 +366,10 @@ function encode(v::CTMatrixTypes, C::AbstractLinearCode)
     return transpose(v) * G
 end
 # TODO: combine these two functions
-function encode(v::Vector{Int}, C::AbstractLinearCode)
+function encode(C::AbstractLinearCode, v::Vector{Int})
     length(v) == C.k ||
         throw(ArgumentError("Vector has incorrect length; expected length $(C.k), received: $(size(v))."))
-    return encode(matrix(C.F, transpose(v)), C)
+    return encode(C, matrix(C.F, 1, length(v), v))
 end
 
 """
@@ -398,8 +395,8 @@ end
 # TODO: combine these two functions
 function syndrome(C::AbstractLinearCode, v::Vector{Int})
     length(v) == C.n ||
-        throw(ArgumentError(("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(size(v)).")))
-    return syndrome(C, matrix(C.F, transpose(v)))
+        throw(ArgumentError(("Vector to be tested is of incorrect dimension; expected length $(C.n), received: $(length(v)).")))
+    return syndrome(C, matrix(C.F, 1, length(v), v))
 end
 
 """
@@ -427,14 +424,17 @@ function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
     end
 
     # eachrow doesn't work on these objects
+    # G1 = generatormatrix(C1)
+    # nr = nrows(G1)
+    # for r in 1:nr
+    #     if G1[r, :] ∉ C2
+    #         return false
+    #     end
+    # end
+    # return true
+
     G1 = generatormatrix(C1)
-    nr = nrows(G1)
-    for r in 1:nr
-        if G1[r, :] ∉ C2
-            return false
-        end
-    end
-    return true
+    return all(G1[r, :] ∈ C2 for r in axes(G1, 1))
 end
 ⊂(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
