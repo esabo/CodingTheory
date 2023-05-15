@@ -37,7 +37,7 @@ include("types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
     AbstractLinearCode, AbstractLDPCCode, AbstractMatrixProductCode, AbstractReedMullerCode,
     AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode, AbstractQuasiCyclicCode,
-    AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode
+    AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode, WeightEnumerator
 # quantum types
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
@@ -81,20 +81,25 @@ export ord, cyclotomiccoset, allcyclotomiccosets, complementqcosets,
 #############################
 
 include("linearcode.jl")
-export WeightEnumerator, LinearCode, field, length, dimension, cardinality, rate,
-    relativedistance, generatormatrix, paritycheckmatrix, genus, Singletonbound,
-    numbercorrectableerrors,
-    encode, syndrome, in, ⊆, ⊂, issubcode, codecomplement, quo, quotient, /, dual,
-    Hermitiandual, areequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
-    directsum, ⊗, kron, tensorproduct, directproduct, productcode, extend, puncture,
-    expurgate, augment, shorten, lengthen, uuplusv, Plotkinconstruction, subcode,
-    juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
-    entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
-    componentwiseproductcode, VectorSpace, setminimumdistance!,
-    expandedcode, subfieldsubcode, tracecode, evensubcode, permutecode,
-    words, codewords, elements, isMDS, iseven, isdoublyeven, istriplyeven,
-    characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining, isLCD,
-    Hermitianhull, hull, isHermitianselfdual, isdualcontaining, subcodeofdimensionbetweencodes
+export LinearCode, field, length, dimension, cardinality, rate, relativedistance, generatormatrix,
+    paritycheckmatrix, genus, Singletonbound, numbercorrectableerrors, encode, syndrome, in, ⊆, ⊂,
+    issubcode, dual, Hermitiandual, areequivalent, isselfdual, isselforthogonal, isweaklyselfdual, ⊕,
+    VectorSpace, setminimumdistance!, permutecode, words, codewords, elements, isMDS, iseven,
+    isdoublyeven, istriplyeven, characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining,
+    isLCD, Hermitianhull, hull, isHermitianselfdual, isdualcontaining, minimumdistancelowerbound,
+    minimumdistanceupperbound, setdistanceupperbound!
+
+#############################
+    # newcodesfromold.jl
+#############################
+
+include("newcodesfromold.jl")
+export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, directproduct,
+    productcode, extend, puncture, expurgate, augment, shorten, lengthen, uuplusv,
+    Plotkinconstruction, subcode, juxtaposition, constructionX, constructionX3,
+    upluswvpluswuplusvplusw, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
+    componentwiseproductcode, expandedcode, subfieldsubcode, tracecode, evensubcode,
+    subcodeofdimensionbetweencodes
 
 #############################
          # LDPC.jl

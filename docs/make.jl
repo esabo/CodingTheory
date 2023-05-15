@@ -23,6 +23,7 @@ Documenter.makedocs(
         	"Classical/quasicyclic.md",
         	"Classical/GeneralizedReedSolomon.md",
         	"Classical/ReedMuller.md",
+			"Classical/newcodesfromold.md",
 			"Classical/productcodes.md",
         	"Classical/miscknowncodes.md",
         	"Classical/LDPC.md"

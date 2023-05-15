@@ -261,7 +261,11 @@ function _quotientspace(big::CTMatrixTypes, small::CTMatrixTypes)
     V = VectorSpace(F, ncols(big))
     U, UtoV = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
     W, WtoV = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
-    gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
+    gensofUinW = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
+    # gensofUinW = [preimage(WtoV, UtoV(g)) for g in gens(U)]
+    Threads.@threads for i in 1:length(gens(U))
+        gensofUinW[i] = preimage(WtoV, UtoV(gens(U)[i]))
+    end
     UinW, _ = sub(W, gensofUinW)
     Q, WtoQ = quo(W, UinW)
     iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
@@ -289,7 +293,6 @@ end
 #     return maxlen
 # end
 
-# TODO: replace all calls with symbols only
 function _removeempty(A::CTMatrixTypes, type::Symbol)
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type"))
     
