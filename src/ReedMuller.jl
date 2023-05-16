@@ -122,7 +122,7 @@ function dual(C::ReedMullerCode)
         d = 2^(C.r + 1)
         return ReedMullerCode(C.F, C.n, C.n - C.k, d, d, d,
             C.m - C.r - 1, C.m, C.H, C.G, C.Hstand, C.Gstand,
-            C.P, missing)
+            C.Pstand, missing)
     end
 
 end

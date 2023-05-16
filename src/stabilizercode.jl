@@ -233,7 +233,7 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     p = Int(characteristic(F))
     charvec = _processcharvec(charvec, p, 2 * n)
     signs = _determinesigns(stabs, charvec)
-    nrows(stabs) > rnk ? (overcomp = true) : (overcomp = false)
+    overcomp = nrows(stabs) > rnk
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(stabs, signs, true)

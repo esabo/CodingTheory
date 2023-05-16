@@ -57,7 +57,8 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         end
         H = Htr
     else
-        H = Hstand * transpose(P)
+        H = Hstand * P
+        # H = Hstand * transpose(P)
     end
 
     if parity
@@ -471,10 +472,10 @@ function dual(C::AbstractLinearCode)
         d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
             for i in 1:length(polynomial(HWE))])
         return LinearCode(C.F, C.n, C.n - C.k, d, 1, ub, deepcopy(H), deepcopy(G),
-            deepcopy(Hstand), deepcopy(Gstand), deepcopy(C.P), dualwtenum)
+            deepcopy(Hstand), deepcopy(Gstand), deepcopy(C.Pstand), dualwtenum)
     else
         return LinearCode(C.F, C.n, C.n - C.k, missing, 1, ub, deepcopy(H),
-            deepcopy(G), deepcopy(Hstand), deepcopy(Gstand), deepcopy(C.P), missing)
+            deepcopy(G), deepcopy(Hstand), deepcopy(Gstand), deepcopy(C.Pstand), missing)
     end
 end
 Euclideandual(C::AbstractLinearCode) = dual(C)
