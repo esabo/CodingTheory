@@ -452,7 +452,8 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
                     if !iszero(A[l, k])
                         ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
                         swap_cols!(A, k, j)
-                        swap_cols!(P, k, j)
+                        # swap_cols!(P, k, j)
+                        swap_rows!(P, k, j)
                         ind = l
                         break
                     end
@@ -524,9 +525,11 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colran
                         k_symp = mod1(k + div(ncA, 2), ncA)
                         j_symp = mod1(j + div(ncA, 2), ncA)
                         swap_cols!(A, k, j)
-                        swap_cols!(P, k, j)
+                        # swap_cols!(P, k, j)
+                        swap_rows!(P, k, j)
                         swap_cols!(A, k_symp, j_symp)
-                        swap_cols!(P, k_symp, j_symp)
+                        # swap_cols!(P, k_symp, j_symp)
+                        swap_rows!(P, k_symp, j_symp)
                         ind = l
                         break
                     end

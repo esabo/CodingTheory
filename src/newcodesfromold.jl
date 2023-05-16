@@ -93,7 +93,8 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
         # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * transpose(P)
+        # H = Hstand * transpose(P)
+        H = Hstand * P
     end
 
     if !ismissing(C1.d) && !ismissing(C2.d)
@@ -184,7 +185,8 @@ function puncture(C::AbstractLinearCode, cols::Vector{Int})
         # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * transpose(P)
+        # H = Hstand * transpose(P)
+        H = Hstand * P
     end
 
     ub1, _ = _minwtrow(G)
@@ -219,7 +221,8 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int})
         # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * transpose(P)
+        # H = Hstand * transpose(P)
+        H = Hstand * P
     end
 
     ub1, _ = _minwtrow(G)
@@ -251,7 +254,8 @@ function augment(C::AbstractLinearCode, M::CTMatrixTypes)
         # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         H = _removeempty(transpose(H), :rows)
     else
-        H = Hstand * transpose(P)
+        # H = Hstand * transpose(P)
+        H = Hstand * P
     end
 
     ub1, _ = _minwtrow(G)

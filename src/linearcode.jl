@@ -47,7 +47,8 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         H = _removeempty(transpose(H), :rows)
         # TODO: should probably just grab columns 1:rank(H) which is returned but not used
     else
-        H = Hstand * transpose(P)
+        H = Hstand * P
+        # H = Hstand * transpose(P)
     end
 
     if parity

@@ -1573,7 +1573,7 @@ function _standardformstabilizer(M::CTMatrixTypes)
     elseif ismissing(P2)
         P1
     else
-        P1 * P2
+        P2 * P1
     end
     return stabs, P, r, k, n - k
 end
@@ -1603,5 +1603,6 @@ function _logicalsstandardform(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::
             logs[k + i, n + j] = stabs[j, n - k + i]
         end
     end
-    return ismissing(P) ? logs : logs * inv(P)
+    # return ismissing(P) ? logs : logs * transpose(P)
+    return ismissing(P) ? logs : logs * P
 end
