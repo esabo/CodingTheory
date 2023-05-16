@@ -440,9 +440,11 @@ function _rref_no_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange
                 # eliminate
                 for k in rowrange
                     if k != i
-                        # do a manual loop here to reduce allocations
-                        @simd for l in axes(A, 2)
-                            A[k, l] = (A[k, l] - A[i, l])
+                        if isone(A[k, j])
+                            # do a manual loop here to reduce allocations
+                            @simd for l in axes(A, 2)
+                                A[k, l] += A[i, l]
+                            end
                         end
                     end
                 end
@@ -565,9 +567,11 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
                 # eliminate
                 for k = rowrange.start:nr
                     if k != i
-                        # do a manual loop here to reduce allocations
-                        @simd for l = 1:ncA
-                            A[k, l] = (A[k, l] - A[i, l])
+                        if isone(A[k, j])
+                            # do a manual loop here to reduce allocations
+                            @simd for l = 1:ncA
+                                A[k, l] += A[i, l]
+                            end
                         end
                     end
                 end
@@ -691,9 +695,11 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colran
                 # eliminate
                 for k = rowrange.start:nr
                     if k != i
-                        # do a manual loop here to reduce allocations
-                        @simd for l = 1:ncA
-                            A[k, l] = (A[k, l] - A[i, l])
+                        if isone(A[k, j])
+                            # do a manual loop here to reduce allocations
+                            @simd for l = 1:ncA
+                                A[k, l] += A[i, l]
+                            end
                         end
                     end
                 end
