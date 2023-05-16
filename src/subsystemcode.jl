@@ -831,7 +831,7 @@ function _getsigns(A::CTMatrixTypes, charvec::Vector{nmod})
     return signs
 end
 
-function _splitsymplecticstabilizers(S::T, signs::Vector{nmod}) where T <: CTMatrixTypes
+function _splitstabilizers(S::T, signs::Vector{nmod}) where T <: CTMatrixTypes
     Xstabs = Vector{T}()
     Xsigns = Vector{nmod}()
     Zstabs = Vector{T}()
@@ -873,25 +873,25 @@ function _splitsymplecticstabilizers(S::T, signs::Vector{nmod}) where T <: CTMat
     return Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
 end
 
-"""
-    splitstabilizers(S::AbstractSubsystemCode)
+# """
+#     splitstabilizers(S::AbstractSubsystemCode)
 
-Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
-stabilizers and their signs, and the remaining stabilizers and their signs.
+# Return the set of `X`-only stabilizers and their signs, the set of `Z`-only
+# stabilizers and their signs, and the remaining stabilizers and their signs.
 
-# Notes
-* This function returns six objects of alternating types `fq_nmod_mat` and
-`Vector{Int}` for the three sets of stabilizers and signs, respectively.
-An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
-"""
-splitstabilizers(S::AbstractSubsystemCode) = _splitsymplecticstabilizers(symplecticstabilizerS(S), S.signs)
+# # Notes
+# * This function returns six objects of alternating types `fq_nmod_mat` and
+# `Vector{Int}` for the three sets of stabilizers and signs, respectively.
+# An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
+# """
+# splitstabilizers(S::AbstractSubsystemCode) = _splitstabilizers(S.stabs, S.signs)
 
 # TODO: rethink how I'm returning all of this and the bottom trim stuff
 # probably need to simply redo the above to simply start with zero matrix
 # and then either set first or add to it (return matrix[2:end, L])
 # TODO: need more robust CSS detection, what if I add and X and Z stabilizer and use it implace of the Z
 function _isCSSsymplectic(S::T, signs::Vector{nmod}, trim::Bool=true) where T <: CTMatrixTypes
-    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitsymplecticstabilizers(S, signs)
+    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitstabilizers(S, signs)
     if typeof(mixedstabs) <: Vector{T}
         if trim
             half = div(ncols(S), 2)
@@ -904,7 +904,7 @@ function _isCSSsymplectic(S::T, signs::Vector{nmod}, trim::Bool=true) where T <:
             half = div(ncols(S), 2)
             !(typeof(Xstabs) <: Vector{T}) && (Xstabs = Xstabs[:, 1:half];)
             !(typeof(Zstabs) <: Vector{T}) && (Zstabs = Zstabs[:, half + 1:end];)
-            return false, Xstabs, Xsigns, Zstabs[:, half + 1:end], Zsigns, mixedstabs, mixedsigns
+            return false, Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
         else
             return false, Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
         end
@@ -916,41 +916,76 @@ function _makepairs(L::T) where T <: CTMatrixTypes
     F = base_ring(L)
     n = div(ncols(L), 2)
     logs = Vector{Tuple{T, T}}()
-    # this does indeed grow smaller each iteration
-    while nrows(L) >= 2
-        # the columns in prod give the commutation relationships between the provided
-        # logical operators; they ideally should only consist of {X_1, Z_i} pairs
-        # so there should only be one nonzero element in each column
-        prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
-        # println("before")
-        # display(prod)
-        nprod = ncols(prod)
-        first = 0
-        for c in 1:nprod
-            if !iszero(prod[1, c])
-                if iszero(first)
-                    first = c
-                    if !isone(prod[1, c])
-                        L[first, :] *= F(prod[1, c]^-1)
+    if Int(order(F)) != 2
+        # this does indeed grow smaller each iteration
+        while nrows(L) >= 2
+            # the columns in prod give the commutation relationships between the provided
+            # logical operators; they ideally should only consist of {X_1, Z_i} pairs
+            # so there should only be one nonzero element in each column
+            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            # println("before")
+            # display(prod)
+            nprod = ncols(prod)
+            first = 0
+            for c in 1:nprod
+                if !iszero(prod[1, c])
+                    if iszero(first)
+                        first = c
+                        if !isone(prod[1, c])
+                            L[first, :] *= F(prod[1, c]^-1)
+                        end
+                    else
+                        L[c, :] += F(prod[1, c]^-1) * L[first, :]
                     end
-                else
-                    L[c, :] += F(prod[1, c]^-1) * L[first, :]
                 end
             end
-        end
-        iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
-        for c in 2:nprod
-            if !iszero(prod[first, c])
-                L[c, :] += F(prod[first, c]^-1) * L[1, :]
+            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
+            for c in 2:nprod
+                if !iszero(prod[first, c])
+                    L[c, :] += F(prod[first, c]^-1) * L[1, :]
+                end
             end
+            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            # println("after")
+            # display(prod)
+            push!(logs, (L[1, :], L[first, :]))
+            L = L[setdiff(1:nrows(L), [1, first]), :]
         end
-        prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
-        # println("after")
-        # display(prod)
-        push!(logs, (L[1, :], L[first, :]))
-        L = L[setdiff(1:nrows(L), [1, first]), :]
+        # display(logs)
+    else
+        # this does indeed grow smaller each iteration
+        while nrows(L) >= 2
+            # the columns in prod give the commutation relationships between the provided
+            # logical operators; they ideally should only consist of {X_1, Z_i} pairs
+            # so there should only be one nonzero element in each column
+            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            # println("before")
+            # display(prod)
+            nprod = ncols(prod)
+            first = 0
+            for c in 1:nprod
+                if !iszero(prod[1, c])
+                    if iszero(first)
+                        first = c
+                    else
+                        L[c, :] += L[first, :]
+                    end
+                end
+            end
+            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
+            for c in 2:nprod
+                if !iszero(prod[first, c])
+                    L[c, :] += L[1, :]
+                end
+            end
+            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            # println("after")
+            # display(prod)
+            push!(logs, (L[1, :], L[first, :]))
+            L = L[setdiff(1:nrows(L), [1, first]), :]
+        end
+        # display(logs)
     end
-    # display(logs)
     return logs
 end
 
@@ -1603,5 +1638,6 @@ function _logicalsstandardform(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::
             logs[k + i, n + j] = stabs[j, n - k + i]
         end
     end
-    return ismissing(P) ? logs : logs * inv(P)
+    # inverse of permutation matrix is its transpose, which is significantly cheaper
+    return ismissing(P) ? logs : logs * transpose(P)
 end

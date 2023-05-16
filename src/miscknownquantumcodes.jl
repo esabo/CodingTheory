@@ -432,7 +432,7 @@ end
    # Rotated Surface Codes
 #############################
 
-function _RSurfstabslogs(d::Int)
+function _RSurfstabs(d::Int)
     n = d^2
     # F, _ = FiniteField(2, 1, "ω")
     F = GF(2)
@@ -506,6 +506,12 @@ function _RSurfstabslogs(d::Int)
         i += 2 * d
     end
 
+    return S
+end
+
+function _RSurflogs(F::CTFieldTypes, d::Int)
+    n = d^2
+    Fone = F(1)
     logs = zero_matrix(F, 2, 2 * n)
     i = d
     while i <= d * d
@@ -518,7 +524,7 @@ function _RSurfstabslogs(d::Int)
         i += 1
     end
 
-    return S, logs
+    return logs
 end
 
 """
@@ -534,9 +540,9 @@ can be seen by viewing the stabilizers of PlanarSurfaceCode as an adjacency matr
 function RotatedSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
 
-    stabs, logs = _RSurfstabslogs(d)
+    stabs = _RSurfstabs(d)
     S = StabilizerCode(stabs)
-    setlogicals!(S, logs)
+    d <= 10 && setlogicals!(S, _RSurflogs(base_ring(stabs), d))
     return S
 end
 

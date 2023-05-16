@@ -337,7 +337,7 @@ end
 # end
 
 function _removeempty(A::CTMatrixTypes, type::Symbol)
-    type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _removeempty; expected: `rows` or `cols`, received: $type"))
+    type ∈ [:rows, :cols] || throw(ArgumentError("Unknown type in _removeempty"))
     
     del = Vector{Int}()
     if type == :rows
@@ -374,40 +374,72 @@ function _rref_no_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange
     j = colrange.start
     nr = rowrange.stop
     nc = colrange.stop
-    while i <= nr && j <= nc
-        # find first pivot
-        ind = 0
-        for k in i:nr
-            if !iszero(A[k, j])
-                ind = k
-                break
-            end
-        end
-
-        if !iszero(ind)
-            # normalize pivot
-            if !isone(A[ind, j])
-                A[ind, :] *= inv(A[ind, j])
-            end
-
-            # swap to put the pivot in the next row
-            if ind != i
-                A[i, :], A[ind, :] = A[ind, :], A[i, :]
-            end
-
-            # eliminate
-            for k in rowrange
-                if k != i
-                    # do a manual loop here to reduce allocations
-                    d = A[k, j]
-                    @simd for l in axes(A, 2)
-                        A[k, l] = (A[k, l] - d * A[i, l])
-                    end
+    if Int(order(base_ring(A))) != 2
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
                 end
             end
-            i += 1
+
+            if !iszero(ind)
+                # normalize pivot
+                if !isone(A[ind, j])
+                    A[ind, :] *= inv(A[ind, j])
+                end
+
+                # swap to put the pivot in the next row
+                if ind != i
+                    A[i, :], A[ind, :] = A[ind, :], A[i, :]
+                end
+
+                # eliminate
+                for k in rowrange
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        d = A[k, j]
+                        @simd for l in axes(A, 2)
+                            A[k, l] = (A[k, l] - d * A[i, l])
+                        end
+                    end
+                end
+                i += 1
+            end
+            j += 1
         end
-        j += 1
+    else
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
+            end
+    
+            if !iszero(ind)
+                # swap to put the pivot in the next row
+                if ind != i
+                    A[i, :], A[ind, :] = A[ind, :], A[i, :]
+                end
+    
+                # eliminate
+                for k in rowrange
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        @simd for l in axes(A, 2)
+                            A[k, l] = (A[k, l] - A[i, l])
+                        end
+                    end
+                end
+                i += 1
+            end
+            j += 1
+        end
     end
     return nothing
 end
@@ -421,7 +453,6 @@ _rref_col_swap(M::CTMatrixTypes, rowrange::Base.OneTo{Int}, colrange::Base.OneTo
 _rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(rowrange) && return 0, missing
     isempty(colrange) && return 0, missing
@@ -435,63 +466,111 @@ function _rref_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::U
     j = colrange.start
     nr = rowrange.stop
     nc = colrange.stop
-    while i <= nr && j <= nc
-        # find first pivot
-        ind = 0
-        for k in i:nr
-            if !iszero(A[k, j])
-                ind = k
-                break
+    if Int(order(base_ring(A))) != 2
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
             end
-        end
 
-        # need to column swap
-        if iszero(ind)
-            for k in j + 1:nc
-                for l in i:nr
-                    if !iszero(A[l, k])
-                        ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
-                        swap_cols!(A, k, j)
-                        swap_cols!(P, k, j)
-                        ind = l
-                        break
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
+                            swap_cols!(A, k, j)
+                            swap_cols!(P, k, j)
+                            ind = l
+                            break
+                        end
                     end
                 end
             end
-        end
 
-        # if true, the rest of the submatrix is zero
-        if iszero(ind)
-            return rnk, P
-        else
-            # normalize pivot
-            if !isone(A[ind, j])
-                A[ind, :] *= inv(A[ind, j])
-            end
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else
+                # normalize pivot
+                if !isone(A[ind, j])
+                    A[ind, :] *= inv(A[ind, j])
+                end
 
-            # swap to put the pivot in the next row
-            ind != i && swap_rows!(A, ind, i)
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
 
-            # eliminate
-            for k = rowrange.start:nr
-                if k != i
-                    # do a manual loop here to reduce allocations
-                    d = A[k, j]
-                    @simd for l = 1:ncA
-                        A[k, l] = (A[k, l] - d * A[i, l])
+                # eliminate
+                for k = rowrange.start:nr
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        d = A[k, j]
+                        @simd for l = 1:ncA
+                            A[k, l] = (A[k, l] - d * A[i, l])
+                        end
                     end
                 end
             end
+            i += 1
+            j += 1
+            rnk += 1
         end
-        i += 1
-        j += 1
-        rnk += 1
+    else
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
+            end
+    
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
+                            swap_cols!(A, k, j)
+                            swap_cols!(P, k, j)
+                            ind = l
+                            break
+                        end
+                    end
+                end
+            end
+    
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else    
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
+    
+                # eliminate
+                for k = rowrange.start:nr
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        @simd for l = 1:ncA
+                            A[k, l] = (A[k, l] - A[i, l])
+                        end
+                    end
+                end
+            end
+            i += 1
+            j += 1
+            rnk += 1
+        end
     end
     return rnk, P
 end
 
 function _rref_symp_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colrange::UnitRange{Int})
-
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(rowrange) && return 0, missing
     isempty(colrange) && return 0, missing
@@ -505,61 +584,114 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, rowrange::UnitRange{Int}, colran
     j = colrange.start
     nr = rowrange.stop
     nc = colrange.stop
-    while i <= nr && j <= nc
-        # find first pivot
-        ind = 0
-        for k in i:nr
-            if !iszero(A[k, j])
-                ind = k
-                break
+    if Int(order(base_ring(A))) != 2
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
             end
-        end
 
-        # need to column swap
-        if iszero(ind)
-            for k in j + 1:nc
-                for l in i:nr
-                    if !iszero(A[l, k])
-                        ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
-                        k_symp = mod1(k + div(ncA, 2), ncA)
-                        j_symp = mod1(j + div(ncA, 2), ncA)
-                        swap_cols!(A, k, j)
-                        swap_cols!(P, k, j)
-                        swap_cols!(A, k_symp, j_symp)
-                        swap_cols!(P, k_symp, j_symp)
-                        ind = l
-                        break
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
+                            k_symp = mod1(k + div(ncA, 2), ncA)
+                            j_symp = mod1(j + div(ncA, 2), ncA)
+                            swap_cols!(A, k, j)
+                            swap_cols!(P, k, j)
+                            swap_cols!(A, k_symp, j_symp)
+                            swap_cols!(P, k_symp, j_symp)
+                            ind = l
+                            break
+                        end
                     end
                 end
             end
-        end
 
-        # if true, the rest of the submatrix is zero
-        if iszero(ind)
-            return rnk, P
-        else
-            # normalize pivot
-            if !isone(A[ind, j])
-                A[ind, :] *= inv(A[ind, j])
-            end
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else
+                # normalize pivot
+                if !isone(A[ind, j])
+                    A[ind, :] *= inv(A[ind, j])
+                end
 
-            # swap to put the pivot in the next row
-            ind != i && swap_rows!(A, ind, i)
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
 
-            # eliminate
-            for k = rowrange.start:nr
-                if k != i
-                    # do a manual loop here to reduce allocations
-                    d = A[k, j]
-                    @simd for l = 1:ncA
-                        A[k, l] = (A[k, l] - d * A[i, l])
+                # eliminate
+                for k = rowrange.start:nr
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        d = A[k, j]
+                        @simd for l = 1:ncA
+                            A[k, l] = (A[k, l] - d * A[i, l])
+                        end
                     end
                 end
             end
+            i += 1
+            j += 1
+            rnk += 1
         end
-        i += 1
-        j += 1
-        rnk += 1
+    else
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
+            end
+
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            ismissing(P) && (P = identity_matrix(base_ring(A), ncA);)
+                            k_symp = mod1(k + div(ncA, 2), ncA)
+                            j_symp = mod1(j + div(ncA, 2), ncA)
+                            swap_cols!(A, k, j)
+                            swap_cols!(P, k, j)
+                            swap_cols!(A, k_symp, j_symp)
+                            swap_cols!(P, k_symp, j_symp)
+                            ind = l
+                            break
+                        end
+                    end
+                end
+            end
+
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
+
+                # eliminate
+                for k = rowrange.start:nr
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        @simd for l = 1:ncA
+                            A[k, l] = (A[k, l] - A[i, l])
+                        end
+                    end
+                end
+            end
+            i += 1
+            j += 1
+            rnk += 1
+        end
     end
     return rnk, P
 end

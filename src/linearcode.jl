@@ -41,11 +41,21 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     Gnew = _removeempty(Gnew, :rows)
     Gstand, Hstand, P, k = _standardform(Gnew)
     if ismissing(P)
-        _, H = right_kernel(Gnew)
-        # note the H here is transpose of the standard definition
-        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        H = _removeempty(transpose(H), :rows)
-        # TODO: should probably just grab columns 1:rank(H) which is returned but not used
+        # H = Hstand
+        rnkH, H = right_kernel(Gnew)
+        if ncols(H) == rnkH
+            Htr = transpose(H)
+        else
+            # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+            nr = nrows(H)
+            Htr = zero_matrix(base_ring(H), rnkH, nr)
+            for r in 1:nr
+                for c in 1:rnkH
+                    !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+                end
+            end
+        end
+        H = Htr
     else
         H = Hstand * transpose(P)
     end
