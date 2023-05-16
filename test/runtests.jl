@@ -1276,11 +1276,11 @@ end
     # @test areequivalent(Q, Q2)
 
     # # TODO: BaconShorCode
-    Q3 = BaconShorCode(3, 4)
+    Q3 = BaconShorCode(3, 3)
 
     F = GF(2)
-    A = matrix(F, 3, 4, ones(Int, 3, 4))
-    Q4 = BravyiSubsystemCodes(A)
+    A = matrix(F, 3, 3, ones(Int, 3, 3))
+    Q4 = BravyiSubsystemCode(A)
     @test CodingTheory.dimension(Q4) == rank(A)
     # # TODO: add a test here on the min distances
     @test areequivalent(Q3, Q4)

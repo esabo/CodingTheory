@@ -28,6 +28,7 @@ Q9143() = GaugedShorCode()
 
 Return the Bacon-Shor subsystem code on a `m x n` lattice.
 """
+# BUG: doesn't work for m ≂̸ n
 function BaconShorCode(m::Int, n::Int)
     # F, _ = FiniteField(2, 1, "α")
     F = GF(2)
@@ -143,34 +144,9 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
     end
 
     # really only need to generate every consequetive pair
-    Xgauges = zero_matrix(F, sum([rowwts[i] - 1 for i in 1:length(rowwts)]), n)
+    Xgauges = zero_matrix(F, sum([colwts[i] - 1 for i in 1:length(colwts)]), n)
     currrow = 1
     Fone = F(1)
-    for r in 1:nr
-        c1 = 1
-        while c1 < nc
-            if !iszero(A[r, c1])
-                atend = true
-                for c2 in c1 + 1:nc
-                    if !iszero(A[r, c2])
-                        Xgauges[currrow, linearindex[r, c1]] = Fone
-                        Xgauges[currrow, linearindex[r, c2]] = Fone
-                        currrow += 1
-                        c1 = c2
-                        atend = false
-                        break
-                    end
-                end
-                atend && (c1 = nc;)
-            else
-                c1 += 1
-            end
-        end
-    end
-
-    # really only need to generate every consequetive pair
-    Zgauges = zero_matrix(F, sum([colwts[i] - 1 for i in 1:length(colwts)]), n)
-    currrow = 1
     for c in 1:nc
         r1 = 1
         while r1 < nr
@@ -178,8 +154,8 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
                 atend = true
                 for r2 in r1 + 1:nr
                     if !iszero(A[r2, c])
-                        Zgauges[currrow, linearindex[r1, c]] = Fone
-                        Zgauges[currrow, linearindex[r2, c]] = Fone
+                        Xgauges[currrow, linearindex[r1, c]] = Fone
+                        Xgauges[currrow, linearindex[r2, c]] = Fone
                         currrow += 1
                         r1 = r2
                         atend = false
@@ -193,8 +169,33 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
         end
     end
 
-    # # every pair of 1's in row of A gets an X gauge operator
-    # Xgauges = zero_matrix(F, totXgauges, n)
+    # really only need to generate every consequetive pair
+    Zgauges = zero_matrix(F, sum([rowwts[i] - 1 for i in 1:length(rowwts)]), n)
+    currrow = 1
+    for r in 1:nr
+        c1 = 1
+        while c1 < nc
+            if !iszero(A[r, c1])
+                atend = true
+                for c2 in c1 + 1:nc
+                    if !iszero(A[r, c2])
+                        Zgauges[currrow, linearindex[r, c1]] = Fone
+                        Zgauges[currrow, linearindex[r, c2]] = Fone
+                        currrow += 1
+                        c1 = c2
+                        atend = false
+                        break
+                    end
+                end
+                atend && (c1 = nc;)
+            else
+                c1 += 1
+            end
+        end
+    end
+
+    # # every pair of 1's in row of A gets an Z gauge operator
+    # Zgauges = zero_matrix(F, totZgauges, n)
     # currrow = 1
     # Fone = F(1)
     # for r in 1:nr
@@ -202,8 +203,8 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
     #         if !iszero(A[r, c1])
     #             for c2 in c1 + 1:nc
     #                 if !iszero(A[r, c2])
-    #                     Xgauges[currrow, linearindex[r, c1]] = Fone
-    #                     Xgauges[currrow, linearindex[r, c2]] = Fone
+    #                     Zgauges[currrow, linearindex[r, c1]] = Fone
+    #                     Zgauges[currrow, linearindex[r, c2]] = Fone
     #                     currrow += 1
     #                 end
     #             end
@@ -211,16 +212,16 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
     #     end
     # end
 
-    # # every pair of 1's in col of A gets a Z gauge operator
-    # Zgauges = zero_matrix(F, totZgauges, n)
+    # # every pair of 1's in col of A gets a X gauge operator
+    # Xgauges = zero_matrix(F, totXgauges, n)
     # currrow = 1
     # for c in 1:nc
     #     for r1 in 1:nr - 1
     #         if !iszero(A[r1, c])
     #             for r2 in r1 + 1:nr
     #                 if !iszero(A[r2, c])
-    #                     Zgauges[currrow, linearindex[r1, c]] = Fone
-    #                     Zgauges[currrow, linearindex[r2, c]] = Fone
+    #                     Xgauges[currrow, linearindex[r1, c]] = Fone
+    #                     Xgauges[currrow, linearindex[r2, c]] = Fone
     #                     currrow += 1
     #                 end
     #             end
