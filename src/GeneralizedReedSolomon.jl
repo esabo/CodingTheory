@@ -104,5 +104,5 @@ function dual(C::GeneralizedReedSolomonCode)
     return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
         deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
         deepcopy(C.H), deepcopy(C.G), deepcopy(C.Hstand),
-        deepcopy(C.Gstand), deepcopy(C.P), missing)
+        deepcopy(C.Gstand), deepcopy(C.Pstand), missing)
 end

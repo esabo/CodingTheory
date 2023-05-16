@@ -225,13 +225,13 @@ function StabilizerCodeCSS(SPauli::Vector{T}, charvec::Union{Vector{nmod}, Missi
     p = Int(characteristic(F))
     charvec = _processcharvec(charvec, p, 2 * n)
     signs = _determinesigns(stabs, charvec)
-    nrows(stabs) > rnk ? (overcomp = true) : (overcomp = false)
+    overcomp = nrows(stabs) > rnk
 
     # q^n / p^k but rows is n - k
     args = _isCSSsymplectic(stabs, signs, true)
     if args[1]
         if !iszero(standk)
-            dimcode = BigInt(order(F))^n // BigInt(p)^rkS
+            dimcode = BigInt(order(F))^n // BigInt(p)^rnk
             isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
             return StabilizerCodeCSS(F, n, dimcode, missing, missing, missing, stabs, args[2],
