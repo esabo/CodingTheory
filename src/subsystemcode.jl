@@ -13,7 +13,10 @@
 
 Return the subsystem code whose gauge group is determined by `G` and signs by `charvec`.
 """
-function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing)
+function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:syseqs)
+
+    logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     iszero(G) && throw(ArgumentError("The gauge matrix is empty."))
     G = _removeempty(G, :rows)
 
@@ -31,9 +34,22 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     # dressed operators = < logs, gauge ops >
 
     # stabilizer group: ker G ∩ G
-    _, kerG = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
+    rnkkerG, kerG = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
     # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    kerG = _removeempty(transpose(kerG), :rows)
+    # kerG = _removeempty(transpose(kerG), :rows)
+    if ncols(kerG) == rnkkerG
+        kerG = transpose(kerG)
+    else
+        # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+        nr = nrows(kerG)
+        kerGtr = zero_matrix(base_ring(kerG), rnkkerG, nr)
+        for r in 1:nr
+            for c in 1:rnkkerG
+                !iszero(kerG[r, c]) && (kerGtr[c, r] = kerG[r, c];)
+            end
+        end
+        kerG = kerGtr
+    end
     V = VectorSpace(base_ring(G), ncols(kerG))
     kerGVS, kerGtoV = sub(V, [V(kerG[i, :]) for i in 1:nrows(kerG)])
     GVS, _ = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
@@ -41,7 +57,7 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     if !iszero(AbstractAlgebra.dim(I))
         Ibasis = [kerGtoV(ItokerG(g)) for g in gens(I)]
         Fbasis = [[F(Ibasis[j][i]) for i in 1:AbstractAlgebra.dim(parent(Ibasis[1]))] for j in 1:length(Ibasis)]
-        S = matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
+        stabs = matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
     else
         error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
     end
@@ -53,17 +69,18 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
         println("Stabilizer code detected.")
         # this is duplicating some of the initial work done in this function,
         # but it seems appropriate not to paste the rest of that constructor here
-        return StabilizerCode(S, charvec)
+        return StabilizerCode(stabs, charvec)
     end
+    stabsstand, Pstand, standr, standk, _ = _standardformstabilizer(stabs)
 
     # bare logicals (reps): ker G / S
-    BL = _quotientspace(kerG, S)
+    BL = _quotientspace(kerG, stabs, logsalg)
     graphstate = false
     if !iszero(BL)
         barelogs = _makepairs(BL)
         # verify
         barelogsmat = reduce(vcat, [reduce(vcat, barelogs[i]) for i in 1:length(barelogs)])
-        aresymplecticorthogonal(S, barelogsmat) || error("Computed logicals do not commute with the codespace.")
+        aresymplecticorthogonal(stabs, barelogsmat) || error("Computed logicals do not commute with the codespace.")
         prod = hcat(barelogsmat[:, n + 1:end], -barelogsmat[:, 1:n]) * transpose(barelogsmat)
         sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
     else
@@ -72,11 +89,11 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     
     # gauge operators (reps): G / S
     # this can't be zero if S != G
-    GO = _quotientspace(G, S)
+    GO = _quotientspace(G, stabs, logsalg)
     gaugeops = _makepairs(GO)
     # verify
     gaugeopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
-    aresymplecticorthogonal(S, gaugeopsmat) || error("Computed gauge operators do not commute with the codespace.")
+    aresymplecticorthogonal(stabs, gaugeopsmat) || error("Computed gauge operators do not commute with the codespace.")
     aresymplecticorthogonal(barelogsmat, gaugeopsmat) || error("Computed gauge operators do not commute with the computed logicals.")
     prod = hcat(gaugeopsmat[:, n + 1:end], -gaugeopsmat[:, 1:n]) * transpose(gaugeopsmat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed gauge operators do not have the right commutation relations.")
@@ -85,35 +102,29 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     # q^n / p^k but rows is n - k
     top = BigInt(order(F))^n
     r = length(gaugeops)
-    k =  top // BigInt(p)^(nrows(S) + r)
+    k =  top // BigInt(p)^(nrows(stabs) + r)
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
     # r = top // BigInt(p)^length(gaugeops)
     # isinteger(r) && (r = round(Int, log(BigInt(p), r));)
+    signs = _determinesigns(stabs, charvec)
 
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
-
-    # determine signs
-    signs = _determinesigns(S, charvec)
-
-    args = _isCSSsymplectic(S, signs, true)
+    args = _isCSSsymplectic(stabs, signs, true)
     if args[1]
         if graphstate
-            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, S, args[2], args[4],
-                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops, gaugeopsmat, standardform, standr, perms)
+            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, stabs, args[2], args[4],
+                missing, missing, signs, args[3], args[4], charvec, missing, false, gaugeops, gaugeopsmat,
+                stabsstand, standr, standk, Pstand)
         end
-        return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], barelogs, barelogsmat, charvec, gaugeops, gaugeopsmat, false, standardform, standr, perms)
+        return SubsystemCodeCSS(F, n, k, r, missing, stabs, args[2], args[4], missing, missing, signs,
+            args[3], args[5], barelogs, barelogsmat, charvec, gaugeops, gaugeopsmat, false, stabsstand,
+            standr, standk, Pstand)
     else
         if graphstate
-            return GraphStateSubsystem(F, n, 0, r, missing, S, charvec, signs, missing, false, gaugeops,
-                gaugeopsmat, standardform, standr, perms)
+            return GraphStateSubsystem(F, n, 0, r, missing, stabs, charvec, signs, missing, false, gaugeops,
+                gaugeopsmat, stabsstand, standr, standk, Pstand)
         end
-        return SubsystemCode(F, n, k, r, missing, S, signs, barelogs, barelogsmat, charvec, gaugeops,
-            gaugeopsmat, false, standardform, standr, perms)
+        return SubsystemCode(F, n, k, r, missing, stabs, signs, barelogs, barelogsmat, charvec, gaugeops,
+            gaugeopsmat, false, stabsstand, standr, standk, Pstand)
     end
 end
 
@@ -127,11 +138,14 @@ and signs by `charvec`.
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+function SubsystemCode(GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:syseqs) where T <: Union{String, Vector{Char}}
+
+    logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     GPaulistripped = _processstrings(GPauli)
     G = _Paulistringtosymplectic(GPaulistripped)
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
-    return SubsystemCode(G, charvec)
+    return SubsystemCode(G, charvec, logsalg)
 end
 
 """
@@ -143,12 +157,12 @@ by `L`, gauge operators (not including stabilizers) by `G`, and signs by `charve
 function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     charvec::Union{Vector{nmod}, Missing}=missing)
 
-    # all quantities, including catting all vectors if need be
     iszero(S) && error("The stabilizer matrix is empty.")
     S = _removeempty(S, :rows)
     n = div(ncols(S), 2)
     # check S commutes with itself
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
 
     # logicals
     iszero(L) && error("The logicals are empty.")
@@ -166,12 +180,6 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     sum(cols) == ncpr || println("Detected logicals not in anticommuting pairs.")
     logpairs = _makepairs(L)
     logsmat = reduce(vcat, [reduce(vcat, logpairs[i]) for i in 1:length(logpairs)])
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    standardform, perms, standr = _standardformstabilizer(S)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
 
     # gauge operators
     iszero(G) && error("The gauges are empty.")
@@ -193,38 +201,29 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     gopspairs = _makepairs(G)
     gopsmat = reduce(vcat, [reduce(vcat, gopspairs[i]) for i in 1:length(gopspairs)])
 
-    # display(G)
     F = base_ring(gopsmatrix)
     p = Int(characteristic(F))
     n = div(ncols(G), 2)
     charvec = _processcharvec(charvec, p, n)
-
-    # determine if the provided set of stabilizers are redundant
-    rkS = rank(S)
-    if nrows(S) > rkS
-        overcomp = true
-    else
-        overcomp = false
-    end
+    nrows(S) > rnk ? (overcomp = true) : (overcomp = false)
     rkG = rank(G)
 
     top = BigInt(order(F))^n
     # TODO: handle overcompleteness in inputs
     r = div(rkG, 2)
-    k =  top // BigInt(p)^(rkS + r)
+    k =  top // BigInt(p)^(rnk + r)
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-
-    # determine signs
     signs = _determinesigns(S, charvec)
 
     args = _isCSSsymplectic(S, signs, true)
     if args[1]
         return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], logpairs, logsmat, charvec, gopspairs, gopsmat, false, standardform, standr, perms)
+            args[3], args[5], logpairs, logsmat, charvec, gopspairs, gopsmat, false, stabsstand,
+            standr, standk, Pstand)
     else
-        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, logsmat, charvec, gopspairs, gopsmat, false, standardform, standr, perms)
+        return SubsystemCode(F, n, k, r, missing, S, signs, logpairs, logsmat, charvec, gopspairs,
+            gopsmat, false, stabsstand, standr, standk, Pstand)
     end
-
 end
 
 """
@@ -644,6 +643,11 @@ function setXstabilizers!(::IsCSS, S::AbstractSubsystemCode, Xstabs::CTMatrixTyp
 
     S.stabs = vcat(hcat(Xtrimmed, zero_matrix(S.F, nrows(Xtrimmed), S.n)),
         hcat(zero_matrix(S.F, nrows(S.Zstabs), S.n), S.Zstabs))
+    # stabsstand, Pstand, standr, standk, _ = _standardformstabilizer(S.stabs)
+    # S.stabsstand = stabsstand
+    # S.standr = standr
+    # S.standk = standk
+    # S.Pstand = Pstand
     S.signs = S.Xsigns ∪ S.Zsigns
     return nothing
 end
@@ -730,17 +734,28 @@ function setlogicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where W <: 
 
     # pairs are row i, and then whatever column is nonzero, and then shift such that it is one
     F = base_ring(L)
+    Fone = F(1)
     logs = Vector{Tuple{W, W}}()
-    # this does indeed grow smaller each iteration
-    while nrows(L) >= 2
-        y = findfirst(x->x>0, prodJul[:, 1])
-        y = [F(prod[y, 1]), y]
-        if y[1] != F(1)
-            push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
-        else
-            push!(logs, (L[1, :], L[y[2], :]))
+    if Int(order(F)) != 2
+        # this does indeed grow smaller each iteration
+        while nrows(L) >= 2
+            y = findfirst(x->x>0, prodJul[:, 1])
+            y = [F(prod[y, 1]), y]
+            if y[1] != Fone
+                push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
+            else
+                push!(logs, (L[1, :], L[y[2], :]))
+            end
+            L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
         end
-        L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
+    else
+        # this does indeed grow smaller each iteration
+        while nrows(L) >= 2
+            y = findfirst(x->x>0, prodJul[:, 1])
+            y = [F(prod[y, 1]), y]
+            push!(logs, (L[1, :], L[y[2], :]))
+            L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
+        end
     end
     S.logicals = logs
     S.logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
@@ -1064,39 +1079,30 @@ end
 Zsyndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
 
 """
-    promotelogicalstogauge(S::AbstractSubsystemCode, pairs::Vector{Int})
+    promotelogicalstogauge!(S::AbstractSubsystemCode, pairs::Vector{Int})
 
-Return a new `AbstractSubsystemCode` where the logical pairs in `pairs` are
-now considered as gauge operators.
+Add the logical pairs in `pairs` to the gauge operators.
 """
-promotelogicalstogauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = logicalpromotelogicalstogauges(LogicalTrait(T), S, pairs)
-function promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
+promotelogicalstogauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promotelogicalstogauges!(LogicalTrait(T), S, pairs)
+function promotelogicalstogauge!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
-    stabs = S.stabs
-    logs = S.logicals
     # will let this error naturally if pairs contains invalid elements
-    gaugeops = S.gaugeops ∪ logs[pairs]
-    gopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
-    logs = logs[setdiff![1:S.k, pairs]]
-    logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
-    # recompute k
-    top = BigInt(order(F))^n
-    if S.overcomplete
-        overcomp = true
-        rkS = rank(stabs)
-        k =  top // BigInt(p)^(rkS + length(pairs))
+    S.gaugeops = S.gaugeops ∪ logs[pairs]
+    S.gopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
+    S.logs = logs[setdiff![1:length(logs), pairs]]
+    S.logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    S.r = S.r + length(pairs)
+
+    if isinteger(S.k)
+        S.k = S.k - length(pairs)
     else
-        overcomp = false
-        k =  top // BigInt(p)^(nrows(stabs) + length(pairs))
+        k =  BigInt(order(S.F))^S.n // BigInt(p)^(S.standk + length(pairs))
+        isinteger(k) ? (S.k = round(Int, log(BigInt(p), k));) : (S.k = k;)
     end
-    isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-    # compute r
-    r = top // BigInt(p)^length(pairs)
-    isinteger(r) && (r = round(Int, log(BigInt(p), r));)
-    return SubsystemCode(S.F, S.n, k, r, S.d, stabs, logs, logsmat, S.charvec, S.signs, gaugeops,
-        gopsmat, overcomplete)
+    return nothing
 end
-promotelogicalstogauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+promotelogicalstogauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+# TODO: this can drop to a graph state, which is why I did what I did before
 
 """
     swapXZlogicals!(S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -1349,6 +1355,8 @@ function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) w
         perm = perm1 ⊕ perm1
         S.stabs = S.stabs * perm
         S.charvec = S.charvec * perm
+        S.stabsstand = S.stabsstand * perm
+        S.Pstand = S.Pstand * perm
 
         W = typeof(S)
         if CSSTrait(W) == IsCSS()
@@ -1376,6 +1384,9 @@ function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) w
         σ = σ ∪ (σ .+ S.n)
         S.stabs = S.stabs[:, σ]
         S.charvec = S.charvec[:, σ]
+        S.stabsstand = S.stabsstand[:, σ]
+        S.Pstand = S.Pstand[:, σ]
+
         W = typeof(S)
         if CSSTrait(W) == IsCSS()
             S.Xstabs = S.Xstabs[:, σ]
@@ -1396,18 +1407,11 @@ function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) w
             end
         end
     end
-
-    # new stuff from Ben
-    # TODO: replace logicals above with getting logicals from here
-    S.standardform, S.permutation, S.standr = _standardformstabilizer(S.stabs)
-    # it will look like:
-    #   logsmat = _logicalsstandardform(standardform, n, k, standr, perms)
-    
-
-    return S
+    return nothing
 end
 
-permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int = (Snew = deepcopy(S); return permutecode!(Snew, σ);)
+permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int =
+    (Snew = deepcopy(S); permutecode!(Snew, σ); return Snew)
 
 """
     augment(S::AbstractSubsystemCode, row::fq_nmod_mat, verbose::Bool=true)
@@ -1419,7 +1423,10 @@ Return the code created by added `row` to the stabilizers of `S`.
   The unaffected logical operators are kept during the update and only those which don't commute
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
-function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=true)
+function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, logsalg::Symbol=:syseqs,
+    verbose::Bool=true)
+
+    logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     typeof(S.stabs) == typeof(row) || throw(ArgumentError("Vector of different (Julia) type than stabilizers"))
     iszero(row) && return S
     nrows(row) == 1 || throw(ArgumentError("Only one stabilizer may be passed in at a time."))
@@ -1527,10 +1534,21 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=tru
 
     # compute newly opened degrees of freedom
     temp = _removeempty(vcat(stabs, logs, gaugeops), :rows)
-    _, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    temp = _removeempty(transpose(temp), :rows)
-    temp = _quotientspace(temp, newsymstabs)
+    rnktemp, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    if ncols(temp) == rnktemp
+        temp = transpose(temp)
+    else
+        # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+        nr = nrows(temp)
+        temptr = zero_matrix(base_ring(temp), rnktemp, nr)
+        for r in 1:nr
+            for c in 1:rnktemp
+                !iszero(temp[r, c]) && (temptr[c, r] = temp[r, c];)
+            end
+        end
+        temp = temptr
+    end
+    temp = _quotientspace(temp, newsymstabs, logsalg)
     newlogs = _makepairs(temp)
     return SubsystemCode(stabs, vcat(logs, newlogs), gaugeops, S.charvec)
 end
@@ -1544,7 +1562,10 @@ Return the code created by removing the stabilizers indexed by `rows`.
 * The goal of this function is to track how the logical operators update through this process.
   Here, the original logical pairs are kept and an appropriate number of new pairs are added.
 """
-function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=true)
+function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, logsalg::Symbol=:stndfrm,
+    verbose::Bool=true)
+
+    logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     numstabs = nrows(S.stabs)
     rows ⊆ 1:numstabs || throw(ArgumentError("Argument `rows` not a subset of the number of stabilizers."))
     rows == 1:numstabs && throw(ArgumentError("Cannot remove all stabilizers"))
@@ -1558,10 +1579,21 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=tr
     if GaugeTrait(typeof(S)) == HasGauges()
         temp = vcat(temp, S.gopsmat)
     end
-    _, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    H = _removeempty(transpose(H), :rows)
-    newlogs = _quotientspace(H, newstabs)
+    rnkH, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    if ncols(H) == rnkH
+        Htr = transpose(H)
+    else
+        # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+        nr = nrows(H)
+        Htr = zero_matrix(base_ring(H), rnkH, nr)
+        for r in 1:nr
+            for c in 1:rnkH
+                !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+            end
+        end
+    end
+
+    newlogs = _quotientspace(Htr, newstabs, logsalg)
     if iszero(newlogs)
         verbose && println("No new logicals need to be add")
         Snew = deepcopy(S)

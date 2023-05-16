@@ -1276,14 +1276,16 @@ end
     # @test areequivalent(Q, Q2)
 
     # # TODO: BaconShorCode
+    Q3 = BaconShorCode(3, 4)
+
+    F = GF(2)
+    A = matrix(F, 3, 4, ones(Int, 3, 4))
+    Q4 = BravyiSubsystemCodes(A)
+    @test CodingTheory.dimension(Q4) == rank(A)
+    # # TODO: add a test here on the min distances
+    @test areequivalent(Q3, Q4)
 
     # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
 
-    # F, _ = FiniteField(2, 1, "α")
-    # A = matrix(F, 3, 4, ones(Int, 3, 4))
-    # Q3 = BravyiSubsystemCodes(A)
-    # @test CodingTheory.dimension(Q3) == rank(A)
-    # # TODO: add a test here on the min distances
-    # # Q3 here should be a BaconShorCode(3, 4)
-    # @test areequivalent(Q, Q3)
+    
 end

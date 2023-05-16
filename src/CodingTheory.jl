@@ -204,7 +204,7 @@ export ClusterState, GraphState
 
 include("miscknownquantumcodes.jl")
 # subsystem
-export GaugedShorCode, Q9143, BaconShorCode
+export GaugedShorCode, Q9143, BaconShorCode, BravyiSubsystemCodes
 
 # stabilizer
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,

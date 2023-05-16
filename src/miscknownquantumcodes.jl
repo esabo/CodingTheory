@@ -142,44 +142,92 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
         colwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
-    totXgauges = 0
-
-    # TODO: really only need to generate every consequetive pair
-
-    # every pair of 1's in row of A gets an X gauge operator
-    Xgauges = zero_matrix(F, totXgauges, n)
+    # really only need to generate every consequetive pair
+    Xgauges = zero_matrix(F, sum([rowwts[i] - 1 for i in 1:length(rowwts)]), n)
     currrow = 1
     Fone = F(1)
     for r in 1:nr
-        for c1 in 1:nc - 1
+        c1 = 1
+        while c1 < nc
             if !iszero(A[r, c1])
+                atend = true
                 for c2 in c1 + 1:nc
                     if !iszero(A[r, c2])
                         Xgauges[currrow, linearindex[r, c1]] = Fone
                         Xgauges[currrow, linearindex[r, c2]] = Fone
                         currrow += 1
+                        c1 = c2
+                        atend = false
+                        break
                     end
                 end
+                atend && (c1 = nc;)
+            else
+                c1 += 1
             end
         end
     end
 
-    # every pair of 1's in col of A gets a Z gauge operator
-    Zgauges = zero_matrix(F, totZgauges, n)
+    # really only need to generate every consequetive pair
+    Zgauges = zero_matrix(F, sum([colwts[i] - 1 for i in 1:length(colwts)]), n)
     currrow = 1
     for c in 1:nc
-        for r1 in 1:nr - 1
+        r1 = 1
+        while r1 < nr
             if !iszero(A[r1, c])
+                atend = true
                 for r2 in r1 + 1:nr
                     if !iszero(A[r2, c])
                         Zgauges[currrow, linearindex[r1, c]] = Fone
                         Zgauges[currrow, linearindex[r2, c]] = Fone
                         currrow += 1
+                        r1 = r2
+                        atend = false
+                        break
                     end
                 end
+                atend && (r1 = nr;)
+            else
+                r1 += 1
             end
         end
     end
+
+    # # every pair of 1's in row of A gets an X gauge operator
+    # Xgauges = zero_matrix(F, totXgauges, n)
+    # currrow = 1
+    # Fone = F(1)
+    # for r in 1:nr
+    #     for c1 in 1:nc - 1
+    #         if !iszero(A[r, c1])
+    #             for c2 in c1 + 1:nc
+    #                 if !iszero(A[r, c2])
+    #                     Xgauges[currrow, linearindex[r, c1]] = Fone
+    #                     Xgauges[currrow, linearindex[r, c2]] = Fone
+    #                     currrow += 1
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
+
+    # # every pair of 1's in col of A gets a Z gauge operator
+    # Zgauges = zero_matrix(F, totZgauges, n)
+    # currrow = 1
+    # for c in 1:nc
+    #     for r1 in 1:nr - 1
+    #         if !iszero(A[r1, c])
+    #             for r2 in r1 + 1:nr
+    #                 if !iszero(A[r2, c])
+    #                     Zgauges[currrow, linearindex[r1, c]] = Fone
+    #                     Zgauges[currrow, linearindex[r2, c]] = Fone
+    #                     currrow += 1
+    #                 end
+    #             end
+    #         end
+    #     end
+    # end
+
     S = SubsystemCode(Xgauges ⊕ Zgauges)
     minrowwt = minimum(rowwts)
     mincolwt = minimum(colwts)
