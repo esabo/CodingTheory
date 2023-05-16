@@ -337,21 +337,31 @@ end
 # end
 
 function _removeempty(A::CTMatrixTypes, type::Symbol)
-    type ∈ [:rows, :cols] || throw(ArgumentError("Unknown type in _removeempty"))
+    type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _removeempty"))
     
     del = Vector{Int}()
     if type == :rows
         for r in axes(A, 1)
-            if iszero(A[r, :])
-                append!(del, r)
+            flag = true
+            for c in axes(A, 2)
+                if !iszero(A[r, c])
+                    flag = false
+                    break
+                end
             end
+            flag && append!(del, r)
         end
         return isempty(del) ? A : A[setdiff(1:nrows(A), del), :]
     elseif type == :cols
         for c in axes(A, 2)
-            if iszero(A[:, c])
-                append!(del, c)
+            flag = true
+            for r in axes(A, 1)
+                if !iszero(A[r, c])
+                    flag = false
+                    break
+                end
             end
+            append!(del, c)
         end
         return isempty(del) ? A : A[:, setdiff(1:ncols(A), del)]
     end

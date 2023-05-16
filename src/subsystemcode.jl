@@ -890,18 +890,18 @@ end
 # probably need to simply redo the above to simply start with zero matrix
 # and then either set first or add to it (return matrix[2:end, L])
 # TODO: need more robust CSS detection, what if I add and X and Z stabilizer and use it implace of the Z
-function _isCSSsymplectic(S::T, signs::Vector{nmod}, trim::Bool=true) where T <: CTMatrixTypes
-    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitstabilizers(S, signs)
+function _isCSSsymplectic(stabs::T, signs::Vector{nmod}, trim::Bool=true) where T <: CTMatrixTypes
+    Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns = _splitstabilizers(stabs, signs)
     if typeof(mixedstabs) <: Vector{T}
         if trim
-            half = div(ncols(S), 2)
+            half = div(ncols(stabs), 2)
             return true, Xstabs[:, 1:half], Xsigns, Zstabs[:, half + 1:end], Zsigns
         else
             return true, Xstabs, Xsigns, Zstabs, Zsigns
         end
     else
         if trim
-            half = div(ncols(S), 2)
+            half = div(ncols(stabs), 2)
             !(typeof(Xstabs) <: Vector{T}) && (Xstabs = Xstabs[:, 1:half];)
             !(typeof(Zstabs) <: Vector{T}) && (Zstabs = Zstabs[:, half + 1:end];)
             return false, Xstabs, Xsigns, Zstabs, Zsigns, mixedstabs, mixedsigns
