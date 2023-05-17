@@ -9,30 +9,10 @@
 #############################
 
 """
-    LinearCode(G::fq_nmod_mat, parity::Bool=false)
+    LinearCode(G::CTMatrixTypes, parity::Bool=false)
 
-Return the linear code constructed with generator matrix `G`.
-
-# Notes
-* If `G` is not full rank, a row-reduced form is computed for the generator matrix.
-  The dimension of the code is the number of rows of the full-rank matrix, and the
-  length the number of columns. If the optional paramater `parity` is set to `true`,
-  a linear code is built with `G` as the parity-check matrix.
-* At the moment, no convention is used for G = 0 and an error is thrown.
-* Zero columns are not removed.
-
-# Examples
-```julia
-julia> F = GF(2);
-julia> G = matrix(F, 4, 7, [1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]);
-julia> C = LinearCode(G)
-[7, 4]_2 linear code.
-Generator matrix: 4 × 7
-        1 0 0 0 0 1 1
-        0 1 0 0 1 0 1
-        0 0 1 0 1 1 0
-        0 0 0 1 1 1 1
-```
+Return the linear code constructed with generator matrix `G`. If the optional paramater `parity` is
+set to `true`, a linear code is built with `G` as the parity-check matrix.
 """
 function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     iszero(G) && throw(ArgumentError("Zero matrix passed into LinearCode constructor."))
@@ -76,7 +56,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
 end
 
 """
-LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false)
+    LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false)
 
 Return the linear code constructed from the basis of the vector space `V`. If the optional paramater
 `parity` is set to `true`, a linear code is built with `G` as the parity-check matrix.
