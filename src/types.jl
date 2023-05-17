@@ -500,22 +500,23 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
     signs::Vector{nmod}
     Xsigns::Vector{nmod}
     Zsigns::Vector{nmod}
-    dualgens::CTMatrixTypes
-    logspace::Union{fq_nmod_mat, Missing}
-    logicals::Union{Vector{Tuple{T, T}}, Missing} where T <: CTMatrixTypes
+    logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    logsmat::CTMatrixTypes
     charvec::Vector{nmod}
+    overcomplete::Bool
+    stabsstand::CTMatrixTypes
+    standr::Int
+    standk::Int
+    Pstand::Union{CTMatrixTypes, Missing}
     sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
-    overcomplete::Bool
-    Lsigns::Union{Vector{nmod}, Missing}
-    # TODO: remove dualgens, logspace, missing on logs, Lsigns
 end
 
 #############################
          # traits
 #############################
 
-const CSSTypes = Union{AbstractSubsystemCodeCSS, AbstractStabilizerCodeCSS, AbstractGraphStateStabilizerCSS, AbstractGraphStateSubsystemCSS}
+const CSSTypes = Union{AbstractSubsystemCodeCSS, AbstractStabilizerCodeCSS, AbstractGraphStateStabilizerCSS, AbstractGraphStateSubsystemCSS, AbastractHypergraphProductCode}
 const GraphStateTypes = Union{AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer, AbstractGraphStateStabilizerCSS}
 
 abstract type LogicalTrait end
