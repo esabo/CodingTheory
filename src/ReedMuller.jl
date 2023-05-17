@@ -22,21 +22,17 @@ function ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
     if q == 2
-        # F, _ = FiniteField(2, 1, "α")
         F = GF(2)
         if r == 1 && m == 1 && !alt
             return matrix(F, 2, 2, [1, 1, 0, 1])
         elseif r == m
-            M = MatrixSpace(F, 2^m, 2^m)
-            return M(1)
+            return identity_matrix(F, 2^m)
         elseif r == 0
-            M = MatrixSpace(F, 1, 2^m)
-            return M([1 for i in 1:2^m])
+            return matrix(F, ones(Int, 1, 2^m))
         else
             Grm1 = ReedMullergeneratormatrix(q, r, m - 1, alt)
             Gr1m1 = ReedMullergeneratormatrix(q, r - 1, m - 1, alt)
-            M = MatrixSpace(F, nrows(Gr1m1), ncols(Gr1m1))
-            return vcat(hcat(Grm1, Grm1), hcat(M(0), Gr1m1))
+            return vcat(hcat(Grm1, Grm1), hcat(zero_matrix(F, nrows(Gr1m1), ncols(Gr1m1)), Gr1m1))
         end
     else
         throw(ArgumentError("Nonbinary Reed-Muller codes have not yet been implemented."))

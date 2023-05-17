@@ -68,7 +68,7 @@ Return the Hamming weight enumerator associated with the complete weight enumera
 function CWEtoHWE(CWE::WeightEnumerator)
     CWE.type == :complete || throw(ArgumentError("Not a complete weight enumerator"))
 
-    R, (x, y) = PolynomialRing(base_ring(CWE.polynomial), ["x", "y"])
+    R, (x, y) = PolynomialRing(base_ring(CWE.polynomial), (:x, :y))
     poly = R(0)
     for i in 1:length(CWE.polynomial)
         exps = exponent_vector(CWE.polynomial, i)
@@ -1104,7 +1104,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
             cardinality(C)), :complete)
     elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
-        K, ζ = CyclotomicField(3, "ζ")
+        K, ζ = CyclotomicField(3, :ζ)
         R, vars = PolynomialRing(K, 3)
         # might have to switch this here
         poly = divexact(W.polynomial(
@@ -1153,7 +1153,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
     else
         q = Int(order(C.F))
         if isprime(q)
-            K, ω = CyclotomicField(Int(characteristic(C.F)), "ω")
+            K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
             R, vars = PolynomialRing(K, q)
             elms = collect(C.F)
             funcargs = []
@@ -1167,9 +1167,9 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
             return WeightEnumerator(divexact(W.polynomial(funcargs), cardinality(C)),
                 :complete)
         else
-            K, ω = CyclotomicField(Int(characteristic(C.F)), "ω")
+            K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
             R, vars = PolynomialRing(K, q)
-            primefield, _ = FiniteField(Int(characteristic(C.F)), 1, "α2")
+            primefield = GF(Int(characteristic(C.F)))
             _, λ = primitivebasis(C.F, primefield)
             elms = collect(C.F)
             funcargs = []
@@ -1385,7 +1385,7 @@ function _weightenumeratorBFQ(G::CTMatrixTypes, charvec::Vector{nmod},
     p = Int(characteristic(E))
     iseven(p) ? nth = 2 * p : nth = p
     if ismissing(R)
-        K, ω = CyclotomicField(nth, "ω")
+        K, ω = CyclotomicField(nth, :ω)
         R, vars = PolynomialRing(K, ordE)
     else
         ω = gen(base_ring(R))
@@ -1604,7 +1604,7 @@ function weightenumeratorQ(T::Trellis, type::Symbol=:complete)
 
     p = Int(characteristic(T.code.E))
     iseven(p) ? nth = 2 * p : nth = p
-    K, ω = CyclotomicField(nth, "ω")
+    K, ω = CyclotomicField(nth, :ω)
     R, vars = PolynomialRing(K, length(elms))
 
     n = T.code.n

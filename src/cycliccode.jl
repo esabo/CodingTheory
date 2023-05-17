@@ -31,10 +31,11 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
-    F, _ = FiniteField(p, t, "α")
+    F = GF(p, t, :α)
     deg = ord(n, q)
-    E, α = FiniteField(p, t * deg, "α")
-    R, x = PolynomialRing(E, "x")
+    E = GF(p, t * deg, :α)
+    α = gen(E)
+    R, x = PolynomialRing(E, :x)
     β = α^(div(BigInt(q)^deg - 1, n))
 
     defset = sort!(reduce(vcat, cosets))
@@ -95,10 +96,11 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
     p = Int(characteristic(F))
     t = Int(degree(F))
     deg = ord(n, q)
-    E, α = FiniteField(p, t * deg, "α")
+    E = GF(p, t * deg, :α)
+    α = gen(E)
     β = α^(div(q^deg - 1, n))
     ordE = Int(order(E))
-    RE, y = PolynomialRing(E, "y")
+    RE, y = PolynomialRing(E, :y)
     gE = RE([E(i) for i in collect(coefficients(g))])
     # _, h = divides(gen(RE)^n - 1, gE)
 
@@ -180,10 +182,11 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
-    F, _ = FiniteField(p, t, "α")
+    F = GF(p, t, :α)
     deg = ord(n, q)
-    E, α = FiniteField(p, t * deg, "α")
-    R, x = PolynomialRing(E, "x")
+    E = GF(p, t * deg, :α)
+    α = gen(E)
+    R, x = PolynomialRing(E, :x)
     β = α^(div(q^deg - 1, n))
 
     cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
@@ -272,8 +275,9 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
     length(factors) == 1 || error("There is no finite field of order $q.")
     (p, t), = factors
 
-    F, α = FiniteField(p, t, "α")
-    R, x = PolynomialRing(F, "x")
+    F = GF(p, t, :α)
+    α = gen(F)
+    R, x = PolynomialRing(F, :x)
 
     n = q - 1
     cosets = definingset([i for i = b:(b + d - 2)], q, n, false)
@@ -660,8 +664,9 @@ function iscyclic(C::AbstractLinearCode, construct::Bool=true)
     gcd(C.n, ordF) == 1 || return false
     (p, t), = AbstractAlgebra.factor(ordF)
     deg = ord(C.n, ordF)
-    E, α = FiniteField(p, t * deg, "α")
-    R, x = PolynomialRing(E, "x")
+    E = GF(p, t * deg, :α)
+    α = gen(E)
+    R, x = PolynomialRing(E, :x)
     # β = α^(div(q^deg - 1, n))
 
     G = generatormatrix(C)

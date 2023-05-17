@@ -34,7 +34,7 @@ function LDPCCode(H::CTMatrixTypes)
     end
     c, r = maximum(cols), maximum(rows)
 
-    R, x = PolynomialRing(Nemo.QQ, "x")
+    R, x = PolynomialRing(Nemo.QQ, :x)
     colpoly = R(0)
     for i in cols
         colpoly += i * x^(i - 1)
@@ -77,7 +77,7 @@ function LDPCCode(C::AbstractLinearCode)
     end
     c, r = maximum(cols), maximum(rows)
 
-    R, x = PolynomialRing(Nemo.QQ, "x")
+    R, x = PolynomialRing(Nemo.QQ, :x)
     colpoly = R(0)
     for i in cols
         colpoly += x^i

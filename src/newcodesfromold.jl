@@ -130,14 +130,12 @@ function extend(C::AbstractLinearCode)
     G = generatormatrix(C)
     nrG = nrows(G)
     col = [sum(G[i, :]) for i in 1:nrG]
-    M = MatrixSpace(C.F, nrG, 1)
-    G = hcat(G, M([p - i for i in col]))
+    G = hcat(G, matrix(C.F, nrG, 1, [p - i for i in col]))
 
     # produce standard form of extended H
     H = paritycheckmatrix(C)
     nrH = nrows(H)
-    M = MatrixSpace(C.F, 1, C.n + 1)
-    toprow = M([1 for _ in 1:(C.n + 1)])
+    toprow = matrix(C.F, ones(Int, 1, C.n + 1))
     rightcol = zero_matrix(C.F, nrH, 1)
     H = vcat(toprow, hcat(paritycheckmatrix(C), rightcol))
     Gstand, Hstand, P, k = _standardform(G)
