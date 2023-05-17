@@ -23,17 +23,19 @@ function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
     g == gen(S)^m - 1 || throw(ArgumentError("Residue ring not of the form x^m - 1."))
     l = ncols(A)
     if parity
-        Atype = 'H'
+        Atype = :H
         H = lift(A)
         k, _ = right_kernel(H)
         W = weightmatrix(A)
-        return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
+        return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing,
+            missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
     else
-        Atype = 'G'
+        Atype = :G
         G = lift(A)
         k = rank(G)
         W = weightmatrix(A)
-        return QuasiCyclicCode(F, R, ncols(G), k, missing, 1, ncols(G), missing, missing, missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
+        return QuasiCyclicCode(F, R, ncols(G), k, missing, 1, ncols(G), missing, missing,
+            missing, missing, missing, missing, l, m, A, Atype, W, maximum(W))
     end
 end
 
@@ -234,8 +236,8 @@ issinglegenerator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
 
 function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
     if ismissing(C.G)
-        if C.Atype == 'G'
-            G = lift(C.A);
+        if C.Atype == :G
+            G = lift(C.A)
         else
             _, G = right_kernel(lift(C.A))
             G = transpose(G)
@@ -247,7 +249,7 @@ end
 
 function paritycheckmatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
     if ismissing(C.H)
-        if C.Atype == 'H'
+        if C.Atype == :H
             H = lift(C.A)
         else
             _, H = right_kernel(lift(C.A))
@@ -265,7 +267,7 @@ Return the non-circulant form of the generator matrix for the quasi-cyclic code 
 polynomial matrix specifies the generator matrix. Otherwise, return `missing`.
 """
 function noncirculantgeneratormatrix(C::AbstractQuasiCyclicCode)
-    if C.Atype == 'G'
+    if C.Atype == :G
         flag = true
         for r in 1:C.m
             Ginner = zero_matrix(C.F, C.l, C.l * C.n)
@@ -293,7 +295,7 @@ Return the non-circulant form of the parity-check matrix for the quasi-cyclic co
 if the polynomial matrix specifies the parity-check matrix. Otherwise, return `missing`.
 """
 function noncirculantparitycheckmatrix(C::AbstractQuasiCyclicCode)
-    if C.Atype == 'H'
+    if C.Atype == :H
         flag = true
         for r in 1:C.m
             Hinner = zero_matrix(C.F, C.l, C.l * C.n)

@@ -230,7 +230,7 @@ mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     l::Int
     m::Int
     A::MatElem{<:ResElem}
-    Atype::Char
+    Atype::Symbol
     W::Matrix{Int}
     type::Int
 end
