@@ -126,7 +126,8 @@ using Test
     @test flag
     @test verifydualbasis(E, F, basis[1], basis[2])
 
-    E, α = GF(2, 4, "α");
+    E = GF(2, 4, :α)
+    α = gen(E)
     flag, _ = isextension(E, F)
     @test flag
     basis = [α^3, α^6, α^9, α^12];
@@ -143,7 +144,8 @@ using Test
     @test flag
 
     F = GF(3)
-    E, α = GF(3, 2, "α");
+    E = GF(3, 2, :α)
+    α = gen(E)
     flag, _ = isextension(E, F)
     @test flag
     basis = [α, α^3];
@@ -159,7 +161,8 @@ using Test
     flag, _ = isbasis(E, F, basis)
     @test flag
 
-    E, α = GF(3, 3, "α");
+    E = GF(3, 3, :α);
+    α = gen(E)
     flag, _ = isextension(E, F)
     @test flag
     basis = [α^2, α^6, α^18];
@@ -190,7 +193,8 @@ using Test
     @test isnormalbasis(E, F, basis)
 
     F = GF(5)
-    E, α = GF(5, 2, "α");
+    E = GF(5, 2, :α);
+    α = gen(E)
     flag, _ = isextension(E, F)
     @test flag
     basis = [α, α^5];
@@ -231,7 +235,7 @@ using Test
     @test flag == false
 
     F = GF(2)
-    S, x = PolynomialRing(F, "x")
+    S, x = PolynomialRing(F, :x)
     l = 3
     R = residue_ring(S, x^l - 1)
     A = matrix(R, 2, 3, [1, 0, 1 + x^2, 1 + x, 1 + x + x^2, x^2])
@@ -337,7 +341,8 @@ end
     # expandedcode, entrywiseproductcode, evensubcode
 
     # subfield subcode example from Huffman/Pless
-    K, ω = GF(2, 2, "ω");
+    K = GF(2, 2, :ω);
+    ω = gen(K)
     C = Hexacode();
     dualbasis = [ω^2, K(1)]; # dual?
     CF2 = subfieldsubcode(C, F, dualbasis)
@@ -467,7 +472,7 @@ end
 @testset "miscknowncodes.jl" begin
     using Oscar, CodingTheory
 
-    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+    R, (x, y) = PolynomialRing(Nemo.ZZ, (:x, :y))
 
     # Hamming codes
     # Tetra code is Hammingcode(3, 2)
@@ -630,7 +635,7 @@ end
     @test minimumdistance(C) == 7
     @test CodingTheory.dimension(C) >= length(C) - ord(length(C), 3)*(5 - 1)
 
-    R, (x, y) = PolynomialRing(Nemo.ZZ, ["x", "y"])
+    R, (x, y) = PolynomialRing(Nemo.ZZ, (:x, :y))
 
     # example: MacWilliams & Sloane
     # any cyclic code over GF(2^m) of length 2^m + 1 is reversible
@@ -1146,7 +1151,7 @@ end
     # Degenerate Quantum LDPC Codes With Good Finite Length Performance
     # Example A1
     F = GF(2)
-    S, x = PolynomialRing(F, "x")
+    S, x = PolynomialRing(F, :x)
     l = 127
     R = residue_ring(S, x^l - 1)
     a = 1 + x^15 + x^20 + x^28 + x^66
@@ -1291,5 +1296,4 @@ end
 
     # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
 
-    
 end

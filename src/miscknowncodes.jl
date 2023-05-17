@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023 Eric Sabo
+# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -15,14 +15,17 @@
 
 Return the `[n, 1, n]` repetition code over `GF(q)`.
 """
-# TODO: factor and decide on field constructor
 function RepetitionCode(q::Int, n::Int)
-    F, _ = FiniteField(q, 1, "α")
-    # F = GF(2)
-    G = matrix(F, 1, n, [1 for i in 1:n])
-    M2 = MatrixSpace(F, n - 1, 1)
-    M3 = MatrixSpace(F, n - 1, n - 1)
-    H = hcat(M2([1 for i in 1:(n - 1)]), M3(1))
+    F = if isprime(q)
+        GF(q)
+    else
+        factors = AbstractAlgebra.factor(q)
+        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        (p, t), = factors
+        GF(p, t, :α)
+    end
+    G = matrix(F, ones(Int, 1, n))
+    H = hcat(matrix(F, ones(Int, n - 1, 1)), identity_matrix(F, n - 1))
     Gstand, Hstand, P, _ = _standardform(G)
     return LinearCode(F, n, 1, n, n, n, G, H, Gstand, Hstand, P, missing)
 end
@@ -34,7 +37,8 @@ end
 Return the `[6, 3, 4]` hexacode over `GF(4)`.
 """
 function Hexacode()
-    F, ω = FiniteField(2, 2, "ω")
+    F = GF(2, 2, :ω)
+    ω = gen(F)
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
     # it auto-computes this H anyway but might as well skip that step
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
@@ -63,7 +67,6 @@ function HammingCode(q::Int, r::Int)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     if q == 2
-        # F, _ = FiniteField(2, 1, "α")
         F = GF(2)
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
@@ -96,7 +99,6 @@ Return the `[4, 2, 3]` tetra code over `GF(3)`.
   based on the commonly presented generator and parity-check matrices.
 """
 function TetraCode()
-    # F, _ = FiniteField(3, 1, "α")
     F = GF(3)
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
@@ -136,7 +138,6 @@ function SimplexCode(q::Int, r::Int)
     q > 2 && return dual(HammingCode(q, r))
 
     # binary simplex codes
-    # F, _ = FiniteField(2, 1, "α");
     F = GF(2)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
@@ -174,40 +175,36 @@ extended ternary Golay code if `p == 3`.
 """
 function ExtendedGolayCode(p::Int)
     if p == 2
-        # F, _ = FiniteField(2, 1, "α")
         F = GF(2)
-        M = MatrixSpace(F, 12 , 12)
-        A = M([0 1 1 1 1 1 1 1 1 1 1 1;
-             1 1 1 0 1 1 1 0 0 0 1 0;
-             1 1 0 1 1 1 0 0 0 1 0 1;
-             1 0 1 1 1 0 0 0 1 0 1 1;
-             1 1 1 1 0 0 0 1 0 1 1 0;
-             1 1 1 0 0 0 1 0 1 1 0 1;
-             1 1 0 0 0 1 0 1 1 0 1 1;
-             1 0 0 0 1 0 1 1 0 1 1 1;
-             1 0 0 1 0 1 1 0 1 1 1 0;
-             1 0 1 0 1 1 0 1 1 1 0 0;
-             1 1 0 1 1 0 1 1 1 0 0 0;
-             1 0 1 1 0 1 1 1 0 0 0 1])
-        G = hcat(M(1), A)
-        H = hcat(-transpose(A), M(1))
+        A = matrix(F, [0 1 1 1 1 1 1 1 1 1 1 1;
+                       1 1 1 0 1 1 1 0 0 0 1 0;
+                       1 1 0 1 1 1 0 0 0 1 0 1;
+                       1 0 1 1 1 0 0 0 1 0 1 1;
+                       1 1 1 1 0 0 0 1 0 1 1 0;
+                       1 1 1 0 0 0 1 0 1 1 0 1;
+                       1 1 0 0 0 1 0 1 1 0 1 1;
+                       1 0 0 0 1 0 1 1 0 1 1 1;
+                       1 0 0 1 0 1 1 0 1 1 1 0;
+                       1 0 1 0 1 1 0 1 1 1 0 0;
+                       1 1 0 1 1 0 1 1 1 0 0 0;
+                       1 0 1 1 0 1 1 1 0 0 0 1])
+        G = hcat(identity_matrix(F, 12), A)
+        H = hcat(-transpose(A), identity_matrix(F, 12))
         Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
         return LinearCode(F, 24, 12, 8, 8, 8, G, H, Gstand, Hstand, P, wtenum)
     elseif p == 3
-        # F, _ = FiniteField(3, 1, "α")
         F = GF(3)
-        M = MatrixSpace(F, 6 , 6)
-        A = M([0 1 1 1 1 1;
-               1 0 1 -1 -1 1;
-               1 1 0 1 -1 -1;
-               1 -1 1 0 1 -1;
-               1 -1 -1 1 0 1;
-               1 1 -1 -1 1 0])
-        G = hcat(M(1), A)
-        H = hcat(-transpose(A), M(1))
+        A = matrix(F, [0  1  1  1  1  1;
+                       1  0  1 -1 -1  1;
+                       1  1  0  1 -1 -1;
+                       1 -1  1  0  1 -1;
+                       1 -1 -1  1  0  1;
+                       1  1 -1 -1  1  0])
+        G = hcat(identity_matrix(F, 6), A)
+        H = hcat(-transpose(A), identity_matrix(F, 6))
         Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         # this looks like Hamming and not complete

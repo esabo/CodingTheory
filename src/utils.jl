@@ -884,20 +884,18 @@ function pseudoinverse(M::CTMatrixTypes)
     end
 
     nr, nc = size(M)
-    MS = MatrixSpace(base_ring(M), nr, nr)
-    _, E = rref(hcat(M, MS(1)))
+    _, E = rref(hcat(M, identity_matrix(base_ring(M), nr)))
     E = E[:, (nc + 1):end]
     pinv = E[1:nc, :]
     dual = E[nc + 1:nr, :]
 
     # verify
     _, Mrref = rref(M)
-    MScols = MatrixSpace(base_ring(M), nc, nc)
     E * M == Mrref || error("Pseudoinverse calculation failed (transformation incorrect).")
-    Mrref[1:nc, 1:nc] == MScols(1) || error("Pseudoinverse calculation failed (failed to get I).")
+    Mrref[1:nc, 1:nc] == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (failed to get I).")
     iszero(Mrref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-    pinv * M == MScols(1) || error("Pseudoinverse calculation failed (eq 1).")
-    transpose(M) * transpose(pinv) == MScols(1) || error("Pseudoinverse calculation failed (eq 2).")
+    pinv * M == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 1).")
+    transpose(M) * transpose(pinv) == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 2).")
     iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
     iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
     return pinv
@@ -911,7 +909,7 @@ end
 # function quadratictosymplectic(M::CTMatrixTypes)
 #     E = base_ring(M)
 #     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-#     F, _ = FiniteField(Int(characteristic(E)), div(degree(E), 2), "ω")
+#     F = GF(Int(characteristic(E)), div(degree(E), 2), :ω)
 #     nr = nrows(M)
 #     nc = ncols(M)
 #     Msym = zero_matrix(F, nr, 2 * nc)
@@ -937,7 +935,8 @@ end
 #     nr = nrows(M)
 #     nc = div(ncols(M), 2)
 #     F = base_ring(M)
-#     E, ω = FiniteField(Int(characteristic(F)), 2 * degree(F), "ω")
+#     E = GF(Int(characteristic(F)), 2 * degree(F), :ω)
+#     ω = gen(E)
 #     ϕ = embed(F, E)
 #     Mquad = zero_matrix(E, nr, nc)
 #     for c in 1:nc
@@ -950,7 +949,8 @@ end
 
 function _Paulistringtosymplectic(str::T) where T <: Union{String, Vector{Char}}
     n = length(str)
-    F, _ = FiniteField(2, 1, "ω")
+    # F = GF(2, 1, :ω)
+    F = GF(2)
     sym = zero_matrix(F, 1, 2 * n)
     for (i, c) in enumerate(str)
         if c == 'X'
@@ -1080,7 +1080,7 @@ function quadraticresidues(q::Int, n::Int)
     isodd(n) && isprime(n) || throw(ArgumentError("n must be an odd prime in quadratic residues"))
     q^div(n - 1, 2) % n == 1 || throw(ArgumentError("q^(n - 1)/2 ≅ 1 mod n in quadratic residues"))
 
-    # F, _ = FiniteField(n, 1, "α")
+    # F = GF(n, 1, :α)
     # elms = collect(F)
     # # skip 0
     # qres = unique!([i^2 for i in elms[2:end]])
@@ -1220,20 +1220,19 @@ function verifydualbasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFie
     end
 
     q = Int(order(F))
-    M = MatrixSpace(E, m, m)
-    B = M(0)
+    B = zero_matrix(E, m, m)
     for r in 1:m
         for c in 1:m
             B[r, c] = basis[r]^(q^(c - 1))
         end
     end
-    Binv = M(0)
+    Binv = zero_matrix(E, m, m)
     for r in 1:m
         for c in 1:m
             Binv[r, c] = dualbasis[c]^(q^(r - 1))
         end
     end
-    return B * Binv == M(1)
+    return B * Binv == identity_matrix(E, m)
 end
 verifycomplementarybasis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dualbasis::Vector{<:CTFieldElem}) = verifydualbasis(E, F, basis, dualbasis)
 

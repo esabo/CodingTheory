@@ -252,9 +252,7 @@ function _standardform(G::CTMatrixTypes)
     rnk, Gstand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
     nrows(Gstand) > rnk && (Gstand = _removeempty(Gstand, :rows);)
     A = Gstand[:, (nrows(Gstand) + 1):ncols(Gstand)]
-    T = MatrixSpace(base_ring(Gstand), ncols(Gstand) - nrows(Gstand),
-        ncols(Gstand) - nrows(Gstand))
-    Hstand = hcat(-transpose(A), T(1))
+    Hstand = hcat(-transpose(A), identity_matrix(base_ring(Gstand), ncols(Gstand) - nrows(Gstand)))
     return Gstand, Hstand, P, rnk
 end
 
@@ -556,7 +554,7 @@ Return the characteristic polynomial of `C`.
 * The characteristic polynomial is defined in [Lin1999]_
 """
 function characteristicpolynomial(C::AbstractLinearCode)
-    _, x = PolynomialRing(Nemo.QQ, "x")
+    _, x = PolynomialRing(Nemo.QQ, :x)
     D = dual(C)
     supD = support(D)
     q = Int(order(C.F))

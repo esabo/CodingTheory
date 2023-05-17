@@ -17,7 +17,7 @@ function GraphState(G::SimpleGraph{Int64})
         iszero(A[i, i]) || throw(ArgumentError("Graph cannot have self-loops."))
     end
     # are there non-binary graph states?
-    F, _ = FiniteField(2, 1, "α")
+    F = GF(2)
     fone = F(1)
     symstabs = zero_matrix(F, nc, 2 * nc)
     for r in 1:nc
@@ -38,7 +38,8 @@ Return the cluster state (graph state) on the rectangular lattice with width `w`
 function ClusterState(w::Int, h::Int)
     (0 <= w && 0 <= h) || throw(ArgumentError("Rectangle dimensions must be positive."))
 
-    E, ω = FiniteField(2, 2, "ω")
+    E = GF(2, 2, :ω)
+    ω = gen(E)
     Eone = E(1)
     A = zero_matrix(E, w * h, w * h)
     curr = 1
