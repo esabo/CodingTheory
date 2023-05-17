@@ -240,9 +240,9 @@ export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
 include("quantumproductcodes.jl")
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
-    BicycleCode, GeneralizedHypergraphProductCode, LiftedGeneralizedHypergraphProductCode,
-    QuasiCyclicLiftedProductCode, LiftedQuasiCyclicLiftedProductCode,
-    BiasTailoredQuasiCyclicLiftedProductCode, LiftedBiasTailoredQuasiCyclicLiftedProductCode
+    GeneralizedHypergraphProductCodeMatrices, LiftedGeneralizedHypergraphProductCode,
+    QuasiCyclicLiftedProductCodeMatrices, QuasiCyclicLiftedProductCode,
+    BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode
 
 #############################
         # tilings.jl
