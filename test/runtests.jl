@@ -1200,6 +1200,22 @@ end
 #     @test LogicalTrait(typeof(Q)) == HasLogicals()
 #     @test GaugeTrait(typeof(Q)) == HasNoGauges()
 
+    # HGP codes are (l, q)-QLDPC code
+    # l, q = columnrowweights(Sq2)
+
+    # single code HGP tests
+    # length C.n^2 + (n^T)^2
+    # dimension C.k^2 + (k^T)^2,
+    # minimum distance min(d, d^T)
+    # stabilizers have row weights of the form i + j, where i and j are the
+    # row and column weights of the H, respecitvely
+
+    # two code HGP tests
+    # [[(C1.n)^2 + (C2^T.n)^2, (C1.k)^2 + (C2^T.k)^2, min(d, d^T)]]
+    # dX = min(d^T_1, d_2), dZ = min(d1, d^T_2), d = min(dX, dZ)
+
+    # GeneralizedShorCode
+    # [[n1 * n2, k1 * k2, min(d1, d2)]]
 # end
 
 # @testset "tilings.jl & Tanner.jl" begin

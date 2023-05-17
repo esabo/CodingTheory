@@ -8,7 +8,68 @@
         # constructors
 #############################
 
-# TODO: _processcharvec, _determinesigns, remove dualgens etc from constructor
+function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes, charvec::Union{Vector{nmod},
+    Missing}=missing, logsalg::Symbol=:stndfrm)
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    F = base_ring(A)
+    F == base_ring(B) || throw(ArgumentError("Matrices need to be over the same base ring"))
+
+    # note that orthogonality of C1 and C2 here is not necessary because
+    # HX * transpose(HZ) = C1.H \otimes transpose(C2.H) + C1.H \otimes transpose(C2.H) = 0
+    # in characteristic 2
+    Atr = transpose(A)
+    Btr = transpose(B)
+    # branch for speedup
+    if Int(order(F)) == 2
+        HX = hcat(A ⊗ identity_matrix(F, ncols(B)), identity_matrix(F, ncols(Atr)) ⊗ Btr)
+    else
+        HX = hcat(A ⊗ identity_matrix(F, ncols(B)), -identity_matrix(F, ncols(Atr)) ⊗ Btr)
+    end
+    HZ = hcat(identity_matrix(F, ncols(A)) ⊗ B, Atr ⊗ identity_matrix(F, ncols(Btr)))
+    n = ncols(HX)
+    stabs = directsum(HX, HZ)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    if !iszero(standk)
+        if logsalg == :stndfrm
+            logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+            logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+        else
+            rnkH, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            if ncols(H) == rnkH
+                Htr = transpose(H)
+            else
+                # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+                nr = nrows(H)
+                Htr = zero_matrix(base_ring(H), rnkH, nr)
+                for r in 1:nr
+                    for c in 1:rnkH
+                        !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+                    end
+                end
+            end
+            # n + (n - Srank)
+            nrows(Htr) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
+            logs, logsmat = _logicals(stabs, Htr, logsalg)
+        end
+    end
+
+    F = base_ring(stabs)
+    p = Int(characteristic(F))
+    charvec = _processcharvec(charvec, p, 2 * n)
+    signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(HX), nrows(HZ))
+    overcomp = nrows(stabs) > rnk
+
+    # q^n / p^k but rows is n - k
+    k = BigInt(order(F))^n // BigInt(p)^rnk
+    isinteger(k) && (k = round(Int, log(BigInt(p), k));)
+    # (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
+
+    return HypergraphProductCode(F, n, k, missing, missing, missing, stabs, HX, HZ, missing,
+        missing, signs, Xsigns, Zsigns, logs, logsmat, charvec, overcomp, stabsstand, standr,
+        standk, Pstand, missing, missing)
+end
+
 """
     HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
@@ -19,85 +80,60 @@ Return the (symmetric) hypergraph product code of `C` whose signs are determined
   with positive rate and minimum distance proportional to n^(1/2). (2013)
   arXiv:0903.0566v2"
 """
-function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
+function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm)
 
-    # Int(order(C.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
+    S = HypergraphProductCode(paritycheckmatrix(C), paritycheckmatrix(C), charvec, logsalg)
+    S.C1 = C
+    S.C2 = C
+    S.d = C.d
+    return S
+    # Htr = transpose(C.H)
+    # eye = identity_matrix(C.F, C.n)
+    # eyetr = identity_matrix(C.F, ncols(Htr))
+    # # branch for speed
+    # Int(order(C.F)) == 2 ? (HX = hcat(C.H ⊗ eye, eyetr ⊗ Htr)) : (HX = hcat(C.H ⊗ eye, -eyetr ⊗ Htr);)
+    # HZ = hcat(eye ⊗ C.H, Htr ⊗ eyetr)
+    # n = ncols(HX)
+    # stabs = directsum(HX, HZ)
+    # stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    # if !iszero(standk)
+    #     if logsalg == :stndfrm
+    #         logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+    #         logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    #     else
+    #         rnkH, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+    #         if ncols(H) == rnkH
+    #             Htr = transpose(H)
+    #         else
+    #             # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    #             nr = nrows(H)
+    #             Htr = zero_matrix(base_ring(H), rnkH, nr)
+    #             for r in 1:nr
+    #                 for c in 1:rnkH
+    #                     !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+    #                 end
+    #             end
+    #         end
+    #         # n + (n - Srank)
+    #         nrows(Htr) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
+    #         logs, logsmat = _logicals(stabs, Htr, logsalg)
+    #     end
+    # end
 
-    # perform product with H as is, but need to actually compute the parameters
-    # of the transpose code (LinearCode(H^T, true)) in order to use formulas
-    Htr = transpose(C.H)
-    M = MatrixSpace(C.F, C.n, C.n)
-    eye = M(1)
-    Mtr = MatrixSpace(C.F, ncols(Htr), ncols(Htr))
-    eyetr = Mtr(1)
-    HX = hcat(C.H ⊗ eye, -eyetr ⊗ Htr)
-    HZ = hcat(eye ⊗ C.H, Htr ⊗ eyetr)
-    S = directsum(HX, HZ)
-    Sq2 = symplectictoquadratic(S)
-    # use the below as a unit test
-    # return CSSCode(HX, HZ, charvec)
+    # F = base_ring(stabs)
+    # p = Int(characteristic(F))
+    # charvec = _processcharvec(charvec, p, 2 * n)
+    # signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(HX), nrows(HZ))
+    # overcomp = nrows(stabs) > rnk
 
-    p = Int(characteristic(C.F))
-    nsym = ncols(S)
-    if !ismissing(charvec)
-        nsyms == length(charvec) || throw(ArgumentError("The characteristic value is of incorrect length."))
-        if p == 2
-            R = ResidueRing(Nemo.ZZ, 4)
-        else
-            R = ResidueRing(Nemo.ZZ, p)
-        end
-        for s in charvec
-            modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
-        end
-    else
-        if p == 2
-            R = ResidueRing(Nemo.ZZ, 4)
-        else
-            R = ResidueRing(Nemo.ZZ, p)
-        end
-        charvec = [R(0) for _ in 1:nsym]
-    end
+    # # q^n / p^k but rows is n - k
+    # dimcode = BigInt(order(F))^n // BigInt(p)^rnk
+    # isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
 
-    # determine signs
-    nrS = nrows(S)
-    nr = nrows(HX)
-    if iszero(charvec)
-        signs = [R(0) for _ in 1:nrS]
-        Xsigns = [R(0) for _ in 1:nr]
-        Zsigns = [R(0) for _ in 1:nrows(HZ)]
-    else
-        signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nr, :]
-        Zsigns = signs[nr + 1:end, :]
-    end
-
-    # find generators for S^⟂
-    # note the H here is transpose of the standard definition
-    # this line redefines the variable H, but that's fine, keep for consistency
-    n = ncols(Sq2)
-    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # n + (n - k)
-    ncols(H) == nsym - nrS || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
-
-    # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(C.F))^n // BigInt(p)^nrS
-    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
-
-    # TODO: should I store this? I'm thinking not
-    # this is an (l, q)-QLDPC code
-    # l, q = columnrowweights(Sq2)
-
-    return HypergraphProductCode(C.F, base_ring(Sq2), n, rank(S), C.d, missing,
-        missing, Sq2, HX, HZ, C, missing, signs, Xsigns, Zsigns, dualgens, missing,
-        missing, charvec, missing, missing, false, missing)
-
-    # length C.n^2 + (n^T)^2
-    # dimension C.k^2 + (k^T)^2,
-    # minimum distance min(d, d^T)
-    # stabilizers have row weights of the form i + j, where i and j are the
-    # row and column weights of the H, respecitvely
-
+    # return HypergraphProductCode(C.F, n, dimcode, C.d, missing, missing, stabs, HX, HZ, C, C,
+    #     signs, Xsigns, Zsigns, logs, logsmat, charvec, overcomp, stabsstand, standr, standk, Pstand,
+    #     missing, missing)
 end
 
 """
@@ -105,87 +141,67 @@ end
 
 Return the hypergraph product code of `C1` and `C2` whose signs are determined by `charvec`.
 """
-function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
-    # Int(order(C1.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
-    # Int(order(C2.F)) == 2 || error("Hypergraph product codes are only defined for binary codes.")
+function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm)
 
-    # note that orthogonality of C1 and C2 here is not necessary because
-    # HX * transpose(HZ) = C1.H \otimes transpose(C2.H) + C1.H \otimes transpose(C2.H) = 0
-    # in characteristic 2
-    H1tr = transpose(C1.H)
-    H2tr = transpose(C2.H)
-    Mn1 = MatrixSpace(C1.F, C1.n, C1.n)
-    Mnk1 = MatrixSpace(C1.F, ncols(H1tr), ncols(H1tr))
-    Mn2 = MatrixSpace(C2.F, C2.n, C2.n)
-    Mnk2 = MatrixSpace(C2.F, ncols(H2tr), ncols(H2tr))
-    HX = hcat(H1 ⊗ Mn2(1), -Mnk1(1) ⊗ H2tr)
-    HZ = hcat(Mn1(1) ⊗ H2, H1tr ⊗ Mnk2(1))
-    S = directsum(HX, HZ)
-    Sq2 = symplectictoquadratic(S)
+    S = HypergraphProductCode(paritycheckmatrix(C1), paritycheckmatrix(C2), charvec, logsalg)
+    S.C1 = C1
+    S.C2 = C1
+    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
+    return S
 
-    p = Int(characteristic(C1.F))
-    nsym = ncols(S)
-    if !ismissing(charvec)
-        nsym == length(charvec) || throw(ArgumentError("The characteristic value is of incorrect length."))
-        if p == 2
-            R = ResidueRing(Nemo.ZZ, 4)
-        else
-            R = ResidueRing(Nemo.ZZ, p)
-        end
-        for s in charvec
-            modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
-        end
-    else
-        if p == 2
-            R = ResidueRing(Nemo.ZZ, 4)
-        else
-            R = ResidueRing(Nemo.ZZ, p)
-        end
-        charvec = [R(0) for _ in 1:nsym]
-    end
+    # logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    # Int(order(C1.F)) == Int(order(C2.F)) || throw(ArgumentError("Codes need to be over the same base ring"))
 
-    # determine signs
-    nrS = nrows(S)
-    nr = nrows(HX)
-    if iszero(charvec)
-        signs = [R(0) for _ in 1:nrS]
-        Xsigns = [R(0) for _ in 1:nr]
-        Zsigns = [R(0) for _ in 1:nrows(HZ)]
-    else
-        signs = _getsigns(S, charvec)
-        Xsigns = signs[1:nr, :]
-        Zsigns = signs[nr + 1:end, :]
-    end
+    # # note that orthogonality of C1 and C2 here is not necessary because
+    # # HX * transpose(HZ) = C1.H \otimes transpose(C2.H) + C1.H \otimes transpose(C2.H) = 0
+    # # in characteristic 2
+    # H1tr = transpose(C1.H)
+    # H2tr = transpose(C2.H)
+    # HX = hcat(H1 ⊗ identity_matrix(C2.F, C2.n), -identity_matrix(C1.F, ncols(H1tr)) ⊗ H2tr)
+    # HZ = hcat(identity_matrix(C1.F, C1.n) ⊗ H2, H1tr ⊗ identity_matrix(C2.F, ncols(H2tr)))
+    # n = ncols(HX)
+    # stabs = directsum(HX, HZ)
+    # stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    # if !iszero(standk)
+    #     if logsalg == :stndfrm
+    #         logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
+    #         logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    #     else
+    #         rnkH, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+    #         if ncols(H) == rnkH
+    #             Htr = transpose(H)
+    #         else
+    #             # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+    #             nr = nrows(H)
+    #             Htr = zero_matrix(base_ring(H), rnkH, nr)
+    #             for r in 1:nr
+    #                 for c in 1:rnkH
+    #                     !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+    #                 end
+    #             end
+    #         end
+    #         # n + (n - Srank)
+    #         nrows(Htr) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
+    #         logs, logsmat = _logicals(stabs, Htr, logsalg)
+    #     end
+    # end
 
-    # find generators for S^⟂
-    # note the H here is transpose of the standard definition
-    n = ncols(Sq2)
-    _, H = right_kernel(hcat(S[:, n + 1:end], -S[:, 1:n]))
-    # n + (n - k)
-    ncols(H) == nsym - nrS || error("Normalizer matrix is not size n + k.")
-    dualgens = symplectictoquadratic(transpose(hcat(H[:, n + 1:end], -H[:, 1:n])))
+    # F = base_ring(stabs)
+    # p = Int(characteristic(F))
+    # charvec = _processcharvec(charvec, p, 2 * n)
+    # signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(HX), nrows(HZ))
+    # overcomp = nrows(stabs) > rnk
 
-    # q^n / p^k but rows is n - k
-    dimcode = BigInt(order(C.F))^ncols(Sq2) // BigInt(p)^nrS
-    isinteger(dimcode) && (dimcode = Int(log(BigInt(p), dimcode));)
-    (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
+    # # q^n / p^k but rows is n - k
+    # dimcode = BigInt(order(F))^n // BigInt(p)^rnk
+    # isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
+    # (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
 
-    # TODO: should I store this? I'm thinking not
-    # this is an (l, q)-QLDPC code
-    # l, q = columnrowweights(Sq2)
-
-    return HypergraphProductCode(C1.F, base_ring(Sq2), n, rank(S), d, missing,
-        missing, Sq2, HX, HZ, C1, C2, signs, Xsigns, Zsigns, dualgens, missing,
-        missing, charvec, missing, missing, false, missing)
-
-    # [[(C1.n)^2 + (C2^T.n)^2, (C1.k)^2 + (C2^T.k)^2, min(d, d^T)]]
-    # dX = min(d^T_1, d_2), dZ = min(d1, d^T_2), d = min(dX, dZ)
+    # return HypergraphProductCode(C.F, n, dimcode, d, missing, missing, stabs, HX, HZ, C1, C2,
+    #     signs, Xsigns, Zsigns, logs, logsmat, charvec, overcomp, stabsstand, standr, standk, Pstand,
+    #     missing, missing)
 end
-
-# TODO
-# function HypergraphProductCode(A::fq_nmod_mat, B::fq_nmod_mat)
-
-# end
 
 # unable to yield quantum LDPC code families with non constant minimum distance
 """
@@ -199,23 +215,24 @@ Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2` whose sign
   error correcting subsystem codes from two classical linear codes. (2006)
   http://arxiv.org/abs/quant-ph/0610088"
 """
-function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
+function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm)
 
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     Int(order(C1.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
     Int(order(C2.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
     dual(C1) ⊆ C2 || error("Generalized Shor codes require the dual of the first code is a subset of the second.")
 
     # HX stays sparse if H1 is but HZ does not if C1.d is large
-    Mn2 = MatrixSpace(C2.F, C2.n, C2.n)
-    HX = C1.H ⊗ Mn2(1)
-    HZ = C1.G ⊗ C2.H
-    (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
-    return CSSCode(HX, HZ, charvec)
-
-    # [[n1 * n2, k1 * k2, min(d1, d2)]]
+    HX = paritycheckmatrix(C1) ⊗ identity_matrix(C2.F, C2.n)
+    HZ = generatormatrix(C1) ⊗ paritycheckmatrix(C2)
+    S = CSSCode(HX, HZ, charvec, logsalg)
+    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
+    return S
 end
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    charvec::Union{Vector{nmod}, Missing}=missing) = GeneralizedShorCode(C1, C2, charvec)
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) =
+    GeneralizedShorCode(C1, C2, charvec, logsalg)
 
 """
     HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
@@ -233,8 +250,10 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ`.
   codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
   codes with finite rate".
 """
-# TODO: charvec
-function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
+function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -250,12 +269,12 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTM
         (k2, n2) == size(b[i]) || throw(ArgumentError("Second set of matrices must all have the same dimensions."))
     end
 
-    # julia creates a new scope for every iteration of the for loop,
+    # Julia creates a new scope for every iteration of the for loop,
     # so the else doesn't work without declaring these variables outside here
-    H1 = missing
-    H2 = missing
-    HT1 = missing
-    HT2 = missing
+    H1::T
+    H2::T
+    HT1::T
+    HT2::T
     for i in 1:c
         Sχi = zero_matrix(F, c, c)
         Ii = zero_matrix(F, c, c)
@@ -284,19 +303,14 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTM
         end
     end
 
-    Mk1 = MatrixSpace(F, k1, k1)
-    Ek1 = Mk1(1)
-    Mk2 = MatrixSpace(F, k2, k2)
-    Ek2 = Mk2(1)
-    Mn1 = MatrixSpace(F, n1, n1)
-    En1 = Mn1(1)
-    Mn2 = MatrixSpace(F, n2, n2)
-    En2 = Mn2(1)
+    Ek1 = identity_matrix(F, k1)
+    Ek2 = identity_matrix(F, k2)
+    En1 = identity_matrix(F, n1)
+    En2 = identity_matrix(F, n2)
 
     GX = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
     GZ = hcat(HT2 ⊗ En1, En2 ⊗ HT1)
-    return CSSCode(GX, GZ)
-
+    return CSSCode(GX, GZ, charvec, logsalg)
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
     # not really worth it, just use standard technique from StabilizerCode.jl
 end
@@ -317,8 +331,10 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ`.
   codes with finite rate" and "Quantum Kronecker sum-product low-density parity-check
   codes with finite rate".
 """
-# TODO: charvec
-function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
+function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
+
+    logsalg ∈ (:stndfrm, :VS, :syseqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -357,14 +373,10 @@ function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatr
         end
     end
 
-    Mk1 = MatrixSpace(F, k1, k1)
-    Ek1 = Mk1(1)
-    Mk2 = MatrixSpace(F, k2, k2)
-    Ek2 = Mk2(1)
-
-    G = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
-    return StabilizerCode(G, true)
-
+    Ek1 = identity_matrix(F, k1)
+    Ek2 = identity_matrix(F, k2)
+    stabs = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
+    return StabilizerCode(stabs, charvec, logsalg)
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
     # not really worth it, just use standard technique from StabilizerCode.jl
 end
@@ -379,15 +391,20 @@ Return the generealized bicycle code given by `A` and `B`.
   codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
   finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
-# TODO: charvec
-function GeneralizedBicycleCode(A::T, B::T) where T <: CTMatrixTypes
-    base_ring(A) == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
+function GeneralizedBicycleCode(A::T, B::T,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    F = base_ring(A)
+    F == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
     (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
     # this will take care of the sizes being square
     iszero(A * B - B * A) || throw(ArgumentError("Arguments must commute."))
+
     HX = hcat(A, B)
-    HZ = hcat(transpose(B), -transpose(A))
-    return CSSCode(HX, HZ)
+    # branch for speedup
+    HZ = Int(order(F)) == 2 ? hcat(transpose(B), transpose(A)) : hcat(transpose(B), -transpose(A))
+    return CSSCode(HX, HZ, charvec, logsalg)
 end
 
 """
@@ -402,9 +419,13 @@ Return the generealized bicycle code determined by `a` and `b`.
   codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
   finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
-function GeneralizedBicycleCode(a::T, b::T) where T <: ResElem
+function GeneralizedBicycleCode(a::T, b::T, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: ResElem
+
+    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
-    return GeneralizedBicycleCode(polytocircmatrix(a), polytocircmatrix(b))
+
+    return GeneralizedBicycleCode(polytocircmatrix(a), polytocircmatrix(b), charvec, logsalg)
 end
 
 # function BicycleCode(A::fq_nmot_mat)
@@ -430,8 +451,8 @@ over the reside ring.
 * The generalized hypergraph product is defined in "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 * To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
 """
-# TODO: charvec
 function GeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
+
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(b)
     F = base_ring(S)
@@ -475,15 +496,14 @@ end
 Return the CSS code produced by lifting the generalized hypergraph product of `A` and `b`
 over the underlying base field.
 """
-# TODO: charvec
-function LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
+function LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: ResElem
+
     HX, HZ = GeneralizedHypergraphProductCode(A, b)
-    return CSSCode(lift(HX), lift(HZ))
+    return CSSCode(lift(HX), lift(HZ), charvec, logsalg)
 end
 
-# TODO: charvec
 function QuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
-
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
@@ -520,25 +540,21 @@ function QuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: R
         end
     end
 
-    Mk1 = MatrixSpace(R, k1, k1)
-    Ek1 = Mk1(1)
-    Mk2 = MatrixSpace(R, k2, k2)
-    Ek2 = Mk2(1)
-    Mn1 = MatrixSpace(R, n1, n1)
-    En1 = Mn1(1)
-    Mn2 = MatrixSpace(R, n2, n2)
-    En2 = Mn2(1)
+    Ek1 = identity_matrix(R, k1)
+    Ek2 = identity_matrix(R, k2)
+    En1 = identity_matrix(R, n1)
+    En2 = identity_matrix(R, n2)
 
     HX = hcat(kronecker_product(A, Ek2), kronecker_product(Ek1, B))
     HZ = hcat(kronecker_product(En1, Btr), kronecker_product(Atr, En2))
     return HX, HZ
 end
 
-# TODO: charvec
-function LiftedQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+function LiftedQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: ResElem
 
     HX, HZ = QuasiCyclicLiftedProductCode(A, B)
-    return CSSCode(lift(HX), lift(HZ))
+    return CSSCode(lift(HX), lift(HZ), charvec, logsalg)
 end
 
 """
@@ -550,9 +566,7 @@ Return the bias-tailored lifted product code of `A` and `B` with entries over th
 # Notes
 * The bias-tailored lifted product is defined in `Bias-tailored quantum LDPC codes`.
 """
-# TODO: charvec
 function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
-
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
@@ -589,14 +603,10 @@ function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) 
         end
     end
 
-    Mk1 = MatrixSpace(R, k1, k1)
-    Ek1 = Mk1(1)
-    Mk2 = MatrixSpace(R, k2, k2)
-    Ek2 = Mk2(1)
-    Mn1 = MatrixSpace(R, n1, n1)
-    En1 = Mn1(1)
-    Mn2 = MatrixSpace(R, n2, n2)
-    En2 = Mn2(1)
+    Ek1 = identity_matrix(R, k1)
+    Ek2 = identity_matrix(R, k2)
+    En1 = identity_matrix(R, n1)
+    En2 = identity_matrix(R, n2)
 
     A12 = kronecker_product(Atr, Ek2)
     A13 = kronecker_product(En1, B)
@@ -605,11 +615,11 @@ function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) 
     return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
 end
 
-# TODO: charvec
-function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, charvec::Union{Vector{nmod}, Missing}=missing,
+    logsalg::Symbol=:stndfrm) where T <: ResElem
 
-    S = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
-    return StabilizerCode(lift(S), true)
+    stabs = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
+    return StabilizerCode(lift(stabs), charvec, logsalg)
 end
 
 #############################

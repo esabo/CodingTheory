@@ -151,14 +151,22 @@ function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, 
             logs = _makepairs(_logicalsstandardform(stabsstand, n, standk, standr, Pstand))
             logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
         else
-            # find generators for S^⟂
-            # note the H here is transpose of the standard definition
-            _, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
-            # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-            H = _removeempty(transpose(H), :rows)
+            rnkH, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            if ncols(H) == rnkH
+                Htr = transpose(H)
+            else
+                # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+                nr = nrows(H)
+                Htr = zero_matrix(base_ring(H), rnkH, nr)
+                for r in 1:nr
+                    for c in 1:rnkH
+                        !iszero(H[r, c]) && (Htr[c, r] = H[r, c];)
+                    end
+                end
+            end
             # n + (n - Srank)
             nrows(H) == 2 * n - Xrank - Zrank || error("Normalizer matrix is not size n + k.")
-            logs, logsmat = _logicals(stabs, H)
+            logs, logsmat = _logicals(stabs, Htr, logsalg)
         end
     end
     signs, Xsigns, Zsigns = _determinesignsCSS(stabs, charvec, nrows(Xmatrix), nrows(Zmatrix))
