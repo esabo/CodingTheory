@@ -178,11 +178,12 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     logicaloperators, barelogicals, bare, logicalsmatrix, gauges, gaugeoperators, gaugesmatrix,
     gaugeoperatorsmatrix, dressed, dressedoperators, dressedlogicals, gaugegroup, gaugegroupmatrix,
     gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
-    splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge, swapXZlogicals!,
+    splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge!, swapXZlogicals!,
     swapXZgaugeoperators!, allstabilizers, elements, printallstabilizers, printallelements,
     augment, expurgate, fixgauge, setXstabilizers, setZstabilizers, setstabilizers,
     setZstabilizers!, setdistancelowerbound!, permutecode!, permutecode, setstabilizers!,
-    setXstabilizers!
+    setXstabilizers!, standardformA, standardformA1, standardformA2, standardformB, standardformC1,
+    standardformC2, standardformD, standardformE, logicalsstandardform
 
 #############################
       # stabilizercode.jl
