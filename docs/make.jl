@@ -62,4 +62,4 @@ Documenter.makedocs(
         #      "Index" => "theindex.md"]
 )
 
-deploydocs(repo = "github.com/esabo/CodingTheory.git")
+deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "subsystem")
