@@ -81,7 +81,7 @@ end
 Return the (symmetric) hypergraph product code of `C` whose signs are determined by `charvec`.
 """
 function HypergraphProductCode(C::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing,
-    logsalg::Symbol=:stndfrm) where T <: Union{String, Vector{Char}}
+    logsalg::Symbol=:stndfrm)
 
     S = HypergraphProductCode(paritycheckmatrix(C), paritycheckmatrix(C), charvec, logsalg)
     S.C1 = C
@@ -316,10 +316,10 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are deter
   potentially different from those of `a`.
 * χ: A strictly positive integer coprime with `c`.
 """
-function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int,
-    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm)
+function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
 
-    logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logsalg ∈ (:stndfrm, :VS, :syseqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -371,8 +371,8 @@ end
 
 Return the generealized bicycle code given by `A` and `B` whose signs are determined by `charvec`.
 """
-function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat,
-    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm)
+function GeneralizedBicycleCode(A::T, B::T,
+    charvec::Union{Vector{nmod}, Missing}=missing, logsalg::Symbol=:stndfrm) where T <: CTMatrixTypes
 
     logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
@@ -383,7 +383,7 @@ function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat,
 
     HX = hcat(A, B)
     # branch for speedup
-    Int(order(F)) == 2 ? (HZ = hcat(transpose(B), transpose(A));) : (HZ = hcat(transpose(B), -transpose(A));)
+    HZ = Int(order(F)) == 2 ? hcat(transpose(B), transpose(A)) : hcat(transpose(B), -transpose(A))
     return CSSCode(HX, HZ, charvec, logsalg)
 end
 
