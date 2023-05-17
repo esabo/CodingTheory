@@ -1423,8 +1423,7 @@ Return the code created by added `row` to the stabilizers of `S`.
   The unaffected logical operators are kept during the update and only those which don't commute
   with the new stabilizer are recomputed. Use `verbose` to better 
 """
-function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, logsalg::Symbol=:syseqs,
-    verbose::Bool=true)
+function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=true, logsalg::Symbol=:syseqs)
 
     logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     typeof(S.stabs) == typeof(row) || throw(ArgumentError("Vector of different (Julia) type than stabilizers"))
@@ -1562,8 +1561,7 @@ Return the code created by removing the stabilizers indexed by `rows`.
 * The goal of this function is to track how the logical operators update through this process.
   Here, the original logical pairs are kept and an appropriate number of new pairs are added.
 """
-function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, logsalg::Symbol=:stndfrm,
-    verbose::Bool=true)
+function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=true, logsalg::Symbol=:syseqs)
 
     logsalg ∈ (:syseqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     numstabs = nrows(S.stabs)

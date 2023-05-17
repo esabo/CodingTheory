@@ -215,21 +215,21 @@ end
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     F::CTFieldTypes # base field
-    R::AbstractAlgebra.Generic.ResRing{fq_nmod_poly}
+    R::AbstractAlgebra.Generic.ResRing
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
-    G::Union{fq_nmod_mat, Missing}
-    H::Union{fq_nmod_mat, Missing}
-    Gstand::Union{fq_nmod_mat, Missing}
-    Hstand::Union{fq_nmod_mat, Missing}
-    Pstand::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    G::Union{CTMatrixTypes, Missing}
+    H::Union{CTMatrixTypes, Missing}
+    Gstand::Union{CTMatrixTypes, Missing}
+    Hstand::Union{CTMatrixTypes, Missing}
+    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing}
     l::Int
     m::Int
-    A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}
+    A::MatElem{<:ResElem}
     Atype::Char
     W::Matrix{Int}
     type::Int
@@ -246,14 +246,14 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     d::Union{Int, Missing} # minimum distance
     lbound::Int # lower bound on d
     ubound::Int # upper bound on d
-    scalars::Vector{fq_nmod}
-    dualscalars::Vector{fq_nmod}
-    evalpts::Vector{fq_nmod}
+    scalars::Vector{<:CTFieldElem}
+    dualscalars::Vector{<:CTFieldElem}
+    evalpts::Vector{<:CTFieldElem}
     G::CTMatrixTypes
     H::CTMatrixTypes
     Gstand::CTMatrixTypes
     Hstand::CTMatrixTypes
-    Pstand::Union{fq_nmod_mat, Missing} # permutation matrix for G -> Gstand
+    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is completely known for MDS?
 end
 

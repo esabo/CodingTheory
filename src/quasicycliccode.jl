@@ -9,12 +9,12 @@
 #############################
 
 """
-    QuasiCyclicCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, parity::Bool=false)
+    QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
 
 Return the quasi-cycle code specified by the matrix `A` of polynomial circulant generators. If the
 optional paramater `parity` is set to `true`, the input is used to construct the parity-check matrix.
 """
-function QuasiCyclicCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, parity::Bool=false)
+function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
@@ -206,13 +206,13 @@ polynomialmatrixtype(C::AbstractQuasiCyclicCode) = C.Atype
 #############################
 
 """
-    basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
-    protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
-    weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+    basematrix(A::MatElem{T}) where T <: ResElem
+    protographmatrix(A::MatElem{T}) where T <: ResElem
+    weightmatrix(A::MatElem{T}) where T <: ResElem
 
 Return the base/protograph/weight matrix of `A`.
 """
-function weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+function weightmatrix(A::MatElem{T}) where T <: ResElem
     nr, nc = size(A)
     W = zeros(Int, nr, nc)
     for c in 1:nc
@@ -222,8 +222,8 @@ function weightmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Ge
     end
     return W
 end
-basematrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem = weightmatrix(A)
-protographmatrix(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem = weightmatrix(A)
+basematrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
+protographmatrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 
 """
     issinglegenerator(C::AbstractQuasiCyclicCode)

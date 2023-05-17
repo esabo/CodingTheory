@@ -218,7 +218,7 @@ BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
     charvec::Union{Vector{nmod}, Missing}=missing) = GeneralizedShorCode(C1, C2, charvec)
 
 """
-    HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+    HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
 
 Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
@@ -234,7 +234,7 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ`.
   codes with finite rate".
 """
 # TODO: charvec
-function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -302,7 +302,7 @@ function HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ:
 end
 
 """
-    HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+    HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
 
 Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
@@ -318,7 +318,7 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ`.
   codes with finite rate".
 """
 # TODO: charvec
-function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int)
+function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int) where T <: CTMatrixTypes
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -370,7 +370,7 @@ function HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::In
 end
 
 """
-    GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
+    GeneralizedBicycleCode(A::T, B::T) where T <: CTMatrixTypes
 
 Return the generealized bicycle code given by `A` and `B`.
 
@@ -380,7 +380,7 @@ Return the generealized bicycle code given by `A` and `B`.
   finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
 # TODO: charvec
-function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
+function GeneralizedBicycleCode(A::T, B::T) where T <: CTMatrixTypes
     base_ring(A) == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
     (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
     # this will take care of the sizes being square
@@ -391,7 +391,7 @@ function GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat)
 end
 
 """
-    GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    GeneralizedBicycleCode(a::T, b::T) where T <: ResElem
 
 Return the generealized bicycle code determined by `a` and `b`.
 
@@ -402,7 +402,7 @@ Return the generealized bicycle code determined by `a` and `b`.
   codes with finite rate", "Quantum kronecker sum-product low-density parity- check codes with
   finite rate", and "Degenerate Quantum LDPC Codes With Good Finite Length Performance".
 """
-function GeneralizedBicycleCode(a::AbstractAlgebra.Generic.Res{fq_nmod_poly}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+function GeneralizedBicycleCode(a::T, b::T) where T <: ResElem
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
     return GeneralizedBicycleCode(polytocircmatrix(a), polytocircmatrix(b))
 end
@@ -417,7 +417,7 @@ end
 # end
     
 """
-    GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    GeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
 
 Return the two matrices `HX` and `HZ` of generalized hypergraph product of `A` and `b`
 over the reside ring.
@@ -431,7 +431,7 @@ over the reside ring.
 * To return a quantum code directly, use `LiftedGeneralizedHypergraphProductCode`.
 """
 # TODO: charvec
-function GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+function GeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(b)
     F = base_ring(S)
@@ -470,20 +470,19 @@ function GeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceEle
 end
 
 """
-    LiftedGeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+    LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
 
 Return the CSS code produced by lifting the generalized hypergraph product of `A` and `b`
 over the underlying base field.
 """
 # TODO: charvec
-function LiftedGeneralizedHypergraphProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}}, b::AbstractAlgebra.Generic.Res{fq_nmod_poly})
+function LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T) where T <: ResElem
     HX, HZ = GeneralizedHypergraphProductCode(A, b)
     return CSSCode(lift(HX), lift(HZ))
 end
 
 # TODO: charvec
-function QuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
-    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function QuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
@@ -536,16 +535,14 @@ function QuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{Ab
 end
 
 # TODO: charvec
-function LiftedQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
-    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function LiftedQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
     HX, HZ = QuasiCyclicLiftedProductCode(A, B)
     return CSSCode(lift(HX), lift(HZ))
 end
 
 """
-    BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
-B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+    BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
 Return the bias-tailored lifted product code of `A` and `B` with entries over the residue ring
 `F_2[x]/(x^m - 1)`.
@@ -554,8 +551,7 @@ Return the bias-tailored lifted product code of `A` and `B` with entries over th
 * The bias-tailored lifted product is defined in `Bias-tailored quantum LDPC codes`.
 """
 # TODO: charvec
-function BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
-    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
@@ -610,8 +606,7 @@ function BiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.Mat
 end
 
 # TODO: charvec
-function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}},
-    B::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{fq_nmod_poly}})
+function LiftedBiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
     S = BiasTailoredQuasiCyclicLiftedProductCode(A, B)
     return StabilizerCode(lift(S), true)

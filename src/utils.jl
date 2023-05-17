@@ -721,11 +721,11 @@ function digitstoint(x::Vector{Int}, base::Int=2)
 end
 
 """
-    polytocircmatrix(f::AbstractAlgebra.Generic.Res{T}) where T <: CTPolyRingElem
+    polytocircmatrix(f::ResElem)
 
 Return the circulant matrix whose first column is the coefficients of `f`.
 """
-function polytocircmatrix(f::AbstractAlgebra.Generic.Res{T}) where T <: CTPolyRingElem
+function polytocircmatrix(f::ResElem)
     R = parent(f)
     S = base_ring(R)
     F = base_ring(S)
@@ -748,11 +748,11 @@ function polytocircmatrix(f::AbstractAlgebra.Generic.Res{T}) where T <: CTPolyRi
 end
 
 """
-    lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+    lift(A::MatElem{T}) where T <: ResElem
 
 Return the matrix whose polynomial elements are converted to circulant matrices over the base field.
 """
-function lift(A::AbstractAlgebra.Generic.MatSpaceElem{AbstractAlgebra.Generic.Res{T}}) where T <: CTPolyRingElem
+function lift(A::MatElem{T}) where T <: ResElem
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
