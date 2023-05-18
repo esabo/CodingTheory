@@ -11,11 +11,11 @@
 """
     ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
 
-Return the recursive form of the generator matrix for the `RM(r, m)` Reed-Muller
-code over `GF(q)`.
+Return the recursive form of the generator matrix for the ``\\mathrm{RM}(r, m)`` Reed-Muller
+code over ``\\mathbb{F}_q``.
 
 # Notes
-* If `alt` is `true`, the identity is used for the generator matrix for `RM(1, 1)`, as in common in some sources.
+* If `alt` is `true`, the identity is used for the generator matrix for ``\\mathrm{RM}(1, 1)``, as in common in some sources.
   Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
 function ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
@@ -40,12 +40,12 @@ function ReedMullergeneratormatrix(q::Int, r::Int, m::Int, alt::Bool=false)
 end
 
 """
-    ReedMullerCode(q::Int, r::Int, m::Int)
+    ReedMullerCode(q::Int, r::Int, m::Int, alt::Bool=false)
 
-Return the `RM(r, m)` Reed-Muller code over `GF(q)`.
+Return the ``\\mathrm{RM}(r, m)`` Reed-Muller code over ``\\mathbb{F}_q``.
 
 # Notes
-* If `alt` is `true`, the identity is used for the generator matrix for `RM(1, 1)`, as in common in some sources.
+* If `alt` is `true`, the identity is used for the generator matrix for ``\\mathrm{RM}(1, 1)``, as in common in some sources.
   Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
 function ReedMullerCode(q::Int, r::Int, m::Int, alt::Bool=false)
@@ -85,7 +85,7 @@ end
     order(C::ReedMullerCode)
     RMr(C::ReedMullerCode)
 
-Return the order, `r`, of the `RM(r, m)` Reed-Muller code.
+Return the order, `r`, of the ``\\mathrm{RM}(r, m)`` Reed-Muller code.
 """
 order(C::ReedMullerCode) = C.r
 RMr(C::ReedMullerCode) = order(C)
@@ -94,7 +94,7 @@ RMr(C::ReedMullerCode) = order(C)
     numberofvariables(C::ReedMullerCode)
     RMm(C::ReedMullerCode)
 
-Return the number of variables, `m`, of the `RM(r, m)` Reed-Muller code.
+Return the number of variables, `m`, of the ``\\mathrm{RM}(r, m)`` Reed-Muller code.
 """
 numberofvariables(C::ReedMullerCode) = C.m
 RMm(C::ReedMullerCode) = C.m

@@ -98,7 +98,7 @@ cardinality(C::AbstractLinearCode) = BigInt(order(C.F))^C.k
 """
     rate(C::AbstractLinearCode)
 
-Return the rate, `R = k/n`, of the code.
+Return the rate, ``R = k/n```, of the code.
 """
 rate(C::AbstractLinearCode) = C.k / C.n
 
@@ -136,7 +136,7 @@ standardformpermutation(C::AbstractLinearCode) = C.Pstand
 """
     relativedistance(C::AbstractLinearCode)
 
-Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
+Return the relative minimum distance, ``\delta = d / n`` of the code if ``d`` is known;
 otherwise return `missing`.
 """
 relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? missing :  C.d // C.n
@@ -144,7 +144,7 @@ relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? missing :  C.d // C.n
 """
     genus(C::AbstractLinearCode)
 
-Return the genus, `n + 1 - k - d`, of the code.
+Return the genus, ``n + 1 - k - d``, of the code.
 """
 genus(C::AbstractLinearCode) = ismissing(C.d) ? missing : C.n + 1 - C.k - minimumdistance(C)
 
@@ -175,7 +175,7 @@ isMDS(C::AbstractLinearCode) = ismissing(C.d) ? missing : minimumdistance(C) != 
 Return the number of correctable errors for the code.
 
 # Notes
-* The number of correctable errors is `t = floor((d - 1) / 2)`.
+* The number of correctable errors is ``t = \\floor{(d - 1) / 2}``.
 """
 numbercorrectableerrors(C::AbstractLinearCode) = ismissing(C.d) ? missing : Int(fld(minimumdistance(C) - 1, 2))
 
@@ -217,11 +217,13 @@ end
 Set the minimum distance of the code to `d`.
 
 # Notes
-* The only check done on the value of `d` is that `1 ≤ d ≤ n`.
+* The only check done on the value of `d` is that ``1 \\leq d \\leq n``.
 """
 function setminimumdistance!(C::AbstractLinearCode, d::Int)
     d > 0 && d <= C.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
     C.d = d
+    C.lbound = d
+    C.ubound = d
 end
 
 #############################
@@ -330,15 +332,19 @@ function show(io::IO, C::AbstractLinearCode)
     end
 end
 
-# TODO: symbol :k or :d
-function Singletonbound(n::Int, a::Int)
-    # d ≤ n - k + 1 or k ≤ n - d + 1
-    if n >= 0 && a >= 0 && n >= a
-        return n - a + 1
-    else
-        error("Invalid parameters for the Singleton bound. Received n = $n, k/d = $a")
-    end
-end
+"""
+    Singletonbound(n::Int, a::Int)
+
+Return the Singleton bound ``d \\leq n - k + 1`` or ``k \leq n - d + 1`` depending on the interpretation of `a`.
+"""
+Singletonbound(n::Int, a::Int) = 0 <= a <= n ? (return n - a + 1) : 
+    error("Invalid parameters for the Singleton bound. Received n = $n, k/d = $a")
+
+"""
+    Singletonbound(C::AbstractLinearCode)
+
+Return the Singleton bound on the minimum distance of the code (``d \\leq n - k + 1``).
+"""
 Singletonbound(C::AbstractLinearCode) = Singletonbound(C.n, C.k)
 
 """
@@ -625,30 +631,6 @@ function istriplyeven(C::AbstractLinearCode)
 end
 
 """
-    permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-    permutecode!(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-
-Return the code whose generator matrix is `C`'s with the columns permuted by `σ`.
-
-# Notes
-* If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
-"""
-# TODO: write one for QCC codes
-function permutecode!(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-    G = generatormatrix(C)
-    if typeof(σ) <: Perm
-        # a straight-forward multiplication messes up Gstand, Hstand
-        return LinearCode(G * matrix(C.F, Array(matrix_repr(σ))))
-    else
-        length(unique(σ)) == C.n || error("Incorrect number of digits in permutation.")
-        (1 == minimum(σ) && C.n == maximum(σ)) || error("Digits are not in the range `1:$(C.n)`.")
-
-        return LinearCode(G[:, σ])
-    end
-end
-permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int = (Cnew = deepcopy(C); return permutecode!(Cnew);)
-
-"""
     words(C::AbstractLinearCode, onlyprint::Bool=false)
     codewords(C::AbstractLinearCode, onlyprint::Bool=false)
     elements(C::AbstractLinearCode, onlyprint::Bool=false)
@@ -659,6 +641,7 @@ Return the elements of `C`.
 * If `onlyprint` is `true`, the elements are only printed to the console and not
   returned.
 """
+#TODO: faster iterator
 function words(C::AbstractLinearCode, onlyprint::Bool=false)
     words = Vector{fq_nmod_mat}()
     G = generatormatrix(C)

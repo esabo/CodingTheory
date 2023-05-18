@@ -199,6 +199,13 @@ Return `'G'` if the polynomial matrix of `C` specifies the generator or parity-c
 """
 polynomialmatrixtype(C::AbstractQuasiCyclicCode) = C.Atype
 
+"""
+    issinglegenerator(C::AbstractQuasiCyclicCode)
+
+Return `true` if `C` is a single-generator quasi-cyclic code.
+"""
+issinglegenerator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
+
 #############################
       # setter functions
 #############################
@@ -226,13 +233,6 @@ function weightmatrix(A::MatElem{T}) where T <: ResElem
 end
 basematrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 protographmatrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
-
-"""
-    issinglegenerator(C::AbstractQuasiCyclicCode)
-
-Return `true` if `C` is a single-generator quasi-cyclic code.
-"""
-issinglegenerator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
 
 function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
     if ismissing(C.G)
@@ -264,7 +264,7 @@ end
     noncirculantgeneratormatrix(C::AbstractQuasiCyclicCode)
 
 Return the non-circulant form of the generator matrix for the quasi-cyclic code `C` if the
-polynomial matrix specifies the generator matrix. Otherwise, return `missing`.
+polynomial matrix specifies the generator matrix; otherwise, return `missing`.
 """
 function noncirculantgeneratormatrix(C::AbstractQuasiCyclicCode)
     if C.Atype == :G
@@ -292,7 +292,7 @@ end
     noncirculantparitycheckmatrix(C::AbstractQuasiCyclicCode)
 
 Return the non-circulant form of the parity-check matrix for the quasi-cyclic code `C`
-if the polynomial matrix specifies the parity-check matrix. Otherwise, return `missing`.
+if the polynomial matrix specifies the parity-check matrix; otherwise, return `missing`.
 """
 function noncirculantparitycheckmatrix(C::AbstractQuasiCyclicCode)
     if C.Atype == :H

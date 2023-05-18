@@ -106,3 +106,5 @@ function dual(C::GeneralizedReedSolomonCode)
         deepcopy(C.H), deepcopy(C.G), deepcopy(C.Hstand),
         deepcopy(C.Gstand), deepcopy(C.Pstand), missing)
 end
+
+# TODO: write conversion function from Reed-Solomon code to GRS

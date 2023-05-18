@@ -307,15 +307,13 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
         Gstand, Hstand, P, missing)
 end
 
+# TODO: think further about how I use δ here
+# sagemath disagrees with my answers here but matching its parameters gives a false supercode
 """
     BCHCode(C::AbstractCyclicCode)
 
 Return the BCH supercode of the cyclic code `C`.
-
-Returns `C` if `C` is already a BCH code.
 """
-# TODO: think further about how I use δ here
-# sagemath disagrees with my answers here but matching its parameters gives a false supercode
 function BCHCode(C::AbstractCyclicCode)
     typeof(C) <: AbstractBCHCode && return C
     δ, b, _ = finddelta(C.n, C.qcosets)
@@ -335,13 +333,6 @@ QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)
 #############################
       # getter functions
 #############################
-
-# """
-#     field(C::AbstractCyclicCode)
-
-# Return the base field of the generator matrix.
-# """
-# field(C::AbstractCyclicCode) = C.F
 
 """
     splittingfield(C::AbstractCyclicCode)
@@ -387,6 +378,7 @@ Return a lower bound on the minimum distance of the code.
 * At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
   refinement. The minimum distance is returned if known.
 """
+# TODO: reconcile this with linearcode
 mindistlowerbound(C::AbstractCyclicCode) = C.δ
 
 """
@@ -449,9 +441,6 @@ idempotent(C::AbstractCyclicCode) = C.e
     BCHbound(C::AbstractCyclicCode)
 
 Return the BCH bound for `C`.
-
-# Notes
-* This is a lower bound on the minimum distance of `C`.
 """
 BCHbound(C::AbstractCyclicCode) = C.δ
 
