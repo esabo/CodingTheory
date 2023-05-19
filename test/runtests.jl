@@ -54,7 +54,7 @@ using Test
     hexacode = matrix(GF4, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
     @test Hermitianinnerproduct(hexacode[1, :], matrix(GF4, [1 0 0 1 1 0])) == ω
     @test Hermitianinnerproduct(hexacode[1, :], hexacode[2, :]) == 0
-    @test iszero(matrix(GF4, Hermitianconjugatematrix(hexacode)) * transpose(hexacode))
+    @test iszero(Hermitianconjugatematrix(hexacode) * transpose(hexacode))
 
     # _removeempty
     M = ones(Int, rand(20:30), rand(20:30))
@@ -328,10 +328,15 @@ end
     shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
     @test areequivalent(shC, shCtest)
 
-    # need to fix Hermitian stuff, can't find Hermitianconjugatematrix
-    # C = Hexacode()
-    # D = Hermitiandual(C)
-    # @test areequivalent(C, D)
+    C = Hexacode()
+    D = Hermitiandual(C)
+    @test areequivalent(C, D)
+    # verify our definition is equivalent:
+    @test areequivalent(D, LinearCode(Hermitianconjugatematrix(generatormatrix(dual(C)))))
+
+    C = HammingCode(2, 3)
+    C2 = LinearCode(words(C))
+    @test areequivalent(C, C2)
 
 
 

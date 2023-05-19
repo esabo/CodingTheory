@@ -216,11 +216,12 @@ end
 Return the Hermitian conjugate of the matrix `A`.
 """
 function Hermitianconjugatematrix(A::CTMatrixTypes)
-    q2 = order(base_ring(A))
+    R = base_ring(A)
+    q2 = order(R)
     issquare(q2) || throw(ArgumentError("The Hermitian conjugate is only defined over quadratic field extensions."))
 
     q = Int(sqrt(q2, check = false))
-    return A .^ q
+    return matrix(R, A .^ q)
 end
 
 # TODO: entropy function is incomplete

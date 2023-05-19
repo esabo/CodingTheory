@@ -235,6 +235,7 @@ basematrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 protographmatrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 
 function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
+    standform && !ismissing(C.Gstand) && (return C.Gstand;)
     if ismissing(C.G)
         if C.Atype == :G
             G = lift(C.A)
@@ -244,20 +245,31 @@ function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
         end
         C.G = G
     end
-    standform ? (return _standardform(C.G);) : (return C.G;)
+    if standform
+        C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
+        return C.Gstand
+    end
+    return C.G
 end
 
 function paritycheckmatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
-    if ismissing(C.H)
-        if C.Atype == :H
-            H = lift(C.A)
-        else
-            _, H = right_kernel(lift(C.A))
-            H = transpose(H)
+    if standform
+        ismissing(C.Hstand) || (return C.Hstand;)
+        if ismissing(C.G)
+            if C.Atype == :G
+                G = lift(C.A)
+            else
+                _, G = right_kernel(lift(C.A))
+                G = transpose(G)
+            end
+            C.G = G
         end
-        C.H = H
+        C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
+        return C.Hstand
+    elseif ismissing(C.H)
+        C.H = C.Atype == :H ? lift(C.A) : transpose(right_kernel(lift(C.A))[2])
     end
-    standform ? (return _standardform(C.H);) : (return C.H;)
+    return C.H
 end
 
 """
