@@ -4,21 +4,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# TODO: write one for QCC codes
 """
-    permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-    permutecode!(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+    permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Int
 
 Return the code whose generator matrix is `C`'s with the columns permuted by `σ`.
 
 # Notes
 * If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
 """
-# TODO: write one for QCC codes
-function permutecode!(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Int
     G = generatormatrix(C)
     if typeof(σ) <: Perm
         # a straight-forward multiplication messes up Gstand, Hstand
         return LinearCode(G * matrix(C.F, Array(matrix_repr(σ))))
+    elseif typeof(σ) <: PermGroupElem
+        return LinearCode(G * permutation_matrix(C.F, σ))
     else
         length(unique(σ)) == C.n || error("Incorrect number of digits in permutation.")
         (1 == minimum(σ) && C.n == maximum(σ)) || error("Digits are not in the range `1:$(C.n)`.")
@@ -26,7 +27,6 @@ function permutecode!(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) wher
         return LinearCode(G[:, σ])
     end
 end
-permutecode(C::AbstractLinearCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int = (Cnew = deepcopy(C); return permutecode!(Cnew);)
 
 """
     codecomplement(C1::AbstractLinearCode, C2::AbstractLinearCode)

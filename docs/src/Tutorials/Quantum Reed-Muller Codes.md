@@ -1,4 +1,4 @@
-# Introduction
+# Quantum Reed-Muller Codes
 A common way to circumvent the Eastin-Knill theorem preventing any single code from having a universal gate set is to switch between two codes which together have a universal gate set. The canonical example of this are the Steane code, which supports the transversal Clifford group, and the 15-qubit quantum Reed-Muller code, which supports a transversal $T$ and/or $CCZ$.
 
 There are multiple ways to define a family of quantum codes from the classical Reed-Muller family, and the literature is evenly split between the various possibilities. The quantum Reed-Muller code family we are interested in here is derived from shortened Reed-Muller codes and the CSS construction. We will follow [1] and denote these by $QRM(m)$. The Steane code is $QRM(3)$ and the $[[15, 1, 3]]$ code is $QRM(4)$. Let's see how we can generate these codes and study the code switching in the library.

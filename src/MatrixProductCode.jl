@@ -8,13 +8,13 @@
         # constructors
 #############################
 
+# TODO: need to make sure codes are not overcomplete
 """
-    MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
+    MatrixProductCode(C::Vector{AbstractLinearCode}, A::CTMatrixTypes)
 
 Return the matrix product code defined by the vector of linear codes `C` and matrix `A`.
 """
-# TODO: need to make sure codes are not overcomplete
-function MatrixProductCode(C::Vector{AbstractLinearCode}, A::fq_nmod_mat)
+function MatrixProductCode(C::Vector{AbstractLinearCode}, A::CTMatrixTypes)
     isempty(C) && throw(ArgumentError("Vector of linear codes cannot be empty."))
     iszero(A) && throw(ArgumentError("Matrix A cannot be zero."))
     s, l = size(A)

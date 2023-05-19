@@ -216,16 +216,16 @@ function ExtendedGolayCode(p::Int)
     end
 end
 
+# The `[24, 12, 8]` extended binary Golay code may be obtained by extending this
+# code. Adding an overall parity check to the ternary Golay code will give either
+# a `[12, 6, 6]` if punctured and extended in the first coordinate or a
+# `[12, 6, 5]` code otherwise.
 """
     GolayCode(p::Int)
 
 Return the `[23, 12, 7]`` binary Golay code if `p == 2` or the `[11, 6, 5]`
 ternary Golay code if `p == 3`.
 """
-# The `[24, 12, 8]` extended binary Golay code may be obtained by extending this
-# code. Adding an overall parity check to the ternary Golay code will give either
-# a `[12, 6, 6]` if punctured and extended in the first coordinate or a
-# `[12, 6, 5]` code otherwise.
 function GolayCode(p::Int)
     C = puncture(ExtendedGolayCode(p), [1])
     p == 2 ? (C.d = 7;) : (C.d = 5;)

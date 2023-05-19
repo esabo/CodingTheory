@@ -1,22 +1,75 @@
 # LDPC Codes
 
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["LDPC.jl"]
-Private = false
+## Constructors
+
+```@docs
+LDPCCode
 ```
 
-# Tanner
+## Attributes
 
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["Tanner.jl"]
-Private = false
+```@docs
+variabledegreedistribution
 ```
 
-# Algorithms
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["LDPCalgs.jl"]
-Private = false
+```@docs
+checkdegreedistribution
 ```
+
+```@docs
+degreedistributions
+```
+
+```@docs
+variabledegreepolynomial
+```
+
+```@docs
+checkdegreepolynomial
+```
+
+```@docs
+columnbound
+```
+
+```@docs
+rowbound
+```
+
+```@docs
+columnrowbounds
+```
+
+```@docs
+limited
+```
+
+```@docs
+density
+```
+
+```@docs
+isregular
+```
+
+## Methods
+
+```@docs
+degreedistributionssplot
+```
+
+## Tanner
+
+```@docs
+Tannergraph
+```
+
+```@docs
+Tannergraphplot
+```
+
+```@docs
+Tannercode
+```
+
+## LDPC Construction Algorithms
