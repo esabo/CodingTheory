@@ -122,6 +122,7 @@ julia> paritycheckmatrix(C3, true)
 [0   1   0   1   1   1   0]
 [0   0   1   0   1   1   1]
 ```
+Recall that column permutations may be required to make the standard form. If this is true, the permutation matrix can be accessed via `standardformpermutation(C)` with the convention that `generatormatrix(C)` and `generatormatrix(C, true) * standardformpermutation(C)` have equivalent row spaces. If no permutation is required, this will return `missing` instead of storing a potentially large identity matrix.
 
 As expected the basic relationship between the matrices holds.
 ```
@@ -208,6 +209,18 @@ false
 julia> isselforthogonal(C)
 false
 ```
+These are taken with respect to the Euclidean dual/metric/inner product. Similar functions exist for the Hermitian case.
+```
+julia> C6 = Hexacode()
+[6, 3, 4]_4 linear code
+Generator matrix: 3 × 6
+        1 0 0 1 ω ω
+        0 1 0 ω 1 ω
+        0 0 1 ω ω 1
+
+julia> isHermitianselfdual(C6)
+true
+```
 
 To create codes over higher fields, use the `GF(p, l, :ω)` constructor. Do not use this when `l = 1`. Note that `ω` may be replaced with any symbol.
 ```
@@ -246,12 +259,86 @@ true
 ## Reed-Muller Codes
 So far, only the standard (binary) Reed-Muller codes have been implemented; the generalized (non-binary) Reed-Muller codes have *not* yet been implemented.
 
+This library constructs Reed-Muller codes using the standard recursive definition of the generator matrices. The literature has conflicting conventions for the base case generator matrix of $\mathcal{RM}(1, 1)$. To use the convention that this should be the identity matrix, set `alt` to `true`; otherwise, $\begin{pmatrix} 1 & 1\\ 0 & 1\end{pmatrix}$ is used.
+```
+julia> C7 = ReedMullerCode(1, 3)
+[8, 4, 4]_2 Reed-Muller code RM(1, 3)
+Generator matrix: 4 × 8
+        1 1 1 1 1 1 1 1
+        0 1 0 1 0 1 0 1
+        0 0 1 1 0 0 1 1
+        0 0 0 0 1 1 1 1
+
+julia> C8 = ReedMullerCode(1, 3, true)
+[8, 4, 4]_2 Reed-Muller code RM(1, 3)
+Generator matrix: 4 × 8
+        1 0 1 0 1 0 1 0
+        0 1 0 1 0 1 0 1
+        0 0 1 1 0 0 1 1
+        0 0 0 0 1 1 1 1
+
+julia> areequivalent(C7, C8)
+true
+
+julia> isselfdual(C7)
+true
+```
 
 ## Modifying Codes And Building New Codes From Old Codes
 
 ## Expanded Codes
 
+```
+julia> C9 = ReedSolomonCode(8, 3, 5)
+[7, 5, 3; 5]_8 Reed-Solomon code
+8-Cyclotomic cosets: 
+        C_5 ∪ C_6
+Generator polynomial:
+        x^2 + α*x + α^2 + α
+Generator matrix: 5 × 7
+        α^2 + α α 1 0 0 0 0
+        0 α^2 + α α 1 0 0 0
+        0 0 α^2 + α α 1 0 0
+        0 0 0 α^2 + α α 1 0
+        0 0 0 0 α^2 + α α 1
+
+julia> F8 = field(C9)
+Finite field of degree 3 over F_2
+
+julia> α  = gen(F8)
+α
+
+julia> basis = [α^3, α^5, α^6]
+3-element Vector{fqPolyRepFieldElem}:
+ α + 1
+ α^2 + α + 1
+ α^2 + 1
+
+julia> isbasis(F8, F, basis)
+(true, fqPolyRepFieldElem[α + 1, α^2 + α + 1, α^2 + 1])
+
+julia> isselfdualbasis(F8, F, basis)
+true
+
+julia> isprimitivebasis(F8, F, basis)
+false
+
+julia> C10 = expandedcode(C9, F, basis)
+[21, 5]_2 linear code
+Generator matrix: 5 × 21
+        1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1
+
+
+
+
+```
+expand this code over F_2, is equivalent to the following BCH code
+BCHCode(2, 21, 3, 1) - maybe not b = 1?
+
 # TODO:
 * go through runtests and find codes which went something is done to them they are equivalent
 * finite fields and expanded codes
-* Reed-Muller codes

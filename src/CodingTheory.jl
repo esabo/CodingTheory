@@ -87,7 +87,7 @@ export LinearCode, field, length, dimension, cardinality, rate, relativedistance
     VectorSpace, setminimumdistance!, permutecode, words, codewords, elements, isMDS, iseven,
     isdoublyeven, istriplyeven, characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining,
     isLCD, Hermitianhull, hull, isHermitianselfdual, isdualcontaining, minimumdistancelowerbound,
-    minimumdistanceupperbound, setdistanceupperbound!
+    minimumdistanceupperbound, setdistanceupperbound!, standardformpermutation
 
 #############################
     # newcodesfromold.jl
@@ -129,7 +129,7 @@ export MatrixProductCode
 #############################
 
 include("ReedMuller.jl")
-export order, RMr, RMm, ReedMullergeneratormatrix, ReedMullerCode, numberofvariables
+export order, RMr, RMm, ReedMullerCode, numberofvariables
 
 #############################
       # cycliccode.jl

@@ -21,10 +21,6 @@ numberofvariables
 
 ## Methods
 
-```@docs
-ReedMullergeneratormatrix
-```
-
 The dual and entry-wise products of Reed-Muller codes are also Reed-Muller codes. These function override the default `LinearCode` methods to take this into account.
 ```@docs
 dual

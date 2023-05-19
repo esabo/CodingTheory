@@ -170,20 +170,3 @@ ReedSolomonCode(q, δ, b)
 come up with better examples from the book but basis functionality is working so far and interaction with LinearCode is good
 fix C ∩ complement(C) example where defining set is an extreme (Vector{Any} so probably empty)
 2nd form of CyclicCode constructor
-
-
-****************************
-ReedMuller.jl
-****************************
-include("ReedMuller.jl")
-
-# so far only binary implemented
-# fields are created via F, _ = FiniteField(2, 1, "α") by default
-# codes are created using the recursive form of the generator matrix
-q = 2;
-ReedMullergeneratormatrix(q, 0, 3)
-ReedMullergeneratormatrix(q, 2, 2)
-ReedMullerCode(q, 1, 2)
-C = ReedMullerCode(q, 1, 3)
-ReedMullerCode(q, 2, 3)
-isselfdual(C)
