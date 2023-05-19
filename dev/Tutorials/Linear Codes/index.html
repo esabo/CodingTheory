@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Codes · Coding Theory Documentation</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Coding Theory Documentation logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Coding Theory Documentation</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Linear Codes</a></li><li><a class="tocitem" href="../Cyclic Codes/">Cyclic Codes</a></li><li><a class="tocitem" href="../Quantum Codes/">Quantum Codes</a></li><li><a class="tocitem" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes</a></li></ul></li><li><span class="tocitem">Classical</span><ul><li><a class="tocitem" href="../../Classical/linearcode/">Linear Codes</a></li><li><a class="tocitem" href="../../Classical/cycliccode/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/quasicyclic/">Quasi-Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/GeneralizedReedSolomon/">Generalized Reed-Solomon Codes</a></li><li><a class="tocitem" href="../../Classical/ReedMuller/">Reed-Muller Codes</a></li><li><a class="tocitem" href="../../Classical/newcodesfromold/">Modifying Codes</a></li><li><a class="tocitem" href="../../Classical/productcodes/">Product Codes</a></li><li><a class="tocitem" href="../../Classical/miscknowncodes/">Miscellaneous Known Linear Codes</a></li><li><a class="tocitem" href="../../Classical/LDPC/">LDPC Codes</a></li></ul></li><li><span class="tocitem">Quantum</span><ul><li><a class="tocitem" href="../../Quantum/quantumcode/">Notes</a></li><li><a class="tocitem" href="../../Quantum/quantumproductcodes/">Product Codes</a></li><li><a class="tocitem" href="../../Quantum/miscknownquantumcodes/">Miscellaneous Known Stabilizer Codes</a></li></ul></li><li><span class="tocitem">Misc</span><ul><li><a class="tocitem" href="../../tilings/">Tilings</a></li><li><a class="tocitem" href="../../trellis/">Trellises</a></li><li><a class="tocitem" href="../../utils/">Utilies</a></li><li><a class="tocitem" href="../../weight_dist/">Weight Enumerators, Distributions, And Minimum Distances</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../theindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Linear Codes</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Codes</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/esabo/CodingTheory/blob/master/docs/src/Tutorials/Linear Codes.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Linear-Codes"><a class="docs-heading-anchor" href="#Linear-Codes">Linear Codes</a><a id="Linear-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Codes" title="Permalink"></a></h1><p>To create a linear code, simply pass a generator matrix into the <code>LinearCode</code> constructor.</p><pre><code class="nohighlight hljs">julia&gt; using Oscar, CodingTheory
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Codes · Coding Theory Documentation</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Coding Theory Documentation logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Coding Theory Documentation</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Linear Codes</a><ul class="internal"><li><a class="tocitem" href="#Reed-Muller-Codes"><span>Reed-Muller Codes</span></a></li><li><a class="tocitem" href="#Modifying-Codes-And-Building-New-Codes-From-Old-Codes"><span>Modifying Codes And Building New Codes From Old Codes</span></a></li><li><a class="tocitem" href="#Expanded-Codes"><span>Expanded Codes</span></a></li><li class="toplevel"><a class="tocitem" href="#TODO:"><span>TODO:</span></a></li></ul></li><li><a class="tocitem" href="../Cyclic Codes/">Cyclic Codes</a></li><li><a class="tocitem" href="../Quantum Codes/">Quantum Codes</a></li><li><a class="tocitem" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes</a></li></ul></li><li><span class="tocitem">Classical</span><ul><li><a class="tocitem" href="../../Classical/linearcode/">Linear Codes</a></li><li><a class="tocitem" href="../../Classical/cycliccode/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/quasicyclic/">Quasi-Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/GeneralizedReedSolomon/">Generalized Reed-Solomon Codes</a></li><li><a class="tocitem" href="../../Classical/ReedMuller/">Reed-Muller Codes</a></li><li><a class="tocitem" href="../../Classical/newcodesfromold/">Modifying Codes</a></li><li><a class="tocitem" href="../../Classical/productcodes/">Product Codes</a></li><li><a class="tocitem" href="../../Classical/miscknowncodes/">Miscellaneous Known Linear Codes</a></li><li><a class="tocitem" href="../../Classical/LDPC/">LDPC Codes</a></li></ul></li><li><span class="tocitem">Quantum</span><ul><li><a class="tocitem" href="../../Quantum/quantumcode/">Notes</a></li><li><a class="tocitem" href="../../Quantum/quantumproductcodes/">Product Codes</a></li><li><a class="tocitem" href="../../Quantum/miscknownquantumcodes/">Miscellaneous Known Stabilizer Codes</a></li></ul></li><li><span class="tocitem">Misc</span><ul><li><a class="tocitem" href="../../tilings/">Tilings</a></li><li><a class="tocitem" href="../../trellis/">Trellises</a></li><li><a class="tocitem" href="../../utils/">Utilies</a></li><li><a class="tocitem" href="../../weight_dist/">Weight Enumerators, Distributions, And Minimum Distances</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../theindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Linear Codes</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Codes</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/esabo/CodingTheory/blob/master/docs/src/Tutorials/Linear Codes.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Linear-Codes"><a class="docs-heading-anchor" href="#Linear-Codes">Linear Codes</a><a id="Linear-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Codes" title="Permalink"></a></h1><p>To create a linear code, simply pass a generator matrix into the <code>LinearCode</code> constructor.</p><pre><code class="nohighlight hljs">julia&gt; using Oscar, CodingTheory
 
 julia&gt; F = GF(2)
 Galois field with characteristic 2
@@ -15,7 +15,31 @@ Generator matrix: 4 × 7
         1 0 0 0 0 1 1
         0 1 0 0 1 0 1
         0 0 1 0 1 1 0
-        0 0 0 1 1 1 1</code></pre><p>We see that this is a <span>$[n, k, d] = [7, 4, 3]$</span> linear code over <span>$\mathbb{F}_2$</span>. The parameters are correctly computed regardless of the input.</p><pre><code class="nohighlight hljs">julia&gt; C2 = LinearCode(vcat(G, G))
+        0 0 0 1 1 1 1</code></pre><p>We can get the basic information about the code.</p><pre><code class="nohighlight hljs">julia&gt; length(C)
+7
+
+julia&gt; dimension(C)
+4
+
+julia&gt; cardinality(C)
+16
+
+julia&gt; rate(C)
+0.5714285714285714</code></pre><p>Since we passed in a full-rank matrix, the rank should equal the dimension of the code.</p><pre><code class="nohighlight hljs">julia&gt; rank(G) == dimension(C)
+true</code></pre><p>Since the minimum distance of this code is known (since it was small enough to determine in the constructor), we can also get some more information.</p><pre><code class="nohighlight hljs">julia&gt; minimumdistance(C)
+3
+
+julia&gt; relativedistance(C)
+0.42857142857142855
+
+julia&gt; CodingTheory.genus(C)
+1
+
+julia&gt; isMDS(C)
+true
+
+julia&gt; numbercorrectableerrors(C)
+1</code></pre><p>We can also manually set the minimum distance using <code>setminimumdistance!(C, 3)</code>.</p><p>From the output, we see that this is a <span>$[n, k, d] = [7, 4, 3]$</span> linear code over <span>$\mathbb{F}_2$</span>. The parameters are correctly computed regardless of the input.</p><pre><code class="nohighlight hljs">julia&gt; C2 = LinearCode(vcat(G, G))
 [7, 4, 3]_2 linear code
 Generator matrix: 8 × 7
         1 0 0 0 0 1 1
@@ -65,7 +89,11 @@ julia&gt; generatormatrix(C2, true)
 julia&gt; paritycheckmatrix(C3, true)
 [1   0   0   1   1   0   1]
 [0   1   0   1   1   1   0]
-[0   0   1   0   1   1   1]</code></pre><p>The reader may recognize <code>C3</code> as the <span>$[7, 4, 3]$</span> binary Hamming code.</p><pre><code class="nohighlight hljs">julia&gt; C4 = HammingCode(2, 3)
+[0   0   1   0   1   1   1]</code></pre><p>As expected the basic relationship between the matrices holds.</p><pre><code class="nohighlight hljs">julia&gt; iszero(generatormatrix(C) * transpose(paritycheckmatrix(C)))
+true
+
+julia&gt; iszero(paritycheckmatrix(C) * transpose(generatormatrix(C)))
+true</code></pre><p>The reader may recognize <code>C3</code> as the <span>$[7, 4, 3]$</span> binary Hamming code.</p><pre><code class="nohighlight hljs">julia&gt; C4 = HammingCode(2, 3)
 [7, 4, 3]_2 linear code
 Generator matrix: 4 × 7
         1 1 1 0 0 0 0
@@ -89,4 +117,50 @@ Generator matrix: 4 × 7
         0 0 1 0 0 1 1
 
 julia&gt; areequivalent(C3perm, C4)
-false</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Introduction</a><a class="docs-footer-nextpage" href="../Cyclic Codes/">Cyclic Codes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 19 May 2023 15:21">Friday 19 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+false</code></pre><p>Of course we know that the Hamming codes are dual to the simplex codes.</p><pre><code class="nohighlight hljs">julia&gt; C5 = SimplexCode(2, 3)
+[7, 3, 4]_2 linear code
+Generator matrix: 3 × 7
+        0 0 0 1 1 1 1
+        0 1 1 0 0 1 1
+        1 0 1 0 1 0 1
+
+julia&gt; areequivalent(C4, dual(C5))
+true</code></pre><p>A vector <span>$v$</span> is in the code <span>$C$</span> if it has zero syndrome.</p><pre><code class="nohighlight hljs">julia&gt; iszero(syndrome(C, generatormatrix(C)[1, :]))
+true</code></pre><p>Similary, we can encode a vector into the codespace.</p><pre><code class="nohighlight hljs">julia&gt; v = encode(C, matrix(F, 1, 4, [1, 0, 0, 0]))
+[1   0   0   0   0   1   1]
+
+julia&gt; iszero(syndrome(C, v))
+true</code></pre><p>A code <span>$C_1$</span> is a subset of <span>$C_2$</span> if every row of the generator matrix of <span>$C_1$</span> is in <span>$C_2$</span>.</p><pre><code class="nohighlight hljs">julia&gt; C ⊆ C
+true
+
+julia&gt; C ⊆ dual(C)
+false</code></pre><p>Two codes <span>$C_1$</span> and <span>$C_2$</span> are equivalent if <span>$C_1 \subseteq C_2$</span> and <span>$C_2 \subseteq C_1$</span>. A code is self dual if it is equivalent to its dual and self orthogonal if it is a subcode of its dual.</p><pre><code class="nohighlight hljs">julia&gt; isselfdual(C)
+false
+
+julia&gt; isselforthogonal(C)
+false</code></pre><p>To create codes over higher fields, use the <code>GF(p, l, :ω)</code> constructor. Do not use this when <code>l = 1</code>. Note that <code>ω</code> may be replaced with any symbol.</p><pre><code class="nohighlight hljs">julia&gt; E = GF(2, 3, :α)
+Finite field of degree 3 over F_2
+
+julia&gt; α = gen(E)
+α
+
+julia&gt; G2 = matrix(E, [α α + 1 1 0 0 0 0;
+               0 α α + 1 1 0 0 0;
+               0 0 α α + 1 1 0 0;
+               0 0 0 α α + 1 1 0;
+               0 0 0 0 α α + 1 1])
+[α   α + 1       1       0       0       0   0]
+[0       α   α + 1       1       0       0   0]
+[0       0       α   α + 1       1       0   0]
+[0       0       0       α   α + 1       1   0]
+[0       0       0       0       α   α + 1   1]
+
+julia&gt; C5 = LinearCode(G2)
+[7, 5]_8 linear code
+Generator matrix: 5 × 7
+        α α + 1 1 0 0 0 0
+        0 α α + 1 1 0 0 0
+        0 0 α α + 1 1 0 0
+        0 0 0 α α + 1 1 0
+        0 0 0 0 α α + 1 1</code></pre><p>As is apparent from the generator matrix, this code is actually cyclic.</p><pre><code class="nohighlight hljs">julia&gt; CodingTheory.iscyclic(C5, false)
+true</code></pre><h2 id="Reed-Muller-Codes"><a class="docs-heading-anchor" href="#Reed-Muller-Codes">Reed-Muller Codes</a><a id="Reed-Muller-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Reed-Muller-Codes" title="Permalink"></a></h2><p>So far, only the standard (binary) Reed-Muller codes have been implemented; the generalized (non-binary) Reed-Muller codes have <em>not</em> yet been implemented.</p><h2 id="Modifying-Codes-And-Building-New-Codes-From-Old-Codes"><a class="docs-heading-anchor" href="#Modifying-Codes-And-Building-New-Codes-From-Old-Codes">Modifying Codes And Building New Codes From Old Codes</a><a id="Modifying-Codes-And-Building-New-Codes-From-Old-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Modifying-Codes-And-Building-New-Codes-From-Old-Codes" title="Permalink"></a></h2><h2 id="Expanded-Codes"><a class="docs-heading-anchor" href="#Expanded-Codes">Expanded Codes</a><a id="Expanded-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Expanded-Codes" title="Permalink"></a></h2><h1 id="TODO:"><a class="docs-heading-anchor" href="#TODO:">TODO:</a><a id="TODO:-1"></a><a class="docs-heading-anchor-permalink" href="#TODO:" title="Permalink"></a></h1><ul><li>go through runtests and find codes which went something is done to them they are equivalent</li><li>finite fields and expanded codes</li><li>Reed-Muller codes</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Introduction</a><a class="docs-footer-nextpage" href="../Cyclic Codes/">Cyclic Codes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Friday 19 May 2023 18:03">Friday 19 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
