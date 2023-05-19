@@ -55,14 +55,6 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     end
 end
 
-"""
-    LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false)
-
-Return the linear code constructed from the basis of the vector space `V`. If the optional paramater
-`parity` is set to `true`, a linear code is built with `G` as the parity-check matrix.
-"""
-LinearCode(V::AbstractAlgebra.Generic.FreeModule{fq_nmod}, parity::Bool=false) = LinearCode(basis(V), parity)
-
 #############################
       # getter functions
 #############################
@@ -98,7 +90,7 @@ cardinality(C::AbstractLinearCode) = BigInt(order(C.F))^C.k
 """
     rate(C::AbstractLinearCode)
 
-Return the rate, ``R = k/n```, of the code.
+Return the rate, ``R = k/n``, of the code.
 """
 rate(C::AbstractLinearCode) = C.k / C.n
 
@@ -130,7 +122,6 @@ paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? C.
 Return the permutation matrix required to permute the columns of the code matrices to have the same
 row space as the matrices in standard form. Returns `missing` is no such permutation is required.
 """
-# TODO: perhaps should just return the identity?
 standardformpermutation(C::AbstractLinearCode) = C.Pstand
 
 """
@@ -139,7 +130,7 @@ standardformpermutation(C::AbstractLinearCode) = C.Pstand
 Return the relative minimum distance, ``\\delta = d / n`` of the code if ``d`` is known;
 otherwise return `missing`.
 """
-relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? missing :  C.d // C.n
+relativedistance(C::AbstractLinearCode) = ismissing(C.d) ? missing :  C.d / C.n
 
 """
     genus(C::AbstractLinearCode)

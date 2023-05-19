@@ -1,6 +1,6 @@
 # Cyclic Codes
 
-Cyclic codes are a subtype of `LinearCode` and inherit its methods.
+Cyclic codes are a subtype of `LinearCode` and inherit its methods. For more information on how to use these functions, see the [cyclic code tutorial](link).
 
 ## Cyclotomic Cosets
 
@@ -106,4 +106,44 @@ idempotent
 BCHbound
 ```
 
+```@docs
+isnarrowsense
+```
+
+```@docs
+isreversible
+```
+
+```@docs
+isdegenerate
+```
+
+```@docs
+isprimitive
+```
+
 ## Methods
+
+```@docs
+definingset
+```
+
+```@docs
+dualdefiningset
+```
+
+```@docs
+iscyclic
+```
+
+```@docs
+complement
+```
+
+```@docs
+∩
+```
+
+```@docs
++
+```

@@ -15,7 +15,10 @@ Documenter.makedocs(
 	expandfirst = [],
     pages = ["Introduction" => "index.md",
 		"Tutorials" => [
-        	"Tutorials/QRM_Tutorial.md"
+			"Tutorials/Linear Codes.md",
+			"Tutorials/Cyclic Codes.md",
+			"Tutorials/Quantum Codes.md",
+        	"Tutorials/Quantum Reed-Muller Codes.md"
     	],
 			"Classical" => [
         	"Classical/linearcode.md",

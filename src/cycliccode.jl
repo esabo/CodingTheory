@@ -453,14 +453,6 @@ BCHbound(C::AbstractCyclicCode) = C.δ
 # """
 # HTbound(C::AbstractCyclicCode) = C.HT
 
-#############################
-      # setter functions
-#############################
-
-#############################
-     # general functions
-#############################
-
 """
     isnarrowsense(C::AbstractBCHCode)
 
@@ -499,6 +491,14 @@ end
 Return `true` if the BCH code is primitive.
 """
 isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
 
 function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     # from_roots(R, [β^i for i in Z]) - R has wrong type for this
