@@ -19,7 +19,7 @@ using SparseArrays
 import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular
+    isregular, iscyclic
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
@@ -140,7 +140,7 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros
+    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros, iscyclic
 
 #############################
     # quasicycliccode.jl
