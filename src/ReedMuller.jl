@@ -17,7 +17,7 @@ Return the recursive form of the generator matrix for the ``\\mathcal{RM}(r, m)`
 * If `alt` is `true`, the identity is used for the generator matrix for ``\\mathcal{RM}(1, 1)``, as in common in some sources.
   Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
-function ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
+function _ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
     F = GF(2)
@@ -28,8 +28,8 @@ function ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
     elseif r == 0
         return matrix(F, ones(Int, 1, 2^m))
     else
-        Grm1 = ReedMullergeneratormatrix(r, m - 1, alt)
-        Gr1m1 = ReedMullergeneratormatrix(r - 1, m - 1, alt)
+        Grm1 = _ReedMullergeneratormatrix(r, m - 1, alt)
+        Gr1m1 = _ReedMullergeneratormatrix(r - 1, m - 1, alt)
         return vcat(hcat(Grm1, Grm1), hcat(zero_matrix(F, nrows(Gr1m1), ncols(Gr1m1)), Gr1m1))
     end
 end
@@ -47,8 +47,8 @@ function ReedMullerCode(r::Int, m::Int, alt::Bool=false)
     (0 ≤ r < m) || throw(DomainError("Reed-Muller codes require 0 ≤ r < m, received r = $r and m = $m."))
     m < 64 || throw(DomainError("This Reed-Muller code requires the implmentation of BigInts. Change if necessary."))
 
-    G = ReedMullergeneratormatrix(r, m, alt)
-    H = ReedMullergeneratormatrix(m - r - 1, m, alt)
+    G = _ReedMullergeneratormatrix(r, m, alt)
+    H = _ReedMullergeneratormatrix(m - r - 1, m, alt)
     Gstand, Hstand, P, rnk = _standardform(G)
 
     # verify
