@@ -65,7 +65,7 @@ function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     ub1, _ = _minwtrow(Gnew)
     ub2, _ = _minwtrow(Gstand)
     ub = min(ub1, ub2)
-    return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, Hstand, Gstand, Hstand, P, missing)
+    return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, Hnew, Gstand, Hstand, P, missing)
     
 end
 
