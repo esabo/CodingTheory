@@ -15,7 +15,7 @@ Return the linear code constructed with generator matrix `G`. If the optional pa
 set to `true`, a linear code is built with `G` as the parity-check matrix.
 """
 function LinearCode(G::CTMatrixTypes, parity::Bool=false)
-    iszero(G) && throw(ArgumentError("Zero matrix passed into LinearCode constructor."))
+    iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
 
     Gnew = deepcopy(G)
     Gnew = _removeempty(Gnew, :rows)
@@ -36,6 +36,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         end
         H = Htr
         Hstand, Gstand, P, k = _standardform(H)
+        k == ncols(H) && return IdentityCode(base_ring(Gnew), ncols(H))
         ub1, _ = _minwtrow(H)
         ub2, _ = _minwtrow(Hstand)
         ub = min(ub1, ub2)
@@ -43,12 +44,29 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         return LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, P, missing)
     else
         Gstand, Hstand, P, k = _standardform(Gnew)
+        k == ncols(G) && return IdentityCode(base_ring(Gnew), ncols(G))
         H = ismissing(P) ? Hstand : Hstand * P
         ub1, _ = _minwtrow(Gnew)
         ub2, _ = _minwtrow(Gstand)
         ub = min(ub1, ub2)
         return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, H, Gstand, Hstand, P, missing)
     end
+end
+
+function LinearCode(G::T, H::T) where T <: CTMatrixTypes
+    ncols(G) == ncols(H) ||
+        throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
+    base_ring(G) == base_ring(H) || throw(ArgumentError("G and H are not over the same field"))
+    iszero(G * transpose(H)) || throw(ArgumentError("H isn't orthogonal to G"))
+    Gnew = _removeempty(G, :rows)
+    Hnew = _removeempty(H, :rows)
+    Gstand, Hstand, P, k = _standardform(Gnew)
+    rank(H) == ncols(G) - k || throw(ArgumentError("The given matrix H is not a parity check matrix for G"))
+    ub1, _ = _minwtrow(Gnew)
+    ub2, _ = _minwtrow(Gstand)
+    ub = min(ub1, ub2)
+    return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, Hstand, Gstand, Hstand, P, missing)
+    
 end
 
 function LinearCode(G::Matrix{Int}, q::Int, parity::Bool=false)
@@ -430,7 +448,11 @@ function dual(C::AbstractLinearCode)
     G = deepcopy(generatormatrix(C))
     H = deepcopy(paritycheckmatrix(C))
 
-    # didn't work?
+    Hstand, Gstand, P, _ = _standardform(C.H)
+    Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
+    Pstand = ismissing(P) ? Pstandold : Pstandold * P
+
+    # Possible alternative to above, might be faster:
     # Gstandold = generatormatrix(C, true)
     # Gstand = hcat(view(Gstandold, :, C.k + 1:C.n), view(Gstandold, :, 1:C.k))
     # Hstandold = paritycheckmatrix(C, true)
@@ -438,23 +460,16 @@ function dual(C::AbstractLinearCode)
     # Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
     # Pstand = vcat(view(C.Pstand, C.k + 1:C.n, :), view(C.Pstand, 1:C.k, :))
 
-    # do this instead for now (note that the names are out of order intentionally)
-    Hstand, Gstand, P, _ = _standardform(C.H)
-    Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
-    Pstand = ismissing(P) ? Pstandold : Pstandold * P
-
-    ub1, _ = _minwtrow(H)
-    ub2, _ = _minwtrow(Hstand)
-    ub = min(ub1, ub2)
-
     if !ismissing(C.weightenum)
         dualwtenum = MacWilliamsIdentity(C, C.weightenum)
-        HWE = CWEtoHWE(dualwtenum)
-        d = minimum(collect(exponent_vectors(polynomial(HWE)))[i][1]
-            for i in 1:length(polynomial(HWE)))
-        return LinearCode(C.F, C.n, C.n - C.k, d, 1, ub, H, G,
+        dualHWEpoly = CWEtoHWE(dualwtenum).polynomial
+        d = minimum(filter(ispositive, first.(exponent_vectors(dualHWEpoly))))
+        return LinearCode(C.F, C.n, C.n - C.k, d, d, d, H, G,
             Hstand, Gstand, Pstand, dualwtenum)
     else
+        ub1, _ = _minwtrow(H)
+        ub2, _ = _minwtrow(Hstand)
+        ub = min(ub1, ub2)
         return LinearCode(C.F, C.n, C.n - C.k, missing, 1, ub, H,
                           G, Hstand, Gstand, Pstand, missing)
     end
@@ -471,10 +486,8 @@ Hermitiandual(C::AbstractLinearCode) = dual(LinearCode(Hermitianconjugatematrix(
 """
     areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
-Return `true` if `C1 ⊆ C2` and `C2 ⊆ C1`.
+Return `true` if `C1` and `C2` are permutation equivalent codes.
 """
-# areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = (C1 ⊆ C2 && C2 ⊆ C1)
-# areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1.Gstand == C2.Gstand
 areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = _hasequivalentrowspaces(generatormatrix(C1, true), generatormatrix(C2, true))
 
 """

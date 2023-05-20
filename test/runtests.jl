@@ -379,7 +379,7 @@ using Test
     F = GF(2)
     # Huffman, Pless, p. 34
     # identity used for RM(1, 1)
-    @test ReedMullergeneratormatrix(1, 1, true) == matrix(F,
+    @test _ReedMullergeneratormatrix(1, 1, true) == matrix(F,
         [1 0;
          0 1]);
     @test generatormatrix(ReedMullerCode(1, 2, true)) == matrix(F,
@@ -402,7 +402,7 @@ using Test
 
     # Ling & Xing, p. 119
     # other sources, using [1 1; 0 1] for RM(1, 1)
-    @test ReedMullergeneratormatrix(1, 1) == matrix(F,
+    @test _ReedMullergeneratormatrix(1, 1) == matrix(F,
         [1 1;
          0 1]);
     @test generatormatrix(ReedMullerCode(1, 2)) == matrix(F,

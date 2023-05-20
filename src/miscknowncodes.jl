@@ -8,6 +8,28 @@
           # Misc
 #############################
 
+function ZeroCode(F::CTFieldTypes, n::Integer)
+    n > 0 || throw(ArgumentError("Code length must be positive (received n = $n)"))
+    _, vars = PolynomialRing(Nemo.ZZ, Int(order(F)))
+    return LinearCode(F, n, 0, 0, 0, 0, zero_matrix(F, 1, n), identity_matrix(F, n), zero_matrix(F, 0, n), identity_matrix(F, n), missing, WeightEnumerator(vars[1]^n, :complete))
+end
+
+function ZeroCode(q::Integer, n::Integer)
+    F = if isprime(q) GF(q)
+    else
+        factors = AbstractAlgebra.factor(q)
+        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        p, t = first(factors)
+        GF(p, t, :α)
+    end
+    return ZeroCode(F, n)
+end
+
+ZeroCode(n::Integer) = ZeroCode(GF(2), n)
+IdentityCode(F::CTFieldTypes, n::Integer) = dual(ZeroCode(F, n))
+IdentityCode(q::Integer, n::Integer) = dual(ZeroCode(q, n))
+IdentityCode(n::Integer) = dual(ZeroCode(n))
+
 # TODO: add CWE here
 # generator matrix should be all 1's so this should be 1 of 1's, 1 of 2's, etc up to p - 1
 """
