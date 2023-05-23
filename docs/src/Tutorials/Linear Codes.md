@@ -222,7 +222,7 @@ julia> isHermitianselfdual(C6)
 true
 ```
 
-To create codes over higher fields, use the `GF(p, l, :ω)` constructor. Do not use this when `l = 1`. Note that `ω` may be replaced with any symbol.
+To create codes over higher fields, use the `GF(p, l, :α)` constructor. Do not use this when `l = 1`. Note that `α` may be replaced with any symbol.
 ```
 julia> E = GF(2, 3, :α)
 Finite field of degree 3 over F_2
@@ -286,7 +286,72 @@ true
 
 ## Modifying Codes And Building New Codes From Old Codes
 
-## Expanded Codes
+## Finite Fields And Expanded Codes
+
+At the time of development, the finite field objects used in this library through Oscar do not support any concept of ``relationships``. Some elementary functions for this are provided, although they are intended to only be used for small field sizes.
+
+Let $E$ be an extension field of $F$.
+```
+julia> F = GF(2)
+Galois field with characteristic 2
+
+julia> E = GF(2, 3, :α)
+Finite field of degree 3 over F_2
+
+julia> isextension(E, F)
+(true, 3)
+```
+The most two common types of bases for $E/F$ can be computed via
+```
+julia> primitivebasis(E, F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia> normalbasis(E, F)
+(fqPolyRepFieldElem[α + 1, α^2 + 1, α^2 + α + 1], fqPolyRepFieldElem[α + 1, α^2 + 1, α^2 + α + 1])
+```
+which return both the basis and its dual (complementary) basis. Alternatively, one specify a basis manually and check its properties.
+```
+julia> α  = gen(E)
+α
+
+julia> β = [α^3, α^5, α^6]
+3-element Vector{fqPolyRepFieldElem}:
+ α + 1
+ α^2 + α + 1
+ α^2 + 1
+
+julia> isbasis(E, F, β)
+(true, fqPolyRepFieldElem[α + 1, α^2 + α + 1, α^2 + 1])
+
+julia> isselfdualbasis(E, F, β)
+true
+
+julia> isprimitivebasis(E, F, β)
+false
+
+julia> isnormalbasis(E, F, β)
+true
+
+julia> λ = dualbasis(E, F, β)
+3-element Vector{fqPolyRepFieldElem}:
+ α + 1
+ α^2 + α + 1
+ α^2 + 1
+
+julia> verifydualbasis(E, F, β, λ)
+true
+
+julia> β2 = α .* β
+3-element Vector{fqPolyRepFieldElem}:
+ α^2 + α
+ α^2 + 1
+ 1
+
+julia> areequivalentbasis(β, β2)
+true
+```
+
+Using these tools, we can construct expanded codes such as "binary" Reed-Solomon codes.
 
 ```
 julia> C9 = ReedSolomonCode(8, 3, 5)
@@ -308,37 +373,61 @@ Finite field of degree 3 over F_2
 julia> α  = gen(F8)
 α
 
-julia> basis = [α^3, α^5, α^6]
+julia> β = [field(C9)(1), α, α^6]
 3-element Vector{fqPolyRepFieldElem}:
- α + 1
- α^2 + α + 1
+ 1
+ α
  α^2 + 1
 
-julia> isbasis(F8, F, basis)
-(true, fqPolyRepFieldElem[α + 1, α^2 + α + 1, α^2 + 1])
-
-julia> isselfdualbasis(F8, F, basis)
-true
-
-julia> isprimitivebasis(F8, F, basis)
-false
-
-julia> C10 = expandedcode(C9, F, basis)
-[21, 5]_2 linear code
-Generator matrix: 5 × 21
-        1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0
-        0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0
-        0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0
-        0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1 0 0 0
-        0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 1 1
-
-
-
-
+julia> C10 = expandedcode(C9, F, β)
+[21, 15]_2 linear code
+Generator matrix: 15 × 21
+        1 1 1 1 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 1 1 0 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 0 0 0 1 0 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 1 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 1 1 0 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 0 0 0 1 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 1 0 0 1 1 1 0 0 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 1 1 0 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 0 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 1 0 0 1 1 1 0 0 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 0 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 1 1 1 0 0 1
 ```
-expand this code over F_2, is equivalent to the following BCH code
-BCHCode(2, 21, 3, 1) - maybe not b = 1?
+
+This is a special example because it is known that this specific exapanded code is also cyclic.
+```
+julia>  C11 = BCHCode(2, 21, 3, 19)
+[21, 15; 19]_2 BCH code
+2-Cyclotomic cosets: 
+        C_5
+Generator polynomial:
+        x^6 + x^4 + x^2 + x + 1
+Generator matrix: 15 × 21
+        1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1
+
+julia> areequivalent(C10, C11)
+true
+```
+# TODO: get iscyclic working
 
 # TODO:
 * go through runtests and find codes which went something is done to them they are equivalent
-* finite fields and expanded codes

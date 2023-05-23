@@ -230,6 +230,37 @@ using Test
 #     basis2 = [α * basis[i] for i in 1:2]
 #     @test areequivalentbasis(basis, basis2)
 
+    # TODO: work these in
+    # F8 = GF(2, 3, :α)
+    # β = [F8(1), α, α^6]
+    # λ = dualbasis(F8, F, β)
+    # D = CodingTheory._expansiondict(F8, F, λ)
+    # D2 = typeof(D)()
+    # D2[F8(0)] = zero_matrix(F8, 1, 3)
+    # D2[F8(1)] = matrix(F8, 1, 3, [1, 0, 0])
+    # D2[α] = matrix(F8, 1, 3, [0, 1, 0])
+    # D2[α^2] = matrix(F8, 1, 3, [1, 0, 1])
+    # D2[α^3] = matrix(F8, 1, 3, [1, 1, 0])
+    # D2[α^4] = matrix(F8, 1, 3, [1, 1, 1])
+    # D2[α^5] = matrix(F8, 1, 3, [0, 1, 1])
+    # D2[α^6] = matrix(F8, 1, 3, [0, 0, 1])
+    # @test D == D2
+
+    # β = [α^3, α^6, α^5]
+    # λ = dualbasis(F8, F, β)
+    # D = CodingTheory._expansiondict(F8, F, λ)
+    # D2 = typeof(D)()
+    # D2[F8(0)] = zero_matrix(F8, 1, 3)
+    # D2[F8(1)] = matrix(F8, 1, 3, [1, 1, 1])
+    # D2[α] = matrix(F8, 1, 3, [0, 1, 1])
+    # D2[α^2] = matrix(F8, 1, 3, [1, 0, 1])
+    # D2[α^3] = matrix(F8, 1, 3, [1, 0, 0])
+    # D2[α^4] = matrix(F8, 1, 3, [1, 1, 0])
+    # D2[α^5] = matrix(F8, 1, 3, [0, 0, 1])
+    # D2[α^6] = matrix(F8, 1, 3, [0, 1, 0])
+    # @test D == D2
+
+
 #     F = GF(2)
 #     flag, _ = isextension(E, F)
 #     @test flag == false

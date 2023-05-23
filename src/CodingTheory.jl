@@ -140,7 +140,7 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros, iscyclic
+    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros, iscyclic, isantiprimitive
 
 #############################
     # quasicycliccode.jl

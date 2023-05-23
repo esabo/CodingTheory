@@ -122,6 +122,10 @@ isdegenerate
 isprimitive
 ```
 
+```@docs
+isantiprimitive
+```
+
 ## Methods
 
 ```@docs

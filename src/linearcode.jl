@@ -53,6 +53,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
     end
 end
 
+#TODO: add doc strings
 function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
@@ -62,6 +63,7 @@ function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     Hnew = _removeempty(H, :rows)
     Gstand, Hstand, P, k = _standardform(Gnew)
     rank(H) == ncols(G) - k || throw(ArgumentError("The given matrix H is not a parity check matrix for G"))
+
     ub1, _ = _minwtrow(Gnew)
     ub2, _ = _minwtrow(Gstand)
     ub = min(ub1, ub2)
@@ -72,6 +74,7 @@ end
 function LinearCode(G::Matrix{Int}, q::Int, parity::Bool=false)
     factors = factor(q)
     (length(factors) == 1 && q > 1) || throw(ArgumentError("There is no finite field of order $q."))
+
     p, m = first(factors)
     F = m == 1 ? GF(p) : GF(p, m, :ω)
     G1 = matrix(F, G)
@@ -82,6 +85,7 @@ end
 function LinearCode(Gs::Vector{<:CTMatrixTypes})
     s = size(Gs[1])
     all(s == size(Gs[i]) for i = 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
+
     G = reduce(vcat, Gs)
     rref!(G)
     return LinearCode(G)
@@ -90,6 +94,7 @@ end
 function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool=false)
     s = size(Gs[1])
     all(s == size(Gs[i]) for i = 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
+
     return LinearCode(reduce(vcat, Gs), q, parity)
 end
 

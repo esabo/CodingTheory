@@ -31,6 +31,7 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
+    # t == 1 ? (F = GF(p);) : (F = GF(p, t, :α);)
     F = GF(p, t, :α)
     deg = ord(n, q)
     E = GF(p, t * deg, :α)
@@ -182,6 +183,7 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
+    # t == 1 ? (F = GF(p);) : (F = GF(p, t, :α);)
     F = GF(p, t, :α)
     deg = ord(n, q)
     E = GF(p, t * deg, :α)
@@ -212,6 +214,15 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
+
+    if t == 1
+        F = GF(p)
+        G = change_base_ring(F, G)
+        H = change_base_ring(F, H)
+        Gstand = change_base_ring(F, Gstand)
+        Hstand = change_base_ring(F, Hstand)
+        ismissing(P) || (P = change_base_ring(F, P);)
+    end
 
     if deg == 1 && n == q - 1
         d = n - k + 1
@@ -491,6 +502,13 @@ end
 Return `true` if the BCH code is primitive.
 """
 isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
+
+"""
+    isantiprimitive(C::AbstractBCHCode)
+
+Return `true` if the BCH code is antiprimitive.
+"""
+isantiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
 
 #############################
       # setter functions

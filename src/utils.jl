@@ -1037,39 +1037,60 @@ function tr(x::CTFieldElem, K::CTFieldTypes, verify::Bool=false)
     return sum([x^(q^i) for i in 0:(n - 1)])
 end
 
-function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
-    return [tr(x * i) for i in basis] #, K, verify
+# function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
+#     return [tr(x * i) for i in basis] #, K, verify
+# end
+
+# function _expandrow(row::CTMatrixTypes, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
+#     # new_row = _expandelement(row[1], K, basis, verify)
+#     new_row = [tr(row[1] * β) for β in basis]
+#     for i in 2:ncols(row)
+#         # new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
+#         new_row = vcat(new_row, [tr(row[i] * β) for β in basis])
+#     end
+#     return matrix(K, 1, length(new_row), new_row)
+# end
+
+function _expansiondict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldElem})
+    m = div(degree(L), degree(K))
+    Lelms = collect(L)
+    D = Dict{fqPolyRepFieldElem, fqPolyRepMatrix}()
+    for x in Lelms
+        D[x] = matrix(L, 1, m, [tr(x * λi) for λi in λ])
+    end
+    return D
 end
 
-function _expandrow(row::CTMatrixTypes, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
-    new_row = _expandelement(row[1], K, basis, verify)
-    for i in 2:ncols(row)
-        new_row = vcat(new_row, _expandelement(row[i], K, basis, verify))
+function _expandmatrix(M::CTMatrixTypes, D::Dict{fqPolyRepFieldElem, fqPolyRepMatrix}, m::Int)
+    m > 0 || throw(DomainError("Expansion factor must be positive"))
+
+    Mexp = zero_matrix(base_ring(M), nrows(M), ncols(M) * m)
+    for r in 1:nrows(M)
+        for c in 1:ncols(M)
+            Mexp[r, (c - 1) * m + 1:c * m] = D[M[r, c]]
+        end
     end
-    return matrix(K, 1, length(new_row), new_row)
+    return Mexp
 end
 
 """
-    expandmatrix(M::CTMatrixTypes, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    expandmatrix(M::CTMatrixTypes, K::FqNmodFiniteField, β::Vector{fq_nmod})
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
-`K` using the provided `basis` for the base ring of `M` over `K`.
+`K` using the basis `β` for the base ring of `M` over `K`.
 """
-function expandmatrix(M::CTMatrixTypes, K::CTFieldTypes, basis::Vector{<:CTFieldElem})
+function expandmatrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldElem})
     L = base_ring(M)
     L == K && return M
-    Int(characteristic(L)) == Int(characteristic(K)) || throw(ArgumentError("The given field is not a subfield of the base ring of the element."))
-    degree(L) % degree(K) == 0 || throw(ArgumentError("The given field is not a subfield of the base ring of the element."))
-    n = div(degree(L), degree(K))
-    n == length(basis) || throw(ArgumentError("Provided basis is of incorrect size for the given field and subfield."))
-    # should really check if it is a basis
     flag, m = isextension(L, K)
     flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
-    m == length(basis) || throw(ArgumentError("Basis does not have length degree of the extension."))
-    flag, _ = _isbasis(L, basis, Int(order(K)))
+    m == length(β) || throw(ArgumentError("Basis does not have length degree of the extension."))
+    flag, λ = _isbasis(L, β, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
 
-    return reduce(vcat, [_expandrow(M[r, :], K, basis) for r in 1:nrows(M)])
+    # λ = dualbasis(L, K, β)
+    D = _expansiondict(L, K, λ)
+    return _expandmatrix(M, D, m)
 end
 
 """

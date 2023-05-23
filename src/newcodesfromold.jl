@@ -497,13 +497,53 @@ function juxtaposition(C1::AbstractLinearCode, C2::AbstractLinearCode)
 end
 
 """
-    expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, β::Vector{fq_nmod})
 
 Return the expanded code of `C` constructed by exapnding the generator matrix
-to the subfield `K` using the provided dual `basis` for the field of `C`
-over `K`.
+to the subfield `K` using the basis `β` for `field(C)` over `K`.
 """
-expandedcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem}) = LinearCode(expandmatrix(generatormatrix(C), K, basis))
+function expandedcode(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFieldElem})
+    flag, λ = isbasis(C.F, K, β)
+    flag || throw(ArgumentError("β is not a basis for the extension"))
+
+    # D = _expansiondict(C.F, K, λ)
+    # m = div(degree(C.F), degree(K))
+
+    G = generatormatrix(C)
+    Gnew = zero_matrix(C.F, nrows(G) * length(β), ncols(G))
+    currrow = 1
+    for r in 1:nrows(G)
+        for βi in β
+            Gnew[currrow, :] = βi * G[r, :]
+            currrow += 1
+        end
+    end
+    # Gexp = _expandmatrix(Gnew, D, m)
+    Gexp = expandmatrix(Gnew, K, β)
+
+    H = paritycheckmatrix(C)
+    Hnew = zero_matrix(C.F, nrows(H) * length(β), ncols(H))
+    currrow = 1
+    for r in 1:nrows(H)
+        for βi in β
+            Hnew[currrow, :] = βi * H[r, :]
+            currrow += 1
+        end
+    end
+    Hexp = expandmatrix(Hnew, K, λ)
+    # Hexp = _expandmatrix(Hnew, D, m)
+
+    Cnew = LinearCode(Gexp, Hexp)
+    Cnew.G = change_base_ring(K, Cnew.G)
+    Cnew.H = change_base_ring(K, Cnew.H)
+    Cnew.Gstand = change_base_ring(K, Cnew.Gstand)
+    Cnew.Hstand = change_base_ring(K, Cnew.Hstand)
+    ismissing(Cnew.Pstand) || (Cnew.Pstand = change_base_ring(K, new.Pstand);)
+    Cnew.F = K
+    Cnew.lbound = C.lbound
+    Cnew.ubound = _minwtrow(Cnew.G)
+    return Cnew
+end
 
 # """
 #     subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField)
