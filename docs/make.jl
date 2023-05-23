@@ -17,10 +17,13 @@ Documenter.makedocs(
 		"Tutorials" => [
 			"Tutorials/Linear Codes.md",
 			"Tutorials/Cyclic Codes.md",
-			"Tutorials/Quantum Codes.md",
-        	"Tutorials/Quantum Reed-Muller Codes.md"
+			"Tutorials/Quantum Codes.md"
     	],
-			"Classical" => [
+		"Examples" => [
+			"Examples/The Vardy-Be’ery Decomposition.md",
+			"Examples/Quantum Reed-Muller Codes.md"
+		],
+		"Classical" => [
         	"Classical/linearcode.md",
         	"Classical/cycliccode.md",
         	"Classical/quasicyclic.md",
