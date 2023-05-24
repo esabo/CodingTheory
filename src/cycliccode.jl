@@ -62,6 +62,15 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
 
+    if t == 1
+        F = GF(p)
+        G = change_base_ring(F, G)
+        H = change_base_ring(F, H)
+        Gstand = change_base_ring(F, Gstand)
+        Hstand = change_base_ring(F, Hstand)
+        ismissing(P) || (P = change_base_ring(F, P);)
+    end
+
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
             # known distance, should probably not do δ, HT here
@@ -126,6 +135,15 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
     size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
     iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
+
+    if t == 1
+        F = GF(p)
+        G = change_base_ring(F, G)
+        H = change_base_ring(F, H)
+        Gstand = change_base_ring(F, Gstand)
+        Hstand = change_base_ring(F, Hstand)
+        ismissing(P) || (P = change_base_ring(F, P);)
+    end
 
     if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1

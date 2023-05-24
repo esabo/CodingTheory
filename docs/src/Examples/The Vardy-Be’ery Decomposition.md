@@ -52,37 +52,206 @@ Let $\mathcal{C}$ be a BCH code over $\mathbb{F}_2$ of composite length $n = n_h
 While the second paper does not cite the first paper, the first result may seen as a special case of the second, where the sets $\mathcal{I}_i$ are the non-zero locations of the matrices above.
 
 ## Explicit Example
-TODO: work everything out by hand here and come up with an example for both decomps
-
-
-
-
-
-
-To demo this, we first define the permutation matrix required to put the columns into the almost-block-diagonal form above.
+### Example 1: First Result
+For an example of the first result, consider the $[7, 4, 4; 0]_8$ Reed-Solomon code.
 ```
+julia> C = ReedSolomonCode(8, 4, 0)
+[7, 4, 4; 0]_8 Reed-Solomon code
+8-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_2
+Generator polynomial:
+        x^3 + (α^2 + α + 1)*x^2 + (α^2 + 1)*x + α + 1
+Generator matrix: 4 × 7
+        α + 1 α^2 + 1 α^2 + α + 1 1 0 0 0
+        0 α + 1 α^2 + 1 α^2 + α + 1 1 0 0
+        0 0 α + 1 α^2 + 1 α^2 + α + 1 1 0
+        0 0 0 α + 1 α^2 + 1 α^2 + α + 1 1
+```
+To expand
+```
+julia> F = GF(2)
+Galois field with characteristic 2
+
+julia> primitivebasis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia> β, λ = primitivebasis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia> Cexp = expandedcode(C, F, β)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0
+        0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0
+        0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0
+        0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1
+
 julia> function permutationmatrix(F::CodingTheory.CTFieldTypes, n1::Int, n2::Int)
-           # usage: P = permutationmatrix(GF(2), 15, 3) for 3 modules of size 15 each
-           arr = [1 + j + i * n2 for j in 0:(n2 - 1) for i in 0:(n1 - 1)]
-           P = zero_matrix(F, n1 * n2, n1 * n2)
-           Fone = F(1)
-           for i in 1:(n1 * n2)
-               P[arr[i], i] = Fone
-           end
-           return P
-       end
-permutationmatrix (generic function with 1 method)
+                  # usage: P = permutationmatrix(GF(2), 15, 3) for 3 modules of size 15 each
+                  arr = [1 + j + i * n2 for j in 0:(n2 - 1) for i in 0:(n1 - 1)]
+                  P = zero_matrix(F, n1 * n2, n1 * n2)
+                  Fone = F(1)
+                  for i in 1:(n1 * n2)
+                      P[arr[i], i] = Fone
+                  end
+                  return P
+              end
+permutationmatrix (generic function with 3 methods)
+
+julia> P = permutationmatrix(field(Cexp), 7, 3);
+
+julia> CexpP = LinearCode(generatormatrix(Cexp) * P)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0 0
+        0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0 0
+        1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0 0
+        0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0
+        0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0
+        0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0
+        0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0
+        0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0
+        0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0
+        0 0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0
+        0 0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0
+        0 0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1
+
+julia> B = subfieldsubcode(C, F, β)
+[7, 3]_2 linear code
+Generator matrix: 3 × 7
+        1 0 1 1 1 0 0
+        1 1 1 0 0 1 0
+        0 1 1 1 0 0 1
+
+julia> Bblock = LinearCode(generatormatrix(B) ⊕ generatormatrix(B) ⊕ generatormatrix(B))
+[21, 9]_2 linear code
+Generator matrix: 9 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+
+julia> Quo = CexpP / Bblock
+[21, 3]_2 linear code
+Generator matrix: 3 × 21
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia> Cfull = augment(Bblock, generatormatrix(Quo))
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia> areequivalent(CexpP, Cfull)
+true
 ```
 
+### Example 2: Second Result
+For an example of the second result, consider the BCH code with $b = 0$ and $\delta = 5$ with $n_h = 3$ and $n_q = 15$. The 2-cosets modulo 45 are
 ```
-q = 2; n = 45; nq = 15; nh = 3; bX = 0; δX = 7;
-CBigX = BCHCode(q, n, δX, bX);
-CSmX = BCHCode(q, nq, δX, bX);
-PX = permutationmatrix(field(CBigX), nq, nh);
-CBigXP = LinearCode(generatormatrix(CBigX) * PX);
-CblockX = LinearCode(generatormatrix(CSmX) ⊕ generatormatrix(CSmX) ⊕ generatormatrix(CSmX));
-QCX = CBigXP / CblockX;
-CPfullX = augment(CblockX, generatormatrix(QCX));
-areequivalent(CPfullX, CBigXP)
+julia> q = 2; nh = 3; nq = 15; n = nh * nq; b = 0; δ = 5;
 
+julia> allcyclotomiccosets(q, n)
+8-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+ [5, 10, 20, 25, 35, 40]
+ [7, 11, 13, 14, 22, 26, 28, 29, 37, 41, 43, 44]
+ [9, 18, 27, 36]
+ [15, 30]
+ [21, 33, 39, 42]
+
+julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
+3-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+
+julia> Cbig = CyclicCode(q, n, cosets)
+[45, 28; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^17 + x^16 + x^14 + x^12 + x^8 + x^7 + x^4 + x^3 + x^2 + 1
 ```
+Alternatively, we could have called ``BCHCode(q, n, δ, b)`` directly. Then
+
+$$\mathcal{I}_1 = \{ 1, 4, 7, \dots, 43\} \quad , \quad \mathcal{I}_2 = \{ 2, 5, 8, \dots, 44\} \quad , \quad \mathcal{I}_3 = \{3, 6, 9, \dots, 45\}.$$
+
+The BCH subcode has the defining set $C^{15}_0 \cup \dots \cup C^{15}_3$. The 2-cosets modulo 15 are
+```
+julia> allcyclotomiccosets(q, nq)
+5-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8]
+ [3, 6, 9, 12]
+ [5, 10]
+ [7, 11, 13, 14]
+```
+so this will be a $[15, 6]$ code.
+```
+julia> Csmall = BCHCode(q, nq, δ, b)
+[15, 6; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^9 + x^6 + x^5 + x^4 + x + 1
+Generator matrix: 6 × 15
+        1 1 0 0 1 1 1 0 0 1 0 0 0 0 0
+        0 1 1 0 0 1 1 1 0 0 1 0 0 0 0
+        0 0 1 1 0 0 1 1 1 0 0 1 0 0 0
+        0 0 0 1 1 0 0 1 1 1 0 0 1 0 0
+        0 0 0 0 1 1 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 1 1 0 0 1 1 1 0 0 1
+```
+Both codes happen to have minimum distance $6 > \delta$.
+```
+julia> minimumdistance(Cbig)
+6
+
+julia> minimumdistance(Csmall)
+6
+```
+Permuting the indices of $\mathcal{I}_1$ to indices 1 - 15, $\mathcal{I}_2$ to 16 - 30, and $\mathcal{I}_3$ to 31 - 45 completes the direct-sum subcode.
+```
+julia> P = permutationmatrix(field(Cbig), nq, nh);
+
+julia> CbigP = LinearCode(generatormatrix(Cbig) * P);
+
+julia> Cblock = LinearCode(generatormatrix(Csmall) ⊕ generatormatrix(Csmall) ⊕ generatormatrix(Csmall));
+
+julia> QC = CbigP / Cblock;
+
+julia> CPfull = augment(Cblock, generatormatrix(QC));
+
+julia> areequivalent(CPfull, CbigP)
+true
+```
+
+It is also possible to work these theorems backwards by choosing a desired subcode then seeing if a supercode can be built to contain it.
