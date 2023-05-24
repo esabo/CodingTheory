@@ -10,23 +10,170 @@
 	&amp;(b_1, \dots, b_n, 0, \dots, 0, 0, \dots 0),\\
 	&amp;(0, \dots, 0, b_1, \dots, b_n, 0, \dots 0),\\
 	&amp;(0, \dots, 0, 0, \dots 0, b_1, \dots, b_n).
-\end{aligned}\]</p><p>Repeating this for all of the rows of the generator matrix of <span>$\mathcal{B}$</span> then permuting rows completes the <span>$m$</span> factors of <span>$B \oplus \dots \oplus B$</span>.</p><p>If <span>$\mathcal{C}$</span> has dimension <span>$k$</span> and <span>$\mathcal{B}$</span>, <span>$k^\prime$</span>, then <span>$m(k - k^\prime)$</span> more &quot;glue vectors&quot; are required to span the expanded code, <span>$\phi_\beta (\mathcal{C})$</span>. These must be inside of <span>$\phi_\beta (\mathcal{C})$</span> but with a nonzero component outside out <span>$\mathcal{B}_i$</span> if we want the generator matrix to be full rank. The remaining vectors are therefore a basis of the row space of <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span>. The literature often describes the glue vectors as sums of minimum-weight coset leaders of <span>$\mathcal{B}$</span> considered as polynomials also satisfying the zeros of <span>$\mathcal{C}$</span> \cite{halford2005soft}; however, the standard coset leaders algorithm makes this difficult to use for even small codes. Instead, these may be computed, even for large codes, using elementary linear algebra using the same algorithm one would for computing the quotient space of two modules. If being used to, for example, connect different hardware modules (corresponding to each <span>$\mathcal{B}$</span>) on a quantum computer, it may be experimentally advantageous to further enforce that the glue vectors be of specific weight or as low-weight as possible. This can be done by selecting appropriate elements from <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span> using <code>minimumwords</code> that together have full rank.</p><p>This method is highly constrained as the resulting code always has length <span>$m(p^m - 1)$</span>. In a separate 1994 paper \cite{vardy1994maximum}, Vardy and Be&#39;ery showed that binary, primitive BCH codes and binary BCH codes of composite block length may also be put into the form above. We will also refer to this as a Vardy-Be’ery decomposition since the proper technique should be clear from context. For primitive BCH codes, they extended the code and then split the zeros into partitions satisfying certain properties. The direct-sum subcodes are then obtained by puncturing on the set complement of the indices corresponding to the defining sets of each partition. This applies directly to Reed-Muller codes. We will not use this approach here but instead consider BCH codes of composite block length. The two approaches are almost identical except that in the latter case the partitions are immediate from the structure of the code. The following applies to cyclic codes in general.</p><p>Let <span>$\mathcal{C}$</span> be a BCH code over <span>$\mathbb{F}_2$</span> of composite length <span>$n = n_h n_q$</span> with defining set <span>$C^n_b \cup \dots \cup C^n_{b + \delta - 2}$</span>. Consider the sets <span>$\mathcal{I}_i = \{1 + j + i \cdot n_h\}$</span> where <span>$0 \leq j \leq n_h - 1$</span> for fixed <span>$0 \leq i \leq n_q - 1$</span>.</p><div class="admonition is-info"><header class="admonition-header">Lemma</header><div class="admonition-body"><p>The code obtained from <span>$\mathcal{C}$</span> punctured on the complement, <span>$\mathcal{I}_i^c$</span>, is a BCH code of length <span>$n_q$</span> with defining set <span>$C^{n_q}_b \cup \dots \cup C^{n_q}_{b + \delta - 2}$</span>.</p></div></div><p>While the second paper does not cite the first paper, the first result may seen as a special case of the second, where the sets <span>$\mathcal{I}_i$</span> are the non-zero locations of the matrices above.</p><h2 id="Explicit-Example"><a class="docs-heading-anchor" href="#Explicit-Example">Explicit Example</a><a id="Explicit-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Explicit-Example" title="Permalink"></a></h2><p>TODO: work everything out by hand here and come up with an example for both decomps</p><p>To demo this, we first define the permutation matrix required to put the columns into the almost-block-diagonal form above.</p><pre><code class="nohighlight hljs">julia&gt; function permutationmatrix(F::CodingTheory.CTFieldTypes, n1::Int, n2::Int)
-           # usage: P = permutationmatrix(GF(2), 15, 3) for 3 modules of size 15 each
-           arr = [1 + j + i * n2 for j in 0:(n2 - 1) for i in 0:(n1 - 1)]
-           P = zero_matrix(F, n1 * n2, n1 * n2)
-           Fone = F(1)
-           for i in 1:(n1 * n2)
-               P[arr[i], i] = Fone
-           end
-           return P
-       end
-permutationmatrix (generic function with 1 method)</code></pre><pre><code class="nohighlight hljs">q = 2; n = 45; nq = 15; nh = 3; bX = 0; δX = 7;
-CBigX = BCHCode(q, n, δX, bX);
-CSmX = BCHCode(q, nq, δX, bX);
-PX = permutationmatrix(field(CBigX), nq, nh);
-CBigXP = LinearCode(generatormatrix(CBigX) * PX);
-CblockX = LinearCode(generatormatrix(CSmX) ⊕ generatormatrix(CSmX) ⊕ generatormatrix(CSmX));
-QCX = CBigXP / CblockX;
-CPfullX = augment(CblockX, generatormatrix(QCX));
-areequivalent(CPfullX, CBigXP)
-</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../Tutorials/Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Tuesday 23 May 2023 21:09">Tuesday 23 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+\end{aligned}\]</p><p>Repeating this for all of the rows of the generator matrix of <span>$\mathcal{B}$</span> then permuting rows completes the <span>$m$</span> factors of <span>$B \oplus \dots \oplus B$</span>.</p><p>If <span>$\mathcal{C}$</span> has dimension <span>$k$</span> and <span>$\mathcal{B}$</span>, <span>$k^\prime$</span>, then <span>$m(k - k^\prime)$</span> more &quot;glue vectors&quot; are required to span the expanded code, <span>$\phi_\beta (\mathcal{C})$</span>. These must be inside of <span>$\phi_\beta (\mathcal{C})$</span> but with a nonzero component outside out <span>$\mathcal{B}_i$</span> if we want the generator matrix to be full rank. The remaining vectors are therefore a basis of the row space of <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span>. The literature often describes the glue vectors as sums of minimum-weight coset leaders of <span>$\mathcal{B}$</span> considered as polynomials also satisfying the zeros of <span>$\mathcal{C}$</span> \cite{halford2005soft}; however, the standard coset leaders algorithm makes this difficult to use for even small codes. Instead, these may be computed, even for large codes, using elementary linear algebra using the same algorithm one would for computing the quotient space of two modules. If being used to, for example, connect different hardware modules (corresponding to each <span>$\mathcal{B}$</span>) on a quantum computer, it may be experimentally advantageous to further enforce that the glue vectors be of specific weight or as low-weight as possible. This can be done by selecting appropriate elements from <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span> using <code>minimumwords</code> that together have full rank.</p><p>This method is highly constrained as the resulting code always has length <span>$m(p^m - 1)$</span>. In a separate 1994 paper \cite{vardy1994maximum}, Vardy and Be&#39;ery showed that binary, primitive BCH codes and binary BCH codes of composite block length may also be put into the form above. We will also refer to this as a Vardy-Be’ery decomposition since the proper technique should be clear from context. For primitive BCH codes, they extended the code and then split the zeros into partitions satisfying certain properties. The direct-sum subcodes are then obtained by puncturing on the set complement of the indices corresponding to the defining sets of each partition. This applies directly to Reed-Muller codes. We will not use this approach here but instead consider BCH codes of composite block length. The two approaches are almost identical except that in the latter case the partitions are immediate from the structure of the code. The following applies to cyclic codes in general.</p><p>Let <span>$\mathcal{C}$</span> be a BCH code over <span>$\mathbb{F}_2$</span> of composite length <span>$n = n_h n_q$</span> with defining set <span>$C^n_b \cup \dots \cup C^n_{b + \delta - 2}$</span>. Consider the sets <span>$\mathcal{I}_i = \{1 + j + i \cdot n_h\}$</span> where <span>$0 \leq j \leq n_h - 1$</span> for fixed <span>$0 \leq i \leq n_q - 1$</span>.</p><div class="admonition is-info"><header class="admonition-header">Lemma</header><div class="admonition-body"><p>The code obtained from <span>$\mathcal{C}$</span> punctured on the complement, <span>$\mathcal{I}_i^c$</span>, is a BCH code of length <span>$n_q$</span> with defining set <span>$C^{n_q}_b \cup \dots \cup C^{n_q}_{b + \delta - 2}$</span>.</p></div></div><p>While the second paper does not cite the first paper, the first result may seen as a special case of the second, where the sets <span>$\mathcal{I}_i$</span> are the non-zero locations of the matrices above.</p><h2 id="Explicit-Example"><a class="docs-heading-anchor" href="#Explicit-Example">Explicit Example</a><a id="Explicit-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Explicit-Example" title="Permalink"></a></h2><h3 id="Example-1:-First-Result"><a class="docs-heading-anchor" href="#Example-1:-First-Result">Example 1: First Result</a><a id="Example-1:-First-Result-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-First-Result" title="Permalink"></a></h3><p>For an example of the first result, consider the <span>$[7, 4, 4; 0]_8$</span> Reed-Solomon code.</p><pre><code class="nohighlight hljs">julia&gt; C = ReedSolomonCode(8, 4, 0)
+[7, 4, 4; 0]_8 Reed-Solomon code
+8-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_2
+Generator polynomial:
+        x^3 + (α^2 + α + 1)*x^2 + (α^2 + 1)*x + α + 1
+Generator matrix: 4 × 7
+        α + 1 α^2 + 1 α^2 + α + 1 1 0 0 0
+        0 α + 1 α^2 + 1 α^2 + α + 1 1 0 0
+        0 0 α + 1 α^2 + 1 α^2 + α + 1 1 0
+        0 0 0 α + 1 α^2 + 1 α^2 + α + 1 1</code></pre><p>To expand</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2)
+Galois field with characteristic 2
+
+julia&gt; primitivebasis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia&gt; β, λ = primitivebasis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia&gt; Cexp = expandedcode(C, F, β)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0
+        0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0
+        0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0
+        0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1
+
+julia&gt; function permutationmatrix(F::CodingTheory.CTFieldTypes, n1::Int, n2::Int)
+                  # usage: P = permutationmatrix(GF(2), 15, 3) for 3 modules of size 15 each
+                  arr = [1 + j + i * n2 for j in 0:(n2 - 1) for i in 0:(n1 - 1)]
+                  P = zero_matrix(F, n1 * n2, n1 * n2)
+                  Fone = F(1)
+                  for i in 1:(n1 * n2)
+                      P[arr[i], i] = Fone
+                  end
+                  return P
+              end
+permutationmatrix (generic function with 3 methods)
+
+julia&gt; P = permutationmatrix(field(Cexp), 7, 3);
+
+julia&gt; CexpP = LinearCode(generatormatrix(Cexp) * P)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0 0
+        0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0 0
+        1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0 0
+        0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0
+        0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0
+        0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0
+        0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0
+        0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0
+        0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0
+        0 0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0
+        0 0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0
+        0 0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1
+
+julia&gt; B = subfieldsubcode(C, F, β)
+[7, 3]_2 linear code
+Generator matrix: 3 × 7
+        1 0 1 1 1 0 0
+        1 1 1 0 0 1 0
+        0 1 1 1 0 0 1
+
+julia&gt; Bblock = LinearCode(generatormatrix(B) ⊕ generatormatrix(B) ⊕ generatormatrix(B))
+[21, 9]_2 linear code
+Generator matrix: 9 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+
+julia&gt; Quo = CexpP / Bblock
+[21, 3]_2 linear code
+Generator matrix: 3 × 21
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia&gt; Cfull = augment(Bblock, generatormatrix(Quo))
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia&gt; areequivalent(CexpP, Cfull)
+true</code></pre><h3 id="Example-2:-Second-Result"><a class="docs-heading-anchor" href="#Example-2:-Second-Result">Example 2: Second Result</a><a id="Example-2:-Second-Result-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Second-Result" title="Permalink"></a></h3><p>For an example of the second result, consider the BCH code with <span>$b = 0$</span> and <span>$\delta = 5$</span> with <span>$n_h = 3$</span> and <span>$n_q = 15$</span>. The 2-cosets modulo 45 are</p><pre><code class="nohighlight hljs">julia&gt; q = 2; nh = 3; nq = 15; n = nh * nq; b = 0; δ = 5;
+
+julia&gt; allcyclotomiccosets(q, n)
+8-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+ [5, 10, 20, 25, 35, 40]
+ [7, 11, 13, 14, 22, 26, 28, 29, 37, 41, 43, 44]
+ [9, 18, 27, 36]
+ [15, 30]
+ [21, 33, 39, 42]
+
+julia&gt; cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
+3-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+
+julia&gt; Cbig = CyclicCode(q, n, cosets)
+[45, 28; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^17 + x^16 + x^14 + x^12 + x^8 + x^7 + x^4 + x^3 + x^2 + 1</code></pre><p>Alternatively, we could have called <span>$BCHCode(q, n, δ, b)$</span> directly. Then</p><p class="math-container">\[\mathcal{I}_1 = \{ 1, 4, 7, \dots, 43\} \quad , \quad \mathcal{I}_2 = \{ 2, 5, 8, \dots, 44\} \quad , \quad \mathcal{I}_3 = \{3, 6, 9, \dots, 45\}.\]</p><p>The BCH subcode has the defining set <span>$C^{15}_0 \cup \dots \cup C^{15}_3$</span>. The 2-cosets modulo 15 are</p><pre><code class="nohighlight hljs">julia&gt; allcyclotomiccosets(q, nq)
+5-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8]
+ [3, 6, 9, 12]
+ [5, 10]
+ [7, 11, 13, 14]</code></pre><p>so this will be a <span>$[15, 6]$</span> code.</p><pre><code class="nohighlight hljs">julia&gt; Csmall = BCHCode(q, nq, δ, b)
+[15, 6; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^9 + x^6 + x^5 + x^4 + x + 1
+Generator matrix: 6 × 15
+        1 1 0 0 1 1 1 0 0 1 0 0 0 0 0
+        0 1 1 0 0 1 1 1 0 0 1 0 0 0 0
+        0 0 1 1 0 0 1 1 1 0 0 1 0 0 0
+        0 0 0 1 1 0 0 1 1 1 0 0 1 0 0
+        0 0 0 0 1 1 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 1 1 0 0 1 1 1 0 0 1</code></pre><p>Both codes happen to have minimum distance <span>$6 &gt; \delta$</span>.</p><pre><code class="nohighlight hljs">julia&gt; minimumdistance(Cbig)
+6
+
+julia&gt; minimumdistance(Csmall)
+6</code></pre><p>Permuting the indices of <span>$\mathcal{I}_1$</span> to indices 1 - 15, <span>$\mathcal{I}_2$</span> to 16 - 30, and <span>$\mathcal{I}_3$</span> to 31 - 45 completes the direct-sum subcode.</p><pre><code class="nohighlight hljs">julia&gt; P = permutationmatrix(field(Cbig), nq, nh);
+
+julia&gt; CbigP = LinearCode(generatormatrix(Cbig) * P);
+
+julia&gt; Cblock = LinearCode(generatormatrix(Csmall) ⊕ generatormatrix(Csmall) ⊕ generatormatrix(Csmall));
+
+julia&gt; QC = CbigP / Cblock;
+
+julia&gt; CPfull = augment(Cblock, generatormatrix(QC));
+
+julia&gt; areequivalent(CPfull, CbigP)
+true</code></pre><p>It is also possible to work these theorems backwards by choosing a desired subcode then seeing if a supercode can be built to contain it.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../Tutorials/Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Wednesday 24 May 2023 20:29">Wednesday 24 May 2023</span>. Using Julia version 1.9.0.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
