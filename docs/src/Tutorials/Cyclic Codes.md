@@ -49,6 +49,8 @@ The BCH bound says that if the defining set of a cyclic code contains a set of $
 
 Reed-Solomon codes are primitive BCH codes over $\mathbb{F}_{p^m}$ for an integer $m \geq 1$. In this case, $\mathbb{F}_{p^m}$ is the splitting field of $x^{p^m - 1} - 1$ and each element $\alpha_i$ has minimal polynomial $x - \alpha_i$ with cyclotomic cosets of cardinality one. Hence, BCH codes are related to two fields while Reed-Solomon codes are only related to one. Reed-Solomon codes have the theoretically maximum possible distance with parameters $[n, k, n - k + 1]$. If $\mathcal{C}$ is an $[n, k, d]_{p^m}$ Reed-Solomon code, then $\mathcal{C}|_{\mathbb{F}_p}$ is the BCH code over $\mathbb{F}_p$ of length $n$ and designed distance $d$. The proof of this follows immediately from the fact that the codewords of the BCH code are elements of $\mathbb{F}_p^n$ and the zero set of the Reed-Solomon code is a subset of the zero set of the BCH code. Unlike BCH codes which can have any length relatively prime with the characteristic of the field, Reed-Solomon codes over $\mathbb{F}_p$ have $n \leq p$ and therefore do not make good binary codes directly. Instead, one may construct a ``binary Reed-Solomon code" using the expansion procedure for $\mathbb{F}_{2^m}/\mathbb{F}_2$.
 
+If $\mathcal{C}$ is an $[n, k, d]_{p^m}$ Reed-Solomon code, then $\mathcal{C}|_{\mathbb{F}_p}$ is the BCH code over $\mathbb{F}_p$ of length $n$ and designed distance $d$. The proof of this follows immediately from the fact that the codewords of the BCH code are elements of $\mathbb{F}_p^n$ and the zero set of the Reed-Solomon code is a subset of the zero set of the BCH code.
+
 ## Basics
 To create a cyclic code, one may either specify the cyclotomic cosets or the generator polynomial.
 ```
