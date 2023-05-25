@@ -58,9 +58,9 @@ function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
     base_ring(G) == base_ring(H) || throw(ArgumentError("G and H are not over the same field"))
-    iszero(G * transpose(H)) || throw(ArgumentError("H isn't orthogonal to G"))
     Gnew = _removeempty(G, :rows)
     Hnew = _removeempty(H, :rows)
+    iszero(Gnew * transpose(Hnew)) || throw(ArgumentError("H isn't orthogonal to G"))
     Gstand, Hstand, P, k = _standardform(Gnew)
     rank(H) == ncols(G) - k || throw(ArgumentError("The given matrix H is not a parity check matrix for G"))
 
@@ -258,6 +258,31 @@ function setminimumdistance!(C::AbstractLinearCode, d::Int)
     C.d = d
     C.lbound = d
     C.ubound = d
+end
+
+function changefield!(C::T, F::CTFieldTypes) where T <: AbstractLinearCode
+    # TODO: this is doesn't work for cyclic codes yet
+    T <: AbstractCyclicCode && @error "Not implemented for cyclic codes yet"
+    C.G = change_base_ring(F, C.G)
+    C.H = change_base_ring(F, C.H)
+    C.Gstand = change_base_ring(F, C.Gstand)
+    C.Hstand = change_base_ring(F, C.Hstand)
+    ismissing(C.Pstand) || (C.Pstand = change_base_ring(F, C.Pstand);)
+    C.F = F
+
+    # do d and weightenum get invalidated? if so, then:
+    C.d = missing
+    C.lbound = 1
+    C.ubound = min(_minwtrow(C.G)[1], _minwtrow(C.Gstand)[1])
+    C.weightenum = missing
+    
+    return nothing
+end
+
+function changefield(C::AbstractLinearCode, F::CTFieldTypes)
+    C2 = deepcopy(C)
+    changefield!(C2, F)
+    return C2
 end
 
 #############################

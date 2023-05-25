@@ -345,6 +345,8 @@ function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
 end
 Plotkinconstruction(C1::AbstractLinearCode, C2::AbstractLinearCode) = uuplusv(C1, C2)
 
+# TODO: add construction A, B, Y, B2
+
 """
     constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode)
 
@@ -592,8 +594,8 @@ Return the entrywise product of `C` and `D`.
 # Notes
 * This is known to often be the full ambient space.
 """
-# TODO: Oscar doesn't work well with dot operators
 function entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
+    # TODO: Oscar doesn't work well with dot operators
     C.F == field(D) || throw(ArgumentError("Codes must be over the same field in the Schur product."))
     C.n == length(D) || throw(ArgumentError("Codes must have the same length in the Schur product."))
 
