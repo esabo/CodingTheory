@@ -162,7 +162,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     n = div(ncols(S), 2)
     # check S commutes with itself
     aresymplecticorthogonal(S, S) || error("The given stabilizers are not symplectic orthogonal.")
-    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(stabs)
+    stabsstand, Pstand, standr, standk, rnk = _standardformstabilizer(S)
 
     # logicals
     iszero(L) && error("The logicals are empty.")
@@ -187,7 +187,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     # check S commutes with G
     aresymplecticorthogonal(S, G) || error("Gauges do not commute with the code.")
     # check L commutes with G
-    aresymplecticorthogonal(logsmatrix, G) || error("Gauges do not commute with the logicals.")
+    aresymplecticorthogonal(logsmat, G) || error("Gauges do not commute with the logicals.")
     # check G doesn't commute with itself
     prod = hcat(G[:, n + 1:end], -G[:, 1:n]) * transpose(G)
     iszero(prod) && error("Gauges should not be symplectic self-orthogonal.")
@@ -201,7 +201,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     gopspairs = _makepairs(G)
     gopsmat = reduce(vcat, [reduce(vcat, gopspairs[i]) for i in 1:length(gopspairs)])
 
-    F = base_ring(gopsmatrix)
+    F = base_ring(gopsmat)
     p = Int(characteristic(F))
     n = div(ncols(G), 2)
     charvec = _processcharvec(charvec, p, n)

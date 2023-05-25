@@ -295,8 +295,6 @@ end
     @test cardinality(C) == BigInt(2)^4
     @test CodingTheory.dimension(C) == 4
     @test rate(C) == 4 / 7
-    # @test ismissing(C.d)
-    setminimumdistance!(C, 3)
     @test minimumdistance(C) == 3
     @test numbercorrectableerrors(C) == 1
     @test G == generatormatrix(C)
@@ -330,7 +328,6 @@ end
     CGandG = LinearCode(G);
     @test rank(GandG) == dimension(CGandG)
     @test G == generatormatrix(CGandG)
-    # this fails, is of wrong size, probably a transpose mistake
 
     # puncturing examples from Huffman/Pless
     G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
@@ -383,9 +380,6 @@ end
     dualbasis = [ω^2, K(1)]; # dual?
     CF2 = subfieldsubcode(C, F, dualbasis)
     @test areequivalent(CF2, RepetitionCode(2, 6))
-
-    # # test Delsarte's theorem
-    # @test areequivalent(CF2, dual(tracecode(dual(C), F)))
 
     # to test perms
     # C = HammingCode(2, 3)
@@ -583,14 +577,6 @@ end
     vars = gens(parent(CWE))
     @test CWE == vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
         3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3
-    # MacWilliams & Sloane have a different generator matrix for this
-    # this test is false, as it makes sense to be, shoud be permutation equivalent though
-    # test this later when implemented
-    # F = GF(3)
-    # G = matrix(F, [1 0 2 2 ; 0 1 2 1])
-    # H = matrix(F, [1 1 1 0; 1 2 0 1])
-    # C2 = LinearCode(F, 4, 2, 3, G, G, H, H, G, H, missing)
-    # @test areequivalent(C, C2)
 
     # Hadamard code
     # the dual code of the Hamming code is the shortened Hadamard code
@@ -609,12 +595,6 @@ end
 
 @testset "cycliccode.jl" begin
     using Oscar, CodingTheory
-
-    # @test_throws ErrorException("There is no finite field of order 6.") CyclicCode(6, 9, [[0]])
-
-    # this fails due to a column swap
-    # CyclicCode(9, 14, definingset([1, 2, 3], 9, 14, false))
-
 
     # examples: Huffman & Pless
     cosets = definingset([1, 2, 3, 4, 5, 6], 2, 7, false)
@@ -771,23 +751,17 @@ end
 
 end
 
-@testset "GeneralizedReedSolomon.jl" begin
-    using CodingTheory
+# @testset "GeneralizedReedSolomon.jl" begin
+#     using CodingTheory
 
-    # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
+#     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
 
-    # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
-end
+#     # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
+# end
 
 @testset "stabilizercode.jl" begin
     using Oscar, CodingTheory
 
-    # S = SteaneCode()
-
-    # S = Q1573()
-    # row = stabilizers(S)[1, :]
-    # S2 = augment(S, row)
-    # Row is already in the stabilizer group. Nothing to update.
     Q = Q1573()
     logs = logicals(Q)
     newstab = logs[1][2] + logs[2][2]
@@ -872,13 +846,13 @@ end
 @testset "miscknownquantumcodes.jl" begin
     using CodingTheory
 
-    # S = Q9143()
-    # @test S.n == 9
-    # @test S.k == 1
-    # @test S.r == 4
-    # # @test S.d == 3
-    # @test LogicalTrait(typeof(S)) == HasLogicals()
-    # @test GaugeTrait(typeof(S)) == HasGauges()
+    S = Q9143()
+    @test S.n == 9
+    @test S.k == 1
+    @test S.r == 4
+    # @test S.d == 3
+    @test LogicalTrait(typeof(S)) == HasLogicals()
+    @test GaugeTrait(typeof(S)) == HasGauges()
 
     S = Q513()
     @test S.n == 5
@@ -1316,8 +1290,8 @@ end
     @test LogicalTrait(typeof(Q)) == HasLogicals()
     @test GaugeTrait(typeof(Q)) == HasGauges()
 
-    # Q2 = SubsystemCode(S, L, Gops)
-    # @test areequivalent(Q, Q2)
+    Q2 = SubsystemCode(S, L, Gops)
+    @test areequivalent(Q, Q2)
 
     # # TODO: BaconShorCode
     Q3 = BaconShorCode(3, 3)
