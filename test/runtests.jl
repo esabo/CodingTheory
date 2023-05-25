@@ -295,7 +295,7 @@ end
     @test cardinality(C) == BigInt(2)^4
     @test CodingTheory.dimension(C) == 4
     @test rate(C) == 4 / 7
-    @test ismissing(C.d)
+    # @test ismissing(C.d)
     setminimumdistance!(C, 3)
     @test minimumdistance(C) == 3
     @test numbercorrectableerrors(C) == 1
@@ -362,7 +362,7 @@ end
     C = Hexacode()
     D = Hermitiandual(C)
     @test areequivalent(C, D)
-    # verify our definition is equivalent:
+    # verify our definition of Hermitiandual is equivalent:
     @test areequivalent(D, LinearCode(Hermitianconjugatematrix(generatormatrix(dual(C)))))
 
     C = HammingCode(2, 3)

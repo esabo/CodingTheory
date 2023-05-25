@@ -32,13 +32,17 @@ end
 function _weightenumeratorBF(G::CTMatrixTypes)
     E = base_ring(G)
     ordE = Int(order(E))
-    lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
     R, vars = PolynomialRing(Nemo.ZZ, ordE)
+
+    # See if we can return immediately
+    iszero(G) && return WeightEnumerator(vars[1]^ncols(G), :complete)
+
     poly = R(0)
     nr = nrows(G)
+    lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
 
     # Nemo.AbstractAlgebra.ProductIterator
-    for iter in Base.Iterators.product([0:(Int64(characteristic(E)) - 1) for _ in 1:nr]...)
+    for iter in Base.Iterators.product([collect(E) for _ in 1:nr]...)
         row = E(iter[1]) * G[1, :]
         for r in 2:nr
             if !iszero(iter[r])

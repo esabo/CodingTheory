@@ -93,7 +93,7 @@ function HammingCode(q::Int, r::Int)
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
         H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
-        C = LinearCode(H, true)
+        C = LinearCode(H, true, false)
         setminimumdistance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n*
@@ -163,7 +163,7 @@ function SimplexCode(q::Int, r::Int)
     F = GF(2)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
-        C = LinearCode(G2)
+        C = LinearCode(G2, false, false)
     else
         Grm1 = G2
         for i in 3:r
@@ -174,7 +174,7 @@ function SimplexCode(q::Int, r::Int)
             top = hcat(zs, os)
             Grm1 = vcat(top, bot)
         end
-        C = LinearCode(Grm1)
+        C = LinearCode(Grm1, false, false)
     end
     # all nonzero codewords have weights q^{r - 1}
     # should have q^r - 1 nonzero codewords

@@ -14,13 +14,13 @@
 Return the linear code constructed with generator matrix `G`. If the optional paramater `parity` is
 set to `true`, a linear code is built with `G` as the parity-check matrix.
 """
-function LinearCode(G::CTMatrixTypes, parity::Bool=false)
+function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = true)
     iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
 
     Gnew = deepcopy(G)
     Gnew = _removeempty(Gnew, :rows)
 
-    if parity
+    C = if parity
         rnkH, H = right_kernel(Gnew)
         if ncols(H) == rnkH
             Htr = transpose(H)
@@ -41,7 +41,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         ub2, _ = _minwtrow(Hstand)
         ub = min(ub1, ub2)
         # treat G as the parity-check matrix H
-        return LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, P, missing)
+        LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, P, missing)
     else
         Gstand, Hstand, P, k = _standardform(Gnew)
         k == ncols(G) && return IdentityCode(base_ring(Gnew), ncols(G))
@@ -49,11 +49,23 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false)
         ub1, _ = _minwtrow(Gnew)
         ub2, _ = _minwtrow(Gstand)
         ub = min(ub1, ub2)
-        return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, H, Gstand, Hstand, P, missing)
+        LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, H, Gstand, Hstand, P, missing)
     end
+
+    if bruteforceWE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1e6
+        C.weightenum = if 2k <= ncols(G)
+            _weightenumeratorBF(C.Gstand)
+        else
+            MacWilliamsIdentity(dual(C), _weightenumeratorBF(C.Hstand))
+        end
+        d = minimum(filter(ispositive, first.(exponent_vectors(CWEtoHWE(C.weightenum).polynomial))))
+        setminimumdistance!(C, d)
+    end
+
+    return C
 end
 
-#TODO: add doc strings
+# TODO: add doc strings
 function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
