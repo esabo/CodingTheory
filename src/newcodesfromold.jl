@@ -543,7 +543,7 @@ function expandedcode(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFie
     ismissing(Cnew.Pstand) || (Cnew.Pstand = change_base_ring(K, new.Pstand);)
     Cnew.F = K
     Cnew.lbound = C.lbound
-    Cnew.ubound = _minwtrow(Cnew.G)
+    Cnew.ubound, _ = _minwtrow(Cnew.G)
     return Cnew
 end
 
@@ -565,7 +565,16 @@ end
 Return the subfield subcode code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K`.
 """
-subfieldsubcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem}) = LinearCode(transpose(expandmatrix(transpose(paritycheckmatrix(C)), K, basis)), true)
+function subfieldsubcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem})
+    Cnew = LinearCode(transpose(expandmatrix(transpose(paritycheckmatrix(C)), K, basis)), true)
+    Cnew.G = change_base_ring(K, Cnew.G)
+    Cnew.H = change_base_ring(K, Cnew.H)
+    Cnew.Gstand = change_base_ring(K, Cnew.Gstand)
+    Cnew.Hstand = change_base_ring(K, Cnew.Hstand)
+    ismissing(Cnew.Pstand) || (Cnew.Pstand = change_base_ring(K, new.Pstand);)
+    Cnew.F = K
+    return Cnew
+end
 
 """
     tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
