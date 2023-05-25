@@ -1,7 +1,6 @@
 ****************************
 linearcode.jl
 ****************************
-
 # we can preform several standard methods of building new codes from old ones
 # direct sum
 D = C ⊕ C;
@@ -25,25 +24,19 @@ G2 = matrix(F3, [1 0 1 1; 0 1 1 -1]);
 C2 = LinearCode(G2);
 generatormatrix(extend(C2))
 paritycheckmatrix(extend(C2))
-originalgeneratormatrix(C2) == G2
 # in cases such as this it is often useful to keep track of the original generator matrix which
 # was used to generate the code. can also do this for the parity check matrix. in cases where this
 # does not make sense, the normal generator or parity check matrix is returned
-originalgeneratormatrix(D)
-originalgeneratormatrix(D) == generatormatrix(D)[:, 1:end-1]
 paritycheckmatrix(D)
-originalparitycheckmatrix(D)
 # puncturing deletes columns from a generator matrix
 C2 = puncture(D, [length(D)]);
 isequivalent(C, C2)
 generatormatrix(C) == generatormatrix(C2)
-originalgeneratormatrix(C2) == generatormatrix(C)
 # to expurgate a code is to delete rows from generator matrix and then remove any potentially resulting zero columns
 D = expurgate(C, [dimension(C)]);
 length(D)
 dimension(D)
 generatormatrix(D)
-originalgeneratormatrix(D) == generatormatrix(C)
 # to augment is to add rows to the generator matrix
 # in this example we are going to first add the all 1's vector to the code, which is common
 # we note that the all 1's vector is actually already in the code so the code
@@ -57,7 +50,6 @@ v = matrix(F, [1 0 1 0 1 1 1])
 v ∈ C
 D = augment(C, v);
 generatormatrix(D)
-originalgeneratormatrix(D) == generatormatrix(C)
 # to shorten is to expurgate then puncture
 D = shorten(C, [length(C)]);
 generatormatrix(D)
@@ -69,7 +61,6 @@ generatormatrix(shorten(C2, [5, 6]))
 # the most common form of lengthening a code it to augment the all 1's vector and then extend
 D = lengthen(C);
 generatormatrix(D)
-originalgeneratormatrix(D) == generatormatrix(C)
 # the (u | u + v)- or Plotkin construction
 # M2 = MatrixSpace(Nemo.GF(2), 3, 4);
 # M3 = MatrixSpace(Nemo.GF(2), 1, 4);
@@ -79,14 +70,11 @@ C2 = LinearCode(G2);
 C3 = LinearCode(G3);
 generatormatrix(uuplusv(C2, C3)) #- ex p. 19
 
-SingletonBound
 
 
 ****************************
 cyclotomic.jl
 ****************************
-include("cyclotomic.jl")
-
 # ord_n(q)
 q = 2;
 n = 15;
@@ -108,27 +96,6 @@ qcosettable(10, 13, q)
 ****************************
 cycliccode.jl
 ****************************
-include("cycliccode.jl")
-q = 2;
-n = 15;
-b = 3;
-δ = 4;
-cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
-C = CyclicCode(q, n, cosets)
-basefield(C)
-splittingfield(C)
-polynomialring(C)
-primitiveroot(C)
-offset(C)
-designdistance(C)
-qcosets(C)
-qcosetsreps(C)
-definingset(C)
-generatorpolynomial(C)
-paritycheckpolynomial(C)
-idempotent(C)
-# CyclicCode is a subtype of LinearCode so the functions of the previous section also apply here
-originalgeneratormatrix(C)
 G = matrix(F, [1 0 0 0 0 1 1;
        0 1 0 0 1 0 1;
        0 0 1 0 1 1 0;
@@ -152,21 +119,10 @@ B = BCHCode(q, n, δ - 1, b + 4)
 D = C ∩ B # check later that this is == repetition code
 C + B
 
-# Reed Solomon codes are BCH codes with n = q^m - 1
-# this forces the cyclotomic cosets to each have size one
-q = 16;
-n = 15;
-b = 3;
-δ = 4;
-allcyclotomiccosets(q, n, true)
-# as with BCH codes, it will auto detect whether or not the code is Reed Solomon and call the appropriate constructor
-cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
-CyclicCode(q, n, cosets)
-BCHCode(q, n, δ, b)
 
-############## this doesn't work
-ReedSolomonCode(q, δ, b)
+# Remove?
+We will only be concerned with cyclic Reed-Solomon codes, but the more general, and original, definition of Reed-Solomon codes will lead us into the final family of codes we will use in this work. Let $\mathcal{P}_k(x)$ denote the set of polynomials of degree less than $k$ in $\mathbb{F}_{p^m}[x]$. The Reed-Solomon code of length $n \leq p^m$ and dimension $k < n$ is given by
 
-come up with better examples from the book but basis functionality is working so far and interaction with LinearCode is good
-fix C ∩ complement(C) example where defining set is an extreme (Vector{Any} so probably empty)
-2nd form of CyclicCode constructor
+$$\mathrm{RS}_{p^m}(n, k) = \{ (f(\alpha_1), \dots, f(\alpha_n)) \mid f(x) \in \mathcal{P}_k(x)\},$$
+
+where $\alpha_i \in \mathbb{F}_{p^m}$. The most common case $n = p^m$ is the extended code of the cyclic definition, but only the case $n = p^m -1$ is, in general, cyclic. The proof of this is direct application of the Chinese Remainder Theorem.

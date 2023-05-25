@@ -49,18 +49,284 @@ The BCH bound says that if the defining set of a cyclic code contains a set of $
 
 Reed-Solomon codes are primitive BCH codes over $\mathbb{F}_{p^m}$ for an integer $m \geq 1$. In this case, $\mathbb{F}_{p^m}$ is the splitting field of $x^{p^m - 1} - 1$ and each element $\alpha_i$ has minimal polynomial $x - \alpha_i$ with cyclotomic cosets of cardinality one. Hence, BCH codes are related to two fields while Reed-Solomon codes are only related to one. Reed-Solomon codes have the theoretically maximum possible distance with parameters $[n, k, n - k + 1]$. If $\mathcal{C}$ is an $[n, k, d]_{p^m}$ Reed-Solomon code, then $\mathcal{C}|_{\mathbb{F}_p}$ is the BCH code over $\mathbb{F}_p$ of length $n$ and designed distance $d$. The proof of this follows immediately from the fact that the codewords of the BCH code are elements of $\mathbb{F}_p^n$ and the zero set of the Reed-Solomon code is a subset of the zero set of the BCH code. Unlike BCH codes which can have any length relatively prime with the characteristic of the field, Reed-Solomon codes over $\mathbb{F}_p$ have $n \leq p$ and therefore do not make good binary codes directly. Instead, one may construct a ``binary Reed-Solomon code" using the expansion procedure for $\mathbb{F}_{2^m}/\mathbb{F}_2$.
 
+## Basics
+To create a cyclic code, one may either specify the cyclotomic cosets or the generator polynomial.
+```
+julia> q = 2; n = 15; b = 3; δ = 4;
 
+julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
+3-element Vector{Vector{Int64}}:
+ [3, 6, 9, 12]
+ [1, 2, 4, 8]
+ [5, 10]
 
+julia> CyclicCode(q, n, cosets)
+[15, 5; 1]_2 BCH code
+2-Cyclotomic cosets: 
+        C_1 ∪ C_3 ∪ C_5
+Generator polynomial:
+        x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
+Generator matrix: 5 × 15
+        1 1 1 0 1 1 0 0 1 0 1 0 0 0 0
+        0 1 1 1 0 1 1 0 0 1 0 1 0 0 0
+        0 0 1 1 1 0 1 1 0 0 1 0 1 0 0
+        0 0 0 1 1 1 0 1 1 0 0 1 0 1 0
+        0 0 0 0 1 1 1 0 1 1 0 0 1 0 1
+```
+Notice that the constructor analyzed the inputs, recognized it was a BCHCode, and returned the appropriate object. We could have also called the BCH code constructor directly.
+```
+julia> BCHCode(q, n, δ, b)
+[15, 5; 1]_2 BCH code
+2-Cyclotomic cosets: 
+        C_1 ∪ C_3 ∪ C_5
+Generator polynomial:
+        x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
+Generator matrix: 5 × 15
+        1 1 1 0 1 1 0 0 1 0 1 0 0 0 0
+        0 1 1 1 0 1 1 0 0 1 0 1 0 0 0
+        0 0 1 1 1 0 1 1 0 0 1 0 1 0 0
+        0 0 0 1 1 1 0 1 1 0 0 1 0 1 0
+        0 0 0 0 1 1 1 0 1 1 0 0 1 0 1
+```
 
+The same is true for Reed-Solomon codes.
+```
+julia> q = 16; n = 15; b = 3; δ = 4;
 
+julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
 
+julia> CyclicCode(q, n, cosets)
+[15, 12, 4; 3]_16 Reed-Solomon code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_4 ∪ C_5
+Generator polynomial:
+        x^3 + (α^3 + α^2 + 1)*x^2 + α^2*x + α^3 + α^2 + α + 1
+Generator matrix: 12 × 15
+        α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1
 
+julia> BCHCode(q, n, δ, b)
+[15, 12, 4; 3]_16 Reed-Solomon code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_4 ∪ C_5
+Generator polynomial:
+        x^3 + (α^3 + α^2 + 1)*x^2 + α^2*x + α^3 + α^2 + α + 1
+Generator matrix: 12 × 15
+        α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1
 
+julia> ReedSolomonCode(q, δ, b)
+[15, 12, 4; 3]_16 Reed-Solomon code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_4 ∪ C_5
+Generator polynomial:
+        x^3 + (α^3 + α^2 + 1)*x^2 + α^2*x + α^3 + α^2 + α + 1
+Generator matrix: 12 × 15
+        α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 α^3 + α^2 + α + 1 α^2 α^3 + α^2 + 1 1
+```
+As expected, all $q$-cosets have size one.
+```
+julia> allcyclotomiccosets(q, n, true, true);
+C_0 = {0}
+C_1 = {1}
+C_2 = {2}
+C_3 = {3}
+C_4 = {4}
+C_5 = {5}
+C_6 = {6}
+C_7 = {7}
+C_8 = {8}
+C_9 = {9}
+C_10 = {10}
+C_11 = {11}
+C_12 = {12}
+C_13 = {13}
+C_14 = {14}
+```
+Here we have used the last optional parameter to pretty print the cosets to the screen.
 
+In the most general case, we can build an arbitrary cyclic code by individually specifying the cosets to use
+```
+julia> C = CyclicCode(q, n, [cyclotomiccoset(3, q, n), cyclotomiccoset(7, q, n)])
+[15, 13]_16 cyclic code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_7
+Generator polynomial:
+        x^2 + (α + 1)*x + α^2 + α + 1
+Generator matrix: 13 × 15
+        α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
+```
 
-# Remove?
-We will only be concerned with cyclic Reed-Solomon codes, but the more general, and original, definition of Reed-Solomon codes will lead us into the final family of codes we will use in this work. Let $\mathcal{P}_k(x)$ denote the set of polynomials of degree less than $k$ in $\mathbb{F}_{p^m}[x]$. The Reed-Solomon code of length $n \leq p^m$ and dimension $k < n$ is given by
+To build a cyclic code using a given generator polynomial
+```
+julia> g = generatorpolynomial(C)
+x^2 + (α + 1)*x + α^2 + α + 1
 
-$$\mathrm{RS}_{p^m}(n, k) = \{ (f(\alpha_1), \dots, f(\alpha_n)) \mid f(x) \in \mathcal{P}_k(x)\},$$
+julia> CyclicCode(n, g)
+[15, 13]_16 cyclic code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_7
+Generator polynomial:
+        x^2 + (α + 1)*x + α^2 + α + 1
+Generator matrix: 13 × 15
+        α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
+```
+More generally,
+```
+julia> F = GF(2, 4, :α)
+Finite field of degree 4 over F_2
 
-where $\alpha_i \in \mathbb{F}_{p^m}$. The most common case $n = p^m$ is the extended code of the cyclic definition, but only the case $n = p^m -1$ is, in general, cyclic. The proof of this is direct application of the Chinese Remainder Theorem.
+julia> α = gen(F)
+α
+
+julia> R, x = PolynomialRing(F, :x)
+(Univariate Polynomial Ring in x over Finite field of degree 4 over F_2, x)
+
+julia> g2 = (x - α^3)* (x - α^7)
+x^2 + (α + 1)*x + α^2 + α + 1
+
+julia> CyclicCode(n, g2)
+[15, 13]_16 cyclic code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_7
+Generator polynomial:
+        x^2 + (α + 1)*x + α^2 + α + 1
+Generator matrix: 13 × 15
+        α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
+```
+Note that cyclic codes use a specific primitive root of the extension field, which is sometimes not that returned by the field constructor. One can check this with
+```
+julia> primitiveroot(C) == α
+true
+```
+or by checking the factorization of the generator polynomial using Oscar
+```
+julia> factor(generatorpolynomial(C))
+1 * (x + α^3 + α + 1) * (x + α^3)
+
+julia> α^7
+α^3 + α + 1
+```
+or via
+```
+julia> zeros(C)
+2-element Vector{fqPolyRepFieldElem}:
+ α^3
+ α^3 + α + 1
+```
+
+Generic cyclic codes return in the specified field using the constructor ``GF(p, l, :α)``. In this way, there is a natural relationship between the underlying Oscar objects of the code's field and splitting field. If the field is detected to be `l = 1`, the code's matrices are cast into objects over ``GF(p)``. Note that the generator and parity-check polynomials are always defined over the splitting field, even if all their coefficients lie in the subfield, as with some BCH codes.
+
+To check if a `LinearCode` is cyclic,
+```
+julia> C2 = LinearCode(generatormatrix(C))
+[15, 13]_16 linear code
+Generator matrix: 13 × 15
+        α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
+
+julia> flag, C3 = CodingTheory.iscyclic(C2);
+
+julia> flag
+true
+
+julia> C3
+[15, 13]_16 cyclic code
+16-Cyclotomic cosets: 
+        C_3 ∪ C_7
+Generator polynomial:
+        x^2 + (α + 1)*x + α^2 + α + 1
+Generator matrix: 13 × 15
+        α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+        0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0
+        0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0 0
+        0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0 0
+        0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0 0
+        0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
+```
+If a code is not cyclic, this will return ``false, missing``.

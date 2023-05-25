@@ -1,5 +1,6 @@
 # Linear Codes
 
+## Basics
 To create a linear code, simply pass a generator matrix into the `LinearCode` constructor.
 ```
 julia> using Oscar, CodingTheory
