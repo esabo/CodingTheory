@@ -8,7 +8,7 @@
   # Generic Helper Functions
 #############################
 
-_hasequivalentrowspaces(A::T, B::T) where T <: CTMatrixTypes =
+_hasequivalentrowspaces(A::CTMatrixTypes, B::CTMatrixTypes) =
     return _removeempty(rref(deepcopy(A))[2], :rows) == _removeempty(rref(deepcopy(B))[2], :rows)
 
 # """
