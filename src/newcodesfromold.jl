@@ -14,18 +14,13 @@ Return the code whose generator matrix is `C`'s with the columns permuted by `σ
 * If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
 """
 function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Int
-    G = generatormatrix(C)
-    if typeof(σ) <: Perm
-        # a straight-forward multiplication messes up Gstand, Hstand
-        return LinearCode(G * matrix(C.F, Array(matrix_repr(σ))))
-    elseif typeof(σ) <: PermGroupElem
-        return LinearCode(G * permutation_matrix(C.F, σ))
-    else
-        length(unique(σ)) == C.n || error("Incorrect number of digits in permutation.")
-        (1 == minimum(σ) && C.n == maximum(σ)) || error("Digits are not in the range `1:$(C.n)`.")
-
-        return LinearCode(G[:, σ])
-    end
+    C2 = deepcopy(C)
+    P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
+    size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
+    C2.G = C2.G * P
+    C2.H = C2.H * P
+    C2.Pstand = ismissing(C2.Pstand) ? P : C2.Pstand * P
+    return C2
 end
 
 """
