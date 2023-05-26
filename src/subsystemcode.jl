@@ -326,6 +326,14 @@ Return the stabilizer matrix of the code.
 stabilizers(S::AbstractSubsystemCode, standform::Bool=false) = standform ? (return S.stabsstand) : (return S.stabs)
 
 """
+    standardformpermutation(S::AbstractSubsystemCode)
+
+Return the permutation matrix required to permute the columns of the code matrices to have the same
+row space as the matrices in standard form. Returns `missing` is no such permutation is required.
+"""
+standardformpermutation(S::AbstractSubsystemCode) = S.Pstand
+
+"""
     standardformA(S::AbstractSubsystemCode)
 
 Return the named matrix `A` from the standard form of the stabilizer matrix.
@@ -553,12 +561,12 @@ gaugegroupgeneratorsmatrix(S::AbstractSubsystemCode) = gaugegroup(S)
 #############################
 
 """
-    changesigns(S::AbstractSubsystemCode, charvec::Vector{nmod})
-    changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
+    setsigns(S::AbstractSubsystemCode, charvec::Vector{nmod})
+    setsigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
 
 Set the character vector of `S` to `charvec` and update the signs.
 """
-function changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
+function setsigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
     R = base_ring(charactervector(S))
     length(charvec) == 2 * S.n || throw(ArgumentError("Characteristic vector is of improper length for the code."))
     for s in charvec
@@ -569,7 +577,7 @@ function changesigns!(S::AbstractSubsystemCode, charvec::Vector{nmod})
     S.charvec = charvec
 end
 
-changesigns(S::AbstractSubsystemCode, charvec::Vector{nmod}) = (Snew = deepcopy(S); return changesigns!(Snew, charvec))
+setsigns(S::AbstractSubsystemCode, charvec::Vector{nmod}) = (Snew = deepcopy(S); return setsign!s(Snew, charvec))
 
 """
     setstabilizers(S::AbstractSubsystemCode, stabs::fq_nmod_mat)

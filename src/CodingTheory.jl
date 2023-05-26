@@ -177,7 +177,7 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     numXstabs, numZstabs, charactervector, isovercomplete, isCSS, relativedistance, logicals,
     logicaloperators, barelogicals, bare, logicalsmatrix, gauges, gaugeoperators, gaugesmatrix,
     gaugeoperatorsmatrix, dressed, dressedoperators, dressedlogicals, gaugegroup, gaugegroupmatrix,
-    gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, changesigns!, setlogicals!, setminimumdistance!,
+    gaugegeneratorsmatrix, gaugegroupgeneratorsmatrix, setsigns!, setlogicals!, setminimumdistance!,
     splitstabilizers, islogical, syndrome, Xsyndrome, Zsyndrome, promotelogicalstogauge!, swapXZlogicals!,
     swapXZgaugeoperators!, allstabilizers, elements, printallstabilizers, printallelements,
     augment, expurgate, fixgauge, setXstabilizers, setZstabilizers, setstabilizers,

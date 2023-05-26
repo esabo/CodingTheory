@@ -12,12 +12,12 @@
     StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
     CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode, charvec::Union{Vector{nmod}, Missing}=missing)
 
-Return the CSS code given by the CSS construction on two linear codes `C1 = [n, k1, d1]`
-and `C2 = [n, k2, d2]` with `C2 ⊆ C1` and whose signs by `charvec`.
+Return the CSS code given by the CSS construction on two linear codes `C1`
+and `C2` with `C2 ⊆ C1` and whose signs by `charvec`.
 
 # Notes
-* The resulting code has dimension `k = k1 - k2` and minimum distance
-  `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
+* If `C1 = [n, k1, d1]` and `C2 = [n, k2, d2]`, the resulting code has dimension `k = k1 - k2`
+  and minimum distance `d >= min(d1, d2^⟂)`. The `X` stabilizers are given by the parity-check matrix
   of `C2^⟂`, `H(C2^⟂)`, and the `Z` stabilizers by `H(C1)`.
 """
 function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
