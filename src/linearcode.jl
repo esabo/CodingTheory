@@ -9,10 +9,12 @@
 #############################
 
 """
-    LinearCode(G::CTMatrixTypes, parity::Bool=false)
+    LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool=true)
 
 Return the linear code constructed with generator matrix `G`. If the optional paramater `parity` is
-set to `true`, a linear code is built with `G` as the parity-check matrix.
+set to `true`, a linear code is built with `G` as the parity-check matrix. If the optional parameter
+`bruteforceWE` is `true`, the weight enumerator and (and therefore the distance) is calculated when
+there are fewer than 1.5e5 codewords.
 """
 function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = true)
     iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
@@ -52,7 +54,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = t
         LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, H, Gstand, Hstand, P, missing)
     end
 
-    if bruteforceWE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1e6
+    if bruteforceWE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
         C.weightenum = if 2k <= ncols(G)
             _weightenumeratorBF(C.Gstand)
         else
@@ -66,7 +68,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = t
 end
 
 # TODO: add doc strings
-function LinearCode(G::T, H::T) where T <: CTMatrixTypes
+function LinearCode(G::T, H::T, bruteforceWE::Bool = true) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
     base_ring(G) == base_ring(H) || throw(ArgumentError("G and H are not over the same field"))
@@ -79,8 +81,19 @@ function LinearCode(G::T, H::T) where T <: CTMatrixTypes
     ub1, _ = _minwtrow(Gnew)
     ub2, _ = _minwtrow(Gstand)
     ub = min(ub1, ub2)
-    return LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, Hnew, Gstand, Hstand, P, missing)
-    
+    C = LinearCode(base_ring(Gnew), ncols(Gnew), k, missing, 1, ub, Gnew, Hnew, Gstand, Hstand, P, missing)
+
+    if bruteforceWE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
+        C.weightenum = if 2k <= ncols(G)
+            _weightenumeratorBF(C.Gstand)
+        else
+            MacWilliamsIdentity(dual(C), _weightenumeratorBF(C.Hstand))
+        end
+        d = minimum(filter(ispositive, first.(exponent_vectors(CWEtoHWE(C.weightenum).polynomial))))
+        setminimumdistance!(C, d)
+    end
+
+    return C
 end
 
 function LinearCode(G::Matrix{Int}, q::Int, parity::Bool=false)
@@ -224,6 +237,21 @@ Return the number of correctable errors for the code.
 * The number of correctable errors is ``t = \\floor{(d - 1) / 2}``.
 """
 numbercorrectableerrors(C::AbstractLinearCode) = ismissing(C.d) ? missing : Int(fld(C.d - 1, 2))
+
+# TODO: consider keeping two overcomplete flags in the struct instead
+"""
+    isovercomplete(C::AbstractLinearCode, which::Symbol = :G)
+
+Return `true` if the generator matrix (parity-check matrix if `which == :H`) is overcomplete.
+"""
+function isovercomplete(C::AbstractLinearCode, which::Symbol = :G)
+    if which == :G
+        return nrows(C.G) > C.k
+    elseif which == :H
+        return nrows(C.H) > C.n - C.k
+    end
+    throw(ArgumentError("Received symbol $which, expected :G or :H"))
+end
 
 #############################
       # setter functions
@@ -677,30 +705,28 @@ Return the elements of `C`.
 * If `onlyprint` is `true`, the elements are only printed to the console and not
   returned.
 """
-# TODO: faster iterator
 function words(C::AbstractLinearCode, onlyprint::Bool=false)
-    words = Vector{typeof(C.G)}()
-    G = generatormatrix(C)
+    words = onlyprint ? nothing : Vector{typeof(C.G)}()
+    G = ismissing(C.Pstand) ? generatormatrix(C, true) : generatormatrix(C, true) * C.Pstand
     E = base_ring(G)
-    # Nemo.AbstractAlgebra.ProductIterator
-    for iter in Base.Iterators.product([0:(Int(characteristic(E)) - 1) for _ in 1:nrows(G)]...)
-        row = E(iter[1]) * view(G, 1:1, :)
+
+    if iszero(G)
+        row = zero_matrix(E, 1, C.n)
+        onlyprint ? println(row) : push!(words, row)
+        return words
+    end
+
+    # for iter in Iterators.product(Iterators.repeated(E, nrows(G))...)
+    for iter in Nemo.AbstractAlgebra.ProductIterator([E for _ in 1:nrows(G)], inplace = true)
+        row = iter[1] * view(G, 1:1, :)
         for r in 2:nrows(G)
             if !iszero(iter[r])
-                row += E(iter[r]) * view(G, r:r, :)
+                row += iter[r] * view(G, r:r, :)
             end
         end
-        if !onlyprint
-            push!(words, row)
-        else
-            println(row)
-        end
+        onlyprint ? println(row) : push!(words, row)
     end
-    if !onlyprint
-        return words
-    else
-        return
-    end
+    return words
 end
 codewords(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)
 elements(C::AbstractLinearCode, onlyprint::Bool=false) = words(C, onlyprint)

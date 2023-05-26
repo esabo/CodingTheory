@@ -28,7 +28,6 @@ function ==(W1::WeightEnumerator, W2::WeightEnumerator)
     return false
 end
 
-# TODO: test with other iterator
 function _weightenumeratorBF(G::CTMatrixTypes)
     E = base_ring(G)
     ordE = Int(order(E))
@@ -41,12 +40,12 @@ function _weightenumeratorBF(G::CTMatrixTypes)
     nr = nrows(G)
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
 
-    # Nemo.AbstractAlgebra.ProductIterator
-    for iter in Base.Iterators.product([collect(E) for _ in 1:nr]...)
-        row = E(iter[1]) * G[1, :]
+    # for iter in Iterators.product(Iterators.repeated(E, nr)...)
+    for iter in Nemo.AbstractAlgebra.ProductIterator([E for _ in 1:nr], inplace = true)
+        row = iter[1] * view(G, 1:1, :)
         for r in 2:nr
             if !iszero(iter[r])
-                row += E(iter[r]) * G[r, :]
+                row += iter[r] * view(G, r:r, :)
             end
         end
 
