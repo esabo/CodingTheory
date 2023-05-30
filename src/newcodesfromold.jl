@@ -141,52 +141,45 @@ directproduct(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 productcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
 # TODO: fix product vs tensor product
 
-# TODO: need to write extend such that the ternay Golay codes come out
 """
+    extend(C::AbstractLinearCode, a::T, c::Integer) where T <: Union{CTMatrixTypes, Array{<:Integer}}
+    extend(C::AbstractLinearCode, c::Integer)
+    extend(C::AbstractLinearCode, a::T)
     extend(C::AbstractLinearCode)
+    evenextension(C::AbstractLinearCode)
 
-Return the extended code of `C`.
-
-# Notes
-* This implementation chooses the most common form of extending a code, which is to
-  add an extra column to the generator matrix such that the sum of the coordinates
-  of each row is 0.
+Return the extended code of `C` extending on column `c`. For each row
+`g` of the generator matrix for `C`, a digit `-a ⋅ g` is inserted in
+the `c`th position. If `c` isn't given, it is appended. If `a` isn't
+given, then the 1s vector is used giving an even extension.
 """
-# TODO: do the general extension and call this the even extension
-function extend(C::AbstractLinearCode)
-    p = Int(characteristic(C.F))
-    # produce standard form of extended G
-    G = generatormatrix(C)
-    nrG = nrows(G)
-    col = [sum(G[i, :]) for i in 1:nrG]
-    G = hcat(G, matrix(C.F, nrG, 1, [p - i for i in col]))
+function extend(C::AbstractLinearCode, a::T, c::Integer) where T <: Union{CTMatrixTypes, Array{<:Integer}}
+    1 <= c <= C.n + 1 || throw(ArgumentError("The code has length $(C.n), so `c` must be between 1 and $(C.n + 1)."))
+    length(a) == C.n || throw(ArgumentError("The vector `a` should have length $(C.n)."))
+    b = isa(a, Array) ? matrix(C.F, 1, C.n, a) : (ncols(a) == 1 ? transpose(a) : a)
+    nrows(b) == 1 || throw(ArgumentError("The argument `a` should be a vector."))
 
-    # produce standard form of extended H
-    H = paritycheckmatrix(C)
-    nrH = nrows(H)
-    toprow = matrix(C.F, ones(Int, 1, C.n + 1))
-    rightcol = zero_matrix(C.F, nrH, 1)
-    H = vcat(toprow, hcat(paritycheckmatrix(C), rightcol))
-    Gstand, Hstand, P, k = _standardform(G)
-
-    # d is either d or d + 1
-    # using this even extension construction
-    # if binary, if d is even, then new d = d, otherwise d = d + 1
-    # for nonbinary, have to calculate the d of the even/odd-like subcodes
-    if !ismissing(C.d)
-        if iseven(C.d)
-            return LinearCode(C.F, C.n + 1, k, C.d, C.d, C.d, G, H, Gstand, Hstand, P, missing)
-        else
-            d = C.d + 1
-            return LinearCode(C.F, C.n + 1, k, d, d, d, G, H, Gstand, Hstand, P, missing)
-        end
-    else
-        ub1, _ = _minwtrow(G)
-        ub2, _ = _minwtrow(Gstand)
-        ub = minimum([ub1, ub2])
-        return LinearCode(C.F, C.n + 1, k, missing, C.lbound, ub, G, H, Gstand, Hstand, P, missing)
+    newcol = zero_matrix(C.F, nrows(C.G), 1)
+    isbinary = order(C.F) == 2
+    for i in axes(newcol, 1)
+        newcol[i, 1] = dot(b, view(C.G, i:i, :))
+        isbinary || (newcol[i, 1] *= C.F(-1);)
     end
+    Gnew = hcat(view(C.G, :, 1:c - 1), newcol, view(C.G, :, c:C.n))
+    newrow = hcat(view(b, 1:1, 1:c - 1), matrix(C.F, 1, 1, [1]), view(b, 1:1, c:C.n))
+    Hnew = vcat(newrow, hcat(view(C.H, :, 1:c - 1), zero_matrix(C.F, nrows(C.H), 1), view(C.H, :, c:C.n)))
+    Cnew = LinearCode(Gnew, Hnew)
+    if !ismissing(C.d) && ismissing(Cnew.d)
+        Cnew.lb = C.d
+        Cnew.ub = C.d + 1
+    end
+
+    return Cnew
 end
+extend(C::AbstractLinearCode, c::Integer) = extend(C, ones(Int, C.n, c))
+extend(C::AbstractLinearCode, a::T) where T <: Union{CTMatrixTypes, Array{<:Integer}} = extend(C, a, C.n + 1)
+extend(C::AbstractLinearCode) = extend(C, ones(Int, C.n), C.n + 1)
+evenextension(C::AbstractLinearCode) = extend(C)
 
 """
     puncture(C::AbstractLinearCode, cols::Vector{Int})
