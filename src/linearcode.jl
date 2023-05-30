@@ -171,7 +171,27 @@ Return the generator matrix of the code.
 * If the optional parameter `standform` is set to `true`, the standard form of the
   generator matrix is returned instead.
 """
-generatormatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? C.Gstand : C.G
+function generatormatrix(C::AbstractLinearCode, standform::Bool=false)
+    if isa(C, QuasiCyclicCode)
+        standform && !ismissing(C.Gstand) && (return C.Gstand;)
+        if ismissing(C.G)
+            if C.Atype == :G
+                G = lift(C.A)
+            else
+                _, G = right_kernel(lift(C.A))
+                G = transpose(G)
+            end
+            C.G = G
+        end
+        if standform
+            C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
+            return C.Gstand
+        end
+        return C.G
+    else
+        standform ? (return C.Gstand;) : (return C.G;)
+    end
+end
 
 """
     paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
@@ -182,7 +202,29 @@ Return the parity-check matrix of the code.
 * If the optional parameter `standform` is set to `true`, the standard form of the
   parity-check matrix is returned instead.
 """
-paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false) = standform ? C.Hstand : C.H
+function paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
+    if isa(C, QuasiCyclicCode)
+        if standform
+            ismissing(C.Hstand) || (return C.Hstand;)
+            if ismissing(C.G)
+                if C.Atype == :G
+                    G = lift(C.A)
+                else
+                    _, G = right_kernel(lift(C.A))
+                    G = transpose(G)
+                end
+                C.G = G
+            end
+            C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
+            return C.Hstand
+        elseif ismissing(C.H)
+            C.H = C.Atype == :H ? lift(C.A) : transpose(right_kernel(lift(C.A))[2])
+        end
+        return C.H
+    else
+        standform ? (return C.Hstand;) : (return C.H;)
+    end
+end
 
 """
     standardformpermutation(C::AbstractLinearCode)
@@ -238,13 +280,13 @@ Return the number of correctable errors for the code.
 """
 numbercorrectableerrors(C::AbstractLinearCode) = ismissing(C.d) ? missing : Int(fld(C.d - 1, 2))
 
-# TODO: consider keeping two overcomplete flags in the struct instead
 """
-    isovercomplete(C::AbstractLinearCode, which::Symbol = :G)
+    isovercomplete(C::AbstractLinearCode, which::Symbol=:G)
 
-Return `true` if the generator matrix (parity-check matrix if `which == :H`) is overcomplete.
+Return `true` if the generator matrix is over complete, or if the optional parameter is
+set to :H and the parity-check matrix is over complete.
 """
-function isovercomplete(C::AbstractLinearCode, which::Symbol = :G)
+function isovercomplete(C::AbstractLinearCode, which::Symbol=:G)
     if which == :G
         return nrows(C.G) > C.k
     elseif which == :H
@@ -515,33 +557,62 @@ issubcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 Return the (Euclidean) dual of the code `C`.
 """
 function dual(C::AbstractLinearCode)
-    G = deepcopy(generatormatrix(C))
-    H = deepcopy(paritycheckmatrix(C))
-
-    Hstand, Gstand, P, _ = _standardform(C.H)
-    Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
-    Pstand = ismissing(P) ? Pstandold : Pstandold * P
-
-    # Possible alternative to above, might be faster:
-    # Gstandold = generatormatrix(C, true)
-    # Gstand = hcat(view(Gstandold, :, C.k + 1:C.n), view(Gstandold, :, 1:C.k))
-    # Hstandold = paritycheckmatrix(C, true)
-    # Hstand = hcat(view(Hstandold, :, C.k + 1:C.n), view(Hstandold, :, 1:C.k))
-    # Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
-    # Pstand = vcat(view(C.Pstand, C.k + 1:C.n, :), view(C.Pstand, 1:C.k, :))
-
-    if !ismissing(C.weightenum)
-        dualwtenum = MacWilliamsIdentity(C, C.weightenum)
-        dualHWEpoly = CWEtoHWE(dualwtenum).polynomial
-        d = minimum(filter(ispositive, first.(exponent_vectors(dualHWEpoly))))
-        return LinearCode(C.F, C.n, C.n - C.k, d, d, d, H, G,
-            Hstand, Gstand, Pstand, dualwtenum)
+    if typeof(C) <: AbstractCyclicCode
+        return CyclicCode(Int(order(C.F)), C.n, dualqcosets(Int(order(C.F)), C.n, C.qcosets))
+    elseif isa(C, GeneralizedReedSolomonCode)
+        d = C.k + 1
+        return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
+            deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
+            deepcopy(C.H), deepcopy(C.G), deepcopy(C.Hstand),
+            deepcopy(C.Gstand), deepcopy(C.Pstand), missing)
+    elseif isa(C, MatrixProductCode)
+        nr, nc = size(C.A)
+        # probably not going to work
+        nr == nc || return LinearCode.dual(C)
+        D = Vector{LinearCode}()
+        for i in 1:length(C.C)
+            push!(D, dual(C.C[i]))
+        end
+        
+        try
+            Ainv = inv(C.A)
+        catch
+            return LinearCode.dual(C)
+        end
+        return MatrixProductCode(D, transpose(Ainv))
+    elseif isa(C, ReedMullerCode)
+        d = 2^(C.r + 1)
+        return ReedMullerCode(C.F, C.n, C.n - C.k, d, d, d, C.m - C.r - 1, C.m, C.H, C.G,
+            C.Hstand, C.Gstand, C.Pstand, missing)
     else
-        ub1, _ = _minwtrow(H)
-        ub2, _ = _minwtrow(Hstand)
-        ub = min(ub1, ub2)
-        return LinearCode(C.F, C.n, C.n - C.k, missing, 1, ub, H,
-                          G, Hstand, Gstand, Pstand, missing)
+        G = deepcopy(generatormatrix(C))
+        H = deepcopy(paritycheckmatrix(C))
+
+        Hstand, Gstand, P, _ = _standardform(C.H)
+        Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
+        Pstand = ismissing(P) ? Pstandold : Pstandold * P
+
+        # Possible alternative to above, might be faster:
+        # Gstandold = generatormatrix(C, true)
+        # Gstand = hcat(view(Gstandold, :, C.k + 1:C.n), view(Gstandold, :, 1:C.k))
+        # Hstandold = paritycheckmatrix(C, true)
+        # Hstand = hcat(view(Hstandold, :, C.k + 1:C.n), view(Hstandold, :, 1:C.k))
+        # Pstandold = ismissing(C.Pstand) ? identity_matrix(C.F, C.n) : C.Pstand
+        # Pstand = vcat(view(C.Pstand, C.k + 1:C.n, :), view(C.Pstand, 1:C.k, :))
+
+        if !ismissing(C.weightenum)
+            dualwtenum = MacWilliamsIdentity(C, C.weightenum)
+            dualHWEpoly = CWEtoHWE(dualwtenum).polynomial
+            d = minimum(filter(ispositive, first.(exponent_vectors(dualHWEpoly))))
+            return LinearCode(C.F, C.n, C.n - C.k, d, d, d, H, G,
+                Hstand, Gstand, Pstand, dualwtenum)
+        else
+            ub1, _ = _minwtrow(H)
+            ub2, _ = _minwtrow(Hstand)
+            ub = min(ub1, ub2)
+            return LinearCode(C.F, C.n, C.n - C.k, missing, 1, ub, H,
+                            G, Hstand, Gstand, Pstand, missing)
+        end
     end
 end
 Euclideandual(C::AbstractLinearCode) = dual(C)
@@ -551,7 +622,27 @@ Euclideandual(C::AbstractLinearCode) = dual(C)
 
 Return the Hermitian dual of a code defined over a quadratic extension.
 """
-Hermitiandual(C::AbstractLinearCode) = dual(LinearCode(Hermitianconjugatematrix(C.G)))
+function Hermitiandual(C::AbstractLinearCode)
+    if isa(C, MatrixProductCode)
+        # the inner functions here should complain if not quadratic, so don't have to check here
+        nr, nc = size(C.A)
+        # probably not going to work
+        nr == nc || return LinearCode.Hermitiandual(C)
+        D = Vector{LinearCode}()
+        for i in 1:length(C.C)
+            push!(D, Hermitiandual(C.C[i]))
+        end
+
+        try
+            Ainv = inv(Hermitianconjugatematrix(C.A))
+        catch
+            return LinearCode.dual(C)
+        end
+        return MatrixProductCode(D, transpose(Ainv))
+    else
+        return dual(LinearCode(Hermitianconjugatematrix(C.G)))
+    end
+end
 
 """
     areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)

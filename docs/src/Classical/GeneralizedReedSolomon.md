@@ -24,7 +24,3 @@ evaluationpoints
 
 ## Methods
 
-The dual of a generalized Reed-Solomon code is another generalized Reed-Solomon code. This function override the default `LinearCode` method to take this into account.
-```@docs
-dual
-```

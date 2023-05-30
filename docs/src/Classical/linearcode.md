@@ -40,6 +40,10 @@ generatormatrix
 paritycheckmatrix
 ```
 
+```@docs
+isovercomplete
+```
+
 Recall that putting the matrix into standard form may require column permutations. If this is the case, the column permutation matrix $P$ such that $\mathrm{rowspace}(G) = \mathrm{rowspace}(G_\mathrm{stand} * P)$ may be accessed using the following function. If no column permutations are required, this returns `missing`.
 ```@docs
 standardformpermutation
@@ -61,7 +65,7 @@ relativedistance
 ```
 
 ```@docs
-genus
+CodingTheory.genus
 ```
 
 ```@docs

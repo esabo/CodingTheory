@@ -599,23 +599,34 @@ Return the entrywise product of `C` and `D`.
 * This is known to often be the full ambient space.
 """
 function entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
-    # TODO: Oscar doesn't work well with dot operators
-    C.F == field(D) || throw(ArgumentError("Codes must be over the same field in the Schur product."))
-    C.n == length(D) || throw(ArgumentError("Codes must have the same length in the Schur product."))
+    if isa(C, ReedMullerCode)
+        C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))
+        C.n == D.n || throw(ArgumentError("Codes must have the same length in the Schur product."))
 
-    GC = generatormatrix(G)
-    GD = generatormatrix(D)
-    nrC = nrows(GC)
-    nrD = nrows(GD)
-    indices = Vector{Tuple{Int, Int}}()
-    for i in 1:nrC
-        for j in 1:nrD
-            i <= j && push!(indices, (i, j))
+        r = C.r + D.r
+        if r <= C.n
+            return ReedMullerCode(r, C.m)
+        else
+            return ReedMullerCode(C.m, C.m)
         end
-    end
-    return LinearCode(matrix(C.F, reduce(vcat, [GC[i, :] .* GD[j, :] for (i, j) in indices])))
+    else
+        # TODO: Oscar doesn't work well with dot operators
+        C.F == field(D) || throw(ArgumentError("Codes must be over the same field in the Schur product."))
+        C.n == length(D) || throw(ArgumentError("Codes must have the same length in the Schur product."))
 
-    # verify C ⊂ it
+        GC = generatormatrix(G)
+        GD = generatormatrix(D)
+        nrC = nrows(GC)
+        nrD = nrows(GD)
+        indices = Vector{Tuple{Int, Int}}()
+        for i in 1:nrC
+            for j in 1:nrD
+                i <= j && push!(indices, (i, j))
+            end
+        end
+        return LinearCode(matrix(C.F, reduce(vcat, [GC[i, :] .* GD[j, :] for (i, j) in indices])))
+    end
+    # TODO: verify C ⊂ it?
 end
 *(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)
 Schurproductcode(C::AbstractLinearCode, D::AbstractLinearCode) = entrywiseproductcode(C, D)

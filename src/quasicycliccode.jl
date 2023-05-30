@@ -234,44 +234,6 @@ end
 basematrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 protographmatrix(A::MatElem{T}) where T <: ResElem = weightmatrix(A)
 
-function generatormatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
-    standform && !ismissing(C.Gstand) && (return C.Gstand;)
-    if ismissing(C.G)
-        if C.Atype == :G
-            G = lift(C.A)
-        else
-            _, G = right_kernel(lift(C.A))
-            G = transpose(G)
-        end
-        C.G = G
-    end
-    if standform
-        C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
-        return C.Gstand
-    end
-    return C.G
-end
-
-function paritycheckmatrix(C::AbstractQuasiCyclicCode, standform::Bool=false)
-    if standform
-        ismissing(C.Hstand) || (return C.Hstand;)
-        if ismissing(C.G)
-            if C.Atype == :G
-                G = lift(C.A)
-            else
-                _, G = right_kernel(lift(C.A))
-                G = transpose(G)
-            end
-            C.G = G
-        end
-        C.Gstand, C.Hstand, C.Pstand, _ = _standardform(C.G)
-        return C.Hstand
-    elseif ismissing(C.H)
-        C.H = C.Atype == :H ? lift(C.A) : transpose(right_kernel(lift(C.A))[2])
-    end
-    return C.H
-end
-
 """
     noncirculantgeneratormatrix(C::AbstractQuasiCyclicCode)
 

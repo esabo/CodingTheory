@@ -45,7 +45,7 @@ limited
 ```
 
 ```@docs
-density
+CodingTheory.density
 ```
 
 ```@docs

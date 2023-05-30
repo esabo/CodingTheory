@@ -12,14 +12,14 @@ using CairoMakie, Graphs
 using JLD2
 using Combinatorics
 using .Threads
-using GAP #, GAP_jll
+using GAP
 using LinearAlgebra # need to remove? want only mul!
 using SparseArrays
 
 import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular, iscyclic
+    isregular, iscyclic, genus, density, isdegenerate, index, generators
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
 import CairoMakie: save
 import Combinatorics: powerset
@@ -87,7 +87,8 @@ export LinearCode, field, length, dimension, cardinality, rate, relativedistance
     VectorSpace, setminimumdistance!, permutecode, words, codewords, elements, isMDS, iseven,
     isdoublyeven, istriplyeven, characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining,
     isLCD, Hermitianhull, hull, isHermitianselfdual, isdualcontaining, minimumdistancelowerbound,
-    minimumdistanceupperbound, setdistanceupperbound!, standardformpermutation
+    minimumdistanceupperbound, setdistanceupperbound!, standardformpermutation, genus,
+    isovercomplete
 
 #############################
     # newcodesfromold.jl
@@ -140,7 +141,8 @@ export definingset, splittingfield, polynomialring, primitiveroot, offset,
     designdistance, qcosets, qcosetsreps, generatorpolynomial, paritycheckpolynomial,
     idempotent, isprimitive, isnarrowsense, isreversible, finddelta, dualdefiningset,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros, iscyclic, isantiprimitive
+    zeros, BCHbound, mindistlowerbound, isdegenerate, nonzeros, iscyclic, isantiprimitive,
+    isdegenerate, iscyclic
 
 #############################
     # quasicycliccode.jl

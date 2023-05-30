@@ -91,6 +91,10 @@ zeros
 ```
 
 ```@docs
+nonzeros
+```
+
+```@docs
 generatorpolynomial
 ```
 
@@ -115,7 +119,7 @@ isreversible
 ```
 
 ```@docs
-isdegenerate
+CodingTheory.isdegenerate
 ```
 
 ```@docs
@@ -137,7 +141,7 @@ dualdefiningset
 ```
 
 ```@docs
-iscyclic
+CodingTheory.iscyclic
 ```
 
 ```@docs

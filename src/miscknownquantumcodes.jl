@@ -285,13 +285,13 @@ Q511() = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
     F = GF(2)
-    S = matrix(F, [1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
+    stabs = matrix(F, [1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
     0 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0;
     0 1 0 0 1 1 1 0 0 0 1 1 1 0 1 0;
     0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
     0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
     0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0]);
-    return StabilizerCode(S)
+    return StabilizerCode(stabs)
 end
 
 """

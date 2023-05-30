@@ -8,15 +8,15 @@
         # constructors
 #############################
 
-"""
-    ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
+# """
+#     ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
 
-Return the recursive form of the generator matrix for the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
+# Return the recursive form of the generator matrix for the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
 
-# Notes
-* If `alt` is `true`, the identity is used for the generator matrix for ``\\mathcal{RM}(1, 1)``, as in common in some sources.
-  Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
-"""
+# # Notes
+# * If `alt` is `true`, the identity is used for the generator matrix for ``\\mathcal{RM}(1, 1)``, as in common in some sources.
+#   Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
+# """
 function _ReedMullergeneratormatrix(r::Int, m::Int, alt::Bool=false)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
@@ -99,43 +99,3 @@ RMm(C::ReedMullerCode) = C.m
      # general functions
 #############################
 
-"""
-    dual(C::ReedMullerCode)
-
-Return the dual of the Reed-Muller code `C`.
-"""
-function dual(C::ReedMullerCode)
-    d = 2^(C.r + 1)
-    return ReedMullerCode(C.F, C.n, C.n - C.k, d, d, d, C.m - C.r - 1, C.m, C.H, C.G,
-        C.Hstand, C.Gstand, C.Pstand, missing)
-end
-
-# "On products and powers of linear codes under componentwise multiplication"
-# Hugues Randriambololona
-"""
-    entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
-    *(C::ReedMullerCode, D::ReedMullerCode)
-    Schurproductcode(C::ReedMullerCode, D::ReedMullerCode)
-    Hadamardproductcode(C::ReedMullerCode, D::ReedMullerCode)
-    componentwiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
-
-Return the entrywise product of `C` and `D`.
-
-# Notes
-* This is known to often be the full ambient space.
-"""
-function entrywiseproductcode(C::ReedMullerCode, D::ReedMullerCode)
-    C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))
-    C.n == D.n || throw(ArgumentError("Codes must have the same length in the Schur product."))
-
-    r = C.r + D.r
-    if r <= C.n
-        return ReedMullerCode(r, C.m)
-    else
-        return ReedMullerCode(C.m, C.m)
-    end
-end
-*(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
-Schurproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
-Hadamardproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)
-componentwiseproductcode(C::ReedMullerCode, D::ReedMullerCode) = entrywiseproductcode(C, D)

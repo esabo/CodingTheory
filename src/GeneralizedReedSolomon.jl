@@ -94,17 +94,4 @@ evaluationpoints(C::GeneralizedReedSolomonCode) = C.γ
      # general functions
 #############################
 
-"""
-    dual(C::GeneralizedReedSolomonCode)
-
-Return the dual of the Generalized Reed-Solomon code.
-"""
-function dual(C::GeneralizedReedSolomonCode)
-    d = C.k + 1
-    return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
-        deepcopy(C.dualscalars), deepcopy(C.scalars), deepcopy(C.evaluationpoints),
-        deepcopy(C.H), deepcopy(C.G), deepcopy(C.Hstand),
-        deepcopy(C.Gstand), deepcopy(C.Pstand), missing)
-end
-
 # TODO: write conversion function from Reed-Solomon code to GRS

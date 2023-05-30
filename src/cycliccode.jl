@@ -351,13 +351,15 @@ function BCHCode(C::AbstractCyclicCode)
     error("Failed to create BCH supercode.")
 end
 
+# covered nicely in van Lint and Betten et al
 """
     QuadraticResidueCode(q::Int, n::Int)
 
 Return the cyclic code whose roots are the quadratic residues of `q`, `n`.
 """
-# covered nicely in van Lint and Betten et al
 QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])
+
+#TODO: cyclic code constructors from zeros and nonzeros
 
 #############################
       # getter functions
@@ -397,18 +399,6 @@ offset(C::AbstractBCHCode) = C.b
 Return the design distance of the BCH code.
 """
 designdistance(C::AbstractBCHCode) = C.δ
-
-"""
-    mindistlowerbound(C::AbstractCyclicCode)
-
-Return a lower bound on the minimum distance of the code.
-
-# Notes
-* At the moment, this is only the BCH bound with the Hartmann-Tzeng Bound
-  refinement. The minimum distance is returned if known.
-"""
-# TODO: reconcile this with linearcode
-mindistlowerbound(C::AbstractCyclicCode) = C.δ
 
 """
     qcosets(C::AbstractCyclicCode)
@@ -682,7 +672,13 @@ Return the defining set of the dual code of length `n` and defining set `defset`
 """
 dualdefiningset(defset::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
 
-function iscyclic(C::AbstractLinearCode, construct::Bool=true)
+"""
+    iscyclic(C::AbstractLinearCode)
+
+Return `true` and the equivalent cyclic code object if `C` is a cyclic code; otherwise,
+return `false, missing`.
+"""
+function iscyclic(C::AbstractLinearCode)
     typeof(C) <: AbstractCyclicCode && (return true, C;)
     
     ordF = Int(order(C.F))
@@ -710,11 +706,7 @@ function iscyclic(C::AbstractLinearCode, construct::Bool=true)
         (Gcyc[r, :] ∈ C) || (return false;)
     end
 
-    if construct
-        Ccyc = CyclicCode(C.n, g)
-        return true, Ccyc
-    end
-    return true
+    return true, CyclicCode(C.n, g)
 end
 
 """
@@ -741,20 +733,13 @@ Return whether or not `C1` is a subcode of `C2`.
 ⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
+# TODO: discuss eqivalent vs == vs === here
 """
     ==(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
 
 Return whether or not `C1` and `C2` have the same fields, lengths, and defining sets.
 """
 ==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.defset == C2.defset && C1.β == C2.β
-
-"""
-    dual(C::AbstractCyclicCode)
-
-Return the dual of the cyclic code `C`.
-"""
-# one is even-like and the other is odd-like
-dual(C::AbstractCyclicCode) = CyclicCode(Int(order(C.F)), C.n, dualqcosets(Int(order(C.F)), C.n, C.qcosets))
 
 # this checks def set, need to rewrite == for linear first
 """

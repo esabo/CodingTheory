@@ -11,7 +11,7 @@ QuasiCyclicCode
 ## Attributes
 
 ```@docs
-index
+CodingTheory.index
 ```
 
 ```@docs
@@ -44,14 +44,6 @@ weightmatrix
 ```
 
 ```@docs
-generatormatrix
-```
-
-```@docs
-paritycheckmatrix
-```
-
-```@docs
 noncirculantgeneratormatrix
 ```
 
@@ -60,7 +52,7 @@ noncirculantparitycheckmatrix
 ```
 
 ```@docs
-generators
+CodingTheory.generators
 ```
 
 ```@docs
