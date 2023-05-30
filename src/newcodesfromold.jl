@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# TODO: write one for QCC codes
 """
     permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Int
 
@@ -12,14 +11,25 @@ Return the code whose generator matrix is `C`'s with the columns permuted by `σ
 
 # Notes
 * If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
+* If `typeof(C) <: AbstractQuasiCyclicCode`, returns a `LinearCode` object.
 """
-function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Int
+function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Integer
     C2 = deepcopy(C)
     P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
     size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
     C2.G = C2.G * P
     C2.H = C2.H * P
     C2.Pstand = ismissing(C2.Pstand) ? P : C2.Pstand * P
+    return C2
+end
+
+function permutecode(C::AbstractQuasiCyclicCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Integer
+    P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
+    size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
+    G = generatormatrix(C) * P
+    H = paritycheckmatrix(C) * P
+    C2 = LinearCode(G, H)
+    ismissing(C2.d) && !ismissing(C.d) && setminimumdistance!(C2, C.d)
     return C2
 end
 
@@ -73,7 +83,7 @@ function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     H1 = paritycheckmatrix(C1)
     H2 = paritycheckmatrix(C2)
     H = directsum(H1, H2)
-    # TODO: should just be direct sum, but need to recompute P - also direct sum?
+    # ordering is tougher for standard form, easiest to just recompute:
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k + C2.k || error("Unexpected dimension in direct sum output.")
 
