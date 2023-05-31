@@ -551,6 +551,7 @@ end
     @test MacWilliamsIdentity(C, weightenumerator(C, :Hamming, "bruteforce")) == hamWE
 
     # Golay codes
+    # TODO: test extend for the ternary Golay code
     C = ExtendedGolayCode(2)
     @test isselfdual(C)
     C.weightenum = missing

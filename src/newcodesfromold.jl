@@ -116,15 +116,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     G = generatormatrix(C1) ⊗ generatormatrix(C2)
     Gstand, Hstand, P, k = _standardform(G)
     k == C1.k * C2.k || error("Unexpected dimension in direct product output.")
-    if ismissing(P)
-        _, H = right_kernel(G)
-        # note the H here is transpose of the standard definition
-        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        H = _removeempty(transpose(H), :rows)
-    else
-        # H = Hstand * transpose(P)
-        H = Hstand * P
-    end
+    H = ismissing(P) ? deepcopy(Hstand) : Hstand * P
 
     if !ismissing(C1.d) && !ismissing(C2.d)
         d = C1.d * C2.d
@@ -170,20 +162,25 @@ function extend(C::AbstractLinearCode, a::T, c::Integer) where T <: Union{CTMatr
     Hnew = vcat(newrow, hcat(view(C.H, :, 1:c - 1), zero_matrix(C.F, nrows(C.H), 1), view(C.H, :, c:C.n)))
     Cnew = LinearCode(Gnew, Hnew)
     if !ismissing(C.d) && ismissing(Cnew.d)
-        Cnew.lb = C.d
-        Cnew.ub = C.d + 1
+        if isbinary && all(isone(x) for x in a)
+            Cnew.d = iseven(C.d) ? C.d : C.d + 1
+            Cnew.lbound = Cnew.ubound = Cnew.d
+        else
+            Cnew.lbound = C.d
+            Cnew.ubound = C.d + 1
+        end
     end
 
     return Cnew
 end
-extend(C::AbstractLinearCode, c::Integer) = extend(C, ones(Int, C.n, c))
+extend(C::AbstractLinearCode, c::Integer) = extend(C, ones(Int, C.n), c)
 extend(C::AbstractLinearCode, a::T) where T <: Union{CTMatrixTypes, Array{<:Integer}} = extend(C, a, C.n + 1)
 extend(C::AbstractLinearCode) = extend(C, ones(Int, C.n), C.n + 1)
 evenextension(C::AbstractLinearCode) = extend(C)
 
 """
-    puncture(C::AbstractLinearCode, cols::Vector{Int})
-    puncture(C::AbstractLinearCode, cols::Int)
+    puncture(C::AbstractLinearCode, cols::Vector{<:Integer})
+    puncture(C::AbstractLinearCode, cols::Integer)
 
 Return the code of `C` punctured at the columns in `cols`.
 
@@ -191,34 +188,28 @@ Return the code of `C` punctured at the columns in `cols`.
 * Deletes the columns from the generator matrix and then removes any potentially
   resulting zero rows.
 """
-function puncture(C::AbstractLinearCode, cols::Vector{Int})
+function puncture(C::AbstractLinearCode, cols::Vector{<:Integer})
     isempty(cols) && return C
+    allunique(cols) || throw(ArgumentError("Columns to puncture are not unique."))
     cols ⊆ 1:C.n || throw(ArgumentError("Columns to puncture are not a subset of the index set."))
     length(cols) == C.n && throw(ArgumentError("Cannot puncture all columns of a generator matrix."))
 
     G = generatormatrix(C)[:, setdiff(1:C.n, cols)]
     G = _removeempty(G, :rows)
     Gstand, Hstand, P, k = _standardform(G)
-    if ismissing(P)
-        _, H = right_kernel(G)
-        # note the H here is transpose of the standard definition
-        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        H = _removeempty(transpose(H), :rows)
-    else
-        # H = Hstand * transpose(P)
-        H = Hstand * P
-    end
+    H = ismissing(P) ? deepcopy(Hstand) : Hstand * P
 
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
-    ub = minimum([ub1, ub2])
-    return LinearCode(C.F, ncols(G), k, missing, 1, ub, G, H, Gstand, Hstand, P, missing)
+    ub = C.lbound > 1 ? min(ub1, ub2, C.ubound) : min(ub1, ub2)
+    lb = max(1, C.lbound - 1)
+    return LinearCode(C.F, ncols(G), k, missing, lb, ub, G, H, Gstand, Hstand, P, missing)
 end
-puncture(C::AbstractLinearCode, cols::Int) = puncture(C, [cols])
+puncture(C::AbstractLinearCode, cols::Integer) = puncture(C, [cols])
 
 """
-    expurgate(C::AbstractLinearCode, rows::Vector{Int})
-    expurgate(C::AbstractLinearCode, rows::Int)
+    expurgate(C::AbstractLinearCode, rows::Vector{<:Integer})
+    expurgate(C::AbstractLinearCode, rows::Integer)
 
 Return the code of `C` expuragated at the rows in `rows`.
 
@@ -226,8 +217,9 @@ Return the code of `C` expuragated at the rows in `rows`.
 * Deletes the rows from the generator matrix and then removes any potentially
   resulting zero columns.
 """
-function expurgate(C::AbstractLinearCode, rows::Vector{Int})
+function expurgate(C::AbstractLinearCode, rows::Vector{<:Integer})
     isempty(rows) && return C
+    allunique(rows) || throw(ArgumentError("Rows to expurgate are not unique."))
     G = generatormatrix(C)
     nr = nrows(G)
     rows ⊆ 1:nr || throw(ArgumentError("Rows to expurgate are not a subset of the index set."))
@@ -235,32 +227,25 @@ function expurgate(C::AbstractLinearCode, rows::Vector{Int})
 
     G = G[setdiff(1:nr, rows), :]
     Gstand, Hstand, P, k = _standardform(G)
-    if ismissing(P)
-        _, H = right_kernel(G)
-        # note the H here is transpose of the standard definition
-        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        H = _removeempty(transpose(H), :rows)
-    else
-        # H = Hstand * transpose(P)
-        H = Hstand * P
-    end
+    H = ismissing(P) ? deepcopy(Hstand) : Hstand * P
 
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
-    ub = minimum([ub1, ub2])
-    return LinearCode(C.F, C.n, k, missing, 1, ub, G, H, Gstand, Hstand, P, missing)
+    ub = min(ub1, ub2)
+    return LinearCode(C.F, C.n, k, missing, C.lbound, ub, G, H, Gstand, Hstand, P, missing)
 end
-expurgate(C::AbstractLinearCode, rows::Int) = expurgate(C, [rows])
+expurgate(C::AbstractLinearCode, rows::Integer) = expurgate(C, [rows])
 
 """
-    augment(C::AbstractLinearCode, M::fq_nmod_mat)
+    augment(C::AbstractLinearCode, M::CTMatrixTypes)
+    augment(C::AbstractLinearCode, M::Matrix{<:Integer})
 
 Return the code of `C` whose generator matrix is augmented with `M`.
 
 # Notes
 * Vertically joins the matrix `M` to the bottom of the generator matrix of `C`.
 """
-function augment(C::AbstractLinearCode, M::CTMatrixTypes)
+function augment(C::AbstractLinearCode, M::T) where T <: Union{CTMatrixTypes, Matrix{<:Integer}}
     iszero(M) && throw(ArgumentError("Zero matrix passed to augment."))
     C.n == ncols(M) || throw(ArgumentError("Rows to augment must have the same number of columns as the generator matrix."))
     C.F == base_ring(M) || throw(ArgumentError("Rows to augment must have the same base field as the code."))
@@ -268,25 +253,18 @@ function augment(C::AbstractLinearCode, M::CTMatrixTypes)
     M = _removeempty(M, :rows)
     G = vcat(generatormatrix(C), M)
     Gstand, Hstand, P, k = _standardform(G)
-    if ismissing(P)
-        _, H = right_kernel(G)
-        # note the H here is transpose of the standard definition
-        # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        H = _removeempty(transpose(H), :rows)
-    else
-        # H = Hstand * transpose(P)
-        H = Hstand * P
-    end
+    H = ismissing(P) ? deepcopy(Hstand) : Hstand * P
 
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
-    ub = minimum([ub1, ub2])
+    ub = min(ub1, ub2, C.ubound)
     return LinearCode(C.F, C.n, k, missing, 1, ub, G, H, Gstand, Hstand, P, missing)
 end
+augment(C::AbstractLinearCode, M::Matrix{<:Integer}) = augment(C, matrix(C.F, M))
 
 """
-    shorten(C::AbstractLinearCode, L::Vector{Int})
-    shorten(C::AbstractLinearCode, L::Int)
+    shorten(C::AbstractLinearCode, L::Vector{<:Integer})
+    shorten(C::AbstractLinearCode, L::Integer)
 
 Return the code of `C` shortened on the indices `L`.
 
@@ -295,9 +273,8 @@ Return the code of `C` shortened on the indices `L`.
   theorem that the dual of code shortened on `L` is equal to the puncture of the
   dual code on `L`, i.e., `dual(puncture(dual(C), L))`.
 """
-# most parameter checks here done in puncture
-shorten(C::AbstractLinearCode, L::Vector{Int}) = isempty(L) ? (return C;) : (return dual(puncture(dual(C), L));)
-shorten(C::AbstractLinearCode, L::Int) = shorten(C, [L])
+shorten(C::AbstractLinearCode, L::Vector{<:Integer}) = isempty(L) ? (return C;) : (return dual(puncture(dual(C), L));)
+shorten(C::AbstractLinearCode, L::Integer) = shorten(C, [L])
 
 """
     lengthen(C::AbstractLinearCode)
@@ -307,7 +284,7 @@ Return the lengthened code of `C`.
 # Notes
 * This augments the all 1's row and then extends.
 """
-lengthen(C::AbstractLinearCode) = extend(augment(C, matrix(C.F, transpose([1 for _ in 1:C.n]))))
+lengthen(C::AbstractLinearCode) = extend(augment(C, matrix(C.F, ones(Int, 1, C.n))))
 
 """
     uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
@@ -318,6 +295,7 @@ Return the Plotkin (u | u + v)-construction with `u ∈ C1` and `v ∈ C2`.
 function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Base field must be the same in the Plotkin (u|u + v)-construction."))
     C1.n == C2.n || throw(ArgumentError("Both codes must have the same length in the Plotkin (u|u + v)-construction."))
+    (iszero(C1.G) || iszero(C2.G)) && throw(ArgumentError("`uuplusv` not supported for zero codes."))
 
     G1 = generatormatrix(C1)
     G2 = generatormatrix(C2)
@@ -326,18 +304,17 @@ function uuplusv(C1::AbstractLinearCode, C2::AbstractLinearCode)
     H2 = paritycheckmatrix(C2)
     H = vcat(hcat(H1, parent(H1)(0)), hcat(-H2, H2))
     Gstand, Hstand, P, k = _standardform(G)
-    k = C1.k + C2.k ||  error("Something went wrong in the Plotkin (u|u + v)-construction;
+    k == C1.k + C2.k || error("Something went wrong in the Plotkin (u|u + v)-construction;
         dimension ($k) and expected dimension ($(C1.k + C2.k)) are not equal.")
 
     if ismissing(C1.d) || ismissing(C2.d)
-        # probably can do better than this
-        lb = minimum([2 * C1.lbound, C2.lbound])
+        lb = min(2 * C1.lbound, C2.lbound)
         ub1, _ = _minwtrow(G)
         ub2, _ = _minwtrow(Gstand)
-        ub = minimum([ub1, ub2])
+        ub = min(ub1, ub2, 2 * C1.ubound, C2.ubound)
         return LinearCode(C1.F, 2 * C1.n, k, missing, lb, ub, G, H, Gstand, Hstand, P, missing)
     else
-        d = minimum([2 * C1.d, C2.d])
+        d = min(2 * C1.d, C2.d)
         return LinearCode(C1.F, 2 * C1.n, k, d, d, d, G, H, Gstand, Hstand, P, missing)
     end
 end
@@ -357,8 +334,7 @@ Return the code generated by the construction X procedure.
 function constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::AbstractLinearCode)
     C1 ⊆ C2 || throw(ArgumentError("The first code must be a subcode of the second in construction X."))
     areequivalent(C1, C2) && throw(ArgumentError("The first code must be a proper subcode of the second in construction X."))
-    # the above line checks C1.F == C2.F
-    C1.F == field(C3) || throw(ArgumentError("All codes must be over the same base ring in construction X."))
+    C1.F == C2.F == C3.F || throw(ArgumentError("All codes must be over the same base ring in construction X."))
     C2.k == C1.k + dimension(C3) ||
         throw(ArgumentError("The dimension of the second code must be the sum of the dimensions of the first and third codes."))
 
@@ -370,9 +346,9 @@ function constructionX(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::Abstr
 
     if !ismissing(C1.d) && !ismissing(C2.d) && !ismissing(C3.d)
         C.d = minimum([C1.d, C2.d + C3.d])
-    else
+    elseif ismissing(C.d)
         # pretty sure this holds
-        setdistancelowerbound!(C, minimum([C1.lbound, C2.lbound + C3.lbound]))
+        setdistancelowerbound!(C, min(C1.lbound, C2.lbound + C3.lbound))
     end
     return C
 end
@@ -411,7 +387,7 @@ function constructionX3(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::Abst
     hcat(C2modC1.G, C4.G, zero_matrix(F, C4.k, C5.n)),
     hcat(C3modC2.G, zero_matrix(F, C5.k, C4.n), generatormatrix(C5)))
     C = LinearCode(G)
-    if !ismissing(C1.d) && !ismissing(C2.d) && !ismissing(C3.d) && !ismissing(C4.d) && !ismissing(C5.d)
+    if !ismissing(C1.d) && !ismissing(C2.d) && !ismissing(C3.d) && !ismissing(C4.d) && !ismissing(C5.d) && ismissing(C.d)
         setlowerdistancebound!(C, minimum([C1.d, C2.d + C4.d, C3.d + C5.d]))
     end
     return C
@@ -433,10 +409,11 @@ function upluswvpluswuplusvplusw(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
     G1 = generatormatrix(C1)
     G2 = generatormatrix(C2)
+    Z = zero_matrix(C1.F, C1.k, C1.n)
     # could do some verification steps on parameters
-    return LinearCode(vcat(hcat(G1, zero_matrix(C1.F, C1.k, C1.n), G1),
-        hcat(G2, G2, G2),
-        hcat(zero_matrix(C1.F, C1.k, C1.n), G1, G1)))
+    return LinearCode(vcat(hcat(G1, Z,  G1),
+                           hcat(G2, G2, G2),
+                           hcat(Z,  G1, G1)))
 end
 
 """
@@ -448,7 +425,11 @@ function subcode(C::AbstractLinearCode, k::Int)
     k >= 1 && k < C.k || throw(ArgumentError("Cannot construct a $k-dimensional subcode of an $(C.k)-dimensional code."))
 
     k != C.k || return C
-    return LinearCode(generatormatrix(C)[1:k, :])
+    return if ismissing(C.Pstand)
+        LinearCode(view(generatormatrix(C, true), 1:k, :))
+    else
+        LinearCode(view(generatormatrix(C, true), 1:k, :) * C.Pstand)
+    end
 end
 
 """
@@ -459,6 +440,7 @@ Return a subcode of `C` using the rows of the generator matrix of `C` listed in
 """
 function subcode(C::AbstractLinearCode, rows::Vector{Int})
     isempty(rows) && throw(ArgumentError("Row index set empty in subcode."))
+    allunique(rows) || throw(ArgumentError("Rows are not unique."))
     rows ⊆ 1:C.k || throw(ArgumentError("Rows are not a subset of the index set."))
 
     length(rows) == C.k && return C
@@ -480,7 +462,11 @@ function subcodeofdimensionbetweencodes(C1::AbstractLinearCode, C2::AbstractLine
     k == C2.k && return C2
     k == C1.k && return C1
     C = C1 / C2
-    return augment(C2, generatormatrix(C)[1:k - C2.k, :])
+    return if ismissing(C.Pstand)
+        augment(C2, generatormatrix(C, true)[1:k - C2.k, :])
+    else
+        augment(C2, generatormatrix(C, true)[1:k - C2.k, :] * C.Pstand)
+    end
 end
 
 """
@@ -491,13 +477,15 @@ matrices of `C1` then `C2`.
 """
 function juxtaposition(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Cannot juxtapose two codes over different fields."))
-    C1.k == C2.k || throw(ArgumentError("Cannot juxtapose two codes of different dimensions."))
+    G1 = generatormatrix(C1)
+    G2 = generatormatrix(C2)
+    nrows(G1) == nrows(G2) || throw(ArgumentError("Cannot juxtapose codes with generator matrices with a different number of rows."))
 
-    return LinearCode(hcat(generatormatrix(C1), generatormatrix(C2)))
+    return LinearCode(hcat(G1, G2))
 end
 
 """
-    expandedcode(C::AbstractLinearCode, K::FqNmodFiniteField, β::Vector{fq_nmod})
+    expandedcode(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFieldElem})
 
 Return the expanded code of `C` constructed by exapnding the generator matrix
 to the subfield `K` using the basis `β` for `field(C)` over `K`.
@@ -514,7 +502,7 @@ function expandedcode(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFie
     currrow = 1
     for r in 1:nrows(G)
         for βi in β
-            Gnew[currrow, :] = βi * G[r, :]
+            Gnew[currrow, :] = βi * view(G, r:r, :)
             currrow += 1
         end
     end
@@ -526,7 +514,7 @@ function expandedcode(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFie
     currrow = 1
     for r in 1:nrows(H)
         for βi in β
-            Hnew[currrow, :] = βi * H[r, :]
+            Hnew[currrow, :] = βi * view(H, r:r, :)
             currrow += 1
         end
     end
@@ -558,7 +546,7 @@ end
 # end
 
 """
-    subfieldsubcode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    subfieldsubcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem})
 
 Return the subfield subcode code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K`.
@@ -575,7 +563,7 @@ function subfieldsubcode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<
 end
 
 """
-    tracecode(C::AbstractLinearCode, K::FqNmodFiniteField, basis::Vector{fq_nmod})
+    tracecode(C::AbstractLinearCode, K::CTFieldTypes, basis::Vector{<:CTFieldElem})
 
 Return the trace code of `C` over `K` using the provided dual `basis`
 for the field of `C` over `K` using Delsarte's theorem.
@@ -602,9 +590,9 @@ Return the entrywise product of `C` and `D`.
 * This is known to often be the full ambient space.
 """
 function entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
+    C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))
+    C.n == D.n || throw(ArgumentError("Codes must have the same length in the Schur product."))
     if isa(C, ReedMullerCode)
-        C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))
-        C.n == D.n || throw(ArgumentError("Codes must have the same length in the Schur product."))
 
         r = C.r + D.r
         if r <= C.n
@@ -613,21 +601,20 @@ function entrywiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode)
             return ReedMullerCode(C.m, C.m)
         end
     else
-        # TODO: Oscar doesn't work well with dot operators
-        C.F == field(D) || throw(ArgumentError("Codes must be over the same field in the Schur product."))
-        C.n == length(D) || throw(ArgumentError("Codes must have the same length in the Schur product."))
-
-        GC = generatormatrix(G)
+        GC = generatormatrix(C)
         GD = generatormatrix(D)
         nrC = nrows(GC)
         nrD = nrows(GD)
+
+        # TODO: Oscar doesn't work well with dot operators
+        # TODO: I think this choice of indices only works for C == D
         indices = Vector{Tuple{Int, Int}}()
         for i in 1:nrC
             for j in 1:nrD
                 i <= j && push!(indices, (i, j))
             end
         end
-        return LinearCode(matrix(C.F, reduce(vcat, [GC[i, :] .* GD[j, :] for (i, j) in indices])))
+        return LinearCode(matrix(C.F, reduce(vcat, GC[i, :] .* GD[j, :] for (i, j) in indices)))
     end
     # TODO: verify C ⊂ it?
 end

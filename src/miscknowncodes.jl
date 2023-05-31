@@ -17,7 +17,7 @@ end
 function ZeroCode(q::Integer, n::Integer)
     F = if isprime(q) GF(q)
     else
-        factors = AbstractAlgebra.factor(q)
+        factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
         p, t = first(factors)
         GF(p, t, :α)
@@ -41,7 +41,7 @@ function RepetitionCode(q::Int, n::Int)
     F = if isprime(q)
         GF(q)
     else
-        factors = AbstractAlgebra.factor(q)
+        factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
         (p, t), = factors
         GF(p, t, :α)
@@ -85,7 +85,7 @@ function HammingCode(q::Int, r::Int)
     2 ≤ r || throw(DomainError("Hamming codes require r ≥ 2; received r = $r."))
     r < 64 || throw(DomainError("This Hamming code requires the implmentation of BigInts. Change if necessary."))
     q == 2 || throw(DomainError("Nonbinary Hamming codes have not yet been implemented."))
-    factors = factor(q)
+    factors = Nemo.factor(q)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     if q == 2
@@ -153,7 +153,7 @@ function SimplexCode(q::Int, r::Int)
     q == 2 || throw(DomainError("Nonbinary simplex codes have not yet been implemented."))
 
     # actually really need to check here that q^r is not over sizeof(Int)
-    factors = factor(q)
+    factors = Nemo.factor(q)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
 
     # the known weight distribution is Hamming and not complete
