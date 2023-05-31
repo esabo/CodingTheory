@@ -46,7 +46,11 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = t
         LinearCode(base_ring(Gnew), ncols(H), nrows(Hstand), missing, 1, ub, H, Gnew, Hstand, Gstand, P, missing)
     else
         Gstand, Hstand, P, k = _standardform(Gnew)
-        k == ncols(G) && return IdentityCode(base_ring(Gnew), ncols(G))
+        if k == ncols(G)
+            C = IdentityCode(base_ring(Gnew), ncols(G))
+            C.G = Gnew
+            return C
+        end
         H = ismissing(P) ? Hstand : Hstand * P
         ub1, _ = _minwtrow(Gnew)
         ub2, _ = _minwtrow(Gstand)
@@ -97,7 +101,7 @@ function LinearCode(G::T, H::T, bruteforceWE::Bool = true) where T <: CTMatrixTy
 end
 
 function LinearCode(G::Matrix{Int}, q::Int, parity::Bool=false)
-    factors = factor(q)
+    factors = Nemo.factor(q)
     (length(factors) == 1 && q > 1) || throw(ArgumentError("There is no finite field of order $q."))
 
     p, m = first(factors)
