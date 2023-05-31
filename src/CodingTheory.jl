@@ -95,12 +95,12 @@ export LinearCode, field, length, dimension, cardinality, rate, relativedistance
 #############################
 
 include("newcodesfromold.jl")
-export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, directproduct,
+export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, directproduct, ×,
     productcode, extend, puncture, expurgate, augment, shorten, lengthen, uuplusv,
     Plotkinconstruction, subcode, juxtaposition, constructionX, constructionX3,
     upluswvpluswuplusvplusw, entrywiseproductcode, *, Schurproductcode, Hadamardproductcode,
     componentwiseproductcode, expandedcode, subfieldsubcode, tracecode, evensubcode,
-    subcodeofdimensionbetweencodes
+    doublyevensubcode, subcodeofdimensionbetweencodes
 
 #############################
          # LDPC.jl
