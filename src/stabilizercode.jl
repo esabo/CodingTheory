@@ -368,6 +368,26 @@ function StabilizerCode(stabs::CTMatrixTypes, charvec::Union{Vector{nmod}, Missi
     end
 end
 
+# function StabilizerCode(S::AbstractSubsystemCode)
+#     # promote all gauges to logicals
+# end
+
+# function StabilizerCodeCSS(S::AbstractSubsystemCodeCSS)
+#     # promote all gauges to logicals
+# end
+
+#############################
+      # getter functions
+#############################
+
+#############################
+      # setter functions
+#############################
+
+#############################
+     # general functions
+#############################
+
 function _logicals(stabs::T, dualgens::T, logsalgs::Symbol=:syseqs) where T <: CTMatrixTypes
     logsalg ∈ [:syseqs, :VS] || throw(ArgumentError("Unrecognized logicals algorithm"))
 

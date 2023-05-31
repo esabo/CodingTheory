@@ -165,11 +165,8 @@ rate(C::AbstractLinearCode) = C.k / C.n
 """
     generatormatrix(C::AbstractLinearCode, standform::Bool=false)
 
-Return the generator matrix of the code.
-
-# Notes
-* If the optional parameter `standform` is set to `true`, the standard form of the
-  generator matrix is returned instead.
+Return the generator matrix of the code. If the optional parameter `standform`
+is set to `true`, the standard form of the generator matrix is returned instead.
 """
 function generatormatrix(C::AbstractLinearCode, standform::Bool=false)
     if isa(C, QuasiCyclicCode)
@@ -196,11 +193,9 @@ end
 """
     paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
 
-Return the parity-check matrix of the code.
-
-# Notes
-* If the optional parameter `standform` is set to `true`, the standard form of the
-  parity-check matrix is returned instead.
+Return the parity-check matrix of the code. If the optional parameter
+`standform` is set to `true`, the standard form of the parity-check matrix
+is returned instead.
 """
 function paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
     if isa(C, QuasiCyclicCode)

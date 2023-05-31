@@ -226,13 +226,13 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     end
 end
 
+# if people want to make a graph code go through the other constructor
 """
     SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T}, charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
 Return the subsystem code whose stabilizers are given by the vectors of Pauli strings `SPauli`, (bare)
 logical operators by `LPauli`, gauge operators (not including stabilizers) by `GPauli`, and signs by `charvec`.    
 """
-# if people want to make a graph code go through the other constructor
 function SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T},
     charvec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
 
@@ -447,6 +447,10 @@ Return `true` is `S` is CSS.
 isCSS(S::T) where {T <: AbstractSubsystemCode} = isCSS(CSSTrait(T), S)
 isCSS(::IsCSS, S::AbstractSubsystemCode) = true
 isCSS(::IsNotCSS, S::AbstractSubsystemCode) = false
+
+# TODO: do for other traits and change docs
+# TODO: quantum Singletonbound k <= n - 2d + 2
+# MDS/optimal for subsystem codes: k + r <= n - 2d + 2
 
 """
     relativedistance(S::AbstractSubsystemCode)
@@ -1217,19 +1221,19 @@ function show(io::IO, S::AbstractSubsystemCode)
     end
     if iszero(S.k)
         if isa(S, GraphStateStabilizerCSS)
-            println(io, " CSS graph state.")
+            println(io, " CSS graph state")
         else
-            println(io, " graph state.")
+            println(io, " graph state")
         end
     else
         if isa(S, StabilizerCodeCSS)
-            println(io, " CSS stabilizer code.")
+            println(io, " CSS stabilizer code")
         elseif isa(S, StabilizerCode)
-            println(io, " stabilizer code.")
+            println(io, " stabilizer code")
         elseif isa(S, SubsystemCodeCSS)
-            println(io, " CSS subsystem code.")
+            println(io, " CSS subsystem code")
         else
-            println(io, " subsystem code.")
+            println(io, " subsystem code")
         end
     end
     

@@ -27,7 +27,7 @@ julia> C = CyclicCode(q, n, cosets)
 """
 function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     (q <= 1 || n <= 1) && throw(DomainError("Invalid parameters passed to CyclicCode constructor: q = $q, n = $n."))
-    factors = AbstractAlgebra.factor(q)
+    factors = Nemo.factor(q)
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
@@ -197,7 +197,7 @@ Generator matrix: 5 × 15
 function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     δ >= 2 || throw(DomainError("BCH codes require δ ≥ 2 but the constructor was given δ = $δ."))
     (q <= 1 || n <= 1) && throw(DomainError("Invalid parameters passed to BCHCode constructor: q = $q, n = $n."))
-    factors = AbstractAlgebra.factor(q)
+    factors = Nemo.factor(q)
     length(factors) == 1 || throw(DomainError("There is no finite field of order $q."))
     (p, t), = factors
 
@@ -300,7 +300,7 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
     #     error("Reed Solomon codes require n = q - 1.")
     # end
 
-    factors = AbstractAlgebra.factor(q)
+    factors = Nemo.factor(q)
     length(factors) == 1 || error("There is no finite field of order $q.")
     (p, t), = factors
 
@@ -683,7 +683,7 @@ function iscyclic(C::AbstractLinearCode)
     
     ordF = Int(order(C.F))
     gcd(C.n, ordF) == 1 || return false
-    (p, t), = AbstractAlgebra.factor(ordF)
+    (p, t), = Nemo.factor(ordF)
     deg = ord(C.n, ordF)
     E = GF(p, t * deg, :α)
     α = gen(E)

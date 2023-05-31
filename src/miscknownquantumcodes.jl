@@ -23,12 +23,12 @@ function GaugedShorCode()
 end
 Q9143() = GaugedShorCode()
 
+# BUG: doesn't work for m ≂̸ n
 """
     BaconShorCode(m::Int, n::Int)
 
 Return the Bacon-Shor subsystem code on a `m x n` lattice.
 """
-# BUG: doesn't work for m ≂̸ n
 function BaconShorCode(m::Int, n::Int)
     F = GF(2)
     Fone = F(1)
@@ -113,7 +113,6 @@ BaconShorCode(d::Int) = BaconShorCode(d, d)
 Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With Spatially Local
 Generators", (2011).
 """
-# Bravyi, "Subsystem Codes With Spatially Local Generators", (2011)
 function BravyiSubsystemCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
     F = base_ring(A)
@@ -237,7 +236,116 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
 end
 GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
 
-# subsystem codes was described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
+# subsystem codes were described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
+
+# Napp & Preskill, "Optimal Bacon-Shor Codes", (2012)
+function NappPreskill3DCode(m::Int, n::Int, k::Int)
+    (2 <= m && 2 <= n && 2 <= k) || throw(DomainError("Lattice dimensions must be at least two"))
+
+    linearindex = Dict{Tuple{Int, Int, Int}, Int}()
+    for (i, tup) in enumerate(Base.Iterators.product(1:m, 1:n, 1:k))
+        linearindex[tup] = i
+    end
+
+    len = m * n * k
+    F = GF(2)
+    Fone = F(1)
+    gauges = zero_matrix(F, (m - 1) * n * k + m * (n - 1) * k + m * n * (k - 1), 2 * len)
+    currrow = 1
+    # X's
+    for l in 1:k
+        for i in 1:m
+            for j in 1:n
+                if j != n
+                    gauges[currrow, linearindex[i, j, l]] = gauges[currrow, linearindex[i, j + 1, l]] = Fone
+                    currrow += 1
+                end
+                if i != m
+                    gauges[currrow, linearindex[i, j, l]] = gauges[currrow, linearindex[i + 1, j, l]] = Fone
+                    currrow += 1
+                end
+            end
+        end
+    end
+
+    # Z's
+    for i in 1:m
+        for j in 1:n
+            for l in 1:k - 1
+                gauges[currrow, linearindex[i, j, l] + len] = gauges[currrow, linearindex[i, j, l + 1] + len] = Fone
+                currrow += 1
+            end
+        end
+    end
+
+    return SubsystemCode(gauges, missing, :VS)
+end
+
+# Napp & Preskill, "Optimal Bacon-Shor Codes", (2012)
+function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
+    ## XX acting on each neighboring qubits in each xy-plane with z, w fixed
+    ## ZZ in zw-plane with x, y fixed
+
+    (2 <= x && 2 <= y && 2 <= z && 2 <= w) || throw(DomainError("Lattice dimensions must be at least two"))
+
+    linearindex = Dict{Tuple{Int, Int, Int, Int}, Int}()
+    for (i, tup) in enumerate(Base.Iterators.product(1:x, 1:y, 1:z, 1:w))
+        linearindex[tup] = i
+    end
+
+    len = x * y * z * w
+    F = GF(2)
+    Fone = F(1)
+    gauges = zero_matrix(F, (x - 1) * y * z * w + x * (y - 1) * z * w + x * y * (z - 1) * w + x * y * z * (w - 1), 2 * len)
+    currrow = 1
+    # X's
+    for k in 1:z
+        for l in 1:w
+            for i in 1:x
+                for j in 1:y
+                    if i != x
+                        gauges[currrow, linearindex[i, j, k, l]] = gauges[currrow, linearindex[i + 1, j, k, l]] = Fone
+                        currrow += 1
+                    end
+                    if j != y
+                        gauges[currrow, linearindex[i, j, k, l]] = gauges[currrow, linearindex[i, j + 1, k, l]] = Fone
+                        currrow += 1
+                    end
+                end
+            end
+        end
+    end
+
+    # Z's
+    for i in 1:x
+        for j in 1:y
+            for k in 1:z
+                for l in 1:w
+                    if k != z
+                        gauges[currrow, linearindex[i, j, k, l] + len] = gauges[currrow, linearindex[i, j, k + 1, l] + len] = Fone
+                        currrow += 1
+                    end
+                    if l != w
+                        gauges[currrow, linearindex[i, j, k, l] + len] = gauges[currrow, linearindex[i, j, k, l + 1] + len] = Fone
+                        currrow += 1
+                    end
+                end
+            end
+        end
+    end
+
+    # return SubsystemCode(gauges)
+    return SubsystemCode(gauges, missing, :VS)
+end
+
+# Bravyi et al, "Subsystem surface codes with three-qubit check operators", (2013)
+# function SubsystemSurfaceCode(m::Int, n::Int)
+
+# end
+
+# SubsystemSurfaceCode(d::Int) = SubsystemSurfaceCode(d, d)
+
+# TODO: charvec in all of these
 
 #############################
       # Stabilizer codes

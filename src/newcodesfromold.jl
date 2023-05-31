@@ -14,23 +14,23 @@ Return the code whose generator matrix is `C`'s with the columns permuted by `σ
 * If `typeof(C) <: AbstractQuasiCyclicCode`, returns a `LinearCode` object.
 """
 function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Integer
-    C2 = deepcopy(C)
-    P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
-    size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
-    C2.G = C2.G * P
-    C2.H = C2.H * P
-    C2.Pstand = ismissing(C2.Pstand) ? P : C2.Pstand * P
-    return C2
-end
-
-function permutecode(C::AbstractQuasiCyclicCode, σ::Union{PermGroupElem, Perm{T}, Vector{T}}) where T <: Integer
-    P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
-    size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
-    G = generatormatrix(C) * P
-    H = paritycheckmatrix(C) * P
-    C2 = LinearCode(G, H)
-    ismissing(C2.d) && !ismissing(C.d) && setminimumdistance!(C2, C.d)
-    return C2
+    if isa(C, QuasiCyclicCode)
+        P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
+        size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
+        G = generatormatrix(C) * P
+        H = paritycheckmatrix(C) * P
+        C2 = LinearCode(G, H)
+        ismissing(C2.d) && !ismissing(C.d) && setminimumdistance!(C2, C.d)
+        return C2
+    else
+        C2 = deepcopy(C)
+        P = permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ)
+        size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
+        C2.G = C2.G * P
+        C2.H = C2.H * P
+        C2.Pstand = ismissing(C2.Pstand) ? P : C2.Pstand * P
+        return C2
+    end
 end
 
 """

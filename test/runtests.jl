@@ -1301,6 +1301,7 @@ end
     Q4 = BravyiSubsystemCode(A)
     @test CodingTheory.dimension(Q4) == rank(A)
     # # TODO: add a test here on the min distances
+    # min d should be min(row wts, col wts)
     @test areequivalent(Q3, Q4)
 
     # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
