@@ -84,7 +84,7 @@ example for CSSCode(Xmatrix, Zmatrix)
 
 example using Xstabilizers, Zstabilizers
 ```
-Contrary to the above, it is assumed that these matrices are of length $n$ instead of $2n$ with $n$ columns of zeros. No check is done to determine if a code *can* be made CSS, only that the passed in representation *is* CSS. All constructors will automatically return a CSS code if detected. To reliably check whether a code is CSS, check ``CSSTrait`` for ``IsCSS()`` or ``IsNotCSS()``.
+Contrary to the above, it is assumed that these matrices are of length $n$ instead of $2n$ with $n$ columns of zeros. No check is done to determine if a code *can* be made CSS, only that the passed in representation *is* CSS. All constructors will automatically return a CSS code if detected. To reliably check whether a code is CSS use `isCSS`.
 
 Stabilizer signs are automatically determined in a consistent manner by a length $2n$ character vector whose first $n$ elements specify the $X$ phase and second $n$ elements the $Z$ phase. This may be passed into any constructor and a missing argument is automatically set to the all-no-phase vector. The signs may be changed after a code has been constructed using ``setsigns``. Signs for codes over a finite field with characteristic $p$ are $2p$-th roots of unity if $p = 2$ or $p$-th roots of unity otherwise. Since it is more difficult to represent these exactly, signs are stored by keeping track of the exponents.
 ```

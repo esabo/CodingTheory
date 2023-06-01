@@ -185,7 +185,8 @@ export SubsystemCode, field, quadraticfield, length, numqubits, dimension, cardi
     augment, expurgate, fixgauge, setXstabilizers, setZstabilizers, setstabilizers,
     setZstabilizers!, setdistancelowerbound!, permutecode!, permutecode, setstabilizers!,
     setXstabilizers!, standardformA, standardformA1, standardformA2, standardformB, standardformC1,
-    standardformC2, standardformD, standardformE, logicalsstandardform
+    standardformC2, standardformD, standardformE, logicalsstandardform, promotegaugestological!,
+    promotegaugestological, promotelogicalstogauge
 
 #############################
       # stabilizercode.jl

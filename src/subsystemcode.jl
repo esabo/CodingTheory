@@ -35,8 +35,6 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
 
     # stabilizer group: ker G ∩ G
     rnkkerG, kerG = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
-    # remove empty for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    # kerG = _removeempty(transpose(kerG), :rows)
     if ncols(kerG) == rnkkerG
         kerG = transpose(kerG)
     else
@@ -50,17 +48,19 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
         end
         kerG = kerGtr
     end
-    V = VectorSpace(base_ring(G), ncols(kerG))
+    V = vector_space(base_ring(G), ncols(kerG))
     kerGVS, kerGtoV = sub(V, [V(kerG[i, :]) for i in 1:nrows(kerG)])
     GVS, _ = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
     I, ItokerG = intersect(kerGVS, GVS)
+    println(AbstractAlgebra.dim(kerGVS), ", ", AbstractAlgebra.dim(GVS), ", ", AbstractAlgebra.dim(I))
     if !iszero(AbstractAlgebra.dim(I))
         Ibasis = [kerGtoV(ItokerG(g)) for g in gens(I)]
         Fbasis = [[F(Ibasis[j][i]) for i in 1:AbstractAlgebra.dim(parent(Ibasis[1]))] for j in 1:length(Ibasis)]
-        stabs = matrix(F, length(Fbasis), length(Fbasis[1]), reduce(vcat, Fbasis))
+        stabs = matrix(F, length(Fbasis), 2 * n, reduce(vcat, Fbasis))
     else
         error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
     end
+    println(nrows(stabs), ", ", rank(stabs))
 
     # check if this subsystem code is really a stabilizer code
     # this should be fine because if they are the same dimension then they are the same
@@ -72,6 +72,7 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
         return StabilizerCode(stabs, charvec)
     end
     stabsstand, Pstand, standr, standk, _ = _standardformstabilizer(stabs)
+    println(standk)
 
     # bare logicals (reps): ker G / S
     BL = _quotientspace(kerG, stabs, logsalg)
@@ -442,13 +443,12 @@ isovercomplete(S::AbstractSubsystemCode) = S.overcomplete
 """
     isCSS(S::AbstractSubsystemCode)
 
-Return `true` is `S` is CSS.
+Return `true` if `S` is CSS.
 """
 isCSS(S::T) where {T <: AbstractSubsystemCode} = isCSS(CSSTrait(T), S)
 isCSS(::IsCSS, S::AbstractSubsystemCode) = true
 isCSS(::IsNotCSS, S::AbstractSubsystemCode) = false
 
-# TODO: do for other traits and change docs
 # TODO: quantum Singletonbound k <= n - 2d + 2
 # MDS/optimal for subsystem codes: k + r <= n - 2d + 2
 
@@ -1040,11 +1040,26 @@ end
 islogical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
 
 """
+    isgauge(S::AbstractSubsystemCode, v::fq_nmod_mat)
+
+Return `true` if the vector `v` is a gauge operator for `S`.
+"""
+isgauge(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = isgauge(GaugeTrait(T), S, v)
+function isgauge(::HasGauges, S::AbstractSubsystemCode, v::CTMatrixTypes)
+    nc = ncols(S.gopsmat)
+    aresymplecticorthogonal(S.stabs, v) || return false
+    size(v) == (1, nc) && (return !iszero(S.gopsmat * transpose(v));)
+    size(v) == (nc, 1) && (return !iszero(S.gopsmat * v);)
+    throw(ArgumentError("Vector to be tested is of incorrect dimension."))
+end
+isgauge(::HasNoGauges, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no gauges.")
+
+# TODO: make uniform with approach in function above and linear code
+"""
     syndrome(S::AbstractSubsystemCode, v::fq_nmod_mat)
 
 Return the syndrome of the vector `v` with respect to the stabilizers of `S`.
 """
-# TODO: make uniform with approach in function above
 function syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
     (size(v) != (2 * S.n, 1) && size(v) != (1, 2 * S.n)) &&
         throw(ArgumentError("Vector to be tested is of incorrect dimension; expected length $(2 * n), received: $(size(v))."))
@@ -1091,6 +1106,7 @@ end
 Zsyndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
 
 """
+    promotelogicalstogauge(S::AbstractSubsystemCode, pairs::Vector{Int})
     promotelogicalstogauge!(S::AbstractSubsystemCode, pairs::Vector{Int})
 
 Add the logical pairs in `pairs` to the gauge operators.
@@ -1099,22 +1115,57 @@ promotelogicalstogauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemC
 function promotelogicalstogauge!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
     # will let this error naturally if pairs contains invalid elements
-    S.gaugeops = S.gaugeops ∪ logs[pairs]
-    S.gopsmat = reduce(vcat, [reduce(vcat, gaugeops[i]) for i in 1:length(gaugeops)])
-    S.logs = logs[setdiff![1:length(logs), pairs]]
-    S.logsmat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    S.gaugeops = S.gaugeops ∪ S.logs[pairs]
+    S.gopsmat = reduce(vcat, [reduce(vcat, S.gaugeops[i]) for i in 1:length(S.gaugeops)])
+    S.logs = S.logs[setdiff![1:length(S.logs), pairs]]
+    S.logsmat = reduce(vcat, [reduce(vcat, S.logs[i]) for i in 1:length(S.logs)])
     S.r = S.r + length(pairs)
 
     if isinteger(S.k)
         S.k = S.k - length(pairs)
     else
-        k =  BigInt(order(S.F))^S.n // BigInt(p)^(S.standk + length(pairs))
+        k = BigInt(order(S.F))^S.n // BigInt(p)^(S.standk + length(pairs))
         isinteger(k) ? (S.k = round(Int, log(BigInt(p), k));) : (S.k = k;)
     end
     return nothing
 end
 promotelogicalstogauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
 # TODO: this can drop to a graph state, which is why I did what I did before
+
+promotelogicalstogauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promotelogicalstogauges(LogicalTrait(T), S, pairs)
+promotelogicalstogauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = (Snew = deepcopy(S); return promotelogicalstogauge!(HasLogicals(), Snew, pairs);)
+promotelogicalstogauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+
+"""
+    promotegaugestological(S::AbstractSubsystemCode, pairs::Vector{Int})
+    promotegaugestological(S::AbstractSubsystemCode, pairs::Vector{Int})
+
+Add the gauge pairs in `pairs` to the logical operators.
+"""
+promotegaugestological!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promotegaugestological!(LogicalTrait(T), S, pairs)
+function promotegaugestological!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
+    pairs = sort!(unique!(pairs))
+    # will let this error naturally if pairs contains invalid elements
+    S.logs = S.logs ∪ S.gaugeops[pairs]
+    S.logsmat = reduce(vcat, [reduce(vcat, S.logs[i]) for i in 1:length(S.logs)])
+    S.gaugeops = S.gaugeops[setdiff![1:length(S.gaugeops), pairs]]
+    S.gopsmat = reduce(vcat, [reduce(vcat, S.gaugeops[i]) for i in 1:length(S.gaugeops)])
+    S.r = S.r - length(pairs)
+
+    if isinteger(S.k)
+        S.k = S.k + length(pairs)
+    else
+        k =  BigInt(order(S.F))^S.n // BigInt(p)^(S.standk + S.r)
+        isinteger(k) ? (S.k = round(Int, log(BigInt(p), k));) : (S.k = k;)
+    end
+    return nothing
+end
+promotegaugestological!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+# TODO: this can drop to a graph state, which is why I did what I did before
+
+promotegaugestological(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promotegaugestological(LogicalTrait(T), S, pairs)
+promotegaugestological(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = (Snew = deepcopy(S); return promotegaugestological!(HasLogicals(), Snew, pairs))
+promotegaugestological(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
 
 """
     swapXZlogicals!(S::AbstractSubsystemCode, pairs::Vector{Int})

@@ -368,10 +368,15 @@ function StabilizerCode(stabs::CTMatrixTypes, charvec::Union{Vector{nmod}, Missi
     end
 end
 
-# function StabilizerCode(S::AbstractSubsystemCode)
-#     # promote all gauges to logicals
-# end
+"""
+    StabilizerCode(S::AbstractSubsystemCode)
 
+Return the stabilizer code from the subsystem code by promoting all of the gauge operators to logical operators.
+"""
+function StabilizerCode(S::AbstractSubsystemCode)
+    typeof(S) <: AbstractStabilizerCode && return S
+    return promotegaugestological(S, collect(1:length(S.gaugeops)))
+end
 # function StabilizerCodeCSS(S::AbstractSubsystemCodeCSS)
 #     # promote all gauges to logicals
 # end
