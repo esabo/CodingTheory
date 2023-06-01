@@ -61,7 +61,8 @@ export kroneckerproduct, Hammingweight, weight, wt, Hammingdistance, distance,
     verifycomplementarybasis, areequivalentbasis, isselfdualbasis,
     isprimitivebasis, isnormalbasis, isextension, polytocircmatrix,
     isregular, edgevertexincidencematrix, edgevertexincidencegraph,
-    isvalidbipartition, extractbipartition, isHermitianselforthogonal
+    isvalidbipartition, extractbipartition, isHermitianselforthogonal,
+    rowsupports, rowsupportssymplectic
     # , _minwtrow
     # , circshift
     # , lift
@@ -208,7 +209,8 @@ export ClusterState, GraphState
 
 include("miscknownquantumcodes.jl")
 # subsystem
-export GaugedShorCode, Q9143, BaconShorCode, BravyiSubsystemCode
+export GaugedShorCode, Q9143, BaconShorCode, BravyiSubsystemCode, GeneralizedBaconShorCode,
+    NappPreskill3DCode, NappPreskill4DCode, SubsystemToricCode, SubsystemSurfaceCode
 
 # stabilizer
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,

@@ -129,7 +129,7 @@ function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, 
     iszero(Xmatrix) && throw(ArgumentError("The `X` stabilizer matrix is empty."))
     iszero(Zmatrix) && throw(ArgumentError("The `Z` stabilizer matrix is empty."))
     n = ncols(Xmatrix)
-    n ==  ncols(Zmatrix) || throw(ArgumentError("Both matrices must have the same length in the CSS construction."))
+    n == ncols(Zmatrix) || throw(ArgumentError("Both matrices must have the same length in the CSS construction."))
     F = base_ring(Xmatrix)
     F == base_ring(Zmatrix) || throw(ArgumentError("Both matrices must be over the same base field in the CSS construction."))
     iszero(Zmatrix * transpose(Xmatrix)) || throw(ArgumentError("The given matrices are not symplectic orthogonal."))

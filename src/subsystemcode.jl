@@ -52,7 +52,6 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     kerGVS, kerGtoV = sub(V, [V(kerG[i, :]) for i in 1:nrows(kerG)])
     GVS, _ = sub(V, [V(G[i, :]) for i in 1:nrows(G)])
     I, ItokerG = intersect(kerGVS, GVS)
-    println(AbstractAlgebra.dim(kerGVS), ", ", AbstractAlgebra.dim(GVS), ", ", AbstractAlgebra.dim(I))
     if !iszero(AbstractAlgebra.dim(I))
         Ibasis = [kerGtoV(ItokerG(g)) for g in gens(I)]
         Fbasis = [[F(Ibasis[j][i]) for i in 1:AbstractAlgebra.dim(parent(Ibasis[1]))] for j in 1:length(Ibasis)]
@@ -60,7 +59,6 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     else
         error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
     end
-    println(nrows(stabs), ", ", rank(stabs))
 
     # check if this subsystem code is really a stabilizer code
     # this should be fine because if they are the same dimension then they are the same
@@ -72,7 +70,6 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
         return StabilizerCode(stabs, charvec)
     end
     stabsstand, Pstand, standr, standk, _ = _standardformstabilizer(stabs)
-    println(standk)
 
     # bare logicals (reps): ker G / S
     BL = _quotientspace(kerG, stabs, logsalg)

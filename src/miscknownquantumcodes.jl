@@ -239,6 +239,11 @@ GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
 # subsystem codes were described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
 
 # Napp & Preskill, "Optimal Bacon-Shor Codes", (2012)
+"""
+    NappPreskill3DCode(m::Int, n::Int, k::Int)
+
+Return the Napp and Preskill 3D, modifed Bacon-Shor code.
+"""
 function NappPreskill3DCode(m::Int, n::Int, k::Int)
     (2 <= m && 2 <= n && 2 <= k) || throw(DomainError("Lattice dimensions must be at least two"))
 
@@ -278,14 +283,20 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
         end
     end
 
-    return SubsystemCode(gauges, missing, :VS)
+    S = SubsystemCode(gauges, missing, :VS)
+    S.dx = k
+    S.dz = m * n
+    S.d = minimum([k, m * n])
+    return S
 end
 
 # Napp & Preskill, "Optimal Bacon-Shor Codes", (2012)
-function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
-    ## XX acting on each neighboring qubits in each xy-plane with z, w fixed
-    ## ZZ in zw-plane with x, y fixed
+"""
+    NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
 
+Return the Napp and Preskill 4D, modifed Bacon-Shor code.
+"""
+function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     (2 <= x && 2 <= y && 2 <= z && 2 <= w) || throw(DomainError("Lattice dimensions must be at least two"))
 
     linearindex = Dict{Tuple{Int, Int, Int, Int}, Int}()
@@ -298,6 +309,9 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     Fone = F(1)
     gauges = zero_matrix(F, (x - 1) * y * z * w + x * (y - 1) * z * w + x * y * (z - 1) * w + x * y * z * (w - 1), 2 * len)
     currrow = 1
+    ## XX acting on each neighboring qubits in each xy-plane with z, w fixed
+    ## ZZ in zw-plane with x, y fixed
+
     # X's
     for k in 1:z
         for l in 1:w
@@ -334,7 +348,6 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
         end
     end
 
-    # return SubsystemCode(gauges)
     return SubsystemCode(gauges, missing, :VS)
 end
 
@@ -467,15 +480,14 @@ function SubsystemToricCode(m::Int, n::Int)
         logs[3, topleft + 2 * n] = Fone
     end
     
-    # return stabs, logs, gauges
-    # BUG
-    S = SubsystemCode(gauges)
+    S = SubsystemCode(gauges, missing, :VS)
     S.k == 2 || error("Got wrong dimension for periodic case.")
     setstabilizers!(S, stabs)
     setlogicals!(S, logs)
     setminimumdistance!(S, minimum([m, n]))
+    S.dx = S.d
+    S.dx = S.d
     return S
-    # TODO: should do X and Z distances as well
 end
 
 """
@@ -487,72 +499,147 @@ columns of squares.
 SubsystemToricCode(d::Int) = SubsystemToricCode(d, d)
 
 # Bravyi et al, "Subsystem surface codes with three-qubit check operators", (2013)
+"""
+    SubsystemSurfaceCode(m::Int, n::Int)
+
+Return the subsystem surface code on a rectangular lattice with `m` rows and `n`
+columns of squares.
+"""
 function SubsystemSurfaceCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
 
     F = GF(2)
-    # if periodic, len = 3 * m * n
-    len = (2 * m + 1) * n + (m + 1) * (n - 1)
-    gauges = matrix(F, 4 * m * n, 2 * len)
-    stabs = matrix(F, 2 * m * n, 2 * len)
+    Fone = F(1)
+    len = (3n + 2) * m + 2 * n + 1
+    gauges = zero_matrix(F, 4 * m * n + 2 * n + 2 * m, 2 * len)
+    stabs = zero_matrix(F, 2 * m * n + 2 * n + 2 * m, 2 * len)
     currrowstab = 1
     currrowgauge = 1
-    for c in 1:n
-        topleft = 
-        for r in 1:m
+    for r in 1:m
+        topleft = (3 * n + 2) * (r - 1) + 1
+        rowright = topleft + 2 * n
+        for c in 1:n
             # top left - Z
             gauges[currrowgauge, topleft + len] = Fone
             gauges[currrowgauge, topleft + 1 + len] = Fone
-            gauges[currrowgauge, topleft + 2 * m + 1 + len] = Fone
+            gauges[currrowgauge, rowright + c + len] = Fone
             currrowgauge += 1
 
             # top right - X
             gauges[currrowgauge, topleft + 1] = Fone
             gauges[currrowgauge, topleft + 2] = Fone
-            gauges[currrowgauge, topleft + 2 * m + 2] = Fone
+            gauges[currrowgauge, rowright + c + 1] = Fone
             currrowgauge += 1
 
             # bottom left - X
-            gauges[currrowgauge, topleft + 2 * m + 1] = Fone
-            gauges[currrowgauge, topleft + 3 * m + 2] = Fone
-            gauges[currrowgauge, topleft + 3 * m + 3] = Fone
+            gauges[currrowgauge, rowright + c] = Fone
+            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 2] = Fone
+            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 3] = Fone
             currrowgauge += 1
 
             # bottom right - Z
-            gauges[currrowgauge, topleft + 2 * m + 2 + len] = Fone
-            gauges[currrowgauge, topleft + 3 * m + 3 + len] = Fone
-            gauges[currrowgauge, topleft + 3 * m + 4 + len] = Fone
+            gauges[currrowgauge, rowright + c + 1 + len] = Fone
+            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 3 + len] = Fone
+            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 4 + len] = Fone
             currrowgauge += 1
 
             # X
             stabs[currrowstab, topleft + 1] = Fone
             stabs[currrowstab, topleft + 2] = Fone
-            stabs[currrowstab, topleft + 2 * m + 2] = Fone
-            stabs[currrowstab, topleft + 2 * m + 1] = Fone
-            stabs[currrowstab, topleft + 3 * m + 2] = Fone
-            stabs[currrowstab, topleft + 3 * m + 3] = Fone
+            stabs[currrowstab, rowright + c + 1] = Fone
+            stabs[currrowstab, rowright + c] = Fone
+            stabs[currrowstab, rowright + n + 2 * (c - 1) + 2] = Fone
+            stabs[currrowstab, rowright + n + 2 * (c - 1) + 3] = Fone
             currrowstab += 1
 
             # Z
             stabs[currrowstab, topleft + len] = Fone
             stabs[currrowstab, topleft + 1 + len] = Fone
-            stabs[currrowstab, topleft + 2 * m + 1 + len] = Fone
-            stabs[currrowstab, topleft + 2 * m + 2 + len] = Fone
-            stabs[currrowstab, topleft + 3 * m + 3 + len] = Fone
-            stabs[currrowstab, topleft + 3 * m + 4 + len] = Fone
+            stabs[currrowstab, rowright + c + len] = Fone
+            stabs[currrowstab, rowright + c + 1 + len] = Fone
+            stabs[currrowstab, rowright + n + 2 * (c - 1) + 3 + len] = Fone
+            stabs[currrowstab, rowright + n + 2 * (c - 1) + 4 + len] = Fone
             currrowstab += 1
             topleft += 2
         end
     end
-    
-    # logs are top row, left col
 
+    # left - X
+    for r in 1:m
+        topleft = (3 * n + 2) * (r - 1) + 1
+        shift = 2 * n + 1
+        stabs[currrowstab, topleft] = Fone
+        stabs[currrowstab, topleft + shift] = Fone
+        currrowstab += 1
+        gauges[currrowgauge, topleft] = Fone
+        gauges[currrowgauge, topleft + shift] = Fone
+        currrowgauge += 1
+    end
+
+    # right - X
+    for r in 1:m
+        topleft = (3 * n + 2) * (r - 1) + 1
+        rowright = topleft + 2 * n
+        stabs[currrowstab, rowright + n + 1] = Fone
+        stabs[currrowstab, rowright + 3 * n + 2] = Fone
+        currrowstab += 1
+        gauges[currrowgauge, rowright + n + 1] = Fone
+        gauges[currrowgauge, rowright + 3 * n + 2] = Fone
+        currrowgauge += 1
+    end
+
+    # top - Z
+    topleft = 1
+    for c in 1:n
+        stabs[currrowstab, topleft + 1 + len] = Fone
+        stabs[currrowstab, topleft + 2 + len] = Fone
+        currrowstab += 1
+        gauges[currrowgauge, topleft + 1 + len] = Fone
+        gauges[currrowgauge, topleft + 2 + len] = Fone
+        currrowgauge += 1
+        topleft += 2
+    end
+
+    # bottom - Z
+    bottomleft = len - 2 * n
+    for c in 1:n
+        stabs[currrowstab, bottomleft + len] = Fone
+        stabs[currrowstab, bottomleft + 1 + len] = Fone
+        currrowstab += 1
+        gauges[currrowgauge, bottomleft + len] = Fone
+        gauges[currrowgauge, bottomleft + 1 + len] = Fone
+        currrowgauge += 1
+        bottomleft += 2
+    end
+
+    logs = zero_matrix(F, 2, 2 * len)
+    # top row is a logical X
+    for c in 1:2 * n + 1
+        logs[1, c] = Fone
+    end
+    # left column is a logical Z 
+    for r in 1:m
+        logs[2, (3 * n + 2) * (r - 1) + 1 + len] = Fone
+        logs[2, (3 * n + 2) * (r - 1) + 2 * n + 2 + len] = Fone
+    end
+    logs[2, 2 * len -  2 * n] = Fone
     
-    S = SubsystemCode()
-    S.k == 2 || error("Got wrong dimension for periodic case.")
-    # distance for periodic should be min of each dimension
+    S = SubsystemCode(gauges, missing, :VS)
+    S.k == 1 || error("Got wrong dimension for non-periodic case.")
+    setstabilizers!(S, stabs)
+    setlogicals!(S, logs)
+    setminimumdistance!(S, minimum([m, n]))
+    S.dx = 2 * n + 1
+    S.dz = 2 * m + 1
+    return S
 end
 
+"""
+    SubsystemSurfaceCode(d::Int)
+
+Return the subsystem surface code on a square lattice with `d` rows and `d`
+columns of squares.
+"""
 SubsystemSurfaceCode(d::Int) = SubsystemSurfaceCode(d, d)
 
 # TODO: charvec in all of these
