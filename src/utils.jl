@@ -795,6 +795,36 @@ function _concat(locations::Union{CTMatrixTypes, Matrix}, M::CTMatrixTypes)
     return output
 end
 
+""""
+    rowsupports(M::CTMatrixTypes)
+
+Returns a vector where the ith entry lists the indices of the nonzero
+entries of `M[i, :]`
+"""
+function rowsupports(M::CTMatrixTypes)
+    output = [Int[] for i in axes(M, 1)]
+    for j in axes(M, 2)
+        for i in axes(M, 1)
+            iszero(M[i, j]) || push!(output[i], j)
+        end
+    end
+    return output
+end
+
+""""
+    rowsupportssymplectic(M::CTMatrixTypes)
+
+Returns a vector where the ith entry is a 2-tuple of lists with the
+indices of the nonzero X and Z entries of `M[i, :]`
+"""
+function rowsupportssymplectic(M::CTMatrixTypes)
+    iseven(ncols(M)) || throw(ArgumentError("Matrix should have an even number of cols"))
+    n = div(ncols(M), 2)
+    X = rowsupports(view(M, :, 1:n))
+    Z = rowsupports(view(M, :, 1 + n:2n))
+    collect(zip(X, Z))
+end
+
 #############################
   # Quantum Helper Functions
 #############################

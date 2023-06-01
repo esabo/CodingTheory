@@ -542,20 +542,29 @@ CSSTrait(::Type{T}) where {T <: CSSTypes} = IsCSS()
 #############################
 
 """
-    copy(C::T) where T <: Union{AbstractLinearCode, AbstractSubsystemCode}
+    copy(C::T) where T <: AbstractCode
 
 Returns a copy of the code `C`.
 """
-function copy(C::T) where T <: Union{AbstractLinearCode, AbstractSubsystemCode}
+function copy(C::T) where T <: AbstractCode
     C2 = deepcopy(C)
     hasfield(T, :F) && (C2.F = C.F;)
     hasfield(T, :E) && (C2.E = C.E;)
     hasfield(T, :R) && (C2.R = C.R;)
     if hasfield(T, :C)
-        S = typeof(C.C)
-        hasfield(S, :F) && (C2.C.F = C.C.F;)
-        hasfield(S, :E) && (C2.C.E = C.C.E;)
-        hasfield(S, :R) && (C2.C.R = C.C.R;)
+        if isa(C, AbstractLDPCCode)
+            S = typeof(C.C)
+            hasfield(S, :F) && (C2.C.F = C.C.F;)
+            hasfield(S, :E) && (C2.C.E = C.C.E;)
+            hasfield(S, :R) && (C2.C.R = C.C.R;)
+        elseif isa(C, AbstractMatrixProductCode)
+            for i in eachindex(C.C)
+                S = typeof(C.C[i])
+                hasfield(S, :F) && (C2.C[i].F = C.C[i].F;)
+                hasfield(S, :E) && (C2.C[i].E = C.C[i].E;)
+                hasfield(S, :R) && (C2.C[i].R = C.C[i].R;)
+            end
+        end
         hasfield(S, :C) && @warn "Some sub-sub-codes in the copied struct will have deepcopied Galois fields"
     end
     return C2
