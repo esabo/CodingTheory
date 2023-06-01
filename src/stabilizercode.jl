@@ -26,7 +26,7 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode,
     logsalg ∈ [:stndfrm, :VS, :syseqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     C2 ⊆ C1 || throw(ArgumentError("The second argument must be a subset of the first in the CSS construction."))
     p = Int(characteristic(C1.F))
-    charvec = _processcharvec(charvec, p, C1.n)
+    charvec = _processcharvec(charvec, p, 2 * C1.n)
 
     # C2 ⊆ C1
     # k = k1 - k2
@@ -81,7 +81,7 @@ function StabilizerCodeCSS(C::LinearCode, charvec::Union{Vector{nmod}, Missing}=
     D = dual(C)
     C ⊆ D || throw(ArgumentError("The single code CSS construction requires C ⊆ C^⟂."))
     p = Int(characteristic(D.F))
-    charvec = _processcharvec(charvec, p, D.n)
+    charvec = _processcharvec(charvec, p, 2 * D.n)
 
     # C2 ⊆ C1
     # k = k1 - k2
@@ -134,7 +134,7 @@ function StabilizerCodeCSS(Xmatrix::T, Zmatrix::T, charvec::Union{Vector{nmod}, 
     F == base_ring(Zmatrix) || throw(ArgumentError("Both matrices must be over the same base field in the CSS construction."))
     iszero(Zmatrix * transpose(Xmatrix)) || throw(ArgumentError("The given matrices are not symplectic orthogonal."))
     p = Int(characteristic(F))
-    charvec = _processcharvec(charvec, p, n)
+    charvec = _processcharvec(charvec, p, 2 * n)
 
     Xmatrix = _removeempty(Xmatrix, :rows)
     Zmatrix = _removeempty(Zmatrix, :rows)
@@ -338,7 +338,7 @@ function StabilizerCode(stabs::CTMatrixTypes, charvec::Union{Vector{nmod}, Missi
 
     F = base_ring(stabs)
     p = Int(characteristic(F))
-    charvec = _processcharvec(charvec, p, n)
+    charvec = _processcharvec(charvec, p, 2 * n)
     signs = _determinesigns(stabs, charvec)
     nrows(stabs) > rnk ? (overcomp = true) : (overcomp = false)
 

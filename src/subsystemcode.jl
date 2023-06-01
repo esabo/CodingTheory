@@ -23,7 +23,7 @@ function SubsystemCode(G::CTMatrixTypes, charvec::Union{Vector{nmod}, Missing}=m
     F = base_ring(G)
     p = Int(characteristic(F))
     n = div(ncols(G), 2)
-    charvec = _processcharvec(charvec, p, n)
+    charvec = _processcharvec(charvec, p, 2 * n)
 
     # G = < S, gauge ops >
     # C(G) = < S, logs >
@@ -205,7 +205,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
     F = base_ring(gopsmat)
     p = Int(characteristic(F))
     n = div(ncols(G), 2)
-    charvec = _processcharvec(charvec, p, n)
+    charvec = _processcharvec(charvec, p, 2 * n)
     nrows(S) > rnk ? (overcomp = true) : (overcomp = false)
     rkG = rank(G)
 
@@ -1404,77 +1404,52 @@ printallelements(S::AbstractSubsystemCode) = printallstabilizers(S)
 # end
 
 """
-    permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-    permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
+    permutecode!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
+
+Permute the code S by `σ`.
+
+# Notes
+* If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
+"""
+function permutecode!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
+    perm1 = transpose(permutation_matrix(S.F, typeof(σ) <: Perm ? σ.d : σ))
+    perm = perm1 ⊕ perm1
+    S.stabs = S.stabs * perm
+    S.charvec .= data.(Array(transpose(perm))) * S.charvec
+    S.stabsstand = S.stabsstand * perm
+    S.Pstand = ismissing(S.Pstand) ? perm : S.Pstand * perm
+
+    W = typeof(S)
+    if CSSTrait(W) == IsCSS()
+        S.Xstabs = S.Xstabs * perm1
+        S.Zstabs = S.Zstabs * perm1
+    end
+
+    if LogicalTrait(W) == HasLogicals()
+        S.logsmat = S.logsmat * perm
+        for (i, pair) in enumerate(S.logicals)
+            S.logicals[i] = (pair[1] * perm, pair[2] * perm)
+        end
+    end
+
+    if GaugeTrait(W) == HasGauges()
+        S.gopsmat = S.gopsmat * perm
+        for (i, pair) in enumerate(S.gaugeops)
+            S.gaugeops[i] = (pair[1] * perm, pair[2] * perm)
+        end
+    end
+    return nothing
+end
+
+"""
+    permutecode(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
 
 Return the code permuted by `σ`.
 
 # Notes
 * If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
 """
-function permutecode!(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int
-    if typeof(σ) <: Perm
-        perm1 = matrix(S.F, Array(matrix_repr(σ)))
-        perm = perm1 ⊕ perm1
-        S.stabs = S.stabs * perm
-        S.charvec = S.charvec * perm
-        S.stabsstand = S.stabsstand * perm
-        S.Pstand = S.Pstand * perm
-
-        W = typeof(S)
-        if CSSTrait(W) == IsCSS()
-            S.Xstabs = S.Xstabs * perm1
-            S.Zstabs = S.Zstabs * perm1
-        end
-
-        if LogicalTrait(W) == HasLogicals()
-            S.logsmat = S.logsmat * perm
-            for (i, pair) in enumerate(S.logicals)
-                S.logicals[i] = (pair[1] * perm, pair[2] * perm)
-            end
-        end
-
-        if GaugeTrait(W) == HasGauges()
-            S.gopsmat = S.gopsmat * perm
-            for (i, pair) in enumerate(S.gaugeops)
-                S.gaugeops[i] = (pair[1] * perm, pair[2] * perm)
-            end
-        end
-    else
-        length(unique(σ)) == S.n || throw(ArgumentError("Incorrect number of digits in permutation."))
-        (1 == minimum(σ) && S.n == maximum(σ)) || throw(ArgumentError("Digits are not in the range `1:$(S.n)`."))
-
-        σ = σ ∪ (σ .+ S.n)
-        S.stabs = S.stabs[:, σ]
-        S.charvec = S.charvec[:, σ]
-        S.stabsstand = S.stabsstand[:, σ]
-        S.Pstand = S.Pstand[:, σ]
-
-        W = typeof(S)
-        if CSSTrait(W) == IsCSS()
-            S.Xstabs = S.Xstabs[:, σ]
-            S.Zstabs = S.Zstabs[:, σ]
-        end
-
-        if LogicalTrait(W) == HasLogicals()
-            S.logsmat = S.logsmat[:, σ]
-            for (i, pair) in enumerate(S.logicals)
-                S.logicals[i] = (pair[1][:, σ], pair[2][:, σ])
-            end
-        end
-
-        if GaugeTrait(W) == HasGauges()
-            S.gopsmat = S.gopsmat[:, σ]
-            for (i, pair) in enumerate(S.gaugeops)
-                S.gaugeops[i] = (pair[1][:, σ], pair[2][:, σ])
-            end
-        end
-    end
-    return nothing
-end
-
-permutecode(S::AbstractSubsystemCode, σ::Union{Perm{T}, Vector{T}}) where T <: Int =
-    (Snew = deepcopy(S); permutecode!(Snew, σ); return Snew)
+permutecode(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}}) = (Snew = copy(S); permutecode!(Snew, σ); return Snew)
 
 """
     augment(S::AbstractSubsystemCode, row::fq_nmod_mat, verbose::Bool=true)
