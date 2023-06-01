@@ -552,20 +552,23 @@ function copy(C::T) where T <: AbstractCode
     hasfield(T, :E) && (C2.E = C.E;)
     hasfield(T, :R) && (C2.R = C.R;)
     if hasfield(T, :C)
+        warnflag = false
         if isa(C, AbstractLDPCCode)
             S = typeof(C.C)
             hasfield(S, :F) && (C2.C.F = C.C.F;)
             hasfield(S, :E) && (C2.C.E = C.C.E;)
             hasfield(S, :R) && (C2.C.R = C.C.R;)
+            hasfield(S, :C) && (warnflag = true;)
         elseif isa(C, AbstractMatrixProductCode)
             for i in eachindex(C.C)
                 S = typeof(C.C[i])
                 hasfield(S, :F) && (C2.C[i].F = C.C[i].F;)
                 hasfield(S, :E) && (C2.C[i].E = C.C[i].E;)
                 hasfield(S, :R) && (C2.C[i].R = C.C[i].R;)
+                hasfield(S, :C) && (warnflag = true;)
             end
         end
-        hasfield(S, :C) && @warn "Some sub-sub-codes in the copied struct will have deepcopied Galois fields"
+        warnflag && @warn "Some sub-sub-codes in the copied struct will have deepcopied Galois fields"
     end
     return C2
 end
