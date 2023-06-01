@@ -536,3 +536,27 @@ struct IsCSS <: CSSTrait end
 struct IsNotCSS <: CSSTrait end
 CSSTrait(::Type{T}) where {T <: AbstractSubsystemCode} = IsNotCSS()
 CSSTrait(::Type{T}) where {T <: CSSTypes} = IsCSS()
+
+#############################
+       # copy function
+#############################
+
+"""
+    copy(C::T) where T <: Union{AbstractLinearCode, AbstractSubsystemCode}
+
+Returns a copy of the code `C`.
+"""
+function copy(C::T) where T <: Union{AbstractLinearCode, AbstractSubsystemCode}
+    C2 = deepcopy(C)
+    hasfield(T, :F) && (C2.F = C.F;)
+    hasfield(T, :E) && (C2.E = C.E;)
+    hasfield(T, :R) && (C2.R = C.R;)
+    if hasfield(T, :C)
+        S = typeof(C.C)
+        hasfield(S, :F) && (C2.C.F = C.C.F;)
+        hasfield(S, :E) && (C2.C.E = C.C.E;)
+        hasfield(S, :R) && (C2.C.R = C.C.R;)
+        hasfield(S, :C) && @warn "Some sub-sub-codes in the copied struct will have deepcopied Galois fields"
+    end
+    return C2
+end

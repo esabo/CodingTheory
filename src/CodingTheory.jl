@@ -19,8 +19,8 @@ using SparseArrays
 import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular, iscyclic, genus, density, isdegenerate, index, generators
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -
+    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
@@ -44,7 +44,7 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
 # misc
-export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges
+export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges, copy
 
 #############################
          # utils.jl
@@ -88,7 +88,7 @@ export LinearCode, field, length, dimension, cardinality, rate, relativedistance
     isdoublyeven, istriplyeven, characteristicpolynomial, isHermitianLCD, isHermitiandualcontaining,
     isLCD, Hermitianhull, hull, isHermitianselfdual, isdualcontaining, minimumdistancelowerbound,
     minimumdistanceupperbound, setdistanceupperbound!, standardformpermutation, genus,
-    isovercomplete
+    isovercomplete, arepermutationequivalent
 
 #############################
     # newcodesfromold.jl
@@ -159,8 +159,8 @@ export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
 #############################
 
 include("miscknowncodes.jl")
-export RepetitionCode, Hexacode, HammingCode, TetraCode, SimplexCode,
-    GolayCode, ExtendedGolayCode
+export ZeroCode, IdentityCode, RepetitionCode, Hexacode, HammingCode, TetraCode,
+    SimplexCode, GolayCode, ExtendedGolayCode
 
 #############################
  # GeneralizedReedSolomon.jl

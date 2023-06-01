@@ -263,7 +263,7 @@ using Test
 
     F = GF(2)
     flag, _ = isextension(E, F)
-    @test flag == false
+    @test !flag
 
     F = GF(2)
     S, x = PolynomialRing(F, :x)
@@ -322,6 +322,10 @@ end
     @test iszero(syndrome(C, v))
     v = [1; 0; 0; 0; 0; 1; 1];
     @test iszero(syndrome(C, v))
+    @test isovercomplete(ZeroCode(5))
+    @test isovercomplete(IdentityCode(5), :H)
+    @test !isovercomplete(HammingCode(2,3))
+    @test !isovercomplete(HammingCode(2,3), :H)
 
     # lower rank test
     GandG = vcat(G, G);
@@ -381,14 +385,20 @@ end
     CF2 = subfieldsubcode(C, F, dualbasis)
     @test areequivalent(CF2, RepetitionCode(2, 6))
 
-    # to test perms
-    # C = HammingCode(2, 3)
-    # S7 = SymmetricGroup(7);
-    # σ = S7([3, 2, 1, 4, 5, 6, 7])
-    # permutecode(C, σ)
-    # # or
-    # permutecode(C, [1, 3, 2, 4, 5, 6, 7])
-
+    # test permutations
+    C = HammingCode(2, 3)
+    S7 = SymmetricGroup(7);
+    σ = [3, 2, 1, 4, 5, 6, 7] # this is the permutation (1, 3)
+    C1 = permutecode(C, σ)
+    C2 = permutecode(C, perm(σ))
+    C3 = permutecode(C, Perm(σ))
+    C4 = permutecode(C, S7(σ))
+    @test C1.G == C2.G == C3.G == C4.G == C.G[:, σ]
+    C1 = permutecode(C, [2,1,3,4,5,6,7])
+    C2 = permutecode(C, [1,4,3,2,5,6,7])
+    flag, P = arepermutationequivalent(C1, C2)
+    @test flag
+    @test areequivalent(permutecode(C1, P), C2)
 
     # "On the Schur Product of Vector Spaces over Finite Fields"
     # Christiaan Koster
@@ -501,6 +511,15 @@ end
 @testset "miscknowncodes.jl" begin
     using Oscar, CodingTheory
 
+    # Right now these are hardcoded in the function Hexacode(), but
+    # testing in case we move to having some of it done automatically
+    H = Hexacode()
+    ω = gen(H.F)
+    @test H.n == 6
+    @test H.k == 3
+    @test H.d == H.lbound == H.ubound == 4
+    @test H.H == matrix(H.F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
+
     R, (x, y) = PolynomialRing(Nemo.ZZ, (:x, :y))
 
     # Hamming codes
@@ -570,6 +589,14 @@ end
     # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
     # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
     # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)
+
+    # Huffman & Pless, p33, exercise 61d
+    C = ExtendedGolayCode(3)
+    C2 = extend(puncture(C, 7), 7)
+    T = identity_matrix(C.F, 12)
+    T[7,7] = C.F(-1)
+    C3 = LinearCode(C2.G * T)
+    @test areequivalent(C, C3)
 
     # tetra code
     C = TetraCode()
