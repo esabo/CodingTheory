@@ -315,7 +315,7 @@ function permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{Int}, 
         ismissing(C2.d) && !ismissing(C.d) && setminimumdistance!(C2, C.d)
         return C2
     else
-        C2 = deepcopy(C)
+        C2 = copy(C)
         P = transpose(permutation_matrix(C.F, typeof(σ) <: Perm ? σ.d : σ))
         size(P, 1) == C.n || throw(ArgumentError("Incorrect number of digits in permutation."))
         C2.G = C2.G * P
@@ -365,7 +365,7 @@ function extend(C::AbstractLinearCode, a::CTMatrixTypes, c::Integer)
 
     return Cnew
 end
-extend(C::AbstractLinearCode, c::Integer) = extend(C, ones(Int, C.n), c)
+extend(C::AbstractLinearCode, c::Integer) = extend(C, matrix(C.F, 1, C.n, ones(Int, C.n)), c)
 extend(C::AbstractLinearCode, a::CTMatrixTypes) = extend(C, a, C.n + 1)
 extend(C::AbstractLinearCode) = extend(C, matrix(C.F, 1, C.n, ones(Int, C.n)), C.n + 1)
 evenextension(C::AbstractLinearCode) = extend(C)

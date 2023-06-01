@@ -30,8 +30,6 @@ IdentityCode(F::CTFieldTypes, n::Integer) = dual(ZeroCode(F, n))
 IdentityCode(q::Integer, n::Integer) = dual(ZeroCode(q, n))
 IdentityCode(n::Integer) = dual(ZeroCode(n))
 
-# TODO: add CWE here
-# generator matrix should be all 1's so this should be 1 of 1's, 1 of 2's, etc up to p - 1
 """
     RepetitionCode(q::Int, n::Int)
 
@@ -49,23 +47,24 @@ function RepetitionCode(q::Int, n::Int)
     G = matrix(F, ones(Int, 1, n))
     H = hcat(matrix(F, ones(Int, n - 1, 1)), identity_matrix(F, n - 1))
     Gstand, Hstand, P, _ = _standardform(G)
-    return LinearCode(F, n, 1, n, n, n, G, H, Gstand, Hstand, P, missing)
+    _, vars = PolynomialRing(Nemo.ZZ, Int(order(F)))
+    W = WeightEnumerator(sum(v^n for v in vars), :complete)
+    return LinearCode(F, n, 1, n, n, n, G, H, Gstand, Hstand, P, W)
 end
 
-# this is a Hamming code?
 """
     Hexacode()
 
 Return the `[6, 3, 4]` hexacode over `GF(4)`.
 """
 function Hexacode()
+    # TODO: is Hexacode a Hamming code?
     F = GF(2, 2, :ω)
     ω = gen(F)
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
-    # it auto-computes this H anyway but might as well skip that step
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
     Gstand, Hstand, P, rnk = _standardform(G)
-    return LinearCode(F, 6, 3, 4, 4, 4, G, H, Gstand, Hstand, P, missing)
+    return LinearCode(F, 6, 3, 4, 4, 4, G, H, Gstand, Hstand, P, _weightenumeratorBF(Gstand))
 end
 
 #############################
@@ -96,7 +95,7 @@ function HammingCode(q::Int, r::Int)
         C = LinearCode(H, true, false)
         setminimumdistance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n*
+        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n *
             (vars[2] + vars[1])^div(C.n - 1, 2)*(vars[1] - vars[2])^div(C.n + 1,
             2), C.n + 1), :complete)
         return C
@@ -212,11 +211,10 @@ function ExtendedGolayCode(p::Int)
                        1 0 1 1 0 1 1 1 0 0 0 1])
         G = hcat(identity_matrix(F, 12), A)
         H = hcat(-transpose(A), identity_matrix(F, 12))
-        Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
-        return LinearCode(F, 24, 12, 8, 8, 8, G, H, Gstand, Hstand, P, wtenum)
+        return LinearCode(F, 24, 12, 8, 8, 8, G, H, G, H, missing, wtenum)
     elseif p == 3
         F = GF(3)
         A = matrix(F, [0  1  1  1  1  1;
@@ -227,12 +225,11 @@ function ExtendedGolayCode(p::Int)
                        1  1 -1 -1  1  0])
         G = hcat(identity_matrix(F, 6), A)
         H = hcat(-transpose(A), identity_matrix(F, 6))
-        Gstand, Hstand, P, rnk = _standardform(G)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         # this looks like Hamming and not complete
         # wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
-        #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, "complete")
-        return LinearCode(F, 12, 6, 6, 6, 6, G, H, Gstand, Hstand, P, missing)
+        #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, :complete)
+        return LinearCode(F, 12, 6, 6, 6, 6, G, H, G, H, missing, _weightenumeratorBF(G))
     else
         throw(ArgumentError("Golay code not implemented for q = $q."))
     end

@@ -646,9 +646,35 @@ end
 """
     areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)
 
-Return `true` if `C1` and `C2` are permutation equivalent codes.
+Return `true` if `C1 ⊆ C2` and `C2 ⊆ C1`.
 """
-areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = _hasequivalentrowspaces(generatormatrix(C1, true), generatormatrix(C2, true))
+areequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode) = (C1 ⊆ C2) && (C2 ⊆ C1)
+
+"""
+    arepermutationequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)
+
+Returns a `Tuple{Bool, Union{Missing, Perm}}`. The first entry is
+`true` if `C1` and `C2` are permutation equivalent codes. The second
+entry gives the permutation that, when applied to the columns of the
+generator matrix of C1, would give C2.
+"""
+function arepermutationequivalent(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    G1 = generatormatrix(C1, true)
+    G2 = generatormatrix(C2, true)
+    if G1 == G2
+        if ismissing(C1.Pstand) && ismissing(C2.Pstand)
+            (true, Perm(1:C1.n))
+        elseif ismissing(C1.Pstand)
+            (true, Perm(Int.(data.(transpose(C2.Pstand))) * collect(1:C1.n)))
+        elseif ismissing(C2.Pstand)
+            (true, Perm(Int.(data.(C1.Pstand)) * collect(1:C1.n)))
+        else
+            (true, Perm(Int.(data.(transpose(C2.Pstand) * C1.Pstand)) * collect(1:C1.n)))
+        end
+    else
+        (false, missing)
+    end
+end
 
 """
     isselfdual(C::AbstractLinearCode)
