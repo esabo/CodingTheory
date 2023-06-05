@@ -1679,3 +1679,257 @@ function HCode(k::Int)
     end
     return CSSCode(X, Z)
 end
+
+#################################
+        # 4D Toric codes
+#################################
+
+@auto_hash_equals struct _Vertex
+    coordinates::Vector{Int}
+end
+
+@auto_hash_equals struct _Cell
+    vertices::Set{_Vertex}
+end
+
+"""
+    Compute the n-cells of a periodic d-dimensional hypercubic lattice with linear size l.
+"""
+function _compute_cells_periodic(l::Int, n::Int, d::Int = 4)
+    cells = Set{_Cell}()    
+    coords_to_change = collect(combinations(1:d, n))
+    for coord in Iterators.product([0:l-1 for i=1:d]...), directions in coords_to_change
+        coord = collect(coord)
+        new_coords = Vector([copy(coord) for _ in 1:2^n-1])
+        for i in 1:2^n-1, j in 1:n
+            (i >> (j-1)) & 1 == 1 ? new_coords[i][directions[j]] += 1 : nothing
+        end
+        vertices = Set{_Vertex}()
+        push!(vertices, _Vertex(coord))
+        for new_coord in new_coords
+            l > 2 ? new_coord .%= l : nothing
+            push!(vertices, _Vertex(new_coord))
+        end
+
+        push!(cells, _Cell(vertices) )
+    end
+    return cells
+end
+
+"""
+    Computes a dictionary associating with a cell a set of all the subcells it contains,
+    where n is the dimension of the sub_cells, and l the linear size of the system. 
+"""
+function _contains(cells::Set{_Cell}, sub_cells::Set{_Cell}, n::Int, l::Int)
+    cell_dict = Dict{_Cell, Set{_Cell}}()
+    for cell in cells
+        for sub_cell in combinations(collect(cell.vertices), 2^n)
+            l == 2 ? new_cell = _Cell(Set(identify_cells(sub_cell))) : new_cell = _Cell(Set(sub_cell))
+            !(new_cell in sub_cells) && continue
+            haskey(cell_dict, cell) ? push!(cell_dict[cell], new_cell) : cell_dict[cell] = Set([new_cell])
+        end
+    end
+    return cell_dict
+end
+
+"""
+    Inverts a dictionary.
+"""
+function _inverse_dict(d::Dict)
+    d_inv = Dict{_Cell, Set{_Cell}}()
+    for (k, v) in d, c in v
+        haskey(d_inv, c) ? push!(d_inv[c], k) : d_inv[c] = Set([k])
+    end
+    return d_inv
+end
+
+"""
+    Identify the cells on the boundaries in the l = 2 case.
+"""
+function _identify_cells(c::Vector{_Vertex})
+    new_c = deepcopy(c)
+    l = length(c[1].coordinates)
+    for i in 1:l
+        fix_boundary::Bool = true
+        for v in c
+            v.coordinates[i] < 2 ? fix_boundary = false : nothing
+        end
+        if fix_boundary
+            for v in new_c
+                v.coordinates[i] = 0
+            end
+        end
+    end
+    return new_c
+end
+
+"""
+    Create and fills check_matrices. 
+"""
+function _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
+    x_check_mat = spzeros(Bool, length(X_dict), length(q_dict) )
+    z_check_mat = spzeros(Bool, length(Z_dict), length(q_dict) )
+
+    for (e, v) in X_dict
+        for c in v
+            x_check_mat[edge_dict[e], q_dict[c]] = true
+        end
+    end
+
+    for (v_, v) in Z_dict
+        for c in v
+            z_check_mat[volume_dict[v_], q_dict[c]] = true
+        end
+    end
+
+    return x_check_mat, z_check_mat
+end
+
+"""
+    Create vectors of logicals.
+"""
+function _compute_logical_vectors(X_dict, Z_dict, q_dict)
+    x_logicals, z_logicals = Vector{Vector{Int}}(), Vector{Vector{Int}}()
+    n = 1
+    for (_, v) in X_dict
+        logical = []
+        for c in v
+            push!(logical, q_dict[c])
+        end
+        push!(x_logicals, copy(logical))
+    end
+
+    for (_, v) in Z_dict
+        logical = []
+        for c in v
+            push!(logical, q_dict[c])
+        end
+        push!(z_logicals, copy(logical))
+    end
+
+    return x_logicals, z_logicals
+end
+
+"""
+    Build qubit dictionary.
+"""
+function _build_q_dict(faces::Set{_Cell})
+    q_dict = Dict{_Cell, Int}()
+    n = 0
+    for f in faces
+        n += 1
+        q_dict[f] = n
+    end 
+    return q_dict
+end
+
+"""
+    Compute logical operators.
+"""
+function _compute_logicals(l::Int, n::Int = 2, d::Int = 4)
+    Z_logicals = Dict{Vector{Int}, Set{_Cell}}()
+    X_logicals = Dict{Vector{Int}, Set{_Cell}}()
+    dirs = collect(1:d)
+    coords_to_change = collect(combinations(1:d, n))
+    for directions in coords_to_change
+        original_face = []
+        for c in Iterators.product([0:l-1 for i=1:2]...)
+            z_coord = [0, 0, 0, 0]
+            for i in 1:length(directions)
+                z_coord[directions[i]] = c[i]
+            end
+            other_directions = setdiff(dirs, directions)
+            z_new_coords = Vector([copy(z_coord) for _ in 1:2^n-1])
+            for i in 1:2^n-1, j in 1:n
+                (i >> (j-1)) & 1 == 1 ? z_new_coords[i][directions[j]] += 1 : nothing
+            end
+            vertices = Set{_Vertex}()
+            push!(vertices, _Vertex(z_coord))
+            for new_coord in z_new_coords
+                l > 2 ? new_coord .%= l : nothing
+                push!(vertices, _Vertex(new_coord))
+            end
+            haskey(Z_logicals, directions) ? push!(Z_logicals[directions], _Cell(vertices)) : Z_logicals[directions] = Set([_Cell(vertices)])
+            if isempty(original_face)
+                original_face = copy(z_new_coords)
+                push!(original_face, z_coord)
+            end
+            vertices = Set{_Vertex}()
+            new_face = deepcopy(original_face)
+            for pt in new_face, i in 1:length(other_directions)
+                pt[other_directions[i]] = c[i]
+            end
+            vertices = Set{_Vertex}()
+            for new_coord in new_face
+                l > 2 ? new_coord .%= l : nothing
+                push!(vertices, _Vertex(new_coord)) 
+            end
+            haskey(X_logicals, directions) ? push!(X_logicals[directions], _Cell(vertices)) : X_logicals[directions] = Set([_Cell(vertices)])
+        end
+    end
+    return X_logicals, Z_logicals
+end
+
+"""
+    Get the indices of the redundant stabilizers.
+"""
+function _compute_redundant(redundancy::Dict{_Cell, Set{_Cell}}, re_dict::Dict{_Cell, Int})
+    redundant = Vector{Vector{Int}}()
+    for (_, stabs) in redundancy
+        new_v = Vector{Int}()
+        for stab in stabs
+            push!(new_v, re_dict[stab])
+        end
+        push!(redundant, new_v)
+    end
+    return redundant
+end
+
+"""
+    Function returning the stabilizers and logicals of periodic 4d surface codes of linear size l.
+"""
+function ToricCode4D(l::Int)
+    2 <= l && throw(DomainError("Input must be >= 2."))
+
+    # computing the logicals and stabilizers of the code
+    vertices = _compute_cells_periodic(l, 0)
+    edges = _compute_cells_periodic(l, 1)
+    faces = _compute_cells_periodic(l, 2)
+    volumes = _compute_cells_periodic(l, 3)
+    hyper_volumes = _compute_cells_periodic(l, 4)
+
+    Z_dict = _contains(volumes, faces, 2, l)
+    X_dict = _inverse_dict(contains(faces, edges, 1, l))
+
+    Z_redundancy = _contains(hyper_volumes, volumes, 3, l)
+    X_redundancy = _inverse_dict(contains(edges, vertices, 0, l))
+
+    q_dict = _build_q_dict(faces)
+    volume_dict = _build_q_dict(volumes)
+    edge_dict = _build_q_dict(edges)
+
+    x_check_matrix, z_check_matrix = _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
+    z_redundant = _compute_redundant(Z_redundancy, volume_dict)
+    x_redundant = _compute_redundant(X_redundancy, edge_dict)
+
+    X_logicals, Z_logicals = _compute_logicals(l)
+    x_logical, z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
+
+    # defining the code objects
+    F = GF(2)
+    Fone = F(1)
+
+    X = zero_matrix(F, size(x_check_matrix)[1], size(x_check_matrix)[2])
+    Z = zero_matrix(F, size(z_check_matrix)[1], size(z_check_matrix)[2])
+
+    I, J, _ = findnz(x_check_matrix)
+    for i in 1:length(I)
+        X[I[i], J[i]] = Fone
+    end
+    I, J, _ = findnz(z_check_matrix)
+    for i in 1:length(I)
+        Z[I[i], J[i]] = Fone
+    end
+
+    return CSSCode(X, Z)
+end

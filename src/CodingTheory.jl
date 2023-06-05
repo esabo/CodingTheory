@@ -7,6 +7,7 @@
 module CodingTheory
 
 # TODO: make namespaces minimal
+using AutoHashEquals
 using Oscar
 using CairoMakie, Graphs
 using JLD2
