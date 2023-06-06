@@ -1886,7 +1886,7 @@ function _compute_redundant(redundancy::Dict{_Cell, Set{_Cell}}, re_dict::Dict{_
 end
 
 """
-    Function returning the stabilizers and logicals of periodic 4d surface codes of linear size l.
+    Function returning the stabilizers and logicals of periodic 4d surface codes of linear size l >= 2. Constructions taken from J. Math. Phys. 43, 4452-4505 (2002).
 """
 function ToricCode4D(l::Int)
     l < 2 && throw(DomainError("Input must be >= 2."))
