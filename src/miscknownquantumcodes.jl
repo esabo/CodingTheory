@@ -1724,7 +1724,7 @@ function _contains(cells::Set{_Cell}, sub_cells::Set{_Cell}, n::Int, l::Int)
     cell_dict = Dict{_Cell, Set{_Cell}}()
     for cell in cells
         for sub_cell in combinations(collect(cell.vertices), 2^n)
-            l == 2 ? new_cell = _Cell(Set(identify_cells(sub_cell))) : new_cell = _Cell(Set(sub_cell))
+            l == 2 ? new_cell = _Cell(Set(_identify_cells(sub_cell))) : new_cell = _Cell(Set(sub_cell))
             !(new_cell in sub_cells) && continue
             haskey(cell_dict, cell) ? push!(cell_dict[cell], new_cell) : cell_dict[cell] = Set([new_cell])
         end
@@ -1889,7 +1889,7 @@ end
     Function returning the stabilizers and logicals of periodic 4d surface codes of linear size l.
 """
 function ToricCode4D(l::Int)
-    2 <= l && throw(DomainError("Input must be >= 2."))
+    l < 2 && throw(DomainError("Input must be >= 2."))
 
     # computing the logicals and stabilizers of the code
     vertices = _compute_cells_periodic(l, 0)
@@ -1899,10 +1899,10 @@ function ToricCode4D(l::Int)
     hyper_volumes = _compute_cells_periodic(l, 4)
 
     Z_dict = _contains(volumes, faces, 2, l)
-    X_dict = _inverse_dict(contains(faces, edges, 1, l))
+    X_dict = _inverse_dict(_contains(faces, edges, 1, l))
 
     Z_redundancy = _contains(hyper_volumes, volumes, 3, l)
-    X_redundancy = _inverse_dict(contains(edges, vertices, 0, l))
+    X_redundancy = _inverse_dict(_contains(edges, vertices, 0, l))
 
     q_dict = _build_q_dict(faces)
     volume_dict = _build_q_dict(volumes)

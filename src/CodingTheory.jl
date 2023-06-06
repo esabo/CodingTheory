@@ -21,7 +21,7 @@ import LinearAlgebra: tr, Adjoint
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
     isregular, iscyclic, genus, density, isdegenerate, index, generators, copy
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
@@ -217,7 +217,7 @@ export GaugedShorCode, Q9143, BaconShorCode, BravyiSubsystemCode, GeneralizedBac
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, ToricCode4D
 
 #############################
         # trellis.jl
