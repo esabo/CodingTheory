@@ -1,11 +1,16 @@
-
+# Example of using Gallager A and B (out should end up [1 1 1 0 0 0 0]
+# H = matrix(GF(2), [1 1 0 1 1 0 0; 1 0 1 1 0 1 0; 0 1 1 1 0 0 1]);
+# v = matrix(GF(2), 7, 1, [1, 1, 0, 0, 0, 0, 0]);
+# out, iter, vtoc, ctov = messagepassing(H, v, missing, x->x, _GallagerAchecknodemessage, 100, :A);
+# out, iter, vtoc, ctov = messagepassing(H, v, missing, x->x, _GallagerAchecknodemessage, 100, :B);
 
 # TODO: scheduling
-function messagepassing(H::T, v::T, chn::MPNoiseModel,
+function messagepassing(H::T, v::T, chn::Union{Missing, MPNoiseModel},
     vtocmess::Function, ctovmess::Function,
-    maxiter::Int=100, kind::Symbol=:SP) where T <: CTMatrixTypes
+    maxiter::Int=100, kind::Symbol=:SP, Bt::Int = 2) where T <: CTMatrixTypes
 
     kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError(":log or :prob expected for parameter kind"))
+    kind ∈ (:SP, :MS) && chn == missing && throw(ArgumentError(":SP and :MS require a noise model"))
     Int(order(base_ring(H))) == Int(order(base_ring(v))) == 2 ||
         throw(ArgumentError("Currently only implemented for binary codes"))
     numcheck, numvar = size(H)
@@ -27,32 +32,41 @@ function messagepassing(H::T, v::T, chn::MPNoiseModel,
         end
     end
 
-    curr = zeros(Int, 1, numvar)
-    totals = zeros(Float64, 1, numvar)
-    syn = zeros(Int, 1, numcheck)
-    checktovarmessages = zeros(Float64, numcheck, numvar, maxiter)
-    vartocheckmessages = zeros(Float64, numvar, numcheck, maxiter)
+    S = kind ∈ (:A, :B) ? Int : Float64
+
+    curr = zeros(Int, numvar)
+    totals = zeros(S, 1, numvar)
+    syn = zeros(Int, numcheck)
+    checktovarmessages = zeros(S, numcheck, numvar, maxiter)
+    vartocheckmessages = zeros(S, numvar, numcheck, maxiter)
     
-    chninits = _channelinitBSC(w, chn.crossoverprob)
     iter = 1
-    if type == :BSC
+    if kind == :SP
+        chninits = _channelinitBSC(w, chn.crossoverprob)
+        if type == :BSC
+            Threads.@threads for vn in 1:numvar
+                vartocheckmessages[vn, varadlist[vn], 1] .= chninits[vn]
+            end
+        end
+    elseif kind in (:A, :B)
         Threads.@threads for vn in 1:numvar
-            vartocheckmessages[vn, varadlist[vn], 1] .= chninits[vn]
+            vartocheckmessages[vn, varadlist[vn], :] .= w[vn]
         end
     end
 
-    iter += 1
-    while iter <= maxiter
+    while iter < maxiter
         Threads.@threads for cn in 1:numcheck
             for v1 in checkadlist[cn]
-                checktovarmessages[cn, v1, iter] = ctovmess(cn, v1, checkadlist, vartocheckmessages)
+                checktovarmessages[cn, v1, iter] = ctovmess(cn, v1, iter, checkadlist, vartocheckmessages)
             end
         end
 
-        Threads.@threads for vn in 1:numvar
-            totals[vn] = chninit[vn]
-            for c in varadlist[vn]
-                totals[vn] += checktovarmessages[c, vn, iter - 1]
+        if kind == :SP
+            Threads.@threads for vn in 1:numvar
+                totals[vn] = chninit[vn]
+                for c in varadlist[vn]
+                    totals[vn] += checktovarmessages[c, vn, iter]
+                end
             end
         end
 
@@ -61,17 +75,36 @@ function messagepassing(H::T, v::T, chn::MPNoiseModel,
             @simd for i in 1:numvar
                 curr[i] = total >= 0 ? 0 : 1
             end
+        elseif kind in (:A, :B)
+            @simd for i in 1:numvar
+                len = length(varadlist[i])
+                onecount = count(isone, view(checktovarmessages, varadlist[i], i, iter))
+                d = fld(len, 2)
+                curr[i] = onecount + (isone(w[i]) && iseven(len)) > d
+            end
         end
 
         LinearAlgebra.mul!(syn, HInt, curr)
-        iszero(syn .% 2) && return matrix(base_ring(H), 1, numvar, curr), iter # others if necessary
+        @show curr
+        @show syn .% 2
+        iszero(syn .% 2) && return matrix(base_ring(H), 1, numvar, curr), iter, vartocheckmessages, checktovarmessages # others if necessary
         iter += 1
 
         if iter <= maxiter
             Threads.@threads for vn in 1:numvar
                 for c1 in varadlist[vn]
                     # vartocheckmessages[vn, c1, iter] = vtocmess(vn, c1, chninit[vn], varadlist, checktovarmessages)
-                    vartocheckmessages[vn, c1, iter] = totals[vn] - checktovarmessages[c1, vn, iter]
+                    if kind == :SP
+                        vartocheckmessages[vn, c1, iter] = totals[vn] - checktovarmessages[c1, vn, iter - 1]
+                    elseif kind == :A && length(varadlist[vn]) > 1
+                        if all(!isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2)
+                            vartocheckmessages[vn, c1, iter] ⊻= 1 
+                        end
+                    elseif kind == :B && length(varadlist[vn]) > Bt
+                        if count(!isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2) >= Bt
+                            vartocheckmessages[vn, c1, iter] ⊻= 1 
+                        end
+                    end
                 end
             end
         end
@@ -82,11 +115,11 @@ end
 
 struct MPNoiseModel
     type::Symbol
-    crossoverprob::Union{Float, Missing}
-    sigma::Union{Float, Missing}
+    crossoverprob::Union{Float64, Missing}
+    sigma::Union{Float64, Missing}
 end
 
-function MPNoiseModel(type::Symbol, x::Float)
+function MPNoiseModel(type::Symbol, x::Float64)
     if type == :BSC
         return MPNoiseModel(type, x, missing)
     elseif type == :BAWGNC
@@ -116,7 +149,7 @@ end
 #     return temp
 # end
 
-function _SPchecknodemessage(cn::Int, v1::Int, checkadlist, vartocheckmessages)
+function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages)
     phi(x) = -log(tanh(0.5 * x))
     temp = 0.0
     s = 1
@@ -128,6 +161,11 @@ function _SPchecknodemessage(cn::Int, v1::Int, checkadlist, vartocheckmessages)
     end
     return s * phi(temp)
 end
+
+function _GallagerAchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages)
+    reduce(⊻, vartocheckmessages[v, cn, iter] for v in checkadlist[cn] if v != v1)
+end
+_GallagerBchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages) = _GallagerAchecknodemessage(cn, v1, iter, checkadlist, vartocheckmessages)
 
 # TODO: write functions for each kind of message
 # BP
