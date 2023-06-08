@@ -1326,7 +1326,7 @@ end
 
     F = GF(2)
     A = matrix(F, 3, 3, ones(Int, 3, 3))
-    Q4 = BravyiSubsystemCode(A)
+    Q4 = BravyiBaconShorCode(A)
     @test CodingTheory.dimension(Q4) == rank(A)
     # # TODO: add a test here on the min distances
     # min d should be min(row wts, col wts)
