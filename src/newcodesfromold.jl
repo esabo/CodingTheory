@@ -300,6 +300,17 @@ end
 #############################
      # general functions
 #############################
+
+# keep not as a one-linear for a moment to add new properties later
+"""
+
+Return the transposed code of `C`.
+"""
+function transpose(C::AbstractLinearCode)
+    H = paritycheckmatrix(C)
+    return LinearCode(transpose(H), true)
+end
+
 """
     permutecode(C::AbstractLinearCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
 

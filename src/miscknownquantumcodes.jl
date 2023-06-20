@@ -107,13 +107,13 @@ Return the Bacon-Shor subsystem code on a `d x d` lattice.
 BaconShorCode(d::Int) = BaconShorCode(d, d)
 
 """
-    BravyiSubsystemCode(A::fq_nmod_mat)
+    BravyiBaconShorCode(A::fq_nmod_mat)
     GeneralizedBaconShorCode(A::fq_nmod_mat)
 
 Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With Spatially Local
 Generators", (2011).
 """
-function BravyiSubsystemCode(A::CTMatrixTypes)
+function BravyiBaconShorCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
     F = base_ring(A)
     Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
@@ -141,7 +141,9 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
         colwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
-    # really only need to generate every consequetive pair
+    # the original paper appears to switch X and Z compared to Bacon-Shor
+    # but this is corrected here to match
+    # X - consequetive column pairs
     Xgauges = zero_matrix(F, sum([colwts[i] - 1 for i in 1:length(colwts)]), n)
     currrow = 1
     Fone = F(1)
@@ -167,7 +169,7 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
         end
     end
 
-    # really only need to generate every consequetive pair
+    # Z - consequetive row pairs
     Zgauges = zero_matrix(F, sum([rowwts[i] - 1 for i in 1:length(rowwts)]), n)
     currrow = 1
     for r in 1:nr
@@ -192,49 +194,135 @@ function BravyiSubsystemCode(A::CTMatrixTypes)
         end
     end
 
-    # # every pair of 1's in row of A gets an Z gauge operator
-    # Zgauges = zero_matrix(F, totZgauges, n)
-    # currrow = 1
-    # Fone = F(1)
-    # for r in 1:nr
-    #     for c1 in 1:nc - 1
-    #         if !iszero(A[r, c1])
-    #             for c2 in c1 + 1:nc
-    #                 if !iszero(A[r, c2])
-    #                     Zgauges[currrow, linearindex[r, c1]] = Fone
-    #                     Zgauges[currrow, linearindex[r, c2]] = Fone
-    #                     currrow += 1
-    #                 end
-    #             end
-    #         end
-    #     end
-    # end
-
-    # # every pair of 1's in col of A gets a X gauge operator
-    # Xgauges = zero_matrix(F, totXgauges, n)
-    # currrow = 1
-    # for c in 1:nc
-    #     for r1 in 1:nr - 1
-    #         if !iszero(A[r1, c])
-    #             for r2 in r1 + 1:nr
-    #                 if !iszero(A[r2, c])
-    #                     Xgauges[currrow, linearindex[r1, c]] = Fone
-    #                     Xgauges[currrow, linearindex[r2, c]] = Fone
-    #                     currrow += 1
-    #                 end
-    #             end
-    #         end
-    #     end
-    # end
-
     S = SubsystemCode(Xgauges ⊕ Zgauges)
     minrowwt = minimum(rowwts)
     mincolwt = minimum(colwts)
     setminimumdistance!(S, minimum([minrowwt, mincolwt]))
     # TODO: also set dx and dz
+    # Z distance is min col wt?
+    # X distance is min row wt?
     return S
 end
 GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
+
+function LocalBravyiBaconShorCode(A::CTMatrixTypes)
+    iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
+    F = base_ring(A)
+    Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
+
+    nr, nc = size(A)
+    rowfirsts = zeros(Int, 1, nr)
+    rowlasts = zeros(Int, 1, nr)
+    for r in 1:nr
+        for c in 1:nc
+            if !iszero(A[r, c])
+                rowfirsts[r] = c
+                break
+            end
+        end
+    end
+    for r in 1:nr
+        for c in nc:-1:1
+            if !iszero(A[r, c])
+                rowlasts[r] = c
+                break
+            end
+        end
+    end
+
+    for i in 1:nr
+        rowfirsts[i] == rowlasts[i] && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+    end
+
+    colfirsts = zeros(Int, 1, nc)
+    collasts = zeros(Int, 1, nc)
+    for c in 1:nc
+        for r in 1:nr
+            if !iszero(A[r, c])
+                colfirsts[c] = r
+                break
+            end
+        end
+    end
+    for c in 1:nc
+        for r in nr:-1:1
+            if !iszero(A[r, c])
+                collasts[c] = r
+                break
+            end
+        end
+    end
+
+    for i in 1:nc
+        colfirsts[i] == collasts[i] && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+    end
+
+    n = 0
+    extraXs = 0
+    extraZs = 0
+    linearindex = Dict{Tuple{Int, Int}, Int}()
+    for r in 1:nr
+        for c in 1:nc
+            if rowfirsts[r] <= c <= rowlasts[r] || colfirsts[c] <= r <= collasts[c]
+                n += 1
+                linearindex[(r, c)] = n
+            end
+            if iszero(A[r, c])
+                rowfirsts[r] <= c <= rowlasts[r] && (extraXs += 1;)
+                colfirsts[c] <= r <= collasts[c] && (extraZs += 1;)
+            end
+        end
+    end
+
+    # X - consequetive column pairs + single qubit operators for each 0 in a row
+    Xgauges = zero_matrix(F, sum([rowlasts[i] - rowfirsts[i] for i in 1:nr]) + extraXs, n)
+    # Z - consequetive row pairs + single qubit operators for each 0 in a column
+    Zgauges = zero_matrix(F, sum([collasts[i] - colfirsts[i] for i in 1:nc]) + extraZs, n)
+    currrowX = 1
+    currrowZ = 1
+
+    # the original paper appears to switch X and Z compared to Bacon-Shor
+    # but this is corrected here to match
+    Fone = F(1)
+    for c in 1:nc
+        for r in colfirsts[c]:collasts[c]
+            if r != collasts[c]
+                Xgauges[currrowX, linearindex[r, c]] = Fone
+                Xgauges[currrowX, linearindex[r + 1, c]] = Fone
+                currrowX += 1
+            end
+            if iszero(A[r, c])
+                Zgauges[currrowZ, linearindex[r, c]] = Fone
+                currrowZ += 1
+            end
+        end
+    end
+
+    for r in 1:nr
+        for c in rowfirsts[r]:rowlasts[r]
+            if c != rowlasts[r]
+                Zgauges[currrowZ, linearindex[r, c]] = Fone
+                Zgauges[currrowZ, linearindex[r, c + 1]] = Fone
+                currrowZ += 1
+            end
+            if iszero(A[r, c])
+                Xgauges[currrowX, linearindex[r, c]] = Fone
+                currrowX += 1
+            end
+        end
+    end
+
+    # return Xgauges, Zgauges
+    S = SubsystemCode(Xgauges ⊕ Zgauges, missing, :VS)
+    # minrowwt = minimum(rowwts)
+    # mincolwt = minimum(colwts)
+    # setminimumdistance!(S, minimum([minrowwt, mincolwt]))
+    # TODO: also set dx and dz
+    # Z distance is min col wt?
+    # X distance is min row wt?
+    return S
+end
+AugmentedBravyiBaconShorCode(A::CTMatrixTypes) = LocalBravyiBaconShorCode(A)
 
 # subsystem codes were described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
 
@@ -653,14 +741,26 @@ SubsystemSurfaceCode(d::Int) = SubsystemSurfaceCode(d, d)
 #############################
 
 """
+    QC6()
+
+Return the `C_6` stabilizer code defined by Knill.
+"""
+function QC6()
+    S = StabilizerCode(["XIIXXX", "XXXIIX", "ZIIZZZ", "ZZZIIZ"])
+    S.d = 2
+    return S
+end
+
+
+"""
     FiveQubitCode()
     Q513()
 
 Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
-# is a perfect code
 FiveQubitCode() = StabilizerCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
 Q513() = FiveQubitCode()
+# is a perfect code
 
 # should also do a test for other CSS construction via Hamming code and actually make that one default
 """
@@ -685,7 +785,16 @@ ShorCode() = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIII
 Q913() = ShorCode()
 
 Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
+
+"""
+    QC4()
+    Q422()
+
+Return the `[[4, 2, 2]]`` stabilizer code `C_4`` defined by Knill.
+"""
 Q422() = CSSCode(["XXXX", "ZZZZ"])
+QC4() = Q422()
+
 Q511() = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
 
 function Q823()
