@@ -138,7 +138,7 @@ function _messagepassing(H::Matrix{UInt64}, w::Vector{Int}, chn::Union{Missing, 
                         if all(!Base.isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2)
                             vartocheckmessages[vn, c1, iter] ⊻= 1 
                         end
-                    elseif kind == :B && length(varadlist[vn]) > Bt
+                    elseif kind == :B && length(varadlist[vn]) >= Bt
                         if count(!Base.isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2) >= Bt
                             vartocheckmessages[vn, c1, iter] ⊻= 1 
                         end
