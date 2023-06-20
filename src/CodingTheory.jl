@@ -7,6 +7,7 @@
 module CodingTheory
 
 # TODO: make namespaces minimal
+using AutoHashEquals
 using Oscar
 using CairoMakie, Graphs
 using JLD2
@@ -223,7 +224,7 @@ export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode, GeneralizedBac
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D
 
 #############################
         # trellis.jl
