@@ -212,11 +212,29 @@ function findMPschedule(H::CodingTheory.CTMatrixTypes)
 end
 
 # # need to take in a range of parameter values here
-# function sumproductsimulation(H::CTMatrixTypes, chn::MPNoiseModel, maxiter::Int=100, numruns::Int=100000)
-#     # check on parameters here
-#     HInt, _, varadlist, checkadlist = _messagepassinginit(H, zeros_matrix(base_ring(H), 1, ncols(H)), chn, maxiter, :SP, 2)
-#     failure = 0
-#     # sample here for numruns copies of w
-#         flag, _, _, _, _ = _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
-#         !flag && (failure += 1;)
+function sumproductsimulation(H::CTMatrixTypes, chn::MPNoiseModel, maxiter::Int=100, numruns::Int=100000)
+    # check on parameters here
+    HInt, _, varadlist, checkadlist = _messagepassinginit(H, zero_matrix(base_ring(H), 1, ncols(H)), chn, maxiter, :SP, 2)
+    failure = 0
+    # sample here for numruns copies of w
+    n = ncols(H)
+    w = zeros(Int, n)
+    for i in 1:numruns
+        for j in 1:n
+            w[j] = Int(rand() < chn.crossoverprob)
+        end
+        iszero(w) && continue
+        flag, curr, _, _, _ = _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
+        (flag && iszero(curr)) || (failure += 1;)
+    end
+    return failure / numruns
+end
+
+# function simulation(type::Symbol = :SP, H::CTMatrixTypes, parr::Vector{Float64}, maxiter::Int = 100, numrus::Int = 100000)
+#     if type == :SP
+#         for p in parr
+#             chn = MPNoiseModel(:BSC, p)
+#         end
+#     elseif type == :A
+#     end
 # end
