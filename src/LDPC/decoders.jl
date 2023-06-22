@@ -32,29 +32,34 @@ function GallagerB(H::T, v::T, maxiter::Int=100, threshold::Int=2) where T <: CT
     return _messagepassing(HInt, w, missing, _GallagerBchecknodemessage, varadlist, checkadlist, maxiter, :B, threshold)
 end
 
-function sumproduct(H::T, v::T, chn::MPNoiseModel, maxiter::Int=100) where T <: CTMatrixTypes
+function sumproduct(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
     HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :SP, 2)
     return _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
 end
 
-function minsum(H::T, v::T, chn::MPNoiseModel, maxiter::Int=100) where T <: CTMatrixTypes
+function minsum(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
     HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :MS, 2)
     return _messagepassing(HInt, w, chn, _MSchecknodemessage, varadlist, checkadlist, maxiter, :MS)
 end
 
-function _messagepassinginit(H::T, v::T, chn::Union{Missing, MPNoiseModel}, maxiter::Int, kind::Symbol, Bt::Int) where T <: CTMatrixTypes
+function _messagepassinginit(H::S, v::T, chn::Union{Missing, MPNoiseModel}, maxiter::Int, kind::Symbol, Bt::Int) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
     kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
     kind ∈ (:SP, :MS) && ismissing(chn) && throw(ArgumentError(":SP and :MS require a noise model"))
-    Int(order(base_ring(H))) == Int(order(base_ring(v))) == 2 ||
-        throw(ArgumentError("Currently only implemented for binary codes"))
+    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
     numcheck, numvar = size(H)
     numcheck > 0 && numvar > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    (size(v) != (numvar, 1) && size(v) != (1, numvar)) && throw(ArgumentError("Vector has incorrect dimension"))
+    length(v) == numvar || throw(ArgumentError("Vector has incorrect dimension"))
     (kind == :B && !(1 <= Bt <= numcheck)) && throw(DomainError("Improper threshold for Gallager B"))
     2 <= maxiter || throw(DomainError("Number of maximum iterations must be at least two"))
+    chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) && throw(DomainError("Received message should be a vector of floats for BAWGNC."))
+    chn.type == :BSC && !isa(v, Vector{Int}) && throw(DomainError("Received message should be a vector of Ints for BSC."))
     
     HInt = FpmattoJulia(H)
-    w = Int.(data.(v)[:])
+    w = if T <: CTMatrixTypes
+        Int.(data.(v)[:])
+    else
+        copy(v)
+    end
     checkadlist = [[] for _ in 1:numcheck]
     varadlist = [[] for _ in 1:numvar]
 
@@ -71,8 +76,9 @@ function _messagepassinginit(H::T, v::T, chn::Union{Missing, MPNoiseModel}, maxi
 end
 
 # TODO: scheduling
-function _messagepassing(H::Matrix{UInt64}, w::Vector{Int}, chn::Union{Missing, MPNoiseModel}, ctovmess::Function,
-    varadlist::Vector{Vector{Any}}, checkadlist::Vector{Vector{Any}}, maxiter::Int, kind::Symbol, Bt::Int=2)
+function _messagepassing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MPNoiseModel},
+    ctovmess::Function, varadlist::Vector{Vector{Any}}, checkadlist::Vector{Vector{Any}},
+    maxiter::Int, kind::Symbol, Bt::Int=2) where T <: Union{Int, AbstractFloat}
 
     numcheck, numvar = size(H)
     S = kind ∈ (:A, :B) ? Int : Float64
@@ -162,7 +168,6 @@ end
 
 function _channelinitBSC(v::Vector{T}, p::Float64) where T <: Integer
     temp = log((1 - p) / p)
-    # chninit = zeros(Float64, length(v), 1)
     chninit = zeros(Float64, length(v))
     for i in eachindex(v)
         chninit[i] = (-1)^v[i] * temp
@@ -170,9 +175,8 @@ function _channelinitBSC(v::Vector{T}, p::Float64) where T <: Integer
     return chninit
 end
 
-function _channelinitBAWGNCSP(v::Vector{T}, σ::Float64) where T <: Integer
+function _channelinitBAWGNCSP(v::Vector{T}, σ::Float64) where T <: AbstractFloat
     temp = 2 / σ^2
-    # chninit = zeros(Float64, length(v), 1)
     chninit = zeros(Float64, length(v))
     for i in eachindex(v)
         chninit[i] = temp * v[i]
@@ -180,7 +184,7 @@ function _channelinitBAWGNCSP(v::Vector{T}, σ::Float64) where T <: Integer
     return chninit
 end
 
-_channelinitBAWGNCMS(v::Vector{T}) where T <: Integer = v
+_channelinitBAWGNCMS(v::Vector{T}) where T <: AbstractFloat = v
 
 function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten::Missing=missing)
     phi(x) = -log(tanh(0.5 * x))
@@ -273,13 +277,15 @@ end
 
 
 using Random
-function sumproductsimulation(H::CTMatrixTypes, noisetype::Symbol,
-                              noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
-                              maxiter::Int=100, numruns::Int=100000, seed::Int = 123)
+function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
+                           noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
+                           maxiter::Int=100, numruns::Int=100000, seed::Int = 123)
 
+    decoder in (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
     noisetype in (:BSC, :BAWGNC) || throw(ArgumentError("Only supports BSC and BAWGNC"))
+    decoder in (:A, :B) && noisetype == :BAWGNC && throw(ArgumentError("BAWGNC not supported for Gallager decoders."))
     0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
-    (maximum(noise) <= 1 && noisetype == :BSC) || throw(ArgumentError("Crossover probability must be in the range [0,1]."))
+    maximum(noise) > 1 && noisetype == :BSC && throw(ArgumentError("Crossover probability must be in the range [0,1]"))
 
     # we'll use an explicit pseudoRNG with the given seed. Note that Xoshiro is default in Julia.
     rng = Xoshiro(seed)
@@ -287,21 +293,20 @@ function sumproductsimulation(H::CTMatrixTypes, noisetype::Symbol,
     FER = zeros(length(noise))
     BER = zeros(length(noise))
     n = ncols(H)
-    w = zeros(Int, n)
 
     for k in eachindex(noise)
         chn = MPNoiseModel(noisetype, noise[k])
-        HInt, _, varadlist, checkadlist = _messagepassinginit(H, zero_matrix(base_ring(H), 1, ncols(H)), chn, maxiter, :SP, 2)
+        w = noisetype == :BSC ? zeros(Int, n) : ones(n)
+        HInt, _, varadlist, checkadlist = _messagepassinginit(H, w, chn, maxiter, decoder, 2)
         FEtotal = 0 # number of frame errors
         BEtotal = 0 # number of bit errors
-        p = if noisetype == :BSC
-            chn.crossoverprob
-        elseif noisetype == :BAWGNC
-            exp(-2 / chn.sigma^2) / (chn.sigma * √(2π))
-        end
-        for i in 1:numruns
+        @threads for i in 1:numruns
             for j in 1:n
-                w[j] = Int(rand(rng) < p)
+                if noisetype == :BSC
+                    w[j] = Int(rand(rng) < chn.crossoverprob)
+                else # BAWGNC
+                    w[j] = 1.0 + randn(rng, Float64) * chn.sigma
+                end
             end
             iszero(w) && continue
             flag, curr, _, _, _ = _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
@@ -316,27 +321,61 @@ function sumproductsimulation(H::CTMatrixTypes, noisetype::Symbol,
     return FER, BER
 end
 
-# function simulation(type::Symbol = :SP, H::CTMatrixTypes, parr::Vector{Float64}, maxiter::Int = 100, numrus::Int = 100000)
-#     if type == :SP
-#         for p in parr
-#             chn = MPNoiseModel(:BSC, p)
-#         end
-#     elseif type == :A
-#     end
-# end
+using Plots: plot, savefig
+function testsimulation()
+    # C = BCHCode(2, 2^10-1, 53, 1);
+    # C = BCHCode(2, 103, 3);
+    # H = paritycheckmatrix(C);
 
-# function testsimulation()
-#     C = BCHCode(2, 2^10-1, 53, 1);
-#     H = paritycheckmatrix(C);
-#     p = 0.02:0.02:0.1;
-#     FER, BER = sumproductsimulation(H, :BSC, p, 100, 100, 123);
-#     plt = plot(p, [FER BER],
-#                label = ["FER" "BER"],
-#                xlabel = "Crossover probability",
-#                ylabel = "Error rate",
-#                title = "Binary extended Golay code on a BSC");
-#     savefig(plt, "test.png");
-# end
+    H = matrix(GF(2), 10, 20, [1 0 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0;
+                               0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0 0;
+                               0 0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0;
+                               1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0 0;
+                               0 1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0;
+                               1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0 0;
+                               0 1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0;
+                               0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0 0;
+                               0 0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0;
+                               1 0 0 0 1 1 0 1 0 0 0 0 0 0 0 0 0 0 0 1]);
+
+    p0 = 0.0001:0.0001:0.0009;
+    p1 = 0.001:0.001:0.01;
+    p2 = 0.025:0.025:0.15;
+    @time FER0, BER0 = decodersimulation(H, :SP, :BSC, p0, 100, 10000000, 123);
+    @time FER1, BER1 = decodersimulation(H, :SP, :BSC, p1, 100, 500000, 123);
+    @time FER2, BER2 = decodersimulation(H, :SP, :BSC, p2, 100, 10000, 123);
+    p = vcat(p0, p1, p2);
+    FER = vcat(FER0, FER1, FER2);
+    BER = vcat(BER0, BER1, BER2);
+
+
+    # p = 10 .^ collect(-4:.2:-0.8)
+    # @time FER, BER = decodersimulation(H, :SP, :BSC, p, 100, 10000, 123);
+    plt = plot(log10.(p), log10.([FER BER]),
+               label = ["FER" "BER"],
+               xlabel = "Crossover probability",
+               ylabel = "Error rate",
+               title = "Sum-Product, BSC, [20,10,5] code",
+               # xlims = (0, maximum(p) * 1.02),
+               # ylims = (0, max(maximum(FER), maximum(BER)) * 1.02),
+               xticks = (-4:-1, ["1e-4", "1e-3", "1e-2", "1e-1"]),
+               yticks = (-6:0, ["1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0"]),
+               # yscale = :log,
+               marker = :dot);
+
+
+    # p = 0.1:0.1:1
+    # FER, BER = decodersimulation(H, :SP, :BAWGNC, p, 100, 100, 123);
+    # SNR = CodingTheory._channeltoSNR.(:BAWGNC, p)
+    # plt = plot(SNR, [FER BER],
+    #            label = ["FER" "BER"],
+    #            xlabel = "Noise (dB)",
+    #            ylabel = "Error rate",
+    #            marker = :dot);
+
+
+    savefig(plt, "test.png");
+end
 
 
 # function profiletest()
