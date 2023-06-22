@@ -19,4 +19,9 @@ learninggit.txt
 *.txt
 docs/.DS_Store
 typestest.jl
+
+# profiling output stuff:
+*.pb.gz
+*.mem
+
 # Manifest.toml
