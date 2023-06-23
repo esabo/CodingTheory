@@ -25,6 +25,7 @@ Documenter.makedocs(
 		],
 		"Classical" => [
         	"Classical/linearcode.md",
+			"Classical/concatenation.md",
         	"Classical/cycliccode.md",
         	"Classical/quasicyclic.md",
         	"Classical/GeneralizedReedSolomon.md",

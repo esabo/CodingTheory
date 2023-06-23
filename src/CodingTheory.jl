@@ -20,8 +20,8 @@ using SparseArrays
 import LinearAlgebra: tr, Adjoint, transpose
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal
+    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
 import Combinatorics: powerset
 import Graphs: nv, incidence_matrix
@@ -177,6 +177,13 @@ export ZeroCode, IdentityCode, RepetitionCode, Hexacode, HammingCode, TetraCode,
 
 include("GeneralizedReedSolomon.jl")
 export GeneralizedReedSolomonCode, scalars, dualscalars, evaluationpoints
+
+#############################
+      # concatenation.jl
+#############################
+
+include("concatenation.jl")
+export concatenate, innercode, outercode, expansionbasis, expansiondualbasis, concatenationtype
 
 #############################
       # subsystemcode.jl

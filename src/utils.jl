@@ -1184,6 +1184,7 @@ function isextension(E::CTFieldTypes, F::CTFieldTypes)
     #     return false, missing
     # end
 end
+issubfield(F::CTFieldTypes, E::CTFieldTypes) = isextension(E, F)
 
 """
     isbasis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})

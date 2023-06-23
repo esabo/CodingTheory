@@ -26,8 +26,8 @@ abstract type AbstractReedSolomonCode <: AbstractBCHCode end
 abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
 abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
+abstract type AbstractConcatenatedCode <: AbstractLinearCode end
 
-# easy to change later if necessary:
 const CTFieldTypes = FinField
 const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
@@ -255,6 +255,30 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     Hstand::CTMatrixTypes
     Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
     weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is completely known for MDS?
+end
+
+#############################
+     # concatenation.jl
+#############################
+
+mutable struct ConcatenatedCode <: AbstractLinearCode
+    Cin::AbstractLinearCode
+    Cout::AbstractLinearCode
+    type::Symbol
+    basis::Union{Vector{<:CTFieldElem}, Missing}
+    dualbasis::Union{Vector{<:CTFieldElem}, Missing}
+    F::CTFieldTypes # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    Gstand::CTMatrixTypes
+    Hstand::CTMatrixTypes
+    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
+    weightenum::Union{WeightEnumerator, Missing}
 end
 
 #############################

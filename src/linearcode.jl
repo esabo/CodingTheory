@@ -16,7 +16,7 @@ set to `true`, a linear code is built with `G` as the parity-check matrix. If th
 `bruteforceWE` is `true`, the weight enumerator and (and therefore the distance) is calculated when
 there are fewer than 1.5e5 codewords.
 """
-function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = true)
+function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool=true)
     iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
 
     Gnew = deepcopy(G)
@@ -72,7 +72,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, bruteforceWE::Bool = t
 end
 
 # TODO: add doc strings
-function LinearCode(G::T, H::T, bruteforceWE::Bool = true) where T <: CTMatrixTypes
+function LinearCode(G::T, H::T, bruteforceWE::Bool=true) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
     base_ring(G) == base_ring(H) || throw(ArgumentError("G and H are not over the same field"))
@@ -491,7 +491,7 @@ Singletonbound(C::AbstractLinearCode) = Singletonbound(C.n, C.k)
 """
     encode(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
 
-Return `v * G`, where `G` is the generator matrix of `C`.
+Return the encoding of `v` into `C`
 """
 function encode(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
     w = isa(v, Vector{Int}) ? matrix(C.F, 1, length(v), v) : v
@@ -507,7 +507,7 @@ end
 """
     syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
 
-Return `Hv`, where `H` is the parity-check matrix of `C`.
+Return the syndrome of `v` with respect to `C`.
 """
 function syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
     w = isa(v, Vector{Int}) ? matrix(C.F, length(v), 1, v) : v
