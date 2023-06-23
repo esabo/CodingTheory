@@ -37,9 +37,9 @@ function sumproduct(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <:
     return _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
 end
 
-function minsum(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
+function minsum(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100, attenuation::Float64 = 0.5) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
     HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :MS, 2)
-    return _messagepassing(HInt, w, chn, _MSchecknodemessage, varadlist, checkadlist, maxiter, :MS)
+    return _messagepassing(HInt, w, chn, _MSchecknodemessage, varadlist, checkadlist, maxiter, :MS, attenuation)
 end
 
 function _messagepassinginit(H::S, v::T, chn::Union{Missing, MPNoiseModel}, maxiter::Int, kind::Symbol, Bt::Int) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
@@ -78,7 +78,7 @@ end
 # TODO: scheduling
 function _messagepassing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MPNoiseModel},
     ctovmess::Function, varadlist::Vector{Vector{Any}}, checkadlist::Vector{Vector{Any}},
-    maxiter::Int, kind::Symbol, Bt::Int=2) where T <: Union{Int, AbstractFloat}
+    maxiter::Int, kind::Symbol, Bt::Int=2, attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
 
     numcheck, numvar = size(H)
     S = kind ∈ (:A, :B) ? Int : Float64
@@ -112,7 +112,7 @@ function _messagepassing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MP
     while iter < maxiter
         for cn in 1:numcheck
             for v1 in checkadlist[cn]
-                checktovarmessages[cn, v1, iter] = ctovmess(cn, v1, iter, checkadlist, vartocheckmessages)
+                checktovarmessages[cn, v1, iter] = ctovmess(cn, v1, iter, checkadlist, vartocheckmessages, attenuation)
             end
         end
 
@@ -186,7 +186,7 @@ end
 
 _channelinitBAWGNCMS(v::Vector{T}) where T <: AbstractFloat = v
 
-function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten::Missing=missing)
+function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten = missing)
     phi(x) = -log(tanh(0.5 * x))
     temp = 0.0
     s = 1
@@ -223,10 +223,10 @@ function _MSchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmess
     return s * attenuation * temp
 end
 
-function _GallagerAchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten::Missing=missing)
+function _GallagerAchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten = missing)
     reduce(⊻, vartocheckmessages[v, cn, iter] for v in checkadlist[cn] if v != v1)
 end
-_GallagerBchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten::Missing=missing) = _GallagerAchecknodemessage(cn, v1, iter, checkadlist, vartocheckmessages, atten)
+_GallagerBchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten = missing) = _GallagerAchecknodemessage(cn, v1, iter, checkadlist, vartocheckmessages, atten)
 
 # Mansour, Shanbhag, "Turbo Decoder Architectures for Low-Density Parity-Check Codes" (2002)
 
@@ -277,9 +277,20 @@ end
 
 
 using Random
+
 function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
                            noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
-                           maxiter::Int=100, numruns::Int=100000, seed::Int = 123)
+                           maxiter::Int=100, numruns::Int=100000, seed::Int = 123,
+                           attenuation::Float64 = 0.5)
+
+    decodersimulation(H, decoder, noisetype, noise, maxiter,
+                      [numruns for n in noise], seed, attenuation)
+end
+
+function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
+                           noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
+                           maxiter::Int=100, numruns::Vector{Int} = [100000 for n in noise],
+                           seed::Int = 123, attenuation::Float64 = 0.5)
 
     decoder in (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
     noisetype in (:BSC, :BAWGNC) || throw(ArgumentError("Only supports BSC and BAWGNC"))
@@ -293,6 +304,7 @@ function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
     FER = zeros(length(noise))
     BER = zeros(length(noise))
     n = ncols(H)
+    cnmsg = decoder == :SP ? _SPchecknodemessage : _MSchecknodemessage
 
     for k in eachindex(noise)
         chn = MPNoiseModel(noisetype, noise[k])
@@ -300,7 +312,8 @@ function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
         HInt, _, varadlist, checkadlist = _messagepassinginit(H, w, chn, maxiter, decoder, 2)
         FEtotal = 0 # number of frame errors
         BEtotal = 0 # number of bit errors
-        @threads for i in 1:numruns
+        @threads for i in 1:numruns[k]
+        # for i in 1:numruns
             for j in 1:n
                 if noisetype == :BSC
                     w[j] = Int(rand(rng) < chn.crossoverprob)
@@ -309,16 +322,82 @@ function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
                 end
             end
             iszero(w) && continue
-            flag, curr, _, _, _ = _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
+            flag, curr, _, _, _ = _messagepassing(HInt, w, chn, cnmsg, varadlist, checkadlist, maxiter, decoder, 2, attenuation)
             if !(flag && iszero(curr))
                 FEtotal += 1
                 BEtotal += count(!iszero, curr)
             end
         end
-        FER[k] = FEtotal / numruns
-        BER[k] = BEtotal / (numruns * n)
+        FER[k] = FEtotal / numruns[k]
+        BER[k] = BEtotal / (numruns[k] * n)
     end
     return FER, BER
+end
+
+function decodersimulation2(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
+                            noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
+                            maxiter::Int=100, numruns::Int = 1000,
+                            seed::Int = 123, attenuation::Float64 = 1.0)
+
+    decoder in (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
+    noisetype == :BSC || throw(ArgumentError("Only supports BSC"))
+    0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
+    maximum(noise) > 1 && noisetype == :BSC && throw(ArgumentError("Crossover probability must be in the range [0,1]"))
+
+    # we'll use an explicit pseudoRNG with the given seed. Note that Xoshiro is default in Julia.
+    rng = Xoshiro(seed)
+
+    FER = zeros(length(noise))
+    BER = zeros(length(noise))
+    ε = zeros(length(noise))
+    n = ncols(H)
+    cnmsg = decoder == :SP ? _SPchecknodemessage : _MSchecknodemessage
+
+    for k in eachindex(noise)
+
+        # p[i] is the probability of having i - 1 bit errors
+        temp = BigFloat(noise[k])
+        p = BigFloat[temp^i * (1 - temp)^(n - i) * binomial(big(n), big(i)) /
+                     sum(temp^j * (1 - temp)^(n - j) * binomial(big(n), big(j))
+                         for j in 0:n) for i in 0:n]
+        p_partialsum = [sum(p[j] for j in 1:i) for i in 1:length(p)]
+        maxnerr = max(findfirst(p_partialsum .>= 1 - BigFloat("1e-7")) - 1, 6)
+        # @show maxnerr
+        ε[k] = 1 - p_partialsum[maxnerr + 1]
+
+        chn = MPNoiseModel(noisetype, noise[k])
+        w = noisetype == :BSC ? zeros(Int, n) : ones(n)
+        HInt, _, varadlist, checkadlist = _messagepassinginit(H, w, chn, maxiter, decoder, 2)
+
+        FEtotal = zeros(Int, maxnerr)
+        BEtotal = zeros(Int, maxnerr)
+        FER[k] = p[1]
+        BER[k] = p[1]
+
+        for e in 1:maxnerr
+
+            # importance sampling:
+            numruns_for_e = Int(cld(numruns * p[e+1], sum(p[i] for i in 2:maxnerr+1)))
+
+            # naive:
+            # numruns_for_e = Int(cld(numruns, maxnerr))
+
+            for i in 1:numruns_for_e
+                w = zeros(Int, n)
+                w[shuffle(rng, 1:n)[1:e]] .= 1
+                flag, curr, _, _, _ = _messagepassing(HInt, w, chn, cnmsg, varadlist, checkadlist, maxiter, decoder, 2, attenuation)
+                if !(flag && iszero(curr))
+                    FEtotal[e] += 1
+                    BEtotal[e] += count(!iszero, curr)
+                end
+            end
+            FER[k] += p[e+1] * (numruns_for_e - FEtotal[e]) / numruns_for_e
+            BER[k] += p[e+1] * (numruns_for_e * n - BEtotal[e]) / (numruns_for_e * n)
+        end
+        FER[k] = 1 - FER[k]
+        BER[k] = 1 - BER[k]
+    end
+    return FER, BER, ε
 end
 
 using Plots: plot, savefig
@@ -341,32 +420,47 @@ function testsimulation()
     p0 = 0.0001:0.0001:0.0009;
     p1 = 0.001:0.001:0.01;
     p2 = 0.025:0.025:0.15;
-    @time FER0, BER0 = decodersimulation(H, :SP, :BSC, p0, 100, 10000000, 123);
+    @time FER0, BER0 = decodersimulation(H, :SP, :BSC, p0, 100, 20000000, 123);
     @time FER1, BER1 = decodersimulation(H, :SP, :BSC, p1, 100, 500000, 123);
     @time FER2, BER2 = decodersimulation(H, :SP, :BSC, p2, 100, 10000, 123);
+    @time FER0ms, BER0ms = decodersimulation(H, :MS, :BSC, p0, 100, 20000000, 123);
+    @time FER1ms, BER1ms = decodersimulation(H, :MS, :BSC, p1, 100, 500000, 123);
+    @time FER2ms, BER2ms = decodersimulation(H, :MS, :BSC, p2, 100, 10000, 123);
+    @time FER0msnoa, BER0msnoa = decodersimulation(H, :MS, :BSC, p0, 100, 20000000, 123, 1.);
+    @time FER1msnoa, BER1msnoa = decodersimulation(H, :MS, :BSC, p1, 100, 500000, 123, 1.);
+    @time FER2msnoa, BER2msnoa = decodersimulation(H, :MS, :BSC, p2, 100, 10000, 123, 1.);
     p = vcat(p0, p1, p2);
     FER = vcat(FER0, FER1, FER2);
     BER = vcat(BER0, BER1, BER2);
+    FERms = vcat(FER0ms, FER1ms, FER2ms);
+    BERms = vcat(BER0ms, BER1ms, BER2ms);
+    FERmsnoa = vcat(FER0msnoa, FER1msnoa, FER2msnoa);
+    BERmsnoa = vcat(BER0msnoa, BER1msnoa, BER2msnoa);
 
+    p = 10 .^ collect(-4:.2:-0.8);
+    @time F1, _ = CodingTheory.decodersimulation2(H, :SP, :BSC, p, 100, 10000, 1, 1.0);
+    @time F2, _ = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 1.0);
+    @time F3, _ = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 0.5);
+    @time F4, _ = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 0.1);
 
-    # p = 10 .^ collect(-4:.2:-0.8)
-    # @time FER, BER = decodersimulation(H, :SP, :BSC, p, 100, 10000, 123);
-    plt = plot(log10.(p), log10.([FER BER]),
-               label = ["FER" "BER"],
+    plt = plot(log10.(p), log10.([F1 F2 F3 F4]),
+               label = ["FER, SP" "FER, MS atten=1.0" "FER, MS atten=0.5" "FER, MS atten=0.1"],
                xlabel = "Crossover probability",
                ylabel = "Error rate",
-               title = "Sum-Product, BSC, [20,10,5] code",
+               title = "BSC with a [20,10,5] code",
                # xlims = (0, maximum(p) * 1.02),
                # ylims = (0, max(maximum(FER), maximum(BER)) * 1.02),
-               xticks = (-4:-1, ["1e-4", "1e-3", "1e-2", "1e-1"]),
-               yticks = (-6:0, ["1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0"]),
+               # xticks = (-4:-1, ["1e-4", "1e-3", "1e-2", "1e-1"]),
+               # yticks = (-6:0, ["1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0"]),
                # yscale = :log,
                marker = :dot);
+    xticks!(plt, (xticks(plt)[1][1], "1e" .* xticks(plt)[1][2]));
+    yticks!(plt, (yticks(plt)[1][1], "1e" .* yticks(plt)[1][2]));
 
 
-    # p = 0.1:0.1:1
+    # σ = 0.1:0.1:1
     # FER, BER = decodersimulation(H, :SP, :BAWGNC, p, 100, 100, 123);
-    # SNR = CodingTheory._channeltoSNR.(:BAWGNC, p)
+    # SNR = CodingTheory._channeltoSNR.(:BAWGNC, σ)
     # plt = plot(SNR, [FER BER],
     #            label = ["FER" "BER"],
     #            xlabel = "Noise (dB)",
