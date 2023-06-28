@@ -53,6 +53,14 @@ function RepetitionCode(q::Int, n::Int)
 end
 
 """
+    SingleParityCheckCode(q::Int, n::Int)
+
+Return the `[n, n-1, 2]` single parity check code over `GF(q)`.
+"""
+SingleParityCheckCode(q::Int, n::Int) = dual(RepetitionCode(q, n))
+SPCCode(q::Int, n::Int) = SingleParityCheckCode(q, n)
+
+"""
     Hexacode()
 
 Return the `[6, 3, 4]` hexacode over `GF(4)`.

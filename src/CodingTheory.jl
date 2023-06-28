@@ -169,8 +169,8 @@ export weightmatrix, basematrix, protographmatrix, QuasiCyclicCode, index,
 #############################
 
 include("miscknowncodes.jl")
-export ZeroCode, IdentityCode, RepetitionCode, Hexacode, HammingCode, TetraCode,
-    SimplexCode, GolayCode, ExtendedGolayCode
+export ZeroCode, IdentityCode, RepetitionCode, SingleParityCheckCode, SPCCode,
+    Hexacode, HammingCode, TetraCode, SimplexCode, GolayCode, ExtendedGolayCode
 
 #############################
  # GeneralizedReedSolomon.jl
