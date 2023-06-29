@@ -1436,4 +1436,22 @@ using Test
     @test generatormatrix(C) == Gfinal
     @test minimumdistance(C) == 8
 
+    # Bossert example 9.2
+    A1 = extend(HammingCode(2, 3))
+    A2 = RepetitionCode(4, 8)
+    A2e = expandedcode(A2, GF(2), basis(A2.F, GF(2)))
+    outers = [A1, A2e]
+    inners = [RepetitionCode(2, 4), SPCCode(2, 4)]
+    C = concatenate(outers, inners)
+    @test C.n == 32
+    @test C.k == 6
+    @test C.d == 16
+
+    # Huffman and Pless, example 5.5.2
+    # Note that when the inner code is an identity code, the expanded code should already be the final answer. Also test if the generalized concatenate gives the same answer as the usual concatenate
+    C = Hexacode()
+    Ce = expandedcode(C, GF(2), basis(C.F, GF(2)))
+    C1 = concatenate([Ce], [IdentityCode(2,2)])
+    C2 = concatenate(Ce, IdentityCode(2,2))
+    @test Ce.G == C1.G == C2.G
 end

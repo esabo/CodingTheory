@@ -96,7 +96,7 @@ function concatenate(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLi
     for i in 2:length(inners)
         Gi = generatormatrix(inners[i])
         Gim1 = generatormatrix(inners[i - 1])
-        push!(Ginpart, _quotientspace(Gi, Gim1, :VS))
+        push!(B, _quotientspace(Gi, Gim1, :VS))
     end
 
     G1 = reduce(directsum, generatormatrix(C) for C in outers)
