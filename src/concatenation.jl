@@ -62,24 +62,23 @@ function concatenate(Cout::AbstractLinearCode, Cin::AbstractLinearCode)
 end
 ∘(Cout::AbstractLinearCode, Cin::AbstractLinearCode) = concatenate(Cout, Cin)
 
-function concatenate(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
-    isempty(outers) && throw(ArgumentError("List of codes cannot be empty"))
-    length(outers) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
+function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
+    isempty(outers_unexpanded) && throw(ArgumentError("List of codes cannot be empty"))
+    length(outers_unexpanded) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
     for i in 2:length(inners)
         # inners[i] ⊆ inners[i - 1] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
         inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
     end
     F = first(inners).F
     nin = first(inners).n
-    # iszero(generatormatrix(inners[end])) || push!(inners, ZeroCode(F, nin))
 
+    outers = copy(outers_unexpanded)
     ordF = Int(order(F))
     for (i, Cout) in enumerate(outers)
         if Int(order(Cout.F)) == ordF
             Cout.F != F || (outers[i] = changefield(Cout, F);)
-        elseif issubfield(F, Cout.F)
-            # TODO: expansion step here
-            throw(ArgumentError("Only implemented for pre-expanded outer codes currently"))
+        elseif issubfield(F, Cout.F)[1]
+            outers[i] = expandedcode(outers[i], F, basis(outers[i].F, F))
         else
             throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
         end
