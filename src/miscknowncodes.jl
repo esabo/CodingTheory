@@ -57,7 +57,19 @@ end
 
 Return the `[n, n-1, 2]` single parity check code over `GF(q)`.
 """
-SingleParityCheckCode(q::Int, n::Int) = dual(RepetitionCode(q, n))
+function SingleParityCheckCode(q::Int, n::Int)
+    iseven(q) && (return dual(RepetitionCode(q, n));)
+    F = if isprime(q)
+        GF(q)
+    else
+        factors = Nemo.factor(q)
+        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        (p, t), = factors
+        GF(p, t, :α)
+    end
+    G = hcat(matrix(F, .-ones(Int, n - 1, 1)), identity_matrix(F, n - 1))
+    return LinearCode(G)
+end
 SPCCode(q::Int, n::Int) = SingleParityCheckCode(q, n)
 
 """
