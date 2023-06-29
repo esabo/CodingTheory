@@ -125,8 +125,8 @@ include("LDPCalgs.jl")
 #############################
 
 include("LDPC/decoders.jl")
-export GallagerA, GallagerB, sumproduct, minsum, findMPschedule, MPNoiseModel,
-    decodersimulation
+export GallagerA, GallagerB, sumproduct, sumproductboxplus, minsum,
+    findMPschedule, MPNoiseModel, decodersimulation
 
 #############################
     # MatrixProductCode.jl

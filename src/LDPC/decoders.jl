@@ -32,9 +32,14 @@ function GallagerB(H::T, v::T, maxiter::Int=100, threshold::Int=2) where T <: CT
     return _messagepassing(HInt, w, missing, _GallagerBchecknodemessage, varadlist, checkadlist, maxiter, :B, threshold)
 end
 
-function sumproduct(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
+function sumproduct(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
     HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :SP, 2)
     return _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
+end
+
+function sumproductboxplus(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :SP, 2)
+    return _messagepassing(HInt, w, chn, _SPchecknodemessageboxplus, varadlist, checkadlist, maxiter, :SP)
 end
 
 function minsum(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100, attenuation::Float64 = 0.5) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
@@ -51,8 +56,8 @@ function _messagepassinginit(H::S, v::T, chn::Union{Missing, MPNoiseModel}, maxi
     length(v) == numvar || throw(ArgumentError("Vector has incorrect dimension"))
     (kind == :B && !(1 <= Bt <= numcheck)) && throw(DomainError("Improper threshold for Gallager B"))
     2 <= maxiter || throw(DomainError("Number of maximum iterations must be at least two"))
-    chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) && throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-    chn.type == :BSC && !isa(v, Vector{Int}) && throw(DomainError("Received message should be a vector of Ints for BSC."))
+    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) && throw(DomainError("Received message should be a vector of floats for BAWGNC."))
+    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) && throw(DomainError("Received message should be a vector of Ints for BSC."))
     
     HInt = FpmattoJulia(H)
     w = if T <: CTMatrixTypes
@@ -193,7 +198,9 @@ function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmess
     for v2 in checkadlist[cn]
         if v2 != v1
             x = vartocheckmessages[v2, cn, iter]
-            # Note that x should never be 0
+            # Note that x should never be 0 unless there is an erasure.
+            # For now, this is coded as if there will never be an erasure.
+            # This will simply error if x == 0.
             if x > 0
                 temp += phi(x)
             else
@@ -203,6 +210,12 @@ function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmess
         end
     end
     return s * phi(temp)
+end
+
+⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
+⊞(a...) = reduce(⊞, a...)
+function _SPchecknodemessageboxplus(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten = missing)
+    ⊞(vartocheckmessages[v2, cn, iter] for v2 in checkadlist[cn] if v2 != v1)
 end
 
 function _MSchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, attenuation::Float64=0.5)
@@ -298,7 +311,9 @@ function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
     0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
     maximum(noise) > 1 && noisetype == :BSC && throw(ArgumentError("Crossover probability must be in the range [0,1]"))
 
-    # we'll use an explicit pseudoRNG with the given seed. Note that Xoshiro is default in Julia.
+    # We use an explicit pseudoRNG with the given seed.
+    # Note that Xoshiro is default in Julia.
+    # Also note that threading breaks the reproducibility.
     rng = Xoshiro(seed)
 
     FER = zeros(length(noise))
