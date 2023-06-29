@@ -62,6 +62,44 @@ function concatenate(Cout::AbstractLinearCode, Cin::AbstractLinearCode)
 end
 ∘(Cout::AbstractLinearCode, Cin::AbstractLinearCode) = concatenate(Cout, Cin)
 
+function concatenate(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
+    isempty(outers) || isempty(inners) && throw(ArgumentError("List of codes cannot be empty"))
+    for i in 1:length(inners) - 1
+        inners[i + 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+    end
+    F = first(inners).F
+    nin = first(inners).n
+    iszero(generatormatrix(inners[end])) || push!(inners, ZeroCode(F, nin))
+
+    ordF = Int(order(F))
+    for (i, Cout) in enumerate(outers)
+        if Int(order(Cout.F)) == ordF
+            Cout.F != F || (outers[i] = changefield(Cout, F);)
+        elseif issubfield(F, Cout.F)
+            # TODO: expansion step here
+        else
+            throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
+        end
+    end
+    
+    # TODO: might need to do previous step mod current Ginpart
+    Ginpart = matrix(F, 0, nin, [])
+    for i in length(inners):-1:2
+        Gi = generatormatrix(inners[i])
+        Gim1 = generatormatrix(inners[i - 1])
+        vcat!(Ginpart, _quotientspace(Gim1, Gi, :VS))
+    end
+
+
+
+
+    
+
+
+end
+generalizedconcatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
+# BZ and Z, multilevel, cascade?
+
 #############################
       # getter functions
 #############################
