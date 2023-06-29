@@ -63,13 +63,15 @@ end
 ∘(Cout::AbstractLinearCode, Cin::AbstractLinearCode) = concatenate(Cout, Cin)
 
 function concatenate(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
-    isempty(outers) || isempty(inners) && throw(ArgumentError("List of codes cannot be empty"))
-    for i in 1:length(inners) - 1
-        inners[i + 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+    isempty(outers) && throw(ArgumentError("List of codes cannot be empty"))
+    length(outers) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
+    for i in 2:length(inners)
+        # inners[i] ⊆ inners[i - 1] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+        inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
     end
     F = first(inners).F
     nin = first(inners).n
-    iszero(generatormatrix(inners[end])) || push!(inners, ZeroCode(F, nin))
+    # iszero(generatormatrix(inners[end])) || push!(inners, ZeroCode(F, nin))
 
     ordF = Int(order(F))
     for (i, Cout) in enumerate(outers)
@@ -77,25 +79,39 @@ function concatenate(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLi
             Cout.F != F || (outers[i] = changefield(Cout, F);)
         elseif issubfield(F, Cout.F)
             # TODO: expansion step here
+            throw(ArgumentError("Only implemented for pre-expanded outer codes currently"))
         else
             throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
         end
     end
-    
-    # TODO: might need to do previous step mod current Ginpart
-    Ginpart = matrix(F, 0, nin, [])
-    for i in length(inners):-1:2
-        Gi = generatormatrix(inners[i])
-        Gim1 = generatormatrix(inners[i - 1])
-        vcat!(Ginpart, _quotientspace(Gim1, Gi, :VS))
+
+    # Are the outer matrices the right size?
+    # Need this check since we can take pre-expanded matrices
+    nout = divexact(outers[1].n, inners[1].k)
+    for i in 2:length(outers)
+        nout == divexact(outers[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
     end
 
+    B = [generatormatrix(inners[1])]
+    for i in 2:length(inners)
+        Gi = generatormatrix(inners[i])
+        Gim1 = generatormatrix(inners[i - 1])
+        push!(Ginpart, _quotientspace(Gi, Gim1, :VS))
+    end
 
+    G1 = reduce(directsum, generatormatrix(C) for C in outers)
+    G2 = zero_matrix(F, ncols(G1), nin * nout)
+    z = 1
+    for i in eachindex(inners)
+        for j in 0:nout - 1
+            rows = range(z, z + size(B[i], 1) - 1)
+            cols = range(j * nin + 1, (j + 1) * nin)
+            G2[rows, cols] = B[i]
+            z += nrows(B[i])
+        end
+    end
 
-
-    
-
-
+    return LinearCode(G1 * G2)
 end
 generalizedconcatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
 # BZ and Z, multilevel, cascade?
@@ -147,7 +163,7 @@ concatenationtype(C::AbstractConcatenatedCode) = C.type
      # general functions
 #############################
 
-function _concatenatedgeneratormatrix(A::T, B::T) where T <: CTMatrixTypes
+function _concatenatedgeneratormatrix(A::CTMatrixTypes, B::CTMatrixTypes) # where T <: CTMatrixTypes
     nrA, ncA = size(A)
     nrB, ncB = size(B)
     t = div(ncA, nrB)
