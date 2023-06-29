@@ -66,26 +66,30 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     isempty(outers_unexpanded) && throw(ArgumentError("List of codes cannot be empty"))
     length(outers_unexpanded) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
     for i in 2:length(inners)
-        # inners[i] ⊆ inners[i - 1] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
         inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
     end
     F = first(inners).F
     nin = first(inners).n
 
     outers = copy(outers_unexpanded)
+    β = Union{Vector{<:CTFieldElem}, Missing}[missing for i in eachindex(outers)]
+    λ = Union{Vector{<:CTFieldElem}, Missing}[missing for i in eachindex(outers)]
+    type = [:same for i in eachindex(outers)]
     ordF = Int(order(F))
     for (i, Cout) in enumerate(outers)
         if Int(order(Cout.F)) == ordF
+            # it was either pre-expanded or just doesn't need expansion
             Cout.F != F || (outers[i] = changefield(Cout, F);)
         elseif issubfield(F, Cout.F)[1]
-            outers[i] = expandedcode(outers[i], F, basis(outers[i].F, F))
+            β[i], λ[i] = primitivebasis(outers[i].F, F)
+            outers[i] = expandedcode(outers[i], F, β[i])
+            type[i] = :expanded
         else
             throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
         end
     end
 
     # Are the outer matrices the right size?
-    # Need this check since we can take pre-expanded matrices
     nout = divexact(outers[1].n, inners[1].k)
     for i in 2:length(outers)
         nout == divexact(outers[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
@@ -110,7 +114,17 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
         end
     end
 
-    return LinearCode(G1 * G2)
+    G = G1 * G2
+    Gstand, Hstand, P, k = _standardform(G)
+    H = ismissing(P) ? Hstand : Hstand * P
+    d = reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
+    lb = ismissing(d) ? 1 : d
+    ub1, _ = _minwtrow(G)
+    ub2, _ = _minwtrow(Gstand)
+    ub = min(ub1, ub2)
+    ub = ismissing(d) ? 1 : ub
+
+    return ConcatenatedCode(outers_unexpanded, inners, type, β, λ, F, ncols(G), k, d, lb, ub, G, H, Gstand, Hstand, P, missing)
 end
 generalizedconcatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
 # BZ and Z, multilevel, cascade?

@@ -262,11 +262,11 @@ end
 #############################
 
 mutable struct ConcatenatedCode <: AbstractLinearCode
-    Cin::AbstractLinearCode
-    Cout::AbstractLinearCode
-    type::Symbol
-    basis::Union{Vector{<:CTFieldElem}, Missing}
-    dualbasis::Union{Vector{<:CTFieldElem}, Missing}
+    Cin::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
+    Cout::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
+    type::Union{Symbol, Vector{Symbol}}
+    basis::Union{Missing, Vector{Union{Missing, <:CTFieldElem, Vector{<:CTFieldElem}}}}
+    dualbasis::Union{Missing, Vector{Union{Missing, <:CTFieldElem, Vector{<:CTFieldElem}}}}
     F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension

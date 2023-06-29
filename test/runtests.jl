@@ -1446,12 +1446,26 @@ using Test
     @test C.n == 32
     @test C.k == 6
     @test C.d == 16
+    # should also work without expanding:
+    outers = [A1, A2]
+    C = concatenate(outers, inners)
+    @test C.n == 32
+    @test C.k == 6
+    @test C.d == 16
 
     # Huffman and Pless, example 5.5.2
     # Note that when the inner code is an identity code, the expanded code should already be the final answer. Also test if the generalized concatenate gives the same answer as the usual concatenate
     C = Hexacode()
     Ce = expandedcode(C, GF(2), basis(C.F, GF(2)))
-    C1 = concatenate([Ce], [IdentityCode(2,2)])
-    C2 = concatenate(Ce, IdentityCode(2,2))
-    @test Ce.G == C1.G == C2.G
+    C1 = concatenate([Ce], [IdentityCode(2, 2)])
+    C2 = concatenate([C], [IdentityCode(2, 2)])
+    C3 = concatenate(Ce, IdentityCode(2, 2))
+    C4 = concatenate(C, IdentityCode(2, 2)) # This one doesn't work
+    G = matrix(GF(2), [1  0  0  0  0  0  1  0  0  1  0  1
+                       0  1  0  0  0  0  0  1  1  1  1  1
+                       0  0  1  0  0  0  0  1  1  0  0  1
+                       0  0  0  1  0  0  1  1  0  1  1  1
+                       0  0  0  0  1  0  0  1  0  1  1  0
+                       0  0  0  0  0  1  1  1  1  1  0  1])
+    @test Ce.G == C1.G == C2.G == C3.G == G
 end
