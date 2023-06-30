@@ -351,6 +351,7 @@ function changefield!(C::T, F::CTFieldTypes) where T <: AbstractLinearCode
     ismissing(C.Pstand) || (C.Pstand = change_base_ring(F, C.Pstand);)
 
     if order(F) != order(C.F)
+        # TODO: should be able to compute the new weightenum easily as well
         C.weightenum = missing
     end
 
