@@ -134,8 +134,7 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     lb = ismissing(d) ? 1 : d
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
-    ub = min(ub1, ub2)
-    ub = ismissing(d) ? 1 : ub
+    ub = ismissing(d) ? min(ub1, ub2) : d
 
     return ConcatenatedCode(outers_unexpanded, inners, type, β, λ, F, ncols(G), k, d, lb, ub, G, H, Gstand, Hstand, P, missing)
 end
