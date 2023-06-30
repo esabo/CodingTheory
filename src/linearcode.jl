@@ -349,13 +349,12 @@ function changefield!(C::T, F::CTFieldTypes) where T <: AbstractLinearCode
     C.Gstand = change_base_ring(F, C.Gstand)
     C.Hstand = change_base_ring(F, C.Hstand)
     ismissing(C.Pstand) || (C.Pstand = change_base_ring(F, C.Pstand);)
-    C.F = F
 
-    # do d and weightenum get invalidated? if so, then:
-    C.d = missing
-    C.lbound = 1
-    C.ubound = min(_minwtrow(C.G)[1], _minwtrow(C.Gstand)[1])
-    C.weightenum = missing
+    if order(F) != order(C.F)
+        C.weightenum = missing
+    end
+
+    C.F = F
     
     return nothing
 end
