@@ -1445,8 +1445,7 @@ using Test
     C = concatenate(outers, inners)
     @test C.n == 32
     @test C.k == 6
-    @test C.d == 16
-    # should also work without expanding:
+    # should also work without expanding, and in that case it should know the distance:
     outers = [A1, A2]
     C = concatenate(outers, inners)
     @test C.n == 32
@@ -1455,17 +1454,22 @@ using Test
 
     # Huffman and Pless, example 5.5.2
     # Note that when the inner code is an identity code, the expanded code should already be the final answer. Also test if the generalized concatenate gives the same answer as the usual concatenate
-    C = Hexacode()
-    Ce = expandedcode(C, GF(2), basis(C.F, GF(2)))
-    C1 = concatenate([Ce], [IdentityCode(2, 2)])
-    C2 = concatenate([C], [IdentityCode(2, 2)])
-    C3 = concatenate(Ce, IdentityCode(2, 2))
-    C4 = concatenate(C, IdentityCode(2, 2)) # This one doesn't work
     G = matrix(GF(2), [1  0  0  0  0  0  1  0  0  1  0  1
                        0  1  0  0  0  0  0  1  1  1  1  1
                        0  0  1  0  0  0  0  1  1  0  0  1
                        0  0  0  1  0  0  1  1  0  1  1  1
                        0  0  0  0  1  0  0  1  0  1  1  0
                        0  0  0  0  0  1  1  1  1  1  0  1])
-    @test Ce.G == C1.G == C2.G == C3.G == G
+    C = Hexacode()
+    Ce = expandedcode(C, GF(2), basis(C.F, GF(2)))
+    @test Ce.G == G
+    C1 = concatenate([Ce], [IdentityCode(2, 2)]) # Generalized concat, pre-expanded
+    @test C1.G == G
+    C2 = concatenate([C], [IdentityCode(2, 2)]) # Generalized concat, not pre-expanded
+    @test C2.G == G
+    C3 = concatenate(Ce, IdentityCode(2, 2)) # usual concat, pre-expanded
+    @test C3.G == G
+    # TODO: This one doesn't work (usual concat, not pre-expanded):
+    # C4 = concatenate(C, IdentityCode(2, 2)) # usual concat, not pre-expanded
+    # @test C4.G == G
 end

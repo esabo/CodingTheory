@@ -80,6 +80,13 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
         if Int(order(Cout.F)) == ordF
             # it was either pre-expanded or just doesn't need expansion
             Cout.F != F || (outers[i] = changefield(Cout, F);)
+
+            # if it could have been "expanded" without changing
+            # anything, list as expanded so that the distance
+            # calculation at the end knows
+            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i - 1].k == 1)
+                type[i] = :expanded
+            end
         elseif issubfield(F, Cout.F)[1]
             β[i], λ[i] = primitivebasis(outers[i].F, F)
             outers[i] = expandedcode(outers[i], F, β[i])
@@ -114,10 +121,16 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
         end
     end
 
+    d = if all(isequal(:expanded), type)
+        # if any of these distances are missing, it correctly results in missing
+        reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
+    else
+        missing
+    end
+
     G = G1 * G2
     Gstand, Hstand, P, k = _standardform(G)
     H = ismissing(P) ? Hstand : Hstand * P
-    d = reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
     lb = ismissing(d) ? 1 : d
     ub1, _ = _minwtrow(G)
     ub2, _ = _minwtrow(Gstand)
