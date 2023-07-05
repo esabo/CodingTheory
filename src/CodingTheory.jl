@@ -113,7 +113,7 @@ include("LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
-    checkdegreepolynomial, columnrowbounds, limited, regularLDPCcode
+    checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode
 
 #############################
         # LDPCalgs.jl

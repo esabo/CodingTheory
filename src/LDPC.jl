@@ -101,8 +101,7 @@ Return a random regular LDPC code over GF(q) of length `n` with parameters `l` a
 If a seed is given, i.e. `regulardLDPCCode(4, 1200, 3, 6, seed = 123)`, the
 results are reproducible.
 """
-function regularLDPCcode(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
-    q == 2 && (return regularLDPCcode(n, l, r, seed = seed);)
+function regularLDPCCode(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
     Random.seed!(seed)
     m = divexact(n * l, r)
     F = if isprime(q)
@@ -130,36 +129,7 @@ function regularLDPCcode(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, In
     return LDPCCode(LinearCode(H, true), n * l, l * ones(Int, n), r * ones(Int, m),
                     l, r, max(l, r), r / n, true, missing, (1 // l) * x^l, (1 // r) * x^r)
 end
-
-"""
-    regularLDPCCode(n::Int, l::Int, r::Int [; seed = nothing])
-
-Return a random regular LDPC code over GF(2) of length `n` with parameters `l` and `r`.
-
-If a seed is given, i.e. `regulardLDPCCode(1200, 3, 6, seed = 123)`, the
-results are reproducible.
-"""
-function regularLDPCcode(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
-    Random.seed!(seed)
-    m = divexact(n * l, r)
-    F = GF(2)
-    Fone = F(1)
-    H = zero_matrix(F, m, n);
-    colsums = zeros(Int, n)
-    for i in axes(H, 1)
-        ind = reduce(vcat, shuffle(filter(k -> colsums[k] == s, 1:n)) for s in 0:l-1)[1:r]
-        for j in ind
-            H[i, j] = Fone
-        end
-        colsums[ind] .+= 1
-    end
-    @assert all(count(.!iszero.(H[:, j])) == l for j in axes(H, 2))
-    @assert all(count(.!iszero.(H[i, :])) == r for i in axes(H, 1))
-
-    R, x = PolynomialRing(Nemo.QQ, :x)
-    return LDPCCode(LinearCode(H, true), n * l, l * ones(Int, n), r * ones(Int, m),
-                    l, r, max(l, r), r / n, true, missing, (1 // l) * x^l, (1 // r) * x^r)
-end
+regularLDPCCode(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) = regularLDPCCode(2, n, l, r, seed = seed)
 
 #############################
       # getter functions
