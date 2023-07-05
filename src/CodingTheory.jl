@@ -16,6 +16,7 @@ using .Threads
 using GAP
 using LinearAlgebra # need to remove? want only mul!
 using SparseArrays
+using Random
 
 import LinearAlgebra: tr, Adjoint, transpose
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
@@ -112,7 +113,7 @@ include("LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
-    checkdegreepolynomial, columnrowbounds, limited
+    checkdegreepolynomial, columnrowbounds, limited, regularLDPCcode
 
 #############################
         # LDPCalgs.jl

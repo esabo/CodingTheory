@@ -289,7 +289,6 @@ function _channeltoSNR(type::Symbol, sigma::Real)
 end
 
 
-using Random
 
 function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
                            noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
