@@ -28,6 +28,13 @@ abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 abstract type AbstractConcatenatedCode <: AbstractLinearCode end
 
+abstract type AbstractNoiseChannel end
+abstract type AbstractClassicalNoiseChannel <: AbstractNoiseChannel end
+abstract type AbstractQuantumNoiseChannel <: AbstractNoiseChannel end
+abstract type AbstractBinaryErasureChannel <: AbstractClassicalNoiseChannel end
+abstract type AbstractBinarySymmetricChannel <: AbstractClassicalNoiseChannel end
+abstract type AbstractBAWGNChannel <: AbstractClassicalNoiseChannel end
+
 const CTFieldTypes = FinField
 const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
@@ -63,7 +70,7 @@ mutable struct LinearCode <: AbstractLinearCode
 end
 
 #############################
-         # LDPC.jl
+        # LDPC/LDPC.jl
 #############################
 
 # TODO: don't like having this here as a subobject - rethink
@@ -80,6 +87,37 @@ mutable struct LDPCCode <: AbstractLDPCCode
     tangr::Union{Figure, Missing}
     λ::fmpq_poly
     ρ::fmpq_poly
+end
+
+#############################
+     # LDPC/analysis.jl
+#############################
+
+struct BinaryErasureChannel <: AbstractBinaryErasureChannel
+    param::Float64
+    capacity::Float64
+end
+
+struct BinarySymmetricChannel <: AbstractBinarySymmetricChannel
+    param::Float64
+    capacity::Float64
+end
+
+mutable struct BAWGNChannel <: AbstractBAWGNChannel
+    param::Float64
+    capacity::Union{Float64, Missing}
+end
+
+mutable struct LDPCEnsemble
+    λ::PolyRingElem
+    ρ::PolyRingElem
+    L::PolyRingElem
+    R::PolyRingElem
+    lavg::Float64
+    ravg::Float64
+    designrate::Float64
+    densityevo::Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}
+    threshold::Dict{Type, Float64}
 end
 
 #############################

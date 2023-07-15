@@ -109,7 +109,7 @@ export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, di
          # LDPC.jl
 #############################
 
-include("LDPC.jl")
+include("LDPC/LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
@@ -119,15 +119,28 @@ export variabledegreedistribution, checkdegreedistribution,
         # LDPCalgs.jl
 #############################
 
-include("LDPCalgs.jl")
+include("LDPC/algorithms.jl")
 
 #############################
-    # LDPC/decoders.jl
+     # LDPC/decoders.jl
 #############################
 
 include("LDPC/decoders.jl")
 export GallagerA, GallagerB, sumproduct, sumproductboxplus, minsum,
     findMPschedule, MPNoiseModel, decodersimulation
+
+#############################
+     # LDPC/analysis.jl
+#############################
+
+include("LDPC/analysis.jl")
+
+export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
+    BAWGNC, LDPCEnsemble
+
+export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
+    type, densityevolution!, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
+    densitylowerbound, checkconcentrateddegreedistribution
 
 #############################
     # MatrixProductCode.jl

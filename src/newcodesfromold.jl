@@ -250,7 +250,7 @@ componentwiseproductcode(C::AbstractLinearCode, D::AbstractLinearCode) = entrywi
 
 Return the code `C2 / C1` given `C1 ⊆ C2`.
 """
-function /(C1::AbstractLinearCode, C2::AbstractLinearCode)
+function /(C2::AbstractLinearCode, C1::AbstractLinearCode)
     C1 ⊆ C2 || throw(ArgumentError("C1 ⊈ C2"))
     F = C1.F
     G1 = generatormatrix(C1)
