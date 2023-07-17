@@ -108,13 +108,6 @@ Return the capacity of the noise channel.
 """
 capacity(Ch::AbstractClassicalNoiseChannel) = ismissing(Ch.capacity) ? computecapacity(Ch) : Ch.capacity
 
-"""
-    type(Ch::AbstractClassicalNoiseChannel)
-
-Return the type of the noise channel.
-"""
-type(Ch::AbstractClassicalNoiseChannel) = typeof(Ch)
-
 #############################
       # setter functions
 #############################
@@ -192,7 +185,7 @@ end
 Return the density evolution of the LDPC ensemble given the noise channel.
 """
 function densityevolution(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
-    densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
+    Ch ∈ keys(E.densityevo) || densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
     return E.densityevo[Ch]
 end
 
@@ -298,8 +291,6 @@ function checkconcentrateddegreedistribution(Ch::BinaryErasureChannel, gap::Real
     end
     norm = sum(λvec)
     λvec ./= norm
-
-    # @show (1 / α, abs(round(1/α) - 1/α))
 
     _, x = PolynomialRing(RealField(), :x)
     λ = sum(λi * x^i for (i, λi) in enumerate(λvec))
