@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "af5a72c5de2c21c69412a49a5e796e022552b824"
+project_hash = "6c3658ac0df649e4ce8181a02a8a2f64d239b50a"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -623,18 +623,6 @@ deps = ["AbstractAlgebra", "Dates", "Distributed", "InteractiveUtils", "LazyArti
 git-tree-sha1 = "224971b2e97950e9bb062667b153b2fc30afd6e5"
 uuid = "3e1990a7-5d81-5526-99ce-9ba3ff248f21"
 version = "0.18.10"
-
-[[deps.HiGHS]]
-deps = ["HiGHS_jll", "MathOptInterface", "PrecompileTools", "SparseArrays"]
-git-tree-sha1 = "bbd4ab443dfac4c9d5c5b40dd45f598dfad2e26a"
-uuid = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
-version = "1.5.2"
-
-[[deps.HiGHS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "216e7198aeb256e7c7921ef2937d7e1e589ba6fd"
-uuid = "8fd58aa0-07eb-5a78-9b36-339c94fd15ea"
-version = "1.5.3+0"
 
 [[deps.HypergeometricFunctions]]
 deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]

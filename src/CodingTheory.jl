@@ -17,6 +17,7 @@ using GAP
 using LinearAlgebra # need to remove? want only mul!
 using SparseArrays
 using Random
+using JuMP, GLPK
 
 import LinearAlgebra: tr, Adjoint, transpose
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
@@ -140,7 +141,8 @@ export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
 
 export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
     type, densityevolution!, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
-    densitylowerbound, checkconcentrateddegreedistribution
+    densitylowerbound, checkconcentrateddegreedistribution, optimallambda, optimalrho,
+    optimallambdaandrho
 
 #############################
     # MatrixProductCode.jl

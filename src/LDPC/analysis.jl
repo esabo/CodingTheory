@@ -116,21 +116,22 @@ capacity(Ch::AbstractClassicalNoiseChannel) = ismissing(Ch.capacity) ? computeca
      # general functions
 #############################
 
-# TODO: re-evaluate which of these are actually useful
+# TODO: are _dpoly(...) and _integratepoly(...) useful? currently unused, probably delete
+_dpoly(vec::Vector{<:Real}) = [vec[i] * (i - 1) for i in 2:length(vec)]
+_dpoly(f::PolyRingElem) = derivative(f)
+
+_integratepoly(vec::Vector{T}) where T <: Real = [zero(T); [c / i for (i, c) in enumerate(vec)]]
+_integratepoly(f::PolyRingElem) = integral(f)
+
+# _polyeval, _dpolyeval, and _integratepoly01 are all used
 _polyeval(x::Real, vec::Vector{<:Real}) = sum(c * x^(i - 1) for (i, c) in enumerate(vec))
 _polyeval(x::Real, f::PolyRingElem) = _polyeval(x, Float64.(coeff.(f, 0:degree(f))))
 
 _dpolyeval(x::Real, vec::Vector{<:Real}) = sum((i - 1) * c * x^(i - 2) for (i, c) in enumerate(vec))
 _dpolyeval(x::Real, f::PolyRingElem) = _dpolyeval(x, Float64.(coeff.(f, 0:degree(f))))
 
-_integratepolyeval01(vec::Vector{<:Real}) = sum(c / i for (i, c) in enumerate(vec))
-_integratepolyeval01(f::PolyRingElem) = _integratepolyeval01(Float64.(coeff.(f, 0:degree(f))))
-
-_dpoly(vec::Vector{<:Real}) = [vec[i] * (i - 1) for i in 2:length(vec)]
-_dpoly(f::PolyRingElem) = derivative(f)
-
-_integratepoly(vec::Vector{T}) where T <: Real = [zero(T); [c / i for (i, c) in enumerate(vec)]]
-_integratepoly(f::PolyRingElem) = integral(f)
+_integratepoly01(vec::Vector{<:Real}) = sum(c / i for (i, c) in enumerate(vec))
+_integratepoly01(f::PolyRingElem) = _integratepoly01(Float64.(coeff.(f, 0:degree(f))))
 
 # TODO: move to utils, check if already there, export
 # possibly just go ahead and extend to the nonbinary case then call with a 2 here
@@ -148,7 +149,7 @@ function _L2(p1::Vector{Float64}, p2::Vector{Float64})
     @assert length(p1) == length(p2)
     v = p1 .- p2
     v2 = [sum(v[j] * v[k + 1 - j] for j in max(1, k + 1 - length(v)):min(k, length(v))) for k in 1:2length(v) - 1]
-    return _integratepolyeval01(v2)
+    return _integratepoly01(v2)
 end
 
 Base.hash(Ch::AbstractClassicalNoiseChannel) = hash(Ch.param, hash(typeof(Ch)))
@@ -298,42 +299,105 @@ function checkconcentrateddegreedistribution(Ch::BinaryErasureChannel, gap::Real
     return λ, ρ
 end
 
+function _findlambdagivenrho(ρ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, lmax::Int)
+    model = Model(GLPK.Optimizer)
+    @variable(model, λ[1:lmax - 1] >= 0)
+    @constraint(model, sum(λ) == 1)
+    for x in 0:0.01:1
+        @constraint(model, ε * sum(λ[i] * (1 - _polyeval(1 - x, ρ))^i for i in 1:lmax - 1) - x <= 0)
+    end
+    @constraint(model, ε * _dpolyeval(1, ρ) * λ[1] <= 1)
+    @objective(model, Max, sum(λ[i] / (i + 1) for i in 1:lmax - 1))
+    optimize!(model)
+    termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
+    @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
+    return [0.0; value.(λ)], model
+end
+
+function _findrhogivenlambda(λ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, rmax::Int)
+    model = Model(GLPK.Optimizer)
+    @variable(model, ρ[1:rmax - 1] >= 0)
+    @constraint(model, sum(ρ) == 1)
+    for x in 0:0.01:1
+        @constraint(model, 1 - x - sum(ρ[i] * (1 - ε * _polyeval(x, λ))^i for i in 1:rmax - 1) <= 0)
+    end
+    temp = isa(λ, PolyRingElem) ? Float64(coeff(λ, 1)) : λ[2]
+    @constraint(model, ε * sum(i * ρ[i] for i in eachindex(ρ)) * temp <= 1)
+    @objective(model, Min, sum(ρ[i] / (i + 1) for i in 1:rmax - 1))
+    optimize!(model)
+    termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
+    @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
+    return [0.0; value.(ρ)], model
+end
+
+function optimallambda(ρ, lmax::Int, param::Float64, vartype::Symbol)
+    vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
+    vartype == :r && param >= 1 - 2 * _integratepoly01(ρ) && throw(ArgumentError("This rate is unachieveable with the given ρ."))
+    # TODO: check for when vartype == :ε as well
+
+    λvec, r, ε =  _optimaldistributions(ρ, :ρ, lmax, param, vartype)
+    _, x = PolynomialRing(RealField(), :x)
+    λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
+    return (λ = λ, r = r, ε = ε)
+end
+
+function optimalrho(λ, rmax::Int, param::Float64, vartype::Symbol)
+    vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
+    vartype == :r && param >= 1 - 1 / (rmax * _integratepoly01(λ)) && throw(ArgumentError("This rate is unachieveable with the given rmax and λ."))
+    # TODO: check for when vartype == :ε as well
+
+    ρvec, r, ε = _optimaldistributions(λ, :λ, rmax, param, vartype)
+    _, x = PolynomialRing(RealField(), :x)
+    ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
+    return (ρ = ρ, r = r, ε = ε)
+end
+
+# this returns a tuple (distribution::Vector{Float64}, r::Float64, ε::Float64)
+function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::Float64, vartype::Symbol)
+    intpoly = _integratepoly01(poly)
+    if vartype == :r
+        tolerance = 1e-6
+        maxiter = 100
+        high = 1.0
+        low = 0.0
+        mid = 0.5
+        count = 0
+        Δ = -Inf
+        while !(0 <= Δ <= tolerance) && count < maxiter
+            count += 1
+            mid = (high + low) / 2
+            Δ, sol = try
+                if polytype == :ρ
+                    sol, _ = _findlambdagivenrho(poly, mid, varmax)
+                    solrate = 1 - intpoly / _integratepoly01(sol)
+                else
+                    sol, _ = _findrhogivenlambda(poly, mid, varmax)
+                    solrate = 1 - _integratepoly01(sol) / intpoly
+                end
+                (solrate - realparam, sol)
+            catch
+                (-Inf, Float64[])
+            end
+            Δ > 0 ? (low = mid;) : (high = mid;)
+        end
+        0 <= Δ <= tolerance || error("Solution for $(polytype == :ρ ? :λ : :ρ) did not converge in $maxiter iterations")
+        return sol, solrate, mid
+    else
+        if polytype == :ρ
+            sol, _ = _findlambdagivenrho(poly, realparam, varmax)
+            solrate = 1 - intpoly / _integratepoly01(sol)
+        else
+            sol, _ = _findrhogivenlambda(poly, realparam, varmax)
+            solrate = 1 - _integratepoly01(sol) / intpoly
+        end
+        return sol, solrate, realparam
+    end
+end
+
+
 ##############################################
 ########## still need to edit below ##########
 ##############################################
-
-# function _findlambdagivenrho(ρvec::Vector{Float64}, ε::Float64, lmax::Int)
-#     model = Model(GLPK.Optimizer)
-#     @variable(model, λ[1:lmax - 1] >= 0)
-#     @constraint(model, sum(λ) == 1)
-#     for x in 0:0.01:1
-#         @constraint(model, ε * sum(λ[i] * (1 - _polyeval(1 - x, ρvec))^i for i in 1:lmax - 1) - x <= 0)
-#     end
-#     @constraint(model, ε * _dpolyeval(1, ρvec) * λ[1] <= 1)
-#     @objective(model, Max, sum(λ[i] / (i + 1) for i in 1:lmax - 1))
-#     optimize!(model)
-#     @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
-#     @assert primal_status(model) == MOI.FEASIBLE_POINT "Didn't optimize to a feasible point"
-#     λvec = [0.0; value.(λ)]
-#     return λvec
-# end
-
-# function _findrhogivenlambda(λvec::Vector{Float64}, ε::Float64, rmax::Int)
-#     model = Model(GLPK.Optimizer)
-#     @variable(model, ρ[1:rmax - 1] >= 0)
-#     @constraint(model, sum(ρ) == 1)
-#     for x in 0:0.01:1
-#         @constraint(model, 1 - x - sum(ρ[i] * (1 - ε * _polyeval(x, λvec))^i for i in 1:rmax - 1) <= 0)
-#     end
-#     @constraint(model, ε * sum(i * ρ[i] for i in eachindex(ρ)) * λvec[2] <= 1)
-#     @objective(model, Min, sum(ρ[i] / (i + 1) for i in 1:rmax - 1))
-#     optimize!(model)
-#     @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
-#     @assert primal_status(model) == MOI.FEASIBLE_POINT "Didn't optimize to a feasible point"
-#     ρvec = [0.0; value.(ρ)]
-#     return ρvec
-# end
-
 
 # # @assert lmax > 1
 # # @assert 0 < ε < 1
@@ -345,73 +409,78 @@ end
 
 # # R, x = PolynomialRing(RealField(), :x)
 
-# # type check parameters in these public functions
-# function optimallambda(ρ, lmax::Int, realparam::Real, vartype::Symbol)
+function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
+    iters = 100
+    c = range(0, 1, length = iters)
+    ρ = zeros(rmax, iters)
+    λ = zeros(lmax, iters)
+    rates = fill(-Inf, iters)
+    # Threads.@threads for i in 1:iters
+    for i in 1:iters
+        ρ[end, i] = c[i]
+        ρ[end - 1, i] = (1 - c[i])
+        try
+            λ[:, i] .= _findlambdagivenrho(ρ[:, i], ε, lmax)[1]
+            rates[i] = 1 - _integratepoly01(ρ[:, i]) / _integratepoly01(λ[:, i])
+        catch end
+    end
+    i = argmax(rates)
+    isfinite(rates[i]) || throw(ArgumentError("No solution for given parameters"))
+    return λ[:, i], ρ[:, i], rates[i]
+end
+
+function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::Symbol)
+    if vartype == :r
+        tolerance = 1e-6
+        maxiter = 100
+        high = 1.0
+        low = 0.0
+        mid = 0.5
+        count = 0
+        Δ = -Inf
+        while !(0 <= Δ <= tolerance) && count < maxiter
+            count += 1
+            mid = (high + low) / 2
+            Δ, λvec, ρvec = try
+                λ, ρ, solrate = _findlambdaandrho(lmax, rmax, mid)
+                (solrate - realparam, λ, ρ)
+            catch
+                (-Inf, Float64[], Float64[])
+            end
+            Δ > 0 ? (low = mid;) : (high = mid;)
+        end
+        0 <= Δ <= tolerance || error("Solution for $(polytype == :ρ ? :λ : :ρ) did not converge in $maxiter iterations")
+        _, x = PolynomialRing(RealField(), :x)
+        λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
+        ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
+        return (λ = λ, ρ = ρ, r = solrate, ε = mid)
+    elseif vartype == :ε
+        λvec, ρvec, solrate = _findlambdaandrho(lmax, rmax, realparam)
+        _, x = PolynomialRing(RealField(), :x)
+        λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
+        ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
+        return (λ = λ, ρ = ρ, r = solrate, ε = realparam)
+    end
+    throw(ArgumentError("vartype must be :r or :ε"))
+end
+
+# function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::Symbol)
 #     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
-
-#     return _optimaldistributions(ρ, :ρ, lmax, realparam, vartype)
-# end
-
-# function optimalrho(λ, rmax::Int, realparam::Real, vartype::Symbol)
-#     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
-
-#     return _optimaldistributions(λ, :λ, rmax, realparam, vartype)
-# end
-
-# function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::Real, vartype::Symbol)
-#     intpoly = _integratepolyeval01(poly)
-#     tolerance = 1e-4
-#     if vartype == :r
-#         maxiter = 100
-#         high = 1.0
-#         low = 0.0
-#         mid = 0.5
-#         if polytype == :ρ
-#             sol = _findlambdagivenrho(poly, mid, varmax)
-#             solrate = 1 - intpoly / _integratepolyeval01(sol)
-#         else
-#             sol = _findrhogivenlambda(poly, mid, varmax)
-#             solrate = 1 - _integratepolyeval01(sol) / intpoly
-#         end
-#         Δ = solrate - realparam
-#         converged = abs(Δ) <= tolerance
-#         count = 0
-#         tolerance = 1e-9
-#         while abs(Δ) > tolerance && count <= maxiter # make like copy below
-#             count += 1
-#             Δ > 0 ? (low = mid;) : (high = mid;)
-#             mid = (high + low) / 2
-#             if polytype == :ρ
-#                 sol = _findlambdagivenrho(poly, mid, varmax)
-#                 solrate = 1 - intpoly / _integratepolyeval01(sol)
-#             else
-#                 sol = _findrhogivenlambda(poly, mid, varmax)
-#                 solrate = 1 - _integratepolyeval01(sol) / intpoly
-#             end
-#             Δ = solrate - realparam
-#             abs(Δ) > tolerance && (converged = true; break;)
-#         end
-#         # make into poly?
-#         # I think no, because RealPoly doesn't seem like a useful final type to me. Probably just as easy to return a vector and let a different function figure out rationals for a desired n, and that function can return a poly with QQ coeffs. -Ben
-#         converged && return sol, solrate, mid
-#         error("The LP for $polytype did not converge in $maxiter iterations")
-#     else
-#         if polytype == :ρ
-#             sol = _findlambdagivenrho(poly, realparam, varmax)
-#             solrate = 1 - intpoly / _integratepolyeval01(sol)
-#         else
-#             sol = _findrhogivenlambda(poly, realparam, varmax)
-#             solrate = 1 - _integratepolyeval01(sol) / intpoly
-#         end
-#         # should this also return realparam so that it matches the return above? -Ben
-#         return sol, solrate
-#     end
-# end
-
-# function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Real, vartype::Symbol)
-#     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
+#     vartype == :r && realparam >= 1 - 2/rmax && throw(ArgumentError("This rate is unachieveable with the given rmax."))
+#     # TODO: check for when vartype == :ε as well
 
 #     tolerance = 1e-9
+
+#     # initial guess: ρ(x) = x^(rmax - 1)
+#     ρ = zeros(rmax); ρ[end] = 1
+#     # this makes sense to me, but we could choose for some c ∈ (0, 1]
+#     #   ρ(x) = (1 - c) * x^(rmax - 2) + c * x^(rmax - 1)
+#     # which would be given by the code:
+#     # ρ = zeros(rmax); c = 0.5; ρ[end - 1] = 1 - c; ρ[end] = c;
+
+#     # if we need an initial λ, this would be it:
+#     # λ, _, _ = _optimaldistributions(ρ, :ρ, lmax, realparam, vartype)
+
 #     # solve until convergence for each ε, see if rates match, else change ε and repeat
 #     if vartype == :r
 #         maxiter = 100
@@ -419,19 +488,16 @@ end
 #         low = 0.0
 #         mid = 0.5
 
-#         # TODO: need some initial guesses here
-#         # for now, pick ρ(x) = x^(rmax-1) and find λ from that (i.e., start from regular LDPC assumption). -Ben
 #         countinner = 0
-#         ρ = zeros(rmax); ρ[end] = 1
-#         λ = _findlambdagivenrho(ρ, mid, lmax)
-#         ρ = _findrhogivenlambda(λ, mid, rmax)
+#         λ, _ = _findlambdagivenrho(ρ, mid, lmax)
+#         ρ, _ = _findrhogivenlambda(λ, mid, rmax)
 #         λprev = copy(λ)
 #         ρprev = copy(ρ)
 #         convergedinner = false
 #         while countinner <= maxiter
 #             countinner += 1
-#             λ = _findlambdagivenrho(ρ, mid, lmax)
-#             ρ = _findrhogivenlambda(λ, mid, rmax)
+#             λ, _ = _findlambdagivenrho(ρ, mid, lmax)
+#             ρ, _ = _findrhogivenlambda(λ, mid, rmax)
 #             normλ = _L2(λ, λprev)
 #             normρ = _L2(ρ, ρprev)
 #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
@@ -442,7 +508,7 @@ end
 #             # TODO: better error here, just putting something for now
 #             error("inner convergence failed")
 #         end
-#         solrate = 1 - _integratepolyeval01(ρ) / _integratepolyeval01(ρ)
+#         solrate = 1 - _integratepoly01(ρ) / _integratepoly01(λ)
 #         Δ = solrate - realparam
 
 #         converged = abs(Δ) <= tolerance
@@ -456,8 +522,8 @@ end
 #             convergedinner = false
 #             while countinner <= maxiter
 #                 countinner += 1
-#                 λ = _findlambdagivenrho(ρ, mid, lmax)
-#                 ρ = _findrhogivenlambda(λ, mid, rmax)
+#                 λ, _ = _findlambdagivenrho(ρ, mid, lmax)
+#                 ρ, _ = _findrhogivenlambda(λ, mid, rmax)
 #                 normλ = _L2(λ, λprev)
 #                 normρ = _L2(ρ, ρprev)
 #                 normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
@@ -474,22 +540,22 @@ end
 #         converged ? (return λ, ρ, mid;) : error("outer convergence failed")
 #     else # vartype == :ε
 #         countinner = 0
-#         λ = _findlambdagivenrho(ρ, realparam, lmax)
-#         ρ = _findrhogivenlambda(λ, realparam, rmax)
+#         λ, _ = _findlambdagivenrho(ρ, realparam, lmax)
+#         ρ, _ = _findrhogivenlambda(λ, realparam, rmax)
 #         λprev = copy(λ)
 #         ρprev = copy(ρ)
 #         convergedinner = false
 #         while countinner <= maxiter
 #             countinner += 1
-#             λ = _findlambdagivenrho(ρ, realparam, lmax)
-#             ρ = _findrhogivenlambda(λ, realparam, rmax)
+#             λ, _ = _findlambdagivenrho(ρ, realparam, lmax)
+#             ρ, _ = _findrhogivenlambda(λ, realparam, rmax)
 #             normλ = _L2(λ, λprev)
 #             normρ = _L2(ρ, ρprev)
 #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
 #             λprev .= λ
 #             ρprev .= ρ
 #         end
-#         convergedinner && (return λ, ρ, 1 - _integratepolyeval01(ρ) / _integratepolyeval01(ρ))
+#         convergedinner && (return λ, ρ, 1 - _integratepoly01(ρ) / _integratepoly01(λ))
 #     end
 # end
 
