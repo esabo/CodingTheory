@@ -142,7 +142,7 @@ export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
 export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
     type, densityevolution!, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
     densitylowerbound, checkconcentrateddegreedistribution, optimallambda, optimalrho,
-    optimallambdaandrho
+    optimallambdaandrho, optimalthreshold
 
 #############################
     # MatrixProductCode.jl

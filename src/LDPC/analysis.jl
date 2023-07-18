@@ -394,28 +394,12 @@ function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::F
     end
 end
 
-
-##############################################
-########## still need to edit below ##########
-##############################################
-
-# # @assert lmax > 1
-# # @assert 0 < ε < 1
-# # channel ∈ (:BEC, :BSC, :BIAWGN) || throw(ArgumentError("Channel not yet implemented"))
-# # decoder ∈ (:BEC, :A, :SP) || throw(ArgumentError("Decoder not supported"))
-# # if channel == :BEC
-# #     decoder == :BEC || throw(ArgumentError("The only decoder supported for the BEC channel is :BEC"))
-# # end
-
-# # R, x = PolynomialRing(RealField(), :x)
-
 function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
-    iters = 100
+    iters = 101
     c = range(0, 1, length = iters)
     ρ = zeros(rmax, iters)
     λ = zeros(lmax, iters)
     rates = fill(-Inf, iters)
-    # Threads.@threads for i in 1:iters
     for i in 1:iters
         ρ[end, i] = c[i]
         ρ[end - 1, i] = (1 - c[i])
@@ -429,7 +413,7 @@ function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
     return λ[:, i], ρ[:, i], rates[i]
 end
 
-function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::Symbol)
+function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symbol)
     if vartype == :r
         tolerance = 1e-6
         maxiter = 100
@@ -443,7 +427,7 @@ function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::
             mid = (high + low) / 2
             Δ, λvec, ρvec = try
                 λ, ρ, solrate = _findlambdaandrho(lmax, rmax, mid)
-                (solrate - realparam, λ, ρ)
+                (solrate - param, λ, ρ)
             catch
                 (-Inf, Float64[], Float64[])
             end
@@ -455,14 +439,33 @@ function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
         return (λ = λ, ρ = ρ, r = solrate, ε = mid)
     elseif vartype == :ε
-        λvec, ρvec, solrate = _findlambdaandrho(lmax, rmax, realparam)
+        λvec, ρvec, solrate = _findlambdaandrho(lmax, rmax, param)
         _, x = PolynomialRing(RealField(), :x)
         λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
-        return (λ = λ, ρ = ρ, r = solrate, ε = realparam)
+        return (λ = λ, ρ = ρ, r = solrate, ε = param)
     end
     throw(ArgumentError("vartype must be :r or :ε"))
 end
+
+function optimalthreshold(λ, ρ)
+    minimum(x / (_polyeval(1 - _polyeval(1 - x, ρ), λ)) for x in 0.001:0.001:1)
+end
+
+
+#########################################################################
+########## below is old code, delete after verifying the above ##########
+#########################################################################
+
+# # @assert lmax > 1
+# # @assert 0 < ε < 1
+# # channel ∈ (:BEC, :BSC, :BIAWGN) || throw(ArgumentError("Channel not yet implemented"))
+# # decoder ∈ (:BEC, :A, :SP) || throw(ArgumentError("Decoder not supported"))
+# # if channel == :BEC
+# #     decoder == :BEC || throw(ArgumentError("The only decoder supported for the BEC channel is :BEC"))
+# # end
+
+# # R, x = PolynomialRing(RealField(), :x)
 
 # function optimallambdaandrho(lmax::Int, rmax::Int, realparam::Float64, vartype::Symbol)
 #     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
