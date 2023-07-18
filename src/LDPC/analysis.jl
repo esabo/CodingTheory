@@ -352,7 +352,6 @@ function optimalrho(λ, rmax::Int, param::Float64, vartype::Symbol)
     return (ρ = ρ, r = r, ε = ε)
 end
 
-# this returns a tuple (distribution::Vector{Float64}, r::Float64, ε::Float64)
 function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::Float64, vartype::Symbol)
     intpoly = _integratepoly01(poly)
     if vartype == :r

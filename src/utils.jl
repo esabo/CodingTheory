@@ -825,6 +825,20 @@ function rowsupportssymplectic(M::CTMatrixTypes)
     collect(zip(X, Z))
 end
 
+function _nodeadjacencies(H::CTMatrixTypes)
+    checkadlist = [Int[] for _ in 1:nrows(H)]
+    varadlist = [Int[] for _ in 1:ncols(H)]
+    for r in 1:nrows(H)
+        for c in 1:ncols(H)
+            if !iszero(H[r, c])
+                push!(checkadlist[r], c)
+                push!(varadlist[c], r)
+            end
+        end
+    end
+    return checkadlist, varadlist
+end
+
 #############################
   # Quantum Helper Functions
 #############################
