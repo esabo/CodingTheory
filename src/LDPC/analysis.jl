@@ -470,15 +470,15 @@ function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symb
 end
 
 """
-    optimalthreshold(λ, ρ; Δx = 1e-4)
+    optimalthreshold(λ, ρ; Δ = 1e-4)
 
 Given distributions λ and ρ, find the optimal threshold under BP.
 
 # Notes
-* For checking stability, it can be useful to use, e.g., `Δx = BigFloat("1e-7")`
+* For checking stability, it can be useful to use, e.g., `Δ = BigFloat("1e-7")`
 """
-function optimalthreshold(λ::Union{Vector{<:Real}, PolyRingElem}, ρ::Union{Vector{<:Real}, PolyRingElem}; Δx::T = 1e-4) where T <: Real
-    xs = Δx:Δx:one(T)
+function optimalthreshold(λ::Union{Vector{<:Real}, PolyRingElem}, ρ::Union{Vector{<:Real}, PolyRingElem}; Δ::T = 1e-4) where T <: Real
+    xs = Δ:Δ:one(T)
     minimum(x / (_polyeval(1 - _polyeval(1 - x, ρ), λ)) for x in xs)
 end
 
