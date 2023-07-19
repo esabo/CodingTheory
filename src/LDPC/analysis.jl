@@ -289,11 +289,11 @@ function checkconcentrateddegreedistribution(Ch::BinaryErasureChannel, gap::Real
     return λ, ρ
 end
 
-function _findlambdagivenrho(ρ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, lmax::Int)
+function _findlambdagivenrho(ρ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, lmax::Int; Δ = 0.001)
     model = Model(GLPK.Optimizer)
     @variable(model, λ[1:lmax - 1] >= 0)
     @constraint(model, sum(λ) == 1)
-    for x in 0:0.01:1
+    for x in 0:Δ:1
         @constraint(model, ε * sum(λ[i] * (1 - _polyeval(1 - x, ρ))^i for i in 1:lmax - 1) - x <= 0)
     end
     @constraint(model, ε * _dpolyeval(1, ρ) * λ[1] <= 1)
@@ -304,11 +304,11 @@ function _findlambdagivenrho(ρ::Union{Vector{Float64}, PolyRingElem}, ε::Float
     return [0.0; value.(λ)], model
 end
 
-function _findrhogivenlambda(λ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, rmax::Int)
+function _findrhogivenlambda(λ::Union{Vector{Float64}, PolyRingElem}, ε::Float64, rmax::Int; Δ = 0.001)
     model = Model(GLPK.Optimizer)
     @variable(model, ρ[1:rmax - 1] >= 0)
     @constraint(model, sum(ρ) == 1)
-    for x in 0:0.01:1
+    for x in 0:Δ:1
         @constraint(model, 1 - x - sum(ρ[i] * (1 - ε * _polyeval(x, λ))^i for i in 1:rmax - 1) <= 0)
     end
     temp = isa(λ, PolyRingElem) ? Float64(coeff(λ, 1)) : λ[2]
@@ -320,29 +320,49 @@ function _findrhogivenlambda(λ::Union{Vector{Float64}, PolyRingElem}, ε::Float
     return [0.0; value.(ρ)], model
 end
 
-function optimallambda(ρ, lmax::Int, param::Float64, vartype::Symbol)
+"""
+    optimallambda(ρ, lmax, param, vartype; Δ = 1e-3)
+
+Find the optimal variable node distribution `λ` given the check node
+distribution `ρ`, maximum variable node degree `lmax`, and target parameter
+`param` which refers to threshold if `vartype == :ε` or rate if `vartype == :r`.
+
+# Notes
+* `Δ` refers to the step size for `x` in the LP to solve for `λ`.
+"""
+function optimallambda(ρ, lmax::Int, param::Float64, vartype::Symbol; Δ = 0.001)
     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
     vartype == :r && param >= 1 - 2 * _integratepoly01(ρ) && throw(ArgumentError("This rate is unachieveable with the given ρ."))
     # TODO: check for when vartype == :ε as well
 
-    λvec, r, ε =  _optimaldistributions(ρ, :ρ, lmax, param, vartype)
+    λvec, r, ε =  _optimaldistributions(ρ, :ρ, lmax, param, vartype, Δλ = 0.001)
     _, x = PolynomialRing(RealField(), :x)
     λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
     return (λ = λ, r = r, ε = ε)
 end
 
-function optimalrho(λ, rmax::Int, param::Float64, vartype::Symbol)
+"""
+    optimalrho(λ, rmax, param, vartype; Δ = 1e-3)
+
+Find the optimal check node distribution `ρ` given the variable node
+distribution `λ`, maximum check node degree `rmax`, and target parameter `param`
+which refers to threshold if `vartype == :ε` or rate if `vartype == :r`.
+
+# Notes
+* `Δ` refers to the step size for x in the LP to solve for ρ.
+"""
+function optimalrho(λ, rmax::Int, param::Float64, vartype::Symbol, Δ = 1e-3)
     vartype ∈ (:r, :ε) || throw(ArgumentError("Vartype must be :r for target rate or :ε for threshold"))
     vartype == :r && param >= 1 - 1 / (rmax * _integratepoly01(λ)) && throw(ArgumentError("This rate is unachieveable with the given rmax and λ."))
     # TODO: check for when vartype == :ε as well
 
-    ρvec, r, ε = _optimaldistributions(λ, :λ, rmax, param, vartype)
+    ρvec, r, ε = _optimaldistributions(λ, :λ, rmax, param, vartype, Δρ = 0.001)
     _, x = PolynomialRing(RealField(), :x)
     ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
     return (ρ = ρ, r = r, ε = ε)
 end
 
-function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::Float64, vartype::Symbol)
+function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::Float64, vartype::Symbol; Δλ = 0.001, Δρ = 0.001)
     intpoly = _integratepoly01(poly)
     if vartype == :r
         tolerance = 1e-6
@@ -357,10 +377,10 @@ function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::F
             mid = (high + low) / 2
             Δ, sol = try
                 if polytype == :ρ
-                    sol, _ = _findlambdagivenrho(poly, mid, varmax)
+                    sol, _ = _findlambdagivenrho(poly, mid, varmax, Δ = Δλ)
                     solrate = 1 - intpoly / _integratepoly01(sol)
                 else
-                    sol, _ = _findrhogivenlambda(poly, mid, varmax)
+                    sol, _ = _findrhogivenlambda(poly, mid, varmax, Δ = Δρ)
                     solrate = 1 - _integratepoly01(sol) / intpoly
                 end
                 (solrate - realparam, sol)
@@ -373,19 +393,20 @@ function _optimaldistributions(poly, polytype::Symbol, varmax::Int, realparam::F
         return sol, solrate, mid
     else
         if polytype == :ρ
-            sol, _ = _findlambdagivenrho(poly, realparam, varmax)
+            sol, _ = _findlambdagivenrho(poly, realparam, varmax, Δ = Δλ)
             solrate = 1 - intpoly / _integratepoly01(sol)
         else
-            sol, _ = _findrhogivenlambda(poly, realparam, varmax)
+            sol, _ = _findrhogivenlambda(poly, realparam, varmax, Δ = Δρ)
             solrate = 1 - _integratepoly01(sol) / intpoly
         end
         return sol, solrate, realparam
     end
 end
 
-function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
-    iters = 101
-    c = range(0, 1, length = iters)
+function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64; Δρ = 0.01, Δλ = 0.001)
+    # TODO: probably try a smallish Δρ (0.05?) and then bisect in the interval where it's best.
+    c = 0:Δρ:1
+    iters = length(c)
     ρ = zeros(rmax, iters)
     λ = zeros(lmax, iters)
     rates = fill(-Inf, iters)
@@ -393,7 +414,7 @@ function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
         ρ[end, i] = c[i]
         ρ[end - 1, i] = (1 - c[i])
         try
-            λ[:, i] .= _findlambdagivenrho(ρ[:, i], ε, lmax)[1]
+            λ[:, i] .= _findlambdagivenrho(ρ[:, i], ε, lmax, Δ = Δλ)[1]
             rates[i] = 1 - _integratepoly01(ρ[:, i]) / _integratepoly01(λ[:, i])
         catch end
     end
@@ -402,7 +423,18 @@ function _findlambdaandrho(lmax::Int, rmax::Int, ε::Float64)
     return λ[:, i], ρ[:, i], rates[i]
 end
 
-function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symbol)
+"""
+    optimallambdaandrho(lmax, rmax, param, vartype; Δρ = 1e-2, Δλ = 1e-3)
+
+Find the optimal distribution pair λ, ρ given the `param`, where `param` is
+either a threshold if `vartype == :ε` or a target rate if `vartype == :r`.
+
+# Notes
+* `Δρ` gives the step size for possible values of `c` where
+    ρ = (1 - c) * x^(rmax - 2) + c * x^(rmax - 1)
+* `Δλ` gives the step size for values of `x` in the LP for finding λ given ρ.
+"""
+function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symbol; Δρ = 0.01, Δλ = 0.001)
     if vartype == :r
         tolerance = 1e-6
         maxiter = 100
@@ -415,7 +447,7 @@ function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symb
             count += 1
             mid = (high + low) / 2
             Δ, λvec, ρvec = try
-                λ, ρ, solrate = _findlambdaandrho(lmax, rmax, mid)
+                λ, ρ, solrate = _findlambdaandrho(lmax, rmax, mid, Δρ = Δρ, Δλ = Δλ)
                 (solrate - param, λ, ρ)
             catch
                 (-Inf, Float64[], Float64[])
@@ -428,7 +460,7 @@ function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symb
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
         return (λ = λ, ρ = ρ, r = solrate, ε = mid)
     elseif vartype == :ε
-        λvec, ρvec, solrate = _findlambdaandrho(lmax, rmax, param)
+        λvec, ρvec, solrate = _findlambdaandrho(lmax, rmax, param, Δρ = Δρ, Δλ = Δλ)
         _, x = PolynomialRing(RealField(), :x)
         λ = sum(c * x^(i - 1) for (i, c) in enumerate(λvec))
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρvec))
@@ -437,8 +469,17 @@ function optimallambdaandrho(lmax::Int, rmax::Int, param::Float64, vartype::Symb
     throw(ArgumentError("vartype must be :r or :ε"))
 end
 
-function optimalthreshold(λ, ρ)
-    minimum(x / (_polyeval(1 - _polyeval(1 - x, ρ), λ)) for x in 0.001:0.001:1)
+"""
+    optimalthreshold(λ, ρ; Δx = 1e-4)
+
+Given distributions λ and ρ, find the optimal threshold under BP.
+
+# Notes
+* For checking stability, it can be useful to use, e.g., `Δx = BigFloat("1e-7")`
+"""
+function optimalthreshold(λ::Union{Vector{<:Real}, PolyRingElem}, ρ::Union{Vector{<:Real}, PolyRingElem}; Δx::T = 1e-4) where T <: Real
+    xs = Δx:Δx:one(T)
+    minimum(x / (_polyeval(1 - _polyeval(1 - x, ρ), λ)) for x in xs)
 end
 
 
