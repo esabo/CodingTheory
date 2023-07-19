@@ -137,15 +137,14 @@ _integratepoly01(f::PolyRingElem) = _integratepoly01(Float64.(coeff.(f, 0:degree
 # possibly just go ahead and extend to the nonbinary case then call with a 2 here
 _binaryentropy(x::Real) = x * log2(1 / x) + (1 - x) * log2(1 / (1 - x))
 
-# these should all be useful. Note that the QQ version of _computeλρ is necessary. The non-QQ version is for when the poly isn't directly callable (as in RealPoly)
+# these should all be useful. Note that the QQ version of _computeλρ is necessary for the output to also be a QQPoly. The non-QQ version is for when the poly isn't directly callable (as in RealPoly)
 _computeavgdegree(f::PolyRingElem) = inv(sum(coeff(f, i) / (i + 1) for i in 0:degree(f)))
 _computeLR(λ::PolyRingElem, ρ::PolyRingElem, lavg, ravg) = (integral(λ) * lavg, integral(ρ) * ravg)
 _computeLR(λ::PolyRingElem, ρ::PolyRingElem) = _computeLR(λ, ρ, _computeavgdegree(λ), _computeavgdegree(ρ))
 _computeλρ(L::PolyRingElem, R::PolyRingElem) = (derivative(L) / _dpolyeval(1, L), derivative(R) / _dpolyeval(1, R))
 _computeλρ(L::QQPolyRingElem, R::QQPolyRingElem) = (derivative(L) / derivative(L)(1), derivative(R) / derivative(R)(1))
 
-# TODO: currently returning L2 squared. Should we sqrt it?
-function _L2(p1::Vector{Float64}, p2::Vector{Float64})
+function _L2distsq(p1::Vector{Float64}, p2::Vector{Float64})
     @assert length(p1) == length(p2)
     v = p1 .- p2
     v2 = [sum(v[j] * v[k + 1 - j] for j in max(1, k + 1 - length(v)):min(k, length(v))) for k in 1:2length(v) - 1]
@@ -156,20 +155,11 @@ Base.hash(Ch::AbstractClassicalNoiseChannel) = hash(Ch.param, hash(typeof(Ch)))
 Base.isequal(Ch1::AbstractClassicalNoiseChannel, Ch2::AbstractClassicalNoiseChannel) = typeof(Ch1) == typeof(Ch2) && Ch1.param == Ch2.param
 
 # function Base.setproperty!(Ch::BAWGNChannel, key, val)
-#     if key == :param
-#         # TODO: should we throw an error for trying to change this at all and tell the user to create a new channel?
-#         setfield!(Ch, :capacity, missing)
-#     end
-#     setfield!(Ch, key, val)
+#     key == :capacity && (setfield!(Ch, key, val);)
+#     key == :capacity || @warn "Channel not updated. Create a new channel instead of changing the noise on an existing channel."
 # end
 
-# TODO: say where this is stored in the tutorial
-"""
-    densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
-
-Compute the density evolution of the LDPC ensemble given the noise channel.
-"""
-function densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
+function _densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
     if isa(Ch, BinaryErasureChannel)
         λvec = Float64.(coeff.(E.λ, 0:degree(E.λ)))
         ρvec = Float64.(coeff.(E.ρ, 0:degree(E.ρ)))
@@ -186,7 +176,7 @@ end
 Return the density evolution of the LDPC ensemble given the noise channel.
 """
 function densityevolution(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
-    Ch ∈ keys(E.densityevo) || densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
+    Ch ∈ keys(E.densityevo) || _densityevolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
     return E.densityevo[Ch]
 end
 
@@ -214,7 +204,7 @@ function plotEXITchart(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::
     x = 0:0.01:1
     c = 1 .- [_polyeval(x, E.ρ) for x in 1 .- x]
     v = Ch.param .* [_polyeval(x, E.λ) for x in x]
-    Ch ∈ keys(E.densityevo) || densityevolution!(E, Ch)
+    Ch ∈ keys(E.densityevo) || _densityevolution!(E, Ch)
     evox, evoy = E.densityevo[Ch]
     ind = findfirst(evox .<= tol)
     title = if isnothing(ind)
@@ -452,6 +442,7 @@ function optimalthreshold(λ, ρ)
 end
 
 
+
 #########################################################################
 ########## below is old code, delete after verifying the above ##########
 #########################################################################
@@ -500,8 +491,8 @@ end
 #             countinner += 1
 #             λ, _ = _findlambdagivenrho(ρ, mid, lmax)
 #             ρ, _ = _findrhogivenlambda(λ, mid, rmax)
-#             normλ = _L2(λ, λprev)
-#             normρ = _L2(ρ, ρprev)
+#             normλ = _L2distsq(λ, λprev)
+#             normρ = _L2distsq(ρ, ρprev)
 #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
 #             λprev .= λ
 #             ρprev .= ρ
@@ -526,8 +517,8 @@ end
 #                 countinner += 1
 #                 λ, _ = _findlambdagivenrho(ρ, mid, lmax)
 #                 ρ, _ = _findrhogivenlambda(λ, mid, rmax)
-#                 normλ = _L2(λ, λprev)
-#                 normρ = _L2(ρ, ρprev)
+#                 normλ = _L2distsq(λ, λprev)
+#                 normρ = _L2distsq(ρ, ρprev)
 #                 normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
 #                 λprev .= λ
 #                 ρprev .= ρ
@@ -551,8 +542,8 @@ end
 #             countinner += 1
 #             λ, _ = _findlambdagivenrho(ρ, realparam, lmax)
 #             ρ, _ = _findrhogivenlambda(λ, realparam, rmax)
-#             normλ = _L2(λ, λprev)
-#             normρ = _L2(ρ, ρprev)
+#             normλ = _L2distsq(λ, λprev)
+#             normρ = _L2distsq(ρ, ρprev)
 #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
 #             λprev .= λ
 #             ρprev .= ρ

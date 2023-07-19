@@ -140,7 +140,7 @@ export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
     BAWGNC, LDPCEnsemble
 
 export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
-    type, densityevolution!, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
+    type, densityevolution, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
     densitylowerbound, checkconcentrateddegreedistribution, optimallambda, optimalrho,
     optimallambdaandrho, optimalthreshold
 
