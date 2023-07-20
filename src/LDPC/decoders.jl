@@ -409,10 +409,10 @@ LPdecoderLDPC(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{<:Integer}},
 #     return FER, BER
 # end
 
-function decodersimulation2(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
-                            noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
-                            maxiter::Int=100, numruns::Int = 1000,
-                            seed::Union{Int, Nothing} = nothing, attenuation::Float64 = 1.0)
+function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
+                           noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
+                           maxiter::Int=100, numruns::Int = 1000,
+                           seed::Union{Int, Nothing} = nothing, attenuation::Float64 = 1.0)
 
     decoder in (:A, :B, :SP, :MS, :LP) || throw(ArgumentError("Unsupported decoder"))
     noisetype == :BSC || throw(ArgumentError("Only supports BSC"))
@@ -488,11 +488,8 @@ function decodersimulation2(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol
 end
 
 using Plots: plot, savefig, xticks, yticks, xticks!, yticks!
-function testsimulation()
-    # C = BCHCode(2, 2^10-1, 53, 1);
-    # C = BCHCode(2, 103, 3);
-    # H = paritycheckmatrix(C);
-
+function testsimulation(figfilename = "test.png")
+    # H = paritycheckmatrix(regularLDPCCode(500, 6, 3));
     H = matrix(GF(2), 10, 20, [1 0 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0;
                                0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0 0;
                                0 0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0;
@@ -504,34 +501,12 @@ function testsimulation()
                                0 0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0;
                                1 0 0 0 1 1 0 1 0 0 0 0 0 0 0 0 0 0 0 1]);
 
-    # p0 = 0.0001:0.0001:0.0009;
-    # p1 = 0.001:0.001:0.01;
-    # p2 = 0.025:0.025:0.15;
-    # @time FER0, BER0 = decodersimulation(H, :SP, :BSC, p0, 100, 20000000, 123);
-    # @time FER1, BER1 = decodersimulation(H, :SP, :BSC, p1, 100, 500000, 123);
-    # @time FER2, BER2 = decodersimulation(H, :SP, :BSC, p2, 100, 10000, 123);
-    # @time FER0ms, BER0ms = decodersimulation(H, :MS, :BSC, p0, 100, 20000000, 123);
-    # @time FER1ms, BER1ms = decodersimulation(H, :MS, :BSC, p1, 100, 500000, 123);
-    # @time FER2ms, BER2ms = decodersimulation(H, :MS, :BSC, p2, 100, 10000, 123);
-    # @time FER0msnoa, BER0msnoa = decodersimulation(H, :MS, :BSC, p0, 100, 20000000, 123, 1.);
-    # @time FER1msnoa, BER1msnoa = decodersimulation(H, :MS, :BSC, p1, 100, 500000, 123, 1.);
-    # @time FER2msnoa, BER2msnoa = decodersimulation(H, :MS, :BSC, p2, 100, 10000, 123, 1.);
-    # p = vcat(p0, p1, p2);
-    # FER = vcat(FER0, FER1, FER2);
-    # BER = vcat(BER0, BER1, BER2);
-    # FERms = vcat(FER0ms, FER1ms, FER2ms);
-    # BERms = vcat(BER0ms, BER1ms, BER2ms);
-    # FERmsnoa = vcat(FER0msnoa, FER1msnoa, FER2msnoa);
-    # BERmsnoa = vcat(BER0msnoa, BER1msnoa, BER2msnoa);
-
     p = 10 .^ collect(-4:.2:-0.8);
-    @time F1, B1, e1 = CodingTheory.decodersimulation2(H, :SP, :BSC, p, 100, 5000, 1, 1.0);
-    @time F2, B2, e2 = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 1.0);
-    @time F3, B3, e3 = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 0.5);
-    @time F4, B4, e4 = CodingTheory.decodersimulation2(H, :MS, :BSC, p, 100, 5000, 1, 0.1);
-    @time F5, B5, e5 = CodingTheory.decodersimulation2(H, :LP, :BSC, p, 100, 5000, 1);
-
-    # return F1, F2, F3, F4, F5
+    @time F1, B1, e1 = CodingTheory.decodersimulation(H, :SP, :BSC, p, 10, 5000, 1, 1.0);
+    @time F2, B2, e2 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 1.0);
+    @time F3, B3, e3 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.5);
+    @time F4, B4, e4 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.1);
+    @time F5, B5, e5 = CodingTheory.decodersimulation(H, :LP, :BSC, p, 10, 5000, 1);
 
     plt = plot(log10.(p), log10.([F1 F2 F3 F4 F5]),
                label = ["FER, SP" "FER, MS atten=1.0" "FER, MS atten=0.5" "FER, MS atten=0.1" "FER, LP"],
@@ -558,7 +533,7 @@ function testsimulation()
     #            marker = :dot);
 
 
-    savefig(plt, "test.png");
+    savefig(plt, figfilename);
 end
 
 
