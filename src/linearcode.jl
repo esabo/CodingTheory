@@ -220,6 +220,8 @@ function paritycheckmatrix(C::AbstractLinearCode, standform::Bool=false)
             C.H = C.Atype == :H ? lift(C.A) : transpose(right_kernel(lift(C.A))[2])
         end
         return C.H
+    elseif isa(C, LDPCCode)
+        standform ? (return C.C.Hstand;) : (return C.C.H;)
     else
         standform ? (return C.Hstand;) : (return C.H;)
     end

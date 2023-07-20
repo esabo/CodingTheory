@@ -288,6 +288,68 @@ function _channeltoSNR(type::Symbol, sigma::Real)
     end
 end
 
+function _initLPdecoderLDPC(H::Union{CTMatrixTypes, AbstractMatrix{<:Number}})
+    checkadlist, _ = CodingTheory._nodeadjacencies(H)
+    subsets = Vector{Vector{Vector{Int}}}()
+    nr, nc = size(H)
+    hasi = [[Vector{Int}() for _ in 1:nc] for _ in 1:nr]
+    wmap = zeros(Int, nr)
+    curr = 1
+    for (j, cn) in enumerate(checkadlist)
+        wmap[j] = curr
+        innersubsets = Vector{Vector{Int}}()
+        for S in powerset(cn)
+            if iseven(length(S)) # && !isempty(S)
+                push!(innersubsets, S)
+                for i in S
+                    push!(hasi[j][i], curr)
+                end
+                curr += 1
+            end
+        end
+        push!(subsets, innersubsets)
+    end
+
+    model = Model(GLPK.Optimizer)
+    @variable(model, 0 <= f[1:nc] <= 1)
+    @variable(model, 0 <= w[1:curr - 1] <= 1)
+    for i in 1:nr
+        if i != nr
+            @constraint(model, sum(w[wmap[i]:wmap[i + 1] - 1]) == 1)
+        else
+            @constraint(model, sum(w[wmap[i]:end]) == 1)
+        end
+    end
+    for j in 1:nr
+        for i in 1:nc
+            if !isempty(hasi[j][i])
+                @constraint(model, f[i] == sum(w[hasi[j][i]]))
+            end
+        end
+    end
+    @objective(model, Min, sum(0 * f[i] for i in 1:nc))
+    return model
+end
+_initLPdecoderLDPC(C::AbstractLinearCode) = _initLPdecoderLDPC(paritycheckmatrix(C))
+
+function _LPdecoderLDPC(model::JuMP.Model, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::CodingTheory.BinarySymmetricChannel)
+    γ = CodingTheory._channelinitBSC(isa(v, Vector) ? v : Int.(data.(v))[:], Ch.param)
+    @objective(model, Min, dot(γ, model[:f]))
+    optimize!(model)
+    termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
+    @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
+    w = value.(model[:f])
+    all(isinteger(x) for x in w) || @warn "Solution is not integral"
+    return w
+end
+
+function LPdecoderLDPC(H::Union{CTMatrixTypes, AbstractMatrix{<:Number}},
+                       v::Union{CTMatrixTypes, Vector{<:Integer}},
+                       Ch::BinarySymmetricChannel)
+    model = _initLPdecoderLDPC(H)
+    return _LPdecoderLDPC(model, v, Ch)
+end
+LPdecoderLDPC(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::CodingTheory.BinarySymmetricChannel) = LPdecoderLDPC(paritycheckmatrix(C), v, Ch)
 
 
 function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
