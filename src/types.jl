@@ -73,9 +73,14 @@ end
         # LDPC/LDPC.jl
 #############################
 
-# TODO: don't like having this here as a subobject - rethink
 mutable struct LDPCCode <: AbstractLDPCCode
-    C::AbstractLinearCode
+    F::CTFieldTypes # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    lbound::Int # lower bound on d
+    ubound::Int # upper bound on d
+    H::CTMatrixTypes
     numedges::Int
     vardegs::Vector{Int}
     checkdegs::Vector{Int}
@@ -87,6 +92,7 @@ mutable struct LDPCCode <: AbstractLDPCCode
     tangr::Union{Figure, Missing}
     λ::fmpq_poly
     ρ::fmpq_poly
+    girth::Union{UInt8, Missing}
 end
 
 #############################

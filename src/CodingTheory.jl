@@ -6,18 +6,20 @@
 
 module CodingTheory
 
-# TODO: make namespaces minimal
 using AutoHashEquals
+using CairoMakie, NetworkLayout, GraphMakie, Graphs
+import Graphs as Grphs
+# import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
-using CairoMakie, Graphs
 using JLD2
 using Combinatorics
 using .Threads
 using GAP
-using LinearAlgebra # need to remove? want only mul!
+using LinearAlgebra
 using SparseArrays
 using Random
 using JuMP, GLPK
+using DataStructures
 
 import LinearAlgebra: tr, Adjoint, transpose
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
@@ -26,7 +28,7 @@ import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols,
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
 import Combinatorics: powerset
-import Graphs: nv, incidence_matrix
+import DataStructures: capacity
 
 # TODO: don't want this here
 # GAP.Packages.load("LINS");
@@ -114,7 +116,8 @@ include("LDPC/LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionssplot, variabledegreepolynomial,
-    checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode
+    checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode,
+    shortestcycleACE, shortestcycles, computationgraph
 
 #############################
         # LDPCalgs.jl
@@ -140,9 +143,8 @@ export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
     BAWGNC, LDPCEnsemble
 
 export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
-    type, densityevolution, plotEXITchart, multiplicativegap, multiplicativegaplowerbound,
-    densitylowerbound, checkconcentrateddegreedistribution, optimallambda, optimalrho,
-    optimallambdaandrho, optimalthreshold
+    type, densityevolution, densityevolution!, plotEXITchart, multiplicativegap,
+    multiplicativegaplowerbound, densitylowerbound, checkconcentrateddegreedistribution
 
 #############################
     # MatrixProductCode.jl
@@ -269,7 +271,7 @@ export polynomial, type, CWEtoHWE, weightenumerator, MacWilliamsIdentity,
     weightdistribution, weightplot, support, minimumdistance, weightplotCSSX,
     weightplotCSSZ, weightplotCSS, minimumdistanceXZ, minimumdistanceX,
     minimumdistanceZ, ispure, Sternsattack, Graycodemindist, minimumwords,
-    wordsofweight
+    wordsofweight, QDistRndCSS
 
 #############################
    # quantumproductcodes.jl

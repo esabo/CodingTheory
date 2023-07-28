@@ -9,7 +9,7 @@
 
 Return the Tanner graph of the matrix `H` as a `Figure` object.
 """
-function Tannergraphplot(H::Union{fq_nmod_mat, Matrix{Int}})
+function Tannergraphplot(H::Union{T, Matrix{Int}}) where T <: CTMatrixTypes
     # convert H to A
     M = FpmattoJulia(H)
     nr, nc = size(M)
@@ -30,26 +30,28 @@ function Tannergraphplot(H::Union{fq_nmod_mat, Matrix{Int}})
     rightx, righty = ones(nr) * nr, range(1, nc, nr)
     x = vcat(leftx, rightx)
     y = vcat(lefty, righty)
-    points = Point.(zip(x, y))
+    points = CairoMakie.Point.(zip(x, y))
     cols = (:aqua, :red, :orange, :green, :blue, :purple)
 
+    # display(A)
     G = SimpleDiGraph(A)
-    parents = [inneighbors(G, i) for i in Graphs.vertices(G)]
+    # display(G)
+    parents = [inneighbors(G, i) for i in vertices(G)]
     childs = findall(x -> length(x) > 0, parents)
     # println(parents)
     # println(childs)
 
     for (i, v) in enumerate(childs)
         for node in parents[v]
-            lines!(Point(x[[node, v]]...), Point(y[[node, v]]...),
+            lines!(CairoMakie.Point(x[[node, v]]...), CairoMakie.Point(y[[node, v]]...),
                    color=cols[i % 6 + 1], linewidth=5)
         end
-        text!(points[v], text=L"h_%$i", offset=(20, -15))
+        text!(points[v], text=L"c_{%$i}", offset=(20, -15))
     end
 
     for (i, point) in enumerate(points[1:nc])
         CairoMakie.scatter!(point, color=:black, marker=:circle, markersize=25)
-        text!(point, text=L"v_%$i", offset=(-30, -10))
+        text!(point, text=L"v_{%$i}", offset=(-30, -10))
     end
 
     for (i, point) in enumerate(points[nc + 1:end])

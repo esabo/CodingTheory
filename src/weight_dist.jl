@@ -1115,7 +1115,7 @@ function MacWilliamsIdentity(C::AbstractLinearCode, W::WeightEnumerator, dual::S
             vars[1] + ζ * vars[2] + ζ^2 * vars[3],
             vars[1] + ζ^2 * vars[2] + ζ * vars[3]), cardinality(C))
         # works so far but now needs to recast down to the integer ring
-        return WeightEnumerator(map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
+        return WeightEnumerator(Oscar.map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
             parent=parent(W.polynomial)), :complete)
     elseif Int(order(C.F)) == 4
         # these order 4 formulas are from "Self-Dual Codes" by Rains and Sloane without proof
