@@ -264,11 +264,11 @@ function show(io::IO, C::AbstractLDPCCode)
 end
 
 """
-    degreedistributionssplot(C::AbstractLDPCCode)
+    degreedistributionsplot(C::AbstractLDPCCode)
 
 Return a bar plot of the column and row degree distributions of `C`.
 """
-function degreedistributionssplot(C::AbstractLDPCCode)
+function degreedistributionsplot(C::AbstractLDPCCode)
     cols, rows = degreedistributions(C)
 
     occurscols = [(i, count(==(i), cols)) for i in unique(cols)]
@@ -711,28 +711,181 @@ function shortestcycles(C::LDPCCode)
         C.girth = girth
     else
         if C.girth != girth
-            @warn "Known girth does not match just computed girth"
+            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
         end
     end
     return cycles
 end
 
-# # DFS, stack
-# function variablenodeACE(C::LDPCCode, vs::Vector{Int})
+# note in the case of ties, StatsBase.mode returns the first tied element
+function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
+    # using the original DFS approach constructs a significantly larger tree than this truncated BFS approach
+    # FILO
+    # stack = Stack{Int}()
+    # push!(stack, elm)
+    # pop!(stack)
 
+    isempty(vs) && throw(ArgumentError("Input node list cannot be empty"))
+    vtype ∈ (:v, :c) || throw(ArgumentError("Unknown argument for vtype"))
+    if vtype == :v
+        all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node index must be between 1 and length(C)"))
+    else
+        all(x->1 <= v <= nrows(C.H), vs) || throw(DomainError("Check node index must be between 1 and the number of rows of H"))
+    end
 
+    checkadlist, varadlist = _nodeadjacencies(C.H)
+    vsACEs = [Vector{Int}() for _ in 1:length(vs)]
+    avgACEs = zeros(Float64, length(vs))
+    medACEs = zeros(Float64, length(vs))
+    modeACEs = zeros(Int, length(vs))
+    lengths = [Vector{Int}() for _ in 1:length(vs)]
+    avglens = zeros(Float64, length(vs))
+    medlens = zeros(Float64, length(vs))
+    modelens = zeros(Int, length(vs))
 
-#     # FILO
-#     stack = Stack{Int}()
-#     push!(stack, elm)
-#     pop!(stack)
-# end
-# variablenodeACE(C::LDPCCode, v::Int) = variablenodeACE(C, [v])[1]
-# variablenodeACE(C::LDPCCode) = variablenodeACE(C, collect(1:C.n))
+    Threads.@threads for i in 1:length(vs)
+        v = vs[i]
+        checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
+        varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlist[i]) - 2) for i in 1:C.n]
 
-# function ACEspectrum(C::LDPCCode)
+        # println("starting vertex: $v")
+        ACEs = Vector{Int}()
+        cyclens = Vector{Int}()
+        root = varnodes[v]
+        root.lvl = 0
+        root.cumACE = root.localACE
+        queue = Queue{Union{_ACEchecknode, _ACEvarnode}}()
+        enqueue!(queue, root)
+        while length(queue) > 0
+            curr = first(queue)
+            # println("lvl: ", curr.lvl)
+            if isa(curr, _ACEvarnode)
+                for cn in varadlist[curr.id]
+                    # can't pass messages back to the same node
+                    if cn != curr.parentid
+                        cnnode = checknodes[cn]
+                        if cnnode.lvl != -1
+                            # have seen before
+                            # println("parent vn $(curr.id), child cn $cn seen before at lvl $(cnnode.lvl)")
+                            push!(ACEs, curr.cumACE + cnnode.cumACE - root.localACE)
+                            push!(cyclens, curr.lvl + cnnode.lvl + 1)
+                        else
+                            cnnode.lvl = curr.lvl + 1
+                            cnnode.parentid = curr.id
+                            cnnode.cumACE = curr.cumACE
+                            # push!(curr.children, cnnode)
+                            enqueue!(queue, cnnode)
+                            # println("parent vn $(curr.id), child cn $cn at lvl $(cnnode.lvl)")
+                            # println("queue length: ", length(queue))
+                        end
+                    end
+                end
+            else
+                for vn in checkadlist[curr.id]
+                     # can't pass messages back to the same node
+                    if vn != curr.parentid
+                        vnnode = varnodes[vn]
+                        if vnnode.lvl != -1
+                            # println("parent cn $(curr.id), child vn $vn seen before at lvl $(vnnode.lvl)")
+                            # have seen before
+                            push!(ACEs, curr.cumACE + vnnode.cumACE - root.localACE)
+                            push!(cyclens, curr.lvl + vnnode.lvl + 1)
+                        else
+                            vnnode.lvl = curr.lvl + 1
+                            vnnode.parentid = curr.id
+                            vnnode.cumACE = curr.cumACE + vnnode.localACE
+                            # push!(curr.children, vnnode)
+                            enqueue!(queue, vnnode)
+                            # println("parent cn $(curr.id), child vn $vn at lvl $(vnnode.lvl)")
+                            # println("queue length: ", length(queue))
+                        end
+                    end
+                end
+            end
+            # println("removing node $(first(queue))")
+            dequeue!(queue)
+            # println("queue length: ", length(queue))
+        end
+        vsACEs[i] = ACEs
+        avgACEs[i] = mean(ACEs)
+        medACEs[i] = median(ACEs)
+        modeACEs[i] = StatsBase.mode(ACEs)
+        lengths[i] = cyclens
+        avglens[i] = mean(cyclens)
+        medlens[i] = median(cyclens)
+        modelens[i] = StatsBase.mode(cyclens)
+    end
+    # println(vsACEs[1])
+    # display(avgACEs)
+    # display(medACEs)
+    # display(modeACEs)
+    # println(lengths[1])
+    # display(avglens)
+    # display(medlens)
+    # display(modelens)
 
-# end
+    return vsACEs, avgACEs, medACEs, modeACEs, lengths, avglens, medlens, modelens
+end
+ACEspectrumofnode(C::LDPCCode, v::Int, vtype::Symbol=:v) = ACEspectrumofnode(C, [v], vtype)
+ACEspectrumofnode(C::LDPCCode, vtype::Symbol=:v) = ACEspectrumofnode(C, collect(1:C.n), vtype)
+function ACEspectrum(C::LDPCCode)
+    vsACEs, _, _, _, lengths, _, _, _ = ACEspectrumofnode(C, collect(1:C.n), :v)
+    # (false) spectrum: how many nodes have that ACE for that length
+    # (true) spectrum: for a given length 4 <= l <= maximum(variabledegreedistribution(C)),
+    # how many var nodes have shortest cycle that ACE
+
+    shortestlens = [minimum(i) for i in lengths]
+    girth = minimum(shortestlens)
+    if ismissing(C.girth)
+        C.girth = girth
+    else
+        if C.girth != girth
+            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
+        end
+    end
+    
+    # TODO: remove WGLMakie as a default use and only use for interactive plots
+    fig = Figure();
+    ax = Axis(fig[1, 1], xlabel="ACE", ylabel="Occurrences", title="ACE Spectrum")
+    sg = SliderGrid(fig[2, 1], (label = "Cycle Length", range=4:2:2 * girth - 2, startvalue=4))
+
+    xmax = maximum(reduce(vcat, vsACEs))
+    ymax = 0
+    counts = [Dict{Int, Int}() for _ in 1:length(4:2:2 * girth - 2)]
+    Xdata = Observable(Vector{Int}())
+    Ydata = Observable(Vector{Int}())
+    barplot!(ax, Xdata, Ydata, bar_width=1, xticks=Xdata, yticks=Ydata)
+    for (k, l) in enumerate(4:2:2 * girth - 2)
+        for i in 1:length(shortestlens)
+            if shortestlens[i] == l
+                for j in 1:length(lengths[i])
+                    if lengths[i][j] == l
+                        if vsACEs[i][j] ∈ keys(counts[k])
+                            counts[k][vsACEs[i][j]] += 1
+                        else
+                            counts[k][vsACEs[i][j]] = 1
+                        end
+                    end
+                end
+            end
+        end
+        ys = collect(values(counts[k]))
+        ymax = maximum([ymax; ys])
+
+        on(sg.sliders[1].value) do val
+            if to_value(val) == l
+                Xdata.val = collect(keys(counts[k]))
+                Ydata.val = ys
+                notify(Xdata)
+                notify(Ydata)
+            end
+        end
+    end
+
+    GLMakie.limits!(0, xmax + 1, 0, ymax + 2)
+    fig
+    return fig, counts
+end
 
 mutable struct _compgraphnode
     id::Int
@@ -805,6 +958,7 @@ function computationgraph(C::LDPCCode, lvl::Int, v::Int, vtype::Symbol=:v)
         dequeue!(queue)
     end
 
+    # TODO: fix plot - count number of added nodes in level and manually pass in a calculated image size
     f, ax, p = graphplot(G, layout=Buchheim(),
         nlabels=labels,
         node_marker=markers,

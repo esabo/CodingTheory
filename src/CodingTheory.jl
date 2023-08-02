@@ -7,8 +7,9 @@
 module CodingTheory
 
 using AutoHashEquals
-using CairoMakie, NetworkLayout, GraphMakie, Graphs
+using CairoMakie, NetworkLayout, GraphMakie, GLMakie, WGLMakie, Graphs
 import Graphs as Grphs
+# using Plots
 # import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
 using JLD2
@@ -20,6 +21,7 @@ using SparseArrays
 using Random
 using JuMP, GLPK
 using DataStructures
+using StatsBase
 
 import LinearAlgebra: tr, Adjoint, transpose
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
@@ -115,9 +117,10 @@ export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, di
 include("LDPC/LDPC.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
-    LDPCCode, degreedistributionssplot, variabledegreepolynomial,
+    LDPCCode, degreedistributionsplot, variabledegreepolynomial,
     checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode,
-    shortestcycleACE, shortestcycles, computationgraph
+    shortestcycleACE, shortestcycles, computationgraph, ACEspectrumofnode,
+    ACEspectrum
 
 #############################
         # LDPCalgs.jl
