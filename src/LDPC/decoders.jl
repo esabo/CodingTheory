@@ -77,7 +77,11 @@ function _messagepassinginit(H::S, v::T, chn::Union{Missing, MPNoiseModel}, maxi
         end
     end
 
-    return HInt, w, varadlist, checkadlist
+    # R = kind ∈ (:A, :B) ? Int : Float64
+    # checktovarmessages = zeros(R, numcheck, numvar, maxiter)
+    # vartocheckmessages = zeros(R, numvar, numcheck, maxiter)
+
+    return HInt, w, varadlist, checkadlist#, checktovarmessages, vartocheckmessages
 end
 
 # TODO: scheduling

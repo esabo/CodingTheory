@@ -482,6 +482,168 @@ function optimalthreshold(λ::Union{Vector{<:Real}, PolyRingElem}, ρ::Union{Vec
     minimum(x / (_polyeval(1 - _polyeval(1 - x, ρ), λ)) for x in xs)
 end
 
+convolution(v::Vector{<:Real}...) = real.(ifft(reduce(.*, map(fft, v))))
+convolution(v::Vector{<:Real}, num::Int) = real.(ifft(fft(v) .^ num))
+
+function testconv(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
+    @assert length(v) == length(w) == length(x)
+    Δx = x[2] - x[1]
+    @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
+    k = round(Int, 1 - x[1] / Δx)
+    temp = w .* v
+    [sum(temp[j] * v[k+i-j] for j in eachindex(v) if 1 <= k + i - j <= length(v)) for i in eachindex(v)]
+end
+
+function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
+    @assert length(v) == length(w) == length(x)
+    Δx = x[2] - x[1]
+    @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
+    k = round(Int, 1 - x[1] / Δx)
+    paddedv = vcat(zeros(T, length(v)), v, zeros(T, length(v)))
+    paddedconv = real.(ifft(fft(paddedv) .^ 2))
+    circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
+end
+
+function _LdensitytoDdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+    xd = tanh.(x ./ 2)
+end
+
+function _DdensitytoGdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+end
+
+function _GdensitytoDdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+end
+
+function _DdensitytoLdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+end
+
+function _LdensitytoGdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+end
+
+function _GdensitytoLdensity(a::Vector{<:Real}, x::Vector{<:Real})
+    @assert length(a) == length(x)
+end
+
+# This one isn't used for density evolution, might be useful later though
+function Gconvolution(x::Vector{<:Real}, v::Vector{T}...) where T <: Real
+    vg = Vector{T}[]
+    temp , xg = _LdensitytoGdensity(v[1], x)
+    push!(vg, temp)
+    for i in 2:length(v)
+        push!(vg, _LdensitytoGdensity(v[i], x)[1])
+    end
+    return _GdensitytoLdensity(vg, xg)[1]
+end
+
+# this one is used for density evolution
+function Gconvolution(x::Vector{<:Real}, v::Vector{<:Real}, num::Int)
+    vg, xg = _LdensitytoGdensity(v, x)
+    return _GdensitytoLdensity(convolution(vg, num), xg)[1]
+end
+
+# polynomial evaluation of a density
+function _polyeval(a::Vector{<:Real}, vec::Vector{<:Real}, op::Function)
+    sum(c * op(a, i - 1) for (i, c) in enumerate(vec))
+end
+function _polyeval(a::Vector{<:Real}, f::PolyRingElem, op::Function)
+    _polyeval(a, Float64.(coeff.(f, 0:degree(f))), op)
+end
+
+function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, a::Vector{T},
+                              x::Vector{<:Real}; maxiters::Int=10) where T <: Real
+
+    @assert length(a) == length(x)
+    # also assert that x is evenly spaced?
+
+    iter = 0
+    evoa = Vector{T}[]
+    evob = Vector{T}[]
+    while iter < maxiters
+        iter += 1
+        push!(evob, _polyeval(iter == 1 ? a : evoa[end], ρ, (a, i) -> Gconvolution(x, a, i)))
+        push!(evoa, _polyeval(evob[end], λ, convolution))
+    end
+    return evoa, evob
+end
+
+struct _LDensity
+    N::Int
+    δ::Float64
+    data::Vector{Float64}
+    # `data` is a vector of length 2N+1 on the quadrature -δN:δ:δN. It represents a probability dist:
+    # 0 <= sum(data) * δ <= 1, where the remaining density is assumed to be at ∞
+end
+_LDensity(N::Int, δ::Float64) = _LDensity(N, δ, zeros(2N+1))
+
+function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_LDensity; maxiters::Int=10)
+    N = initial.N
+    δ = initial.δ
+
+    # test values, delete later
+    N = 40
+    δ = 0.05
+
+    # used to calculate b
+    Q(i::Int, j::Int) = round(Int, ((i*δ) ⊞ (j*δ)) / δ)
+    TQ(i::Int, k::Int) = k == -1 ? N + 1 : minimum(j for j in i:10N if Q(i, j) >= i - k; init = N + 1)
+    TQ_precomputed = [TQ(i, k) for i in 0:N, k in -1:ceil(Int, log(2)/δ - 0.5)]
+
+    t = ceil(Int, log2(3N+3))
+    afft = zeros(ComplexF64, 2^t)
+    temp = exp.(.-range(0, δ * N, length = N + 1) ./ 2)
+    initialfft = copy(afft)
+    initialfft[1:N + 1] .= initial.data[N + 1:end] .* temp
+    fft!(initialfft)
+
+    iter = 0
+    a = deepcopy(initial)
+    evoa = _LDensity[]
+    evob = _LDensity[]
+    while iter < maxiters
+        # `initial` is the log-likelihood distribution of the channel message
+        # `b` is the log-likelihood distribution after CN processing
+        # `a` is the log-likelihood distribution after VN processing
+        iter += 1
+
+        b = _LDensity(N, δ)
+        bp = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
+        bp[1] = a.data[N + 1]
+        bm = a.data[N + 1:end] .- a.data[N + 1:-1:1]
+        Bp = (1 - sum(a.data) * δ) .+ [sum(bp[j] for j in i:length(bp)) for i in eachindex(bp)]
+        push!(Bp, 0.0)
+        Bm = (1 - sum(a.data) * δ) .+ [sum(bm[j] for j in i:length(bm)) for i in eachindex(bm)]
+        push!(Bm, 0.0)
+        bptemp = copy(bp)
+        bmtemp = copy(bm)
+        btotal = zeros(ComplexF64, 2^t)
+        for i in 2:length(ρ)
+            ;
+        end
+        push!(evob, b)
+
+        a = _LDensity(N, δ)
+        afft[1:N + 1] .= b.data[N + 1:end] .* temp
+        afft[N + 2:end] .= zero(ComplexF64)
+        fft!(afft)
+        atemp = copy(ac)
+        atotal = zeros(ComplexF64, 2^t)
+        for i in 2:length(λ)
+            atemp .*= ac
+            atotal .+= λ[i] .* atemp
+        end
+        atotal .*= initialfft
+        ifft!(atotal)
+        a.data[N + 1:end] .+= real.(atotal[1:N + 1]) .* exp.(0:δ:N*δ ./ 2) ./ δ
+        a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
+        push!(evoa, a)
+    end
+    return evoa, evob
+end
 
 
 #########################################################################
