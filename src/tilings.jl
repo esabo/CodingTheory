@@ -8,32 +8,57 @@
         # Hyperbolic
 #############################
 
+struct CoxeterMatrix <: AbstractMatrix{Int}
+    n::Int
+    vec::Vector{Int}
+end
+Base.size(m::CoxeterMatrix) = (m.n, m.n)
+
+function Base.getindex(coxmat::CoxeterMatrix, i::Int, j::Int)
+    smallidx = min(i, j)
+    bigidx = max(i, j)
+    n = size(coxmat)[1]
+    linearidx = (n * (n - 1) - (n - smallidx) * (n - smallidx + 1)) / 2 + bigidx
+    coxmat.vec[convert(Int, linearidx)]
+end
+
 struct ReflectionGroup
     group::GapObj
-    generators::Vector{GapObj}
-    orders::Vector{Int}
-    dimension::Int
+    generators::GapObj
+    coxmat::CoxeterMatrix
 end
 
 __gapobj(G::ReflectionGroup) = G.group
 gens(G::ReflectionGroup) = G.generators
-orders(G::ReflectionGroup) = G.orders
-dim(G::ReflectionGroup) = G.dimension # length(gens(G)) ???
+coxmat(G::ReflectionGroup) = G.coxmat
+dim(G::ReflectionGroup) = length(gens(G))
+
+"""
+    simplexgroup(coxmat::CoxeterMatrix)
+
+Return the reflection group with fundamental simplex specified by `coxmat`.
+"""
+function simplexgroup(coxmat::CoxeterMatrix)
+    n = size(coxmat)[1]
+    f = GAP.Globals.FreeGroup(n)
+    gens = GAP.Globals.GeneratorsOfGroup(f)
+    relations = []
+    for (i, g1) in enumerate(gens)
+        for (j, g2) in enumerate(gens)
+            if j >= i append!(relations, [(g1*g2)^coxmat[i,j]]) end
+        end
+    end
+    g = f / GapObj(relations)
+    return ReflectionGroup(g, GAP.Globals.GeneratorsOfGroup(g), coxmat)
+end
+
 
 """
     trianglegroup(l::Int, m::Int, n::Int)
 
 Return the (`l`,`m`,`n`) triangle group.
 """
-function trianglegroup(l::Int, m::Int, n::Int)
-    l >= 0 && m >= 0 && n >= 0 || throw(ArgumentError("Arguments must be non-negative."))
-    # f = GAP.Globals.FreeGroup(g"a", g"b", g"c")
-    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c"]))
-    # f = free_group(["a", "b", "c"]).X
-    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c"]; recursive=true))
-    g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, (f.:1 * f.:2)^l, (f.:1 * f.:3)^m, (f.:2 * f.:3)^n])
-    return ReflectionGroup(g, [g.:1, g.:2, g.:3], [l, m, n], 3)
-end
+trianglegroup(l::Int, m::Int, n::Int) = simplexgroup(CoxeterMatrix(3, [1, l, m, 1, n, 1]))
 
 """
     rsgroup(r::Int, s::Int)
@@ -49,23 +74,6 @@ o---o---o
 rsgroup(r::Int, s::Int) = trianglegroup(r, 2, s)
 
 """
-    tetrahedrongroup(orders::Vector{Int})
-
-Return the tetrahedron group with relations given by `orders`.
-"""
-function tetrahedrongroup(orders::Vector{Int})
-    all(>=(0), orders) || throw(ArgumentError("Arguments must be non-negative."))
-    # f = GAP.Globals.FreeGroup(g"a", g"b", g"c", g"d")
-    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c", "d"]))
-    # f = free_group(["a", "b", "c", "d"]).X
-    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c", "d"]; recursive=true))
-    g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, f.:4^2,
-        (f.:1 * f.:2)^orders[1], (f.:1 * f.:3)^orders[2], (f.:1 * f.:4)^orders[3],
-        (f.:2 * f.:3)^orders[4], (f.:2 * f.:4)^orders[5], (f.:3 * f.:4)^orders[6]])
-    return ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
-end
-
-"""
     qrsgroup(q::Int, r::Int, s::Int)
 
 Return the Coxeter group corresponding to Schläfli symbol {`q`,`r`,`s`}.
@@ -76,7 +84,7 @@ o---o---o---o
   q   r   s
 ```
 """
-qrsgroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, 2, 2, r, 2, s])
+qrsgroup(q::Int, r::Int, s::Int) = simplexgroup(CoxeterMatrix(4, [1, q, 2, 2, 1, r, 2, 1, s, 1]))
 
 """
     startetrahedrongroup(q::Int, r::Int, s::Int)
@@ -92,7 +100,7 @@ o---o
       o
 ```
 """
-startetrahedrongroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, r, s, 2, 2, 2])
+startetrahedrongroup(q::Int, r::Int, s::Int) = simplexgroup(CoxeterMatrix(4, [1, q, r, s, 1, 2, 2, 1, 2, 1]))
 
 """
     cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int)
@@ -108,7 +116,7 @@ t|   |r
    s
 ```
 """
-cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = tetrahedrongroup([q, 2, t, r, 2, s])
+cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = simplexgroup(CoxeterMatrix(4, [1, q, 2, t, 1, r, 2, 1, s, 1]))
 
 """
     normalsubgroups(G::ReflectionGroup, maxindex::Int)
@@ -117,7 +125,7 @@ Return all normal subgroups of `G` with index up to `maxindex`.
 """
 function normalsubgroups(G::ReflectionGroup, maxindex::Integer)
     lins_search = GAP.Globals.LowIndexNormalSubgroupsSearchForAll(__gapobj(G), maxindex)
-    sbgrps = GapObj[H for H in GAP.Globals.List(lins_search)]
+    sbgrps = GapObj[GAP.Globals.Grp(H) for H in GAP.Globals.List(lins_search)]
     return sbgrps
 end 
 
@@ -132,10 +140,13 @@ function fixedpointfree(subgroup::GapObj, G::ReflectionGroup)
     fixedpoint = any(isone ∘ h, gens(G))
     fixedpoint && return false
     
-    for g1 in gens(G)
-        for (g2, ord) in zip(gens(G), orders(G))
-            fixedpoint = any(isone ∘ h, (g1*g2^j for j in 1:ord - 1))
-            fixedpoint && return false
+    for (i, g1) in enumerate(gens(G))
+        for (j, g2) in enumerate(gens(G))
+            if j > i
+                k = coxmat(G)[i,j]
+                fixedpoint = any(isone ∘ h, ((g1*g2)^m for m in 1:k - 1))
+                fixedpoint && return false
+            end
         end
     end
     return true
@@ -146,10 +157,10 @@ end
 
 Return `true' if the `subgroup` of `G` is orientable; otherwise `false`.
 """
-function orientable(sbgrps::GapObj, G::ReflectionGroup)
+function orientable(sbgrp::GapObj, G::ReflectionGroup)
     S = GapObj[a*b for (a,b) in combinations(gens(G), 2)]
     G⁺ = GAP.Globals.Subgroup(__gapobj(G), GapObj(S))
-    return GAP.Globals.IsSubgroup(G⁺, sbgrps)
+    return GAP.Globals.IsSubgroup(G⁺, sbgrp)
 end
 
 """
@@ -166,7 +177,7 @@ function kcolorable(
     G::ReflectionGroup,
 )   
     Tgens = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
-    GAP.Globals.Append(Tgens, GapObj(gens(G)[genidx]))
+    GAP.Globals.Append(Tgens, gens(G)[genidx])
     GAP.Globals.Append(Tgens, GapObj(translations))
     subgroupT = GAP.Globals.GroupByGenerators(Tgens)
     return GAP.Globals.Index(__gapobj(G), subgroupT) ≤ k
@@ -184,16 +195,20 @@ function cosetintersection(
     genidxB::AbstractVector{<:Integer},
     subgroup::GapObj,
     G::ReflectionGroup,
+    transversal::Union{GapObj,Nothing}=nothing,
 )   
     A, B = let S = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
         map((genidxA, genidxB)) do idx
-            S = deepcopy(S)
-            GAP.Globals.Append(S, GapObj(gens(G)[idx]))
-            GAP.Globals.Subgroup(__gapobj(G), S)
+            Scopy = deepcopy(S)
+            GAP.Globals.Append(Scopy, gens(G)[idx])
+            GAP.Globals.Subgroup(__gapobj(G), Scopy)
         end
     end
-    
-    transversalB = GAP.Globals.RightTransversal(__gapobj(G), B)
+    if isnothing(transversal)
+        transversalB = GAP.Globals.RightTransversal(__gapobj(G), B)
+    else
+        transversalB = transversal
+    end
     AB = GAP.Globals.Intersection(A, B)
     I = Vector{Int}()
     J = Vector{Int}()
