@@ -8,27 +8,57 @@
         # Hyperbolic
 #############################
 
+struct CoxeterMatrix <: AbstractMatrix{Int}
+    n::Int
+    vec::Vector{Int}
+end
+Base.size(m::CoxeterMatrix) = (m.n, m.n)
+
+function Base.getindex(coxmat::CoxeterMatrix, i::Int, j::Int)
+    smallidx = min(i, j)
+    bigidx = max(i, j)
+    n = size(coxmat)[1]
+    linearidx = (n * (n - 1) - (n - smallidx) * (n - smallidx + 1)) / 2 + bigidx
+    coxmat.vec[convert(Int, linearidx)]
+end
+
 struct ReflectionGroup
     group::GapObj
-    generators::Vector{GapObj}
-    orders::Vector{Int}
-    dimension::Int
+    generators::GapObj
+    coxmat::CoxeterMatrix
 end
+
+__gapobj(G::ReflectionGroup) = G.group
+gens(G::ReflectionGroup) = G.generators
+coxmat(G::ReflectionGroup) = G.coxmat
+dim(G::ReflectionGroup) = length(gens(G))
+
+"""
+    simplexgroup(coxmat::CoxeterMatrix)
+
+Return the reflection group with fundamental simplex specified by `coxmat`.
+"""
+function simplexgroup(coxmat::CoxeterMatrix)
+    n = size(coxmat)[1]
+    f = GAP.Globals.FreeGroup(n)
+    gens = GAP.Globals.GeneratorsOfGroup(f)
+    relations = []
+    for (i, g1) in enumerate(gens)
+        for (j, g2) in enumerate(gens)
+            if j >= i append!(relations, [(g1*g2)^coxmat[i,j]]) end
+        end
+    end
+    g = f / GapObj(relations)
+    return ReflectionGroup(g, GAP.Globals.GeneratorsOfGroup(g), coxmat)
+end
+
 
 """
     trianglegroup(l::Int, m::Int, n::Int)
 
 Return the (`l`,`m`,`n`) triangle group.
 """
-function trianglegroup(l::Int, m::Int, n::Int)
-    l >= 0 && m >= 0 && n >= 0 || throw(ArgumentError("Arguments must be non-negative.")) 
-    # f = GAP.Globals.FreeGroup(g"a", g"b", g"c")
-    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c"]))
-    # f = free_group(["a", "b", "c"]).X
-    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c"]; recursive=true))
-    g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, (f.:1 * f.:2)^l, (f.:1 * f.:3)^m, (f.:2 * f.:3)^n])
-    return ReflectionGroup(g, [g.:1, g.:2, g.:3], [l, m, n], 3)
-end
+trianglegroup(l::Int, m::Int, n::Int) = simplexgroup(CoxeterMatrix(3, [1, l, m, 1, n, 1]))
 
 """
     rsgroup(r::Int, s::Int)
@@ -44,23 +74,6 @@ o---o---o
 rsgroup(r::Int, s::Int) = trianglegroup(r, 2, s)
 
 """
-    tetrahedrongroup(orders::Vector{Int})
-
-Return the tetrahedron group with relations given by `orders`.
-"""
-function tetrahedrongroup(orders::Vector{Int})
-    all(>=(0), orders) || throw(ArgumentError("Arguments must be non-negative."))
-    # f = GAP.Globals.FreeGroup(g"a", g"b", g"c", g"d")
-    # f = GAP.Globals.FreeGroup(GAP.Obj.(["a","b","c", "d"]))
-    # f = free_group(["a", "b", "c", "d"]).X
-    f = GAP.Globals.FreeGroup(GAP.GapObj(["a", "b", "c", "d"]; recursive=true))
-    g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, f.:4^2,
-        (f.:1 * f.:2)^orders[1], (f.:1 * f.:3)^orders[2], (f.:1 * f.:4)^orders[3],
-        (f.:2 * f.:3)^orders[4], (f.:2 * f.:4)^orders[5], (f.:3 * f.:4)^orders[6]])
-    return ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
-end
-
-"""
     qrsgroup(q::Int, r::Int, s::Int)
 
 Return the Coxeter group corresponding to Schläfli symbol {`q`,`r`,`s`}.
@@ -71,7 +84,7 @@ o---o---o---o
   q   r   s
 ```
 """
-qrsgroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, 2, 2, r, 2, s])
+qrsgroup(q::Int, r::Int, s::Int) = simplexgroup(CoxeterMatrix(4, [1, q, 2, 2, 1, r, 2, 1, s, 1]))
 
 """
     startetrahedrongroup(q::Int, r::Int, s::Int)
@@ -87,7 +100,7 @@ o---o
       o
 ```
 """
-startetrahedrongroup(q::Int, r::Int, s::Int) = tetrahedrongroup([q, r, s, 2, 2, 2])
+startetrahedrongroup(q::Int, r::Int, s::Int) = simplexgroup(CoxeterMatrix(4, [1, q, r, s, 1, 2, 2, 1, 2, 1]))
 
 """
     cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int)
@@ -103,103 +116,110 @@ t|   |r
    s
 ```
 """
-cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = tetrahedrongroup([q, 2, t, r, 2, s])
+cycletetrahedrongroup(q::Int, r::Int, s::Int, t::Int) = simplexgroup(CoxeterMatrix(4, [1, q, 2, t, 1, r, 2, 1, s, 1]))
 
 """
-    normalsubgroups(g::ReflectionGroup, maxindex::Int)
+    normalsubgroups(G::ReflectionGroup, maxindex::Int)
 
-Return all normal subgroups of `g` with index up to `maxindex`.
+Return all normal subgroups of `G` with index up to `maxindex`.
 """
-function normalsubgroups(g::ReflectionGroup, maxindex::Int)
-    gr = GAP.Globals.LowIndexNormalSubgroupsSearchForAll(g.group, maxindex)
-    lns = GAP.Globals.List(gr)
-    sbgrps = Vector{GapObj}()
-    len = GAP.Globals.Length(lns)
-    for i = 1:len
-        push!(sbgrps, GAP.Globals.Grp(lns[i]))
-    end
+function normalsubgroups(G::ReflectionGroup, maxindex::Integer)
+    lins_search = GAP.Globals.LowIndexNormalSubgroupsSearchForAll(__gapobj(G), maxindex)
+    sbgrps = GapObj[GAP.Globals.Grp(H) for H in GAP.Globals.List(lins_search)]
     return sbgrps
-end
+end 
 
 """
-    fixedpointfree(subgroup::GapObj, g::ReflectionGroup)
+    fixedpointfree(subgroup::GapObj, G::ReflectionGroup)
 
-Return `true` if the `subgroup` of `g` is fixed-point free; otherwise `false`.
+Return `true` if the `subgroup` of `G` is fixed-point free; otherwise `false`.
 """
-function fixedpointfree(subgroup::GapObj, g::ReflectionGroup)
-    hom = GAP.Globals.NaturalHomomorphismByNormalSubgroup(g.group, subgroup)
-    fpf = true
-    G = GapObj(())
-    for i in 1:g.dimension
-        fpf = fpf && GAP.Globals.Image(hom, g.generators[i]) != G
-    end
-    i = 1
-    for pair in combinations(1:g.dimension, 2)
-        for j in 1:g.orders[i] - 1
-            fpf = fpf && GAP.Globals.Image(hom, (g.generators[pair[1]] * g.generators[pair[2]])^j) != G
+function fixedpointfree(subgroup::GapObj, G::ReflectionGroup)
+    hom = GAP.Globals.NaturalHomomorphismByNormalSubgroup(__gapobj(G), subgroup)
+    h(g) = GAP.Globals.Image(hom, g)
+    fixedpoint = any(isone ∘ h, gens(G))
+    fixedpoint && return false
+    
+    for (i, g1) in enumerate(gens(G))
+        for (j, g2) in enumerate(gens(G))
+            if j > i
+                k = coxmat(G)[i,j]
+                fixedpoint = any(isone ∘ h, ((g1*g2)^m for m in 1:k - 1))
+                fixedpoint && return false
+            end
         end
-        i += 1
     end
-    return fpf
+    return true
+end 
+
+"""
+    orientable(subgroup::GapObj, G::ReflectionGroup)
+
+Return `true' if the `subgroup` of `G` is orientable; otherwise `false`.
+"""
+function orientable(sbgrp::GapObj, G::ReflectionGroup)
+    S = GapObj[a*b for (a,b) in combinations(gens(G), 2)]
+    G⁺ = GAP.Globals.Subgroup(__gapobj(G), GapObj(S))
+    return GAP.Globals.IsSubgroup(G⁺, sbgrp)
 end
 
 """
-    orientable(subgroup::GapObj, g::ReflectionGroup)
+    kcolorable(k, genidx, translations, subgroup::GapObj, g::ReflectionGroup)
 
-Return `true' if the `subgroup` of `g` is orientable; otherwise `false`.
-"""
-function orientable(sbgrps::GapObj, g::ReflectionGroup)
-    gens = Vector{GapObj}()
-    for pair in combinations(1:g.dimension, 2)
-        push!(gens, g.generators[pair[1]] * g.generators[pair[2]])
-    end
-    gens = GapObj(gens)
-    gplus = GAP.Globals.Subgroup(g.group, gens)
-    return GAP.Globals.IsSubgroup(gplus, sbgrps)
-end
-
-"""
-    kcolorable(k::Int, genidx::Vector{GapObj}, translations::Vector{GapObj}, subgroup::GapObj, g::ReflectionGroup)
-
-Return `true` if the group elements corresponding to `genidx` in `g/subgroup` are
+Return `true` if the group elements corresponding to `genidx` in `G/subgroup` are
 `k`-colorable; otherwise `false`.
 """
-function kcolorable(k::Int, genidx::Vector{Int}, translations::Vector{GapObj}, subgroup::GapObj, g::ReflectionGroup)
-    gens = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
-    GAP.Globals.Append(gens, GapObj(getindex(g.generators, genidx)))
-    GAP.Globals.Append(gens, GapObj(translations))
-    subgroupT = GAP.Globals.GroupByGenerators(gens)
-    return GAP.Globals.Length(GAP.Globals.RightCosets(g.group, subgroupT)) == k
-end
+function kcolorable(
+    k::Integer,
+    genidx::AbstractVector{<:Integer},
+    translations::AbstractVector{<:GapObj},
+    subgroup::GapObj,
+    G::ReflectionGroup,
+)   
+    Tgens = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
+    GAP.Globals.Append(Tgens, gens(G)[genidx])
+    GAP.Globals.Append(Tgens, GapObj(translations))
+    subgroupT = GAP.Globals.GroupByGenerators(Tgens)
+    return GAP.Globals.Index(__gapobj(G), subgroupT) ≤ k
+end 
 
 """
-    cosetintersection(genidxA::Vector{Int}, genidxB::Vector{Int}, subgroup::GapObj, g::ReflectionGroup)
+    cosetintersection(genidxA, genidxB, subgroup::GapObj, G::ReflectionGroup)
 
-Return the intersection of the cosets of `g/subgroup` wrt `genidxA` and wrt `genidxB`.
+Return the intersection of the cosets of `G/subgroup` wrt `genidxA` and wrt `genidxB`.
 
 Outputs a sparse matrix with rows indexing the `genidxA` cosets and columns indexing the `genidxB` cosets.
 """
-function cosetintersection(genidxA::Vector{Int}, genidxB::Vector{Int}, subgroup::GapObj, g::ReflectionGroup)
-    gens = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
-    gensA = deepcopy(gens)
-    gensB = deepcopy(gens)
-    GAP.Globals.Append(gensA, GapObj(getindex(g.generators, genidxA)))
-    GAP.Globals.Append(gensB, GapObj(getindex(g.generators, genidxB)))
-    subgroupA = GAP.Globals.Subgroup(g.group, gensA)
-    subgroupB = GAP.Globals.Subgroup(g.group, gensB)
-    transversalB = GAP.Globals.RightTransversal(g.group, subgroupB)
-    intersectionAB = GAP.Globals.Intersection(subgroupA, subgroupB)
-    i = 1
+function cosetintersection(
+    genidxA::AbstractVector{<:Integer},
+    genidxB::AbstractVector{<:Integer},
+    subgroup::GapObj,
+    G::ReflectionGroup,
+    transversal::Union{GapObj,Nothing}=nothing,
+)   
+    A, B = let S = GAP.Globals.List(GAP.Globals.GeneratorsOfGroup(subgroup))
+        map((genidxA, genidxB)) do idx
+            Scopy = deepcopy(S)
+            GAP.Globals.Append(Scopy, gens(G)[idx])
+            GAP.Globals.Subgroup(__gapobj(G), Scopy)
+        end
+    end
+    if isnothing(transversal)
+        transversalB = GAP.Globals.RightTransversal(__gapobj(G), B)
+    else
+        transversalB = transversal
+    end
+    AB = GAP.Globals.Intersection(A, B)
     I = Vector{Int}()
     J = Vector{Int}()
-    for cosetA in GAP.Globals.RightCosets(g.group, subgroupA)
-        repA = GAP.Globals.Representative(cosetA)
-        for cosetAB in GAP.Globals.RightCosets(subgroupA, intersectionAB)
-            repAB = GAP.Globals.Representative(cosetAB)
+    for (i, Ag) in enumerate(GAP.Globals.RightCosets(__gapobj(G), A))
+        g = GAP.Globals.Representative(Ag)
+        for ABh in GAP.Globals.RightCosets(A, AB)
+            h = GAP.Globals.Representative(ABh)
             push!(I, i)
-            push!(J, GAP.Globals.PositionCanonical(transversalB, repAB * repA))
+            push!(J, GAP.Globals.PositionCanonical(transversalB, h * g))
         end
-        i += 1
     end
-    return sparse(I, J, ones(Int, size(I)))
+    return sparse(I, J, ones(Int, length(I)))
 end
+
