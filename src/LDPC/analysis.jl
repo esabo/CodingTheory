@@ -587,20 +587,22 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     # # test values, delete later
     # δ = 0.1
     # N = round(Int, 5 / δ)
+    # ⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
 
+    ### quantization for G-density convolution
     # finer grid for check node to make up for quantization error
     n = 2
     Ncn = N * n
     δcn = δ / n
-
-    # ⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
-    # ⊞(a...) = reduce(⊞, a...)
-
-    # used to calculate b
+    # the quantization:
+    #   Q is the rounded outcome of ⊞ applied to two LLRs on our grid
+    #   TQ is the quantization table (where does the outcome LLR from Q end up going under convolution)
+    #   (that description of TQ might be a bit wrong...not sure)
     Q(i::Int, j::Int) = round(Int, ((i * δcn) ⊞ (j * δcn)) / δcn)
     TQ(i::Int, k::Int) = k == -1 ? Ncn + 1 : minimum(j for j in i:10Ncn if Q(i, j) >= i - k; init = Ncn + 1)
     TQ_precomputed = [TQ(i, k) for i in 0:Ncn, k in -1:ceil(Int, log(2)/δcn - 0.5)];
 
+    ### stuff for the L-density convolution
     t = ceil(Int, log2(3N+3))
     afft = zeros(ComplexF64, 2^t)
     temp = exp.(.-range(0, δ * N, length = N + 1) ./ 2)
@@ -608,14 +610,15 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     initialfft[1:N + 1] .= initial.data[N + 1:end] .* temp
     fft!(initialfft)
 
+    ### main loop
+    # `initial` is the log-likelihood distribution of the channel message
+    # `b` is the LLR distribution after CN processing (stored in evob)
+    # `a` is the LLR distribution after VN processing (stored in evoa)
     iter = 0
     a = initial
     evoa = _LDensity[]
     evob = _LDensity[]
     while iter < maxiters
-        # `initial` is the log-likelihood distribution of the channel message
-        # `b` is the log-likelihood distribution after CN processing
-        # `a` is the log-likelihood distribution after VN processing
         iter += 1
 
         ### Check node, convolution in G-density domain
@@ -672,7 +675,7 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         push!(evob, b)
 
 
-        ### Variable node, convolution in L-density domain of log-likelihood ratios is simple with FFT.
+        ### Variable node, convolution in L-density domain of LLRs is simple with FFT.
         a = _LDensity(N, δ)
 
         # Transform (via `temp`) to exploit L-symmetry
