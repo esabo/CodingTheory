@@ -584,14 +584,22 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     N = initial.N
     δ = initial.δ
 
-    # test values, delete later
-    N = 40
-    δ = 0.05
+    # # test values, delete later
+    # δ = 0.1
+    # N = round(Int, 5 / δ)
+
+    # finer grid for check node to make up for quantization error
+    n = 2
+    Ncn = N * n
+    δcn = δ / n
+
+    # ⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
+    # ⊞(a...) = reduce(⊞, a...)
 
     # used to calculate b
-    Q(i::Int, j::Int) = round(Int, ((i*δ) ⊞ (j*δ)) / δ)
-    TQ(i::Int, k::Int) = k == -1 ? N + 1 : minimum(j for j in i:10N if Q(i, j) >= i - k; init = N + 1)
-    TQ_precomputed = [TQ(i, k) for i in 0:N, k in -1:ceil(Int, log(2)/δ - 0.5)]
+    Q(i::Int, j::Int) = round(Int, ((i * δcn) ⊞ (j * δcn)) / δcn)
+    TQ(i::Int, k::Int) = k == -1 ? Ncn + 1 : minimum(j for j in i:10Ncn if Q(i, j) >= i - k; init = Ncn + 1)
+    TQ_precomputed = [TQ(i, k) for i in 0:Ncn, k in -1:ceil(Int, log(2)/δcn - 0.5)];
 
     t = ceil(Int, log2(3N+3))
     afft = zeros(ComplexF64, 2^t)
@@ -601,7 +609,7 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     fft!(initialfft)
 
     iter = 0
-    a = deepcopy(initial)
+    a = initial
     evoa = _LDensity[]
     evob = _LDensity[]
     while iter < maxiters
@@ -610,36 +618,91 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         # `a` is the log-likelihood distribution after VN processing
         iter += 1
 
-        b = _LDensity(N, δ)
-        bp = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
+        ### Check node, convolution in G-density domain
+        bp = repeat(a.data[N + 1:end], inner = n) .+ repeat(a.data[N + 1:-1:1], inner = n)
         bp[1] = a.data[N + 1]
-        bm = a.data[N + 1:end] .- a.data[N + 1:-1:1]
+        bm = repeat(a.data[N + 1:end], inner = n) .- repeat(a.data[N + 1:-1:1], inner = n)
         Bp = (1 - sum(a.data) * δ) .+ [sum(bp[j] for j in i:length(bp)) for i in eachindex(bp)]
         push!(Bp, 0.0)
         Bm = (1 - sum(a.data) * δ) .+ [sum(bm[j] for j in i:length(bm)) for i in eachindex(bm)]
         push!(Bm, 0.0)
         bptemp = copy(bp)
         bmtemp = copy(bm)
-        btotal = zeros(ComplexF64, 2^t)
+        Bptemp = copy(Bp)
+        Bmtemp = copy(Bm)
+        bptemp2 = zeros(length(bp))
+        bmtemp2 = zeros(length(bm))
+        bptotal = zeros(length(bp))
+        bmtotal = zeros(length(bm))
         for i in 2:length(ρ)
-            ;
+            bptotal .+= ρ[i] .* bptemp
+            bmtotal .+= ρ[i] .* bmtemp
+            bptemp2 .= 0.0
+            bmtemp2 .= 0.0
+            for j in axes(TQ_precomputed, 1)
+                for k in axes(TQ_precomputed, 2)
+                    if k > 1 && j - k + 2 > 0
+                        bptemp2[j - k + 2] += bp[j] * (Bptemp[TQ_precomputed[j, k]] - Bptemp[TQ_precomputed[j, k - 1]]) + bptemp[j] * (Bp[TQ_precomputed[j, k]] - Bp[TQ_precomputed[j, k - 1]])
+                        bmtemp2[j - k + 2] += bp[j] * (Bptemp[TQ_precomputed[j, k]] - Bptemp[TQ_precomputed[j, k - 1]]) - bptemp[j] * (Bp[TQ_precomputed[j, k]] - Bp[TQ_precomputed[j, k - 1]])
+                    end
+                end
+            end
+            bptemp .= bptemp2
+            bmtemp .= bmtemp2
+            Bptemp[1:end-1] .= (1 - 2sum(bptemp) + bptemp[1]) .+ [sum(bptemp[j] for j in i:length(bptemp)) for i in eachindex(bptemp)]
+            Bptemp[end] = 0.0
+            Bmtemp[1:end-1] .= (1 - 2sum(bptemp) + bptemp[1]) .+ [sum(bmtemp[j] for j in i:length(bmtemp)) for i in eachindex(bmtemp)]
+            Bmtemp[end] = 0.0
+        end
+
+        b = _LDensity(N, δ)
+        for i in eachindex(b.data)
+            
+            # collect over-sampled points into the proper place
+            if i == N + 1
+                b.data[i] = mean(bptotal[1:n])
+            elseif i > N + 1
+                inds = n * (i - N - 1) + 1:n * (i - N)
+                b.data[i] = (mean(bptotal[inds]) + mean(bmtotal[inds])) / 2
+            else
+                inds = n * (N - i + 1) + 1:n * (N - i + 2)
+                b.data[i] = (mean(bptotal[inds]) - mean(bmtotal[inds])) / 2
+            end
         end
         push!(evob, b)
 
+
+        ### Variable node, convolution in L-density domain of log-likelihood ratios is simple with FFT.
         a = _LDensity(N, δ)
+
+        # Transform (via `temp`) to exploit L-symmetry
         afft[1:N + 1] .= b.data[N + 1:end] .* temp
+
+        # Padded with zeros so that the natural periodicity of using FFT for convolution is taken care of, and so that we work with a vector with a power of 2 length for efficiency
         afft[N + 2:end] .= zero(ComplexF64)
         fft!(afft)
-        atemp = copy(ac)
+
+        # need to convolve with itself multiple times, so save the FFT in atemp
+        atemp = copy(afft)
+
+        # keep the running total in atotal
         atotal = zeros(ComplexF64, 2^t)
+
+        # collect everything
         for i in 2:length(λ)
-            atemp .*= ac
             atotal .+= λ[i] .* atemp
+            atemp .*= afft
         end
+
+        # convolution with the original channel message
         atotal .*= initialfft
+
+        # get back to the proper domain and undo the transformation from above
         ifft!(atotal)
-        a.data[N + 1:end] .+= real.(atotal[1:N + 1]) .* exp.(0:δ:N*δ ./ 2) ./ δ
+        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(0:δ:N*δ ./ 2) ./ δ
         a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
+
+        # save the result
         push!(evoa, a)
     end
     return evoa, evob
