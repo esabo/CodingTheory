@@ -868,5 +868,50 @@ end
     H2 = Tannercode(EVIG, left, right, Cloc)
     @test H1 == H2
 
+    # third test case
+    g = rsgroup(5, 4)
+    testmat = CoxeterMatrix(3, [1, 5, 2, 1, 4, 1])
+    @test g.coxmat == testmat
+    subgroups = normalsubgroups(g, 100)
+    @test length(subgroups) == 7
+    filter!(x -> fixedpointfree(x, g), subgroups)
+    @test length(subgroups) == 0
+
+    # fourth test case
+    g = rsgroup(8, 3)
+    testmat = CoxeterMatrix(3, [1, 8, 2, 1, 3, 1])
+    @test g.coxmat == testmat
+    subgroups = normalsubgroups(g, 100)
+    @test length(subgroups) == 10
+    filter!(x -> fixedpointfree(x, g), subgroups)
+    @test length(subgroups) == 1
+
+    # fifth test case
+    g = trianglegroup(4, 3, 3)
+    testmat = CoxeterMatrix(3, [1, 4, 3, 1, 3, 1])
+    @test g.coxmat == testmat
+    subgroups = normalsubgroups(g, 100)
+    @test length(subgroups) == 6
+    filter!(x -> fixedpointfree(x, g), subgroups)
+    @test length(subgroups) == 2
+
+    # sixth test case
+    g = qrsgroup(4, 3, 5)
+    testmat = CoxeterMatrix(4, [1, 4, 2, 2, 1, 3, 2, 1, 5, 1])
+    @test g.coxmat == testmat
+    subgroups = normalsubgroups(g, 100)
+    @test length(subgroups) == 6
+    filter!(x -> fixedpointfree(x, g), subgroups)
+    @test length(subgroups) == 0
+
+    # seventh test case
+    g = startetrahedrongroup(5, 3, 3)
+    testmat = CoxeterMatrix(4, [1, 5, 3, 3, 1, 2, 2, 1, 2, 1])
+    @test g.coxmat == testmat
+    subgroups = normalsubgroups(g, 100)
+    @test length(subgroups) == 3
+    filter!(x -> fixedpointfree(x, g), subgroups)
+    @test length(subgroups) == 0
+
 
 end

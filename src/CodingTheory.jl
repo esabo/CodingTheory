@@ -358,7 +358,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
         # tilings.jl
 #############################
 
-export ReflectionGroup, trianglegroup, rsgroup, tetrahedrongroup, qrsgroup,
+export ReflectionGroup, CoxeterMatrix, simplexgroup, trianglegroup, rsgroup, qrsgroup,
     startetrahedrongroup, cycletetrahedrongroup, normalsubgroups, fixedpointfree,
     orientable, kcolorable, cosetintersection
 
