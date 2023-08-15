@@ -494,15 +494,15 @@ end
 #     [sum(temp[j] * v[k+i-j] for j in eachindex(v) if 1 <= k + i - j <= length(v)) for i in eachindex(v)]
 # end
 
-# function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
-#     @assert length(v) == length(w) == length(x)
-#     Δx = x[2] - x[1]
-#     @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
-#     k = round(Int, 1 - x[1] / Δx)
-#     paddedv = vcat(zeros(T, length(v)), v, zeros(T, length(v)))
-#     paddedconv = real.(ifft(fft(paddedv) .^ 2))
-#     circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
-# end
+function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
+    @assert length(v) == length(w) == length(x)
+    Δx = x[2] - x[1]
+    @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
+    k = round(Int, 1 - x[1] / Δx)
+    paddedv = vcat(zeros(T, length(v)), v, zeros(T, length(v)))
+    paddedconv = real.(ifft(fft(paddedv) .^ 2))
+    circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
+end
 
 # function _LdensitytoDdensity(a::Vector{<:Real}, x::Vector{<:Real})
 #     @assert length(a) == length(x)
@@ -586,7 +586,7 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
 
     ### quantization for G-density convolution
     # finer grid for check node to make up for quantization error
-    n = 2
+    n = 1
     Ncn = N * n
     δcn = δ / n
     # the quantization:
@@ -594,15 +594,15 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     #   TQ is the quantization table (where does the outcome LLR from Q end up going under convolution)
     #   (that description of TQ might be a bit wrong...not sure)
     Q(i::Int, j::Int) = round(Int, ((i * δcn) ⊞ (j * δcn)) / δcn)
-    TQ(i::Int, k::Int) = k == -1 ? Ncn + 1 : minimum(j for j in i:10Ncn if Q(i, j) >= i - k; init = Ncn + 1)
+    TQ(i::Int, k::Int) = k == -1 ? Ncn + 1 : minimum(j for j in i:10Ncn if Q(i, j) >= i - k; init = 10Ncn)
     TQ_precomputed = [TQ(i, k) for i in 0:Ncn, k in -1:ceil(Int, log(2)/δcn - 0.5)] .+ 1;
 
     ### stuff for the L-density convolution
-    t = ceil(Int, log2(3N+3))
+    t = ceil(Int, log2(3N+3)) + 1
     afft = zeros(ComplexF64, 2^t)
-    temp = exp.(.-range(0, δ * N, length = N + 1) ./ 2)
     initialfft = copy(afft)
-    initialfft[1:N + 1] .= initial.data[N + 1:end] .* temp
+    initialfft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+    initialfft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
     fft!(initialfft)
 
     ### main loop
@@ -668,6 +668,12 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
             end
         end
 
+        ####### TEMPORARY FIX ######
+        # delete this once I figure out what is broken to make this necessary
+        # or...keep to correct for small numerical error, but it should only be very small error.
+        iter == 1 && @show sum(b.data * δ)
+        b.data ./= sum(b.data * δ)
+
         # save the results
         push!(evob, b)
 
@@ -676,10 +682,10 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         a = _LDensity(N, δ)
 
         # Transform (via `temp`) to exploit L-symmetry
-        afft[1:N + 1] .= b.data[N + 1:end] .* temp
-
-        # Padded with zeros so that the natural periodicity of using FFT for convolution is taken care of, and so that we work with a vector with a power of 2 length for efficiency
-        afft[N + 2:end] .= zero(ComplexF64)
+        afft[1:N + 1] .= b.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+        afft[N + 2:end - N] .= zero(ComplexF64)
+        afft[end - N + 1:end] .= b.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
+        afft .*= δ
         fft!(afft)
 
         # need to convolve with itself multiple times, so save the FFT in atemp
@@ -699,8 +705,11 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
 
         # get back to the proper domain and undo the transformation from above
         ifft!(atotal)
-        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:δ:N*δ) ./ 2) ./ δ
-        a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
+        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
+        # a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
+        a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
+
+        iter == 1 && @show sum(a.data * δ)
 
         # save the result
         push!(evoa, a)
@@ -708,20 +717,70 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     return evoa, evob
 end
 
+function dumbtest(λ, initial)
+    N = initial.N
+    δ = initial.δ
+    t = ceil(Int, log2(3N+3)) + 1
+    afft = zeros(ComplexF64, 2^t)
+    initialfft = copy(afft)
+    initialfft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+    initialfft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
+    fft!(initialfft)
+    b = initial
+
+    # check node
+    Q(i::Int, j::Int) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
+    # bp = 
+
+
+    # variable node
+        a = _LDensity(N, δ)
+
+        # Transform (via `temp`) to exploit L-symmetry
+        afft[1:N + 1] .= b.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2) * δ
+        afft[N + 2:end - N] .= zero(ComplexF64)
+        afft[end - N + 1:end] .= b.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2) * δ
+        fft!(afft)
+
+        # need to convolve with itself multiple times, so save the FFT in atemp
+        atemp = copy(afft)
+
+        # keep the running total in atotal
+        atotal = zeros(ComplexF64, 2^t)
+
+        # collect everything
+        for i in 2:length(λ)
+            atotal .+= λ[i] .* atemp
+            atemp .*= afft
+        end
+
+        # convolution with the original channel message
+        atotal .*= initialfft
+
+        # get back to the proper domain and undo the transformation from above
+        ifft!(atotal)
+        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
+        # a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
+        a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
+    return a
+end
+
 function DEBMStest()
-    δ = 0.2
-    N = round(Int, 10 / δ)
+    # δ = 0.05
+    δ = 0.1
+    N = round(Int, 50 / δ)
     initial = CodingTheory._LDensity(N, δ)
+
+    # example 4.100, p221
     sigma = 0.93
     initial.data .= [(sigma / √(8π)) * exp(-(y - (2 / sigma^2))^2 * sigma^2 / 8) for y in -δ*N:δ:δ*N]
     λ = [0, 0.212332, 0.197596, 0, 0.0142733, 0.0744898, 0.0379457, 0.0693008, 0.086264, 0, 0.00788586, 0.0168657, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.283047]
     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
-    evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = 2)
-
-    evob[1].data ./= sum(evob[1].data * evob[1].δ)
+    evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = 141)
 
     # This plot should look like fig 4.101, top left panel
     plt1 = plot(-δ * N:δ:δ * N, initial.data,
+                title = "\$a_0\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -732,6 +791,7 @@ function DEBMStest()
 
     # This should look like fig 4.101, top right panel
     plt2 = plot(-δ * N:δ:δ * N, evob[1].data,
+                title = "\$b_1\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -740,7 +800,79 @@ function DEBMStest()
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
 
-    plt = plot(plt1, plt2, size = (600, 150))
+    plt3 = plot(-δ * N:δ:δ * N, evoa[5].data,
+                title = "\$a_5\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt4 = plot(-δ * N:δ:δ * N, evob[6].data,
+                title = "\$b_6\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt5 = plot(-δ * N:δ:δ * N, evoa[10].data,
+                title = "\$a_{10}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt6 = plot(-δ * N:δ:δ * N, evob[11].data,
+                title = "\$b_{11}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt7 = plot(-δ * N:δ:δ * N, evoa[50].data,
+                title = "\$a_{50}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt8 = plot(-δ * N:δ:δ * N, evob[51].data,
+                title = "\$b_{51}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt9 = plot(-δ * N:δ:δ * N, evoa[140].data,
+                title = "\$a_{140}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt10 = plot(-δ * N:δ:δ * N, evob[141].data,
+                title = "\$b_{141}\$",
+                xlims = (-10, 45),
+                ylims = (0,0.25),
+                legend = false,
+                framestyle = :box,
+                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+                )
+    plt = plot(plt1, plt2, plt3, plt4, plt5, plt6, plt7, plt8, plt9, plt10, layout = (5,2), size = (600, 900))
 
     return plt, evoa, evob
 end
