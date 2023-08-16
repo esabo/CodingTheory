@@ -25,10 +25,10 @@ using JuMP, GLPK
 using DataStructures
 using StatsBase
 
-import LinearAlgebra: tr, Adjoint, transpose
+import LinearAlgebra: tr, Adjoint, transpose, kron
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield
+    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗
 import Oscar.Nemo: exponent_vectors
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
