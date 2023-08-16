@@ -32,9 +32,15 @@ Documenter.makedocs(
         	"Classical/ReedMuller.md",
 			"Classical/newcodesfromold.md",
 			"Classical/productcodes.md",
-        	"Classical/miscknowncodes.md",
-        	"Classical/LDPC.md"
+        	"Classical/miscknowncodes.md"
     	],
+		"LDPC" => [
+			"LDPC/codes.md",
+			"LDPC/Tannercodes.md",
+			"LDPC/ensembles.md",
+			"LDPC/channels.md",
+			"LDPC/decoders.md"
+		],
     	"Quantum" => [
         	"Quantum/quantumcode.md",
 			"Quantum/quantumproductcodes.md",

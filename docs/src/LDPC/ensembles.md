@@ -1,6 +1,50 @@
 # LDPC Ensemble Analysis
 
-## Finding optimal distributions
+## Degree Distributions
+
+```@docs
+checkconcentrateddegreedistribution
+```
+
+```@docs
+optimallambda
+```
+
+```@docs
+optimalrho
+```
+
+```@docs
+optimallambdaandrho
+```
+
+```@docs
+optimalthreshold
+```
+
+## Density Evolution
+```@docs
+densityevolution
+```
+
+```@docs
+plotEXITchart
+```
+
+# Misc
+```@docs
+multiplicativegap
+```
+
+```@docs
+multiplicativegaplowerbound
+```
+
+```@docs
+densitylowerbound
+```
+
+## Comments
 
 (these are just temporary notes)
 
