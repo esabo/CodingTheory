@@ -1,8 +1,9 @@
-# Copyright (c) 2022, 2023 Eric Sabo
+# Copyright (c) 2022, 2023 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+
 #############################
         # constructors
 #############################
@@ -11,9 +12,6 @@
     LDPCCode(H::fq_nmod_mat)
 
 Return the LDPC code defined by the parity-check matrix `H`.
-
-# Notes
-* LDPC codes are typically expected to have a matrix density of less than 1%.
 """
 function LDPCCode(H::CTMatrixTypes)
     # TODO: remove empties
@@ -56,9 +54,6 @@ end
     LDPCCode(C::AbstractLinearCode)
 
 Return the LDPC code given by the parity-check matrix of `C`.
-
-# Notes
-* LDPC codes are typically required to have a matrix density of less than 1%.
 """
 LDPCCode(C::AbstractLinearCode) = LDPCCode(paritycheckmatrix(C))
 
@@ -101,7 +96,8 @@ function regularLDPCCode(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, In
         r * ones(Int, m), l, r, max(l, r), r / n, true, missing, (1 // l) * x^l,
         (1 // r) * x^r, missing)
 end
-regularLDPCCode(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) = regularLDPCCode(2, n, l, r, seed = seed)
+regularLDPCCode(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) =
+    regularLDPCCode(2, n, l, r, seed = seed)
 
 #############################
       # getter functions
@@ -289,15 +285,21 @@ function degreedistributionsplot(C::AbstractLDPCCode)
     return f
 end
 
-function girth(C::LDPCCode)
+"""
+    girth(C::LDPCCode)
+
+Return the girth of the Tanner graph of `C`.
+
+An error is thrown if the maximum number of iterations is reached and
+``-1`` is returned to represent infinite girth.
+"""
+function girth(C::LDPCCode, max_iter::Int=100)
     checkadlist, varadlist = _nodeadjacencies(C.H)
     girtharr = zeros(Int, C.n)
-    # TODO: written to be thread safe, test
-    for vn in 1:C.n
+    Threads.@threads for vn in 1:C.n
         iter = 0
         notfound = true
         tocheck = [vn]
-        # TODO: max iter and come up with a convention for cycleless codes (usually = ∞)
         while notfound
             iter += 1
             tochecknext = Vector{Int}()
@@ -314,12 +316,15 @@ function girth(C::LDPCCode)
                     end
                 end
                 iter += 1
+                iter > max_iter && error("Hit the maximum number of iterations")
                 !notfound && break
                 unique!(sort!(tochecknext))
             end
         end
     end
-    C.girth = minimum(girtharr)
+    min = minimum(girtharr)
+    iseven(min) || error("Computed girth to be an odd integer")
+    min == 0 ? (C.girth = -1;) : (C.girth = min;)
     return C.girth
 end
 
@@ -341,46 +346,39 @@ mutable struct _ACEchecknode
 end
 
 # TODO: girth, degree 1 nodes
+"""
+    shortestcycleACE(C::LDPCCode, v::Int)
+    shortestcycleACE(C::LDPCCode, vs::Vector{Int})
+    shortestcycleACE(C::LDPCCode)
+
+Return a cycle of minimum length and minimum ACE in the Tanner graph of `C`
+for the vertex `v` or vertices `vs`, in the order (ACEs, cycles). If no vertices
+are given, all vertices are computed by default. The cycle `v1 -- c1 -- ... -- 
+cn -- vn` are returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
+"""
 function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
     isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
     all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
 
     checkadlist, varadlist = _nodeadjacencies(C.H)
-    # checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
-    # varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlist[i]) - 2) for i in 1:C.n]
     vsACE = zeros(Int, length(vs))
     cyclesvs = [Vector{Tuple{Int, Int}}() for _ in 1:length(vs)]
-    # display(cyclesvs)
 
     Threads.@threads for i in 1:length(vs)
-        v = vs[i]
         # moving this inside allocates more but allows for multi-threading
         checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
         varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlist[i]) - 2) for i in 1:C.n]
-        # if i != 1
-        #     for cn in checknodes
-        #         cn.parentid = -1
-        #         cn.lvl = -1
-        #         cn.cumACE = -1
-        #     end
-        #     for vn in varnodes
-        #         vn.parentid = -1
-        #         vn.lvl = -1
-        #         vn.cumACE = -1
-        #     end
-        # end
-        # println("starting vertex: $v")
+
         ACEs = Vector{Int}()
         cycles = Vector{Vector{Tuple{Int, Int}}}()
         notemptied = true
-        root = varnodes[v]
+        root = varnodes[vs[i]]
         root.lvl = 0
         root.cumACE = root.localACE
         queue = Deque{Union{_ACEchecknode, _ACEvarnode}}()
         push!(queue, root)
         while length(queue) > 0
             curr = first(queue)
-            # println("lvl: ", curr.lvl)
             if isa(curr, _ACEvarnode)
                 for cn in varadlist[curr.id]
                     # can't pass messages back to the same node
@@ -388,7 +386,6 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                         cnnode = checknodes[cn]
                         if cnnode.lvl != -1
                             # have seen before
-                            # println("parent vn $(curr.id), child cn $cn seen before at lvl $(cnnode.lvl)")
                             push!(ACEs, curr.cumACE + cnnode.cumACE - root.localACE)
 
                             # trace the cycle from curr to root and cnnode to root
@@ -396,7 +393,6 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                             node = cnnode
                             while node.lvl != 0
                                 push!(temp, (node.parentid, node.id))
-                                # print((node.parentid, node.id))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
@@ -404,29 +400,23 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                                 end
                             end
                             reverse!(temp)
-                            # println("\nmiddle here")
                             push!(temp, (cnnode.id, curr.id))
                             node = curr
                             while node.lvl != 0
                                 push!(temp, (node.id, node.parentid))
-                                # print((node.id, node.parentid))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
                                     node = checknodes[node.parentid]
                                 end
                             end
-                            # println(" ")
-                            # println("root: $v, cn, temp: $temp")
                             push!(cycles, temp)
 
                             # finish this level off but don't go deeper so remove children at lower level
                             if notemptied
-                                # println("emptying queue from checknodes")
                                 while length(queue) > 0
                                     back = last(queue)
                                     if back.lvl != curr.lvl
-                                        # println("removing node $back")
                                         pop!(queue)
                                     else
                                         break
@@ -438,10 +428,7 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                             cnnode.lvl = curr.lvl + 1
                             cnnode.parentid = curr.id
                             cnnode.cumACE = curr.cumACE
-                            # push!(curr.children, cnnode)
                             push!(queue, cnnode)
-                            # println("parent vn $(curr.id), child cn $cn at lvl $(cnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
@@ -451,18 +438,14 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                     if vn != curr.parentid
                         vnnode = varnodes[vn]
                         if vnnode.lvl != -1
-                            # println("parent cn $(curr.id), child vn $vn seen before at lvl $(vnnode.lvl)")
                             # have seen before
                             push!(ACEs, curr.cumACE + vnnode.cumACE - root.localACE)
 
                              # trace the cycle from curr to root and cnnode to root
                             temp = Vector{Tuple{Int, Int}}()
-                            # println(vnnode)
-                            # push(temp, (curr.id, vnnode.id))
                             node = vnnode
                             while node.lvl != 0
                                 push!(temp, (node.parentid, node.id))
-                                # print((node.parentid, node.id))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
@@ -470,30 +453,23 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                                 end
                             end
                             reverse!(temp)
-                            # println("\nmiddle here")
                             push!(temp, (vnnode.id, curr.id))
                             node = curr
                             while node.lvl != 0
                                 push!(temp, (node.id, node.parentid))
-                                # print((node.id, node.parentid))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
                                     node = checknodes[node.parentid]
                                 end
                             end
-                            # println(" ")
-                            # println("temp: $temp")
-                            # println("root: $v, vn, temp: $temp")
                             push!(cycles, temp)
 
                             # finish this level off but don't go deeper so remove children at lower level
                             if notemptied
-                                # println("emptying queue from varnodes")
                                 while length(queue) > 0
                                     back = last(queue)
                                     if back.lvl != curr.lvl
-                                        # println("removing node $back")
                                         pop!(queue)
                                     else
                                         break
@@ -505,20 +481,14 @@ function shortestcycleACE(C::LDPCCode, vs::Vector{Int})
                             vnnode.lvl = curr.lvl + 1
                             vnnode.parentid = curr.id
                             vnnode.cumACE = curr.cumACE + vnnode.localACE
-                            # push!(curr.children, vnnode)
                             push!(queue, vnnode)
-                            # println("parent cn $(curr.id), child vn $vn at lvl $(vnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
             end
-            # println("removing node $(first(queue))")
             popfirst!(queue)
-            # println("queue length: ", length(queue))
         end
-        # println("ACEs: ", ACEs)
-        # display(cycles)
+
         min, index = findmin(ACEs)
         vsACE[i] = min
         cyclesvs[i] = cycles[index]
@@ -528,44 +498,37 @@ end
 shortestcycleACE(C::LDPCCode, v::Int) = shortestcycleACE(C, [v])[1]
 shortestcycleACE(C::LDPCCode) = shortestcycleACE(C, collect(1:C.n))
 
-# shortest cycles for each variable node, not necessarily all going to be of the same length
+"""
+    shortestcycles(C::LDPCCode, v::Int)
+    shortestcycles(C::LDPCCode, vs::Vector{Int})
+    shortestcycles(C::LDPCCode)
+
+Return all the cycles of shortest length in the Tanner graph of `C` for the vertex `v` or
+vertices `vs`. If no vertices are given, all vertices are computed by default.
+
+# Note
+* The length of the shortest cycle is not necessarily the same for each vertex.
+* To reduce computational complexity, the same cycle may appear under each vertex in the cycle.
+"""
 function shortestcycles(C::LDPCCode, vs::Vector{Int})
     isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
     all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
 
     checkadlist, varadlist = _nodeadjacencies(C.H)
-    # checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
-    # varnodes = [_ACEvarnode(i, -1, -1, -1, -1) for i in 1:C.n]
-    # cyclesvs = Vector{Vector{Vector{Tuple{Int, Int}}}}()
     cyclesvs = [Vector{Vector{Tuple{Int, Int}}}() for _ in 1:length(vs)]
 
     Threads.@threads for i in 1:length(vs)
-        v = vs[i]
         # moving this inside allocates more but allows for multi-threading
         checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
         varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlist[i]) - 2) for i in 1:C.n]
-        # if i != 1
-        #     for cn in checknodes
-        #         cn.parentid = -1
-        #         cn.lvl = -1
-        #         cn.cumACE = -1
-        #     end
-        #     for vn in varnodes
-        #         vn.parentid = -1
-        #         vn.lvl = -1
-        #         vn.cumACE = -1
-        #     end
-        # end
-        # println("starting vertex: $v")
         cycles = Vector{Vector{Tuple{Int, Int}}}()
         notemptied = true
-        root = varnodes[v]
+        root = varnodes[vs[i]]
         root.lvl = 0
         queue = Deque{Union{_ACEchecknode, _ACEvarnode}}()
         push!(queue, root)
         while length(queue) > 0
             curr = first(queue)
-            # println("lvl: ", curr.lvl)
             if isa(curr, _ACEvarnode)
                 for cn in varadlist[curr.id]
                     # can't pass messages back to the same node
@@ -573,13 +536,11 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                         cnnode = checknodes[cn]
                         if cnnode.lvl != -1
                             # have seen before
-                            # println("parent vn $(curr.id), child cn $cn seen before at lvl $(cnnode.lvl)")
                             # trace the cycle from curr to root and cnnode to root
                             temp = Vector{Tuple{Int, Int}}()
                             node = cnnode
                             while node.lvl != 0
                                 push!(temp, (node.parentid, node.id))
-                                # print((node.parentid, node.id))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
@@ -587,28 +548,23 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                                 end
                             end
                             reverse!(temp)
-                            # println("\nmiddle here")
                             push!(temp, (cnnode.id, curr.id))
                             node = curr
                             while node.lvl != 0
                                 push!(temp, (node.id, node.parentid))
-                                # print((node.id, node.parentid))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
                                     node = checknodes[node.parentid]
                                 end
                             end
-                            # println(" ")
-                            # println("root: $v, cn, temp: $temp")
                             push!(cycles, temp)
+
                             # finish this level off but don't go deeper so remove children at lower level
                             if notemptied
-                                # println("emptying queue from checknodes")
                                 while length(queue) > 0
                                     back = last(queue)
                                     if back.lvl != curr.lvl
-                                        # println("removing node $back")
                                         pop!(queue)
                                     else
                                         break
@@ -619,10 +575,7 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                         elseif notemptied
                             cnnode.lvl = curr.lvl + 1
                             cnnode.parentid = curr.id
-                            # push!(curr.children, cnnode)
                             push!(queue, cnnode)
-                            # println("parent vn $(curr.id), child cn $cn at lvl $(cnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
@@ -632,16 +585,11 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                     if vn != curr.parentid
                         vnnode = varnodes[vn]
                         if vnnode.lvl != -1
-                            # println("parent cn $(curr.id), child vn $vn seen before at lvl $(vnnode.lvl)")
                             # have seen before
-                            # println("unrolling cycle from varnode")
                             temp = Vector{Tuple{Int, Int}}()
-                            # println(vnnode)
-                            # push(temp, (curr.id, vnnode.id))
                             node = vnnode
                             while node.lvl != 0
                                 push!(temp, (node.parentid, node.id))
-                                # print((node.parentid, node.id))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
@@ -649,29 +597,23 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                                 end
                             end
                             reverse!(temp)
-                            # println("\nmiddle here")
                             push!(temp, (vnnode.id, curr.id))
                             node = curr
                             while node.lvl != 0
                                 push!(temp, (node.id, node.parentid))
-                                # print((node.id, node.parentid))
                                 if isodd(node.lvl)
                                     node = varnodes[node.parentid]
                                 else
                                     node = checknodes[node.parentid]
                                 end
                             end
-                            # println(" ")
-                            # println("temp: $temp")
-                            # println("root: $v, vn, temp: $temp")
                             push!(cycles, temp)
+
                             # finish this level off but don't go deeper so remove children at lower level
                             if notemptied
-                                # println("emptying queue from varnodes")
                                 while length(queue) > 0
                                     back = last(queue)
                                     if back.lvl != curr.lvl
-                                        # println("removing node $back")
                                         pop!(queue)
                                     else
                                         break
@@ -682,31 +624,21 @@ function shortestcycles(C::LDPCCode, vs::Vector{Int})
                         elseif notemptied
                             vnnode.lvl = curr.lvl + 1
                             vnnode.parentid = curr.id
-                            # push!(curr.children, vnnode)
                             push!(queue, vnnode)
-                            # println("parent cn $(curr.id), child vn $vn at lvl $(vnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
             end
-            # println("removing node $(first(queue))")
             popfirst!(queue)
-            # println("queue length: ", length(queue))
         end
         cyclesvs[i] = cycles
-        # push!(cyclesvs, cycles)
-        # println("ACEs: ", ACEs)
-        # vsACE[i] = minimum(ACEs)
     end
     return cyclesvs
 end
 shortestcycles(C::LDPCCode, v::Int) = shortestcycles(C, [v])[1]
 function shortestcycles(C::LDPCCode)
     cycles = shortestcycles(C, collect(1:C.n))
-    girths = [minimum([length(cycle) for cycle in cycles[i]]) for i in 1:C.n]
-    # println(girths)
-    girth = minimum(girths)
+    girth = minimum([minimum([length(cycle) for cycle in cycles[i]]) for i in 1:C.n])
     if ismissing(C.girth)
         C.girth = girth
     else
@@ -717,23 +649,144 @@ function shortestcycles(C::LDPCCode)
     return cycles
 end
 
-# note in the case of ties, StatsBase.mode returns the first tied element
-function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
-    # using the original DFS approach constructs a significantly larger tree than this truncated BFS approach
-    # FILO
-    # stack = Stack{Int}()
-    # push!(stack, elm)
-    # pop!(stack)
+function _progressivenodeadjacencies(H::CTMatrixTypes, vs::Vector{Int}, vtype::Symbol)
+    checkadlist, varadlist = _nodeadjacencies(H)
+    unique!(sort!(vs))
+    len = length(vs)
+    checkadlists = [deepcopy(checkadlist) for _ in 1:len]
+    varadlists = [deepcopy(varadlist) for _ in 1:len]
 
-    isempty(vs) && throw(ArgumentError("Input node list cannot be empty"))
-    vtype ∈ (:v, :c) || throw(ArgumentError("Unknown argument for vtype"))
-    if vtype == :v
-        all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node index must be between 1 and length(C)"))
-    else
-        all(x->1 <= v <= nrows(C.H), vs) || throw(DomainError("Check node index must be between 1 and the number of rows of H"))
+    for i in 2:len
+        prev = vs[1:i - 1]
+        if vtype == :v
+            for (j, x) in enumerate(checkadlists[i])
+                checkadlists[i][j] = setdiff(x, prev)
+            end
+        else
+            for (j, x) in enumerate(varadlists[i])
+                varadlists[i][j] = setdiff(x, prev)
+            end
+        end
+    end
+    return checkadlists, varadlists
+end
+
+"""
+    countshortcycles(C::LDPCCode)
+
+Return a bar graph and a dictionary of (length, count) pairs for unique short
+cycles in the Tanner graph of `C`.
+
+# Note
+* Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+"""
+function countshortcycles(C::LDPCCode)
+    checkadlists, varadlists =  _progressivenodeadjacencies(C.H, collect(1:C.n), :v)
+    lengths = [Vector{Int}() for _ in 1:C.n]
+    Threads.@threads for i in 1:C.n
+        checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlists[i])]
+        varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlists[i][i]) - 2) for i in 1:C.n]
+
+        cyclens = Vector{Int}()
+        root = varnodes[i]
+        root.lvl = 0
+        queue = Queue{Union{_ACEchecknode, _ACEvarnode}}()
+        enqueue!(queue, root)
+        while length(queue) > 0
+            curr = first(queue)
+            if isa(curr, _ACEvarnode)
+                for cn in varadlists[i][curr.id]
+                    # can't pass messages back to the same node
+                    if cn != curr.parentid
+                        cnnode = checknodes[cn]
+                        if cnnode.lvl != -1
+                            # have seen before
+                            push!(cyclens, curr.lvl + cnnode.lvl + 1)
+                        else
+                            cnnode.lvl = curr.lvl + 1
+                            cnnode.parentid = curr.id
+                            enqueue!(queue, cnnode)
+                        end
+                    end
+                end
+            else
+                for vn in checkadlists[i][curr.id]
+                     # can't pass messages back to the same node
+                    if vn != curr.parentid
+                        vnnode = varnodes[vn]
+                        if vnnode.lvl != -1
+                            # have seen before
+                            push!(cyclens, curr.lvl + vnnode.lvl + 1)
+                        else
+                            vnnode.lvl = curr.lvl + 1
+                            vnnode.parentid = curr.id
+                            enqueue!(queue, vnnode)
+                        end
+                    end
+                end
+            end
+            dequeue!(queue)
+        end
+        lengths[i] = cyclens
     end
 
+    girth = minimum([isempty(lengths[i]) ? 9999999 : minimum(lengths[i]) for i in 1:C.n])
+    if ismissing(C.girth)
+        C.girth = girth
+    else
+        if C.girth != girth
+            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
+        end
+    end
+
+    counts = Dict{Int, Int}()
+    for i in girth:2:2 * girth - 2
+        for j in 1:C.n
+            if i ∈ keys(counts)
+                counts[i] += count(x -> x == i, lengths[j])
+            else
+                counts[i] = count(x -> x == i, lengths[j])
+            end
+        end
+    end
+
+    len = length(counts)
+    x_data = [0 for _ in 1:len]
+    y_data = [0 for _ in 1:len]
+    index = 1
+    for (i, j) in counts
+        x_data[index] = i
+        y_data[index] = j
+        index += 1
+    end
+
+    fig = bar(x_data, y_data, bar_width=1, xticks=x_data, yticks=y_data,
+        legend=false, xlabel="Cycle Length", ylabel="Occurrences", title="Short Cycle Counts")
+    show(fig)
+    return fig, counts
+end
+
+"""
+    ACEspectrumofnode(C::LDPCCode, v::Int)
+    ACEspectrumofnode(C::LDPCCode, vs::Vector{Int})
+    ACEspectrumofnode(C::LDPCCode)
+
+Return the ACEs, average ACE, median ACE, mode ACE, cycle lengths, average length, median
+length, and mode length of the cycles for vertex `v` or vertices `vs` of the Tanner graph
+of `C`. If no vertices are given, all vertices are computed by default.
+
+# Note
+* In case of ties, the smallest tied value is returned.
+"""
+function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int})
+    # using the original DFS approach constructs a significantly larger tree than this truncated BFS approach
+
+    isempty(vs) && throw(ArgumentError("Input node list cannot be empty"))
+    all(x -> 1 <= x <= C.n, vs) || throw(DomainError("Variable node index must be between 1 and length(C)"))
+
     checkadlist, varadlist = _nodeadjacencies(C.H)
+
     vsACEs = [Vector{Int}() for _ in 1:length(vs)]
     avgACEs = zeros(Float64, length(vs))
     medACEs = zeros(Float64, length(vs))
@@ -742,23 +795,20 @@ function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
     avglens = zeros(Float64, length(vs))
     medlens = zeros(Float64, length(vs))
     modelens = zeros(Int, length(vs))
-
+ 
     Threads.@threads for i in 1:length(vs)
-        v = vs[i]
         checknodes = [_ACEchecknode(i, -1, -1, -1) for i in 1:length(checkadlist)]
         varnodes = [_ACEvarnode(i, -1, -1, -1, length(varadlist[i]) - 2) for i in 1:C.n]
 
-        # println("starting vertex: $v")
         ACEs = Vector{Int}()
         cyclens = Vector{Int}()
-        root = varnodes[v]
+        root = varnodes[vs[i]]
         root.lvl = 0
         root.cumACE = root.localACE
         queue = Queue{Union{_ACEchecknode, _ACEvarnode}}()
         enqueue!(queue, root)
         while length(queue) > 0
             curr = first(queue)
-            # println("lvl: ", curr.lvl)
             if isa(curr, _ACEvarnode)
                 for cn in varadlist[curr.id]
                     # can't pass messages back to the same node
@@ -766,17 +816,13 @@ function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
                         cnnode = checknodes[cn]
                         if cnnode.lvl != -1
                             # have seen before
-                            # println("parent vn $(curr.id), child cn $cn seen before at lvl $(cnnode.lvl)")
                             push!(ACEs, curr.cumACE + cnnode.cumACE - root.localACE)
                             push!(cyclens, curr.lvl + cnnode.lvl + 1)
                         else
                             cnnode.lvl = curr.lvl + 1
                             cnnode.parentid = curr.id
                             cnnode.cumACE = curr.cumACE
-                            # push!(curr.children, cnnode)
                             enqueue!(queue, cnnode)
-                            # println("parent vn $(curr.id), child cn $cn at lvl $(cnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
@@ -786,7 +832,6 @@ function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
                     if vn != curr.parentid
                         vnnode = varnodes[vn]
                         if vnnode.lvl != -1
-                            # println("parent cn $(curr.id), child vn $vn seen before at lvl $(vnnode.lvl)")
                             # have seen before
                             push!(ACEs, curr.cumACE + vnnode.cumACE - root.localACE)
                             push!(cyclens, curr.lvl + vnnode.lvl + 1)
@@ -794,42 +839,35 @@ function ACEspectrumofnode(C::LDPCCode, vs::Vector{Int}, vtype::Symbol=:v)
                             vnnode.lvl = curr.lvl + 1
                             vnnode.parentid = curr.id
                             vnnode.cumACE = curr.cumACE + vnnode.localACE
-                            # push!(curr.children, vnnode)
                             enqueue!(queue, vnnode)
-                            # println("parent cn $(curr.id), child vn $vn at lvl $(vnnode.lvl)")
-                            # println("queue length: ", length(queue))
                         end
                     end
                 end
             end
-            # println("removing node $(first(queue))")
             dequeue!(queue)
-            # println("queue length: ", length(queue))
         end
+
         vsACEs[i] = ACEs
         avgACEs[i] = mean(ACEs)
         medACEs[i] = median(ACEs)
-        modeACEs[i] = StatsBase.mode(ACEs)
+        modeACEs[i] = StatsBase.mode(sort(ACEs))
         lengths[i] = cyclens
         avglens[i] = mean(cyclens)
         medlens[i] = median(cyclens)
-        modelens[i] = StatsBase.mode(cyclens)
+        modelens[i] = StatsBase.mode(sort(cyclens))
     end
-    # println(vsACEs[1])
-    # display(avgACEs)
-    # display(medACEs)
-    # display(modeACEs)
-    # println(lengths[1])
-    # display(avglens)
-    # display(medlens)
-    # display(modelens)
-
     return vsACEs, avgACEs, medACEs, modeACEs, lengths, avglens, medlens, modelens
 end
-ACEspectrumofnode(C::LDPCCode, v::Int, vtype::Symbol=:v) = ACEspectrumofnode(C, [v], vtype)
-ACEspectrumofnode(C::LDPCCode, vtype::Symbol=:v) = ACEspectrumofnode(C, collect(1:C.n), vtype)
+ACEspectrumofnode(C::LDPCCode, v::Int) = ACEspectrumofnode(C, [v]) # TODO: return slightly different than above
+ACEspectrumofnode(C::LDPCCode) = ACEspectrumofnode(C, collect(1:C.n))
+
+"""
+    ACEspectrum(C::LDPCCode)
+
+Return an interactive figure and data for the ACE spectrum of the Tanner graph of `C`.
+"""
 function ACEspectrum(C::LDPCCode)
-    vsACEs, _, _, _, lengths, _, _, _ = ACEspectrumofnode(C, collect(1:C.n), :v)
+    vsACEs, _, _, _, lengths, _, _, _ = ACEspectrumofnode(C, collect(1:C.n))
     # (false) spectrum: how many nodes have that ACE for that length
     # (true) spectrum: for a given length 4 <= l <= maximum(variabledegreedistribution(C)),
     # how many var nodes have shortest cycle that ACE
@@ -847,15 +885,15 @@ function ACEspectrum(C::LDPCCode)
     # TODO: remove WGLMakie as a default use and only use for interactive plots
     fig = Figure();
     ax = Axis(fig[1, 1], xlabel="ACE", ylabel="Occurrences", title="ACE Spectrum")
-    sg = SliderGrid(fig[2, 1], (label = "Cycle Length", range=4:2:2 * girth - 2, startvalue=4))
+    sg = SliderGrid(fig[2, 1], (label = "Cycle Length", range=girth:2:2 * girth - 2, startvalue=4))
 
     xmax = maximum(reduce(vcat, vsACEs))
     ymax = 0
-    counts = [Dict{Int, Int}() for _ in 1:length(4:2:2 * girth - 2)]
+    counts = [Dict{Int, Int}() for _ in 1:length(girth:2:2 * girth - 2)]
     Xdata = Observable(Vector{Int}())
     Ydata = Observable(Vector{Int}())
     barplot!(ax, Xdata, Ydata, bar_width=1, xticks=Xdata, yticks=Ydata)
-    for (k, l) in enumerate(4:2:2 * girth - 2)
+    for (k, l) in enumerate(girth:2:2 * girth - 2)
         for i in 1:length(shortestlens)
             if shortestlens[i] == l
                 for j in 1:length(lengths[i])
@@ -883,7 +921,7 @@ function ACEspectrum(C::LDPCCode)
     end
 
     GLMakie.limits!(0, xmax + 1, 0, ymax + 2)
-    fig
+    show(fig)
     return fig, counts
 end
 
@@ -895,6 +933,15 @@ mutable struct _compgraphnode
     type::Symbol
 end
 
+# doesn't seem to be a point in making this dynamic with a slider, as it simply
+# continues in the same tree shape and no useful information is gained from watching it
+"""
+    computationgraph(C::LDPCCode, lvl::Int, v::Int, vtype::Symbol=:v)
+
+Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
+for node `v`. If `vtype` is `:v`, `v` is interpreted as a variable node; otherwise,
+`vtype` is `:c` and `v` is interpreted as a check node.
+"""
 function computationgraph(C::LDPCCode, lvl::Int, v::Int, vtype::Symbol=:v)
     vtype ∈ (:v, :c) || throw(ArgumentError("Unknown argument for vtype"))
     if vtype == :v
@@ -968,6 +1015,10 @@ function computationgraph(C::LDPCCode, lvl::Int, v::Int, vtype::Symbol=:v)
         nlabels_distance=7);
     hidedecorations!(ax)
     hidespines!(ax)
-    f
+    show(f)
+    # TODO: what do we want to return here and make uniform with the doc string
     return f, ax, p
 end
+
+# TODO: ACE distribution function
+# store results

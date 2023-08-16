@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# TODO: did we turn the Oscar banner off? ENV["NEMO_PRINT_BANNER"] = "false"
+
 module CodingTheory
 
 using AutoHashEquals
@@ -112,16 +114,16 @@ export codecomplement, quo, quotient, /, directsum, ⊗, kron, tensorproduct, di
     doublyevensubcode, subcodeofdimensionbetweencodes
 
 #############################
-         # LDPC.jl
+        # LDPC/codes.jl
 #############################
 
-include("LDPC/LDPC.jl")
+include("LDPC/codes.jl")
 export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionsplot, variabledegreepolynomial,
     checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode,
     shortestcycleACE, shortestcycles, computationgraph, ACEspectrumofnode,
-    ACEspectrum
+    ACEspectrum, countshortcycles
 
 #############################
         # LDPCalgs.jl
@@ -138,15 +140,21 @@ export GallagerA, GallagerB, sumproduct, sumproductboxplus, minsum,
     findMPschedule, MPNoiseModel, decodersimulation
 
 #############################
+     # LDPC/channels.jl
+#############################
+
+include("LDPC/channels.jl")
+
+export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
+    BAWGNC, capacity
+
+#############################
      # LDPC/analysis.jl
 #############################
 
 include("LDPC/analysis.jl")
 
-export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
-    BAWGNC, LDPCEnsemble
-
-export erasureprobability, crossoverprobability, standarddeviation, variance, capacity,
+export LDPCEnsemble, erasureprobability, crossoverprobability, standarddeviation, variance,
     type, densityevolution, densityevolution!, plotEXITchart, multiplicativegap,
     multiplicativegaplowerbound, densitylowerbound, checkconcentrateddegreedistribution
 
