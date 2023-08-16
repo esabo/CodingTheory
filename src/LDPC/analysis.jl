@@ -580,24 +580,10 @@ struct _LDensity
 end
 _LDensity(N::Int, δ::Float64) = _LDensity(N, δ, zeros(2N+1))
 using FFTW
+
 function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_LDensity; maxiters::Int=10)
     N = initial.N
     δ = initial.δ
-
-    ### quantization for G-density convolution
-    # finer grid for check node to make up for quantization error
-    n = 1
-    Ncn = N * n
-    δcn = δ / n
-    # the quantization:
-    #   Q is the rounded outcome of ⊞ applied to two LLRs on our grid
-    #   TQ is the quantization table (where does the outcome LLR from Q end up going under convolution)
-    #   (that description of TQ might be a bit wrong...not sure)
-    Q(i::Int, j::Int) = round(Int, ((i * δcn) ⊞ (j * δcn)) / δcn)
-    TQ(i::Int, k::Int) = k == -1 ? Ncn + 1 : minimum(j for j in i:10Ncn if Q(i, j) >= i - k; init = 10Ncn)
-    TQ_precomputed = [TQ(i, k) for i in 0:Ncn, k in -1:ceil(Int, log(2)/δcn - 0.5)] .+ 1;
-
-    ### stuff for the L-density convolution
     t = ceil(Int, log2(3N+3)) + 1
     afft = zeros(ComplexF64, 2^t)
     initialfft = copy(afft)
@@ -605,10 +591,10 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     initialfft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
     fft!(initialfft)
 
-    ### main loop
-    # `initial` is the log-likelihood distribution of the channel message
-    # `b` is the LLR distribution after CN processing (stored in evob)
-    # `a` is the LLR distribution after VN processing (stored in evoa)
+    Q(i::Int, j::Int) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
+    # TQ(i::Int, k::Int) = k == -1 ? N + 1 : first(j for j in i:100N if Q(i, j) >= i - k)
+    # TQ_precomputed = [TQ(i, k) for i in 0:N, k in -1:round(Int, log(2) / δ)] .+ 1
+
     iter = 0
     a = initial
     evoa = CodingTheory._LDensity[]
@@ -616,124 +602,78 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     while iter < maxiters
         iter += 1
 
-        ### Check node, convolution in G-density domain
-        bp = repeat(a.data[N + 1:end], inner = n) .+ repeat(a.data[N + 1:-1:1], inner = n)
-        bp[1] = a.data[N + 1]
-        bm = repeat(a.data[N + 1:end], inner = n) .- repeat(a.data[N + 1:-1:1], inner = n)
-        Bp = (1 - sum(a.data) * δ) .+ [sum(bp[j] for j in i:length(bp)) for i in eachindex(bp)]
-        push!(Bp, 0.0)
-        Bm = (1 - sum(a.data) * δ) .+ [sum(bm[j] for j in i:length(bm)) for i in eachindex(bm)]
-        push!(Bm, 0.0)
-        bptemp = copy(bp)
-        bmtemp = copy(bm)
-        Bptemp = copy(Bp)
-        Bmtemp = copy(Bm)
-        bptemp2 = zeros(length(bp))
-        bmtemp2 = zeros(length(bm))
-        bptotal = zeros(length(bp))
-        bmtotal = zeros(length(bm))
-        for i in 2:length(ρ)
-            bptotal .+= ρ[i] .* bptemp
-            bmtotal .+= ρ[i] .* bmtemp
-            bptemp2 .= 0.0
-            bmtemp2 .= 0.0
-            for j in axes(TQ_precomputed, 1)
-                for k in axes(TQ_precomputed, 2)
-                    if k > 1 && j - k + 2 > 0
-                        bptemp2[j - k + 2] += bp[j] * (Bptemp[TQ_precomputed[j, k]] - Bptemp[TQ_precomputed[j, k - 1]]) + bptemp[j] * (Bp[TQ_precomputed[j, k]] - Bp[TQ_precomputed[j, k - 1]])
-                        bmtemp2[j - k + 2] += bp[j] * (Bptemp[TQ_precomputed[j, k]] - Bptemp[TQ_precomputed[j, k - 1]]) - bptemp[j] * (Bp[TQ_precomputed[j, k]] - Bp[TQ_precomputed[j, k - 1]])
-                    end
+        # check node
+        ap = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
+        ap[1] = a.data[N + 1]
+        am = a.data[N + 1:end] .- a.data[N + 1:-1:1]
+        bp = copy(ap)
+        bm = copy(am)
+        totalp = zeros(N + 1)
+        totalm = zeros(N + 1)
+        Am = zeros(N + 2)
+        ainf = 1 - sum(ap) * δ
+        ainf < 0 && (ainf = 0.0;) # sometimes it can end up very slightly negative
+        Am = ainf .+ [[sum(am[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
+        Bp = zeros(N + 2)
+        for l in 2:length(ρ)
+            # update polynomial evaluation
+            totalp .+= bp * ρ[l]
+            totalm .+= bm * ρ[l]
+
+            # update convolution
+            cp = zeros(N + 1)
+            cm = zeros(N + 1)
+
+            # NEGLECTING INFINITY
+            for i in 1:N + 1
+                # k = Q_precomputed[i, i]
+                k = Q(i, i) + 1
+                cp[k] += ap[i] * bp[i]
+                cm[k] += am[i] * bm[i]
+                for j in i + 1:N + 1
+                    # k = Q_precomputed[i, j]
+                    k = Q(i, j) + 1
+                    cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
+                    cm[k] += am[i] * bm[j] + am[j] * bm[i]
                 end
             end
-            bptemp .= bptemp2
-            bmtemp .= bmtemp2
-            Bptemp[1:end-1] .= (1 - 2sum(bptemp) + bptemp[1]) .+ [sum(bptemp[j] for j in i:length(bptemp)) for i in eachindex(bptemp)]
-            Bptemp[end] = 0.0
-            Bmtemp[1:end-1] .= (1 - 2sum(bptemp) + bptemp[1]) .+ [sum(bmtemp[j] for j in i:length(bmtemp)) for i in eachindex(bmtemp)]
-            Bmtemp[end] = 0.0
+            bp .= cp .* δ
+            bm .= cm .* δ
+
+            # NOT NEGLECTING INFINITY
+            # for i in 0:N
+            #     for k in 0:round(Int, log(2) / δ)
+            #         i - k < 0 && continue
+            #         tq0 = TQ_precomputed[i + 1, k + 2]
+            #         tq1 = TQ_precomputed[i + 1, k + 1]
+            #         tq1 < tq0 && (@warn "bad indices";)
+            #         cp[i - k + 1] += ap[i + 1] * (Bp[tq0] - Bp[tq1]) + bp[i + 1] * (Am[tq0] - Am[tq1])
+            #         cm[i - k + 1] += ap[i + 1] * (Bp[tq0] - Bp[tq1]) - bp[i + 1] * (Am[tq0] - Am[tq1])
+            #     end
+            # end
+            # # bp .= cp .* δ
+            # # bp .= cp .* δ
+            # bm .= cm
+            # bm .= cm
+            # binf = 1 - sum(bp) * δ
+            # binf < 0 && (binf = 0.0;) # sometimes it can end up very slightly negative
+            # Bp = binf .+ [[sum(bp[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
+
         end
 
         b = _LDensity(N, δ)
-        for i in eachindex(b.data)
-            
-            # collect over-sampled points into the proper place
-            if i == N + 1
-                b.data[i] = mean(bptotal[1:n])
-            elseif i > N + 1
-                inds = n * (i - N - 1) + 1:n * (i - N)
-                b.data[i] = (mean(bptotal[inds]) + mean(bmtotal[inds])) / 2
-            else
-                inds = n * (N - i + 1) + 1:n * (N - i + 2)
-                b.data[i] = (mean(bptotal[inds]) - mean(bmtotal[inds])) / 2
-            end
-        end
+        b.data[N + 1] = totalp[1]
+        b.data[N + 2:end] .= (totalp[2:end] .+ totalm[2:end]) ./ 2
+        b.data[1:N] .= (totalp[end:-1:2] .- totalm[end:-1:2]) ./ 2
 
-        ####### TEMPORARY FIX ######
-        # delete this once I figure out what is broken to make this necessary
-        # or...keep to correct for small numerical error, but it should only be very small error.
-        iter == 1 && @show sum(b.data * δ)
-        b.data ./= sum(b.data * δ)
+        @show sum(b.data) * δ
+        # return b
+        sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
 
-        # save the results
         push!(evob, b)
 
 
-        ### Variable node, convolution in L-density domain of LLRs is simple with FFT.
-        a = _LDensity(N, δ)
-
-        # Transform (via `temp`) to exploit L-symmetry
-        afft[1:N + 1] .= b.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
-        afft[N + 2:end - N] .= zero(ComplexF64)
-        afft[end - N + 1:end] .= b.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
-        afft .*= δ
-        fft!(afft)
-
-        # need to convolve with itself multiple times, so save the FFT in atemp
-        atemp = copy(afft)
-
-        # keep the running total in atotal
-        atotal = zeros(ComplexF64, 2^t)
-
-        # collect everything
-        for i in 2:length(λ)
-            atotal .+= λ[i] .* atemp
-            atemp .*= afft
-        end
-
-        # convolution with the original channel message
-        atotal .*= initialfft
-
-        # get back to the proper domain and undo the transformation from above
-        ifft!(atotal)
-        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
-        # a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
-        a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
-
-        iter == 1 && @show sum(a.data * δ)
-
-        # save the result
-        push!(evoa, a)
-    end
-    return evoa, evob
-end
-
-function dumbtest(λ, initial)
-    N = initial.N
-    δ = initial.δ
-    t = ceil(Int, log2(3N+3)) + 1
-    afft = zeros(ComplexF64, 2^t)
-    initialfft = copy(afft)
-    initialfft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
-    initialfft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
-    fft!(initialfft)
-    b = initial
-
-    # check node
-    Q(i::Int, j::Int) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
-    # bp = 
-
-
-    # variable node
+        # variable node (this part is correct)
         a = _LDensity(N, δ)
 
         # Transform (via `temp`) to exploit L-symmetry
@@ -760,14 +700,19 @@ function dumbtest(λ, initial)
         # get back to the proper domain and undo the transformation from above
         ifft!(atotal)
         a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
-        # a.data[1:N] .= a.data[end:-1:N + 2] .* exp.(-N*δ:δ:-δ)
         a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
-    return a
+
+        @show sum(a.data) * δ
+        # sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
+        a.data ./= sum(a.data) * δ
+
+        push!(evoa, a)
+    end
+    return evoa, evob
 end
 
 function DEBMStest()
-    # δ = 0.05
-    δ = 0.1
+    δ = 0.01
     N = round(Int, 50 / δ)
     initial = CodingTheory._LDensity(N, δ)
 
@@ -776,7 +721,13 @@ function DEBMStest()
     initial.data .= [(sigma / √(8π)) * exp(-(y - (2 / sigma^2))^2 * sigma^2 / 8) for y in -δ*N:δ:δ*N]
     λ = [0, 0.212332, 0.197596, 0, 0.0142733, 0.0744898, 0.0379457, 0.0693008, 0.086264, 0, 0.00788586, 0.0168657, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.283047]
     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
-    evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = 141)
+
+    # inds = (1, 2, 3, 4, 5)
+    inds = (1, 5, 10, 25, 50)
+    # inds = (1, 5, 10, 50, 140)
+
+    evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = maximum(inds) + 1)
+
 
     # This plot should look like fig 4.101, top left panel
     plt1 = plot(-δ * N:δ:δ * N, initial.data,
@@ -800,8 +751,8 @@ function DEBMStest()
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
 
-    plt3 = plot(-δ * N:δ:δ * N, evoa[5].data,
-                title = "\$a_5\$",
+    plt3 = plot(-δ * N:δ:δ * N, evoa[inds[2]].data,
+                title = "\$a_{$(inds[2])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -809,8 +760,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt4 = plot(-δ * N:δ:δ * N, evob[6].data,
-                title = "\$b_6\$",
+    plt4 = plot(-δ * N:δ:δ * N, evob[inds[2]+1].data,
+                title = "\$b_{$(inds[2]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -818,8 +769,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt5 = plot(-δ * N:δ:δ * N, evoa[10].data,
-                title = "\$a_{10}\$",
+    plt5 = plot(-δ * N:δ:δ * N, evoa[inds[3]].data,
+                title = "\$a_{$(inds[3])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -827,8 +778,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt6 = plot(-δ * N:δ:δ * N, evob[11].data,
-                title = "\$b_{11}\$",
+    plt6 = plot(-δ * N:δ:δ * N, evob[inds[3]+1].data,
+                title = "\$b_{$(inds[3]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -836,8 +787,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt7 = plot(-δ * N:δ:δ * N, evoa[50].data,
-                title = "\$a_{50}\$",
+    plt7 = plot(-δ * N:δ:δ * N, evoa[inds[4]].data,
+                title = "\$a_{$(inds[4])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -845,8 +796,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt8 = plot(-δ * N:δ:δ * N, evob[51].data,
-                title = "\$b_{51}\$",
+    plt8 = plot(-δ * N:δ:δ * N, evob[inds[4]+1].data,
+                title = "\$b_{$(inds[4]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -854,8 +805,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt9 = plot(-δ * N:δ:δ * N, evoa[140].data,
-                title = "\$a_{140}\$",
+    plt9 = plot(-δ * N:δ:δ * N, evoa[inds[5]].data,
+                title = "\$a_{$(inds[5])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
@@ -863,8 +814,8 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt10 = plot(-δ * N:δ:δ * N, evob[141].data,
-                title = "\$b_{141}\$",
+    plt10 = plot(-δ * N:δ:δ * N, evob[inds[5]+1].data,
+                title = "\$b_{$(inds[5]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
                 legend = false,
