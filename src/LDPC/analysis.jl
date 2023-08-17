@@ -535,11 +535,13 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         bm = copy(am)
         totalp = zeros(N + 1)
         totalm = zeros(N + 1)
-        Am = zeros(N + 2)
+        # Am = zeros(N + 2)
         ainf = 1 - sum(ap) * δ
-        ainf < 0 && (ainf = 0.0;) # sometimes it can end up very slightly negative
-        Am = ainf .+ [[sum(am[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
-        Bp = zeros(N + 2)
+        # ainf < 0 && (ainf = 0.0;) # sometimes it can end up very slightly negative
+        binf = 1 - sum(bp) * δ
+        # binf < 0 && (binf = 0.0;)
+        # Am = ainf .+ [[sum(am[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
+        # Bp = zeros(N + 2)
         for l in 2:length(ρ)
             # update polynomial evaluation
             totalp .+= bp * ρ[l]
@@ -549,23 +551,32 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
             cp = zeros(N + 1)
             cm = zeros(N + 1)
 
-            # NEGLECTING INFINITY
             for i in 1:N + 1
                 # k = Q_precomputed[i, i]
-                k = Q(i, i) + 1
+                # k = Q(i - 1, i - 1) + 1
+                k = i # agressive approximation, bottom of p463, Q(i, j) ≈ min(i, j)
                 cp[k] += ap[i] * bp[i]
                 cm[k] += am[i] * bm[i]
                 for j in i + 1:N + 1
                     # k = Q_precomputed[i, j]
-                    k = Q(i, j) + 1
+                    # k = Q(i - 1, j - 1) + 1
+                    k = i # agressive approximation, bottom of p463, Q(i, j) ≈ min(i, j)
                     cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
                     cm[k] += am[i] * bm[j] + am[j] * bm[i]
                 end
             end
+            # take care of inf
+            @. cp += ap * binf + ainf * bp
+            @. cm += am * binf + ainf * bm
+
+            # update bp, bm, binf
             bp .= cp .* δ
             bm .= cm .* δ
+            binf = 1 - sum(bp) * δ
+            # binf < 0 && (binf = 0.0;)
 
-            # NOT NEGLECTING INFINITY
+            # As written on p464 of Richardson and Urbanke, seems to be wrong
+            # I expect that cp update should use Ap instead of Am, and cm update should use Bm instead of Bp. Needs further testing.
             # for i in 0:N
             #     for k in 0:round(Int, log(2) / δ)
             #         i - k < 0 && continue
@@ -591,8 +602,7 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         b.data[N + 2:end] .= (totalp[2:end] .+ totalm[2:end]) ./ 2
         b.data[1:N] .= (totalp[end:-1:2] .- totalm[end:-1:2]) ./ 2
 
-        @show sum(b.data) * δ
-        # return b
+        # @show sum(b.data) * δ
         sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
 
         push!(evob, b)
@@ -627,17 +637,19 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
         a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
 
-        @show sum(a.data) * δ
-        # sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
-        a.data ./= sum(a.data) * δ
+        # @show sum(a.data) * δ
+        sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
+        # a.data ./= sum(a.data) * δ
 
         push!(evoa, a)
+        print(".")
     end
+    print("\n")
     return evoa, evob
 end
 
 function DEBMStest()
-    δ = 0.01
+    δ = 0.001
     N = round(Int, 50 / δ)
     initial = CodingTheory._LDensity(N, δ)
 
@@ -648,7 +660,8 @@ function DEBMStest()
     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
 
     # inds = (1, 2, 3, 4, 5)
-    inds = (1, 5, 10, 25, 50)
+    inds = (1, 5, 10, 15, 20)
+    # inds = (1, 5, 10, 25, 50)
     # inds = (1, 5, 10, 50, 140)
 
     evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = maximum(inds) + 1)
