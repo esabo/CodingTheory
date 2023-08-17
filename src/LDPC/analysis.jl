@@ -429,73 +429,6 @@ function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))
     circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
 end
 
-# function _LdensitytoDdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-#     xd = tanh.(x ./ 2)
-# end
-
-# function _DdensitytoGdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-# end
-
-# function _GdensitytoDdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-# end
-
-# function _DdensitytoLdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-# end
-
-# function _LdensitytoGdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-# end
-
-# function _GdensitytoLdensity(a::Vector{<:Real}, x::Vector{<:Real})
-#     @assert length(a) == length(x)
-# end
-
-# # This one isn't used for density evolution, might be useful later though
-# function Gconvolution(x::Vector{<:Real}, v::Vector{T}...) where T <: Real
-#     vg = Vector{T}[]
-#     temp , xg = _LdensitytoGdensity(v[1], x)
-#     push!(vg, temp)
-#     for i in 2:length(v)
-#         push!(vg, _LdensitytoGdensity(v[i], x)[1])
-#     end
-#     return _GdensitytoLdensity(vg, xg)[1]
-# end
-
-# # this one is used for density evolution
-# function Gconvolution(x::Vector{<:Real}, v::Vector{<:Real}, num::Int)
-#     vg, xg = _LdensitytoGdensity(v, x)
-#     return _GdensitytoLdensity(convolution(vg, num), xg)[1]
-# end
-
-# # polynomial evaluation of a density
-# function _polyeval(a::Vector{<:Real}, vec::Vector{<:Real}, op::Function)
-#     sum(c * op(a, i - 1) for (i, c) in enumerate(vec))
-# end
-# function _polyeval(a::Vector{<:Real}, f::PolyRingElem, op::Function)
-#     _polyeval(a, Float64.(coeff.(f, 0:degree(f))), op)
-# end
-
-# function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, a::Vector{T},
-#                               x::Vector{<:Real}; maxiters::Int=10) where T <: Real
-
-#     @assert length(a) == length(x)
-#     # also assert that x is evenly spaced?
-
-#     iter = 0
-#     evoa = Vector{T}[]
-#     evob = Vector{T}[]
-#     while iter < maxiters
-#         iter += 1
-#         push!(evob, _polyeval(iter == 1 ? a : evoa[end], ρ, (a, i) -> Gconvolution(x, a, i)))
-#         push!(evoa, _polyeval(evob[end], λ, convolution))
-#     end
-#     return evoa, evob
-# end
-
 struct _LDensity
     N::Int
     δ::Float64
@@ -517,8 +450,6 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     fft!(initialfft)
 
     Q(i::Int, j::Int) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
-    # TQ(i::Int, k::Int) = k == -1 ? N + 1 : first(j for j in i:100N if Q(i, j) >= i - k)
-    # TQ_precomputed = [TQ(i, k) for i in 0:N, k in -1:round(Int, log(2) / δ)] .+ 1
 
     iter = 0
     a = initial
@@ -535,13 +466,8 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         bm = copy(am)
         totalp = zeros(N + 1)
         totalm = zeros(N + 1)
-        # Am = zeros(N + 2)
         ainf = 1 - sum(ap) * δ
-        # ainf < 0 && (ainf = 0.0;) # sometimes it can end up very slightly negative
         binf = 1 - sum(bp) * δ
-        # binf < 0 && (binf = 0.0;)
-        # Am = ainf .+ [[sum(am[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
-        # Bp = zeros(N + 2)
         for l in 2:length(ρ)
             # update polynomial evaluation
             totalp .+= bp * ρ[l]
@@ -552,20 +478,15 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
             cm = zeros(N + 1)
 
             for i in 1:N + 1
-                # k = Q_precomputed[i, i]
-                # k = Q(i - 1, i - 1) + 1
-                k = i # agressive approximation, bottom of p463, Q(i, j) ≈ min(i, j)
+                k = Q(i - 1, i - 1) + 1
                 cp[k] += ap[i] * bp[i]
                 cm[k] += am[i] * bm[i]
                 for j in i + 1:N + 1
-                    # k = Q_precomputed[i, j]
-                    # k = Q(i - 1, j - 1) + 1
-                    k = i # agressive approximation, bottom of p463, Q(i, j) ≈ min(i, j)
+                    k = Q(i - 1, j - 1) + 1
                     cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
                     cm[k] += am[i] * bm[j] + am[j] * bm[i]
                 end
             end
-            # take care of inf
             @. cp += ap * binf + ainf * bp
             @. cm += am * binf + ainf * bm
 
@@ -573,28 +494,6 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
             bp .= cp .* δ
             bm .= cm .* δ
             binf = 1 - sum(bp) * δ
-            # binf < 0 && (binf = 0.0;)
-
-            # As written on p464 of Richardson and Urbanke, seems to be wrong
-            # I expect that cp update should use Ap instead of Am, and cm update should use Bm instead of Bp. Needs further testing.
-            # for i in 0:N
-            #     for k in 0:round(Int, log(2) / δ)
-            #         i - k < 0 && continue
-            #         tq0 = TQ_precomputed[i + 1, k + 2]
-            #         tq1 = TQ_precomputed[i + 1, k + 1]
-            #         tq1 < tq0 && (@warn "bad indices";)
-            #         cp[i - k + 1] += ap[i + 1] * (Bp[tq0] - Bp[tq1]) + bp[i + 1] * (Am[tq0] - Am[tq1])
-            #         cm[i - k + 1] += ap[i + 1] * (Bp[tq0] - Bp[tq1]) - bp[i + 1] * (Am[tq0] - Am[tq1])
-            #     end
-            # end
-            # # bp .= cp .* δ
-            # # bp .= cp .* δ
-            # bm .= cm
-            # bm .= cm
-            # binf = 1 - sum(bp) * δ
-            # binf < 0 && (binf = 0.0;) # sometimes it can end up very slightly negative
-            # Bp = binf .+ [[sum(bp[j] for j in i:N + 1) for i in 1:N + 1]; 0.0]
-
         end
 
         b = _LDensity(N, δ)
@@ -602,13 +501,13 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         b.data[N + 2:end] .= (totalp[2:end] .+ totalm[2:end]) ./ 2
         b.data[1:N] .= (totalp[end:-1:2] .- totalm[end:-1:2]) ./ 2
 
-        # @show sum(b.data) * δ
+        # if the total probability exceeds 1, normalize
         sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
 
         push!(evob, b)
 
 
-        # variable node (this part is correct)
+        # variable node
         a = _LDensity(N, δ)
 
         # Transform (via `temp`) to exploit L-symmetry
@@ -637,9 +536,8 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
         a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
         a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
 
-        # @show sum(a.data) * δ
+        # if the total probability exceeds 1, normalize
         sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
-        # a.data ./= sum(a.data) * δ
 
         push!(evoa, a)
         print(".")
@@ -649,7 +547,7 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
 end
 
 function DEBMStest()
-    δ = 0.001
+    δ = 0.01
     N = round(Int, 50 / δ)
     initial = CodingTheory._LDensity(N, δ)
 
@@ -659,16 +557,18 @@ function DEBMStest()
     λ = [0, 0.212332, 0.197596, 0, 0.0142733, 0.0744898, 0.0379457, 0.0693008, 0.086264, 0, 0.00788586, 0.0168657, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.283047]
     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
 
-    # inds = (1, 2, 3, 4, 5)
-    inds = (1, 5, 10, 15, 20)
-    # inds = (1, 5, 10, 25, 50)
+    inds = (1, 5, 10, 14, 15)
     # inds = (1, 5, 10, 50, 140)
 
     evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = maximum(inds) + 1)
 
+    plotdelta = 0.5
+    skip = round(Int, plotdelta / δ)
+    x = -δ * N:plotdelta:δ * N
+    yinds = 1:skip:length(-plotdelta * N:plotdelta:plotdelta * N)
 
     # This plot should look like fig 4.101, top left panel
-    plt1 = plot(-δ * N:δ:δ * N, initial.data,
+    plt1 = plot(x, initial.data[yinds],
                 title = "\$a_0\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -679,7 +579,7 @@ function DEBMStest()
                 )
 
     # This should look like fig 4.101, top right panel
-    plt2 = plot(-δ * N:δ:δ * N, evob[1].data,
+    plt2 = plot(x, evob[1].data[yinds],
                 title = "\$b_1\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -689,7 +589,7 @@ function DEBMStest()
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
 
-    plt3 = plot(-δ * N:δ:δ * N, evoa[inds[2]].data,
+    plt3 = plot(x, evoa[inds[2]].data[yinds],
                 title = "\$a_{$(inds[2])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -698,7 +598,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt4 = plot(-δ * N:δ:δ * N, evob[inds[2]+1].data,
+    plt4 = plot(x, evob[inds[2]+1].data[yinds],
                 title = "\$b_{$(inds[2]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -707,7 +607,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt5 = plot(-δ * N:δ:δ * N, evoa[inds[3]].data,
+    plt5 = plot(x, evoa[inds[3]].data[yinds],
                 title = "\$a_{$(inds[3])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -716,7 +616,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt6 = plot(-δ * N:δ:δ * N, evob[inds[3]+1].data,
+    plt6 = plot(x, evob[inds[3]+1].data[yinds],
                 title = "\$b_{$(inds[3]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -725,7 +625,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt7 = plot(-δ * N:δ:δ * N, evoa[inds[4]].data,
+    plt7 = plot(x, evoa[inds[4]].data[yinds],
                 title = "\$a_{$(inds[4])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -734,7 +634,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt8 = plot(-δ * N:δ:δ * N, evob[inds[4]+1].data,
+    plt8 = plot(x, evob[inds[4]+1].data[yinds],
                 title = "\$b_{$(inds[4]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -743,7 +643,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt9 = plot(-δ * N:δ:δ * N, evoa[inds[5]].data,
+    plt9 = plot(x, evoa[inds[5]].data[yinds],
                 title = "\$a_{$(inds[5])}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
@@ -752,7 +652,7 @@ function DEBMStest()
                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
                 )
-    plt10 = plot(-δ * N:δ:δ * N, evob[inds[5]+1].data,
+    plt10 = plot(x, evob[inds[5]+1].data[yinds],
                 title = "\$b_{$(inds[5]+1)}\$",
                 xlims = (-10, 45),
                 ylims = (0,0.25),
