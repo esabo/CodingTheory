@@ -419,38 +419,41 @@ end
 #     [sum(temp[j] * v[k+i-j] for j in eachindex(v) if 1 <= k + i - j <= length(v)) for i in eachindex(v)]
 # end
 
-function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
-    @assert length(v) == length(w) == length(x)
-    Δx = x[2] - x[1]
-    @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
-    k = round(Int, 1 - x[1] / Δx)
-    paddedv = vcat(zeros(T, length(v)), v, zeros(T, length(v)))
-    paddedconv = real.(ifft(fft(paddedv) .^ 2))
-    circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
-end
+# function testconv2(v::Vector{T}, x::Vector{T}, w::Vector{T} = ones(T, length(v))) where T <: Real
+#     @assert length(v) == length(w) == length(x)
+#     Δx = x[2] - x[1]
+#     @assert all(x[i] - x[i-1] ≈ Δx for i in 2:length(x))
+#     k = round(Int, 1 - x[1] / Δx)
+#     paddedv = vcat(zeros(T, length(v)), v, zeros(T, length(v)))
+#     paddedconv = real.(ifft(fft(paddedv) .^ 2))
+#     circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
+# end
+
+using FFTW
 
 struct _LDensity
+    # `data` is a vector of length 2N+1 on the quadrature -δN:δ:δN. It represents a probability dist:
+    # 0 <= sum(data) * δ <= 1, where the remaining density is assumed to be at ∞
     N::Int
     δ::Float64
     data::Vector{Float64}
-    # `data` is a vector of length 2N+1 on the quadrature -δN:δ:δN. It represents a probability dist:
-    # 0 <= sum(data) * δ <= 1, where the remaining density is assumed to be at ∞
 end
+
 _LDensity(N::Int, δ::Float64) = _LDensity(N, δ, zeros(2N+1))
-using FFTW
+
+_DEquantizer(i::Int, j::Int, δ::Real) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
 
 function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_LDensity; maxiters::Int=10)
+    # set up `initialfft` just once so it can be reused throughout
     N = initial.N
     δ = initial.δ
     t = ceil(Int, log2(3N+3)) + 1
-    afft = zeros(ComplexF64, 2^t)
-    initialfft = copy(afft)
+    initialfft = zeros(ComplexF64, 2^t)
     initialfft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
     initialfft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
     fft!(initialfft)
 
-    Q(i::Int, j::Int) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
-
+    # main loop
     iter = 0
     a = initial
     evoa = CodingTheory._LDensity[]
@@ -458,92 +461,125 @@ function _densityevolutionBMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_
     while iter < maxiters
         iter += 1
 
-        # check node
-        ap = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
-        ap[1] = a.data[N + 1]
-        am = a.data[N + 1:end] .- a.data[N + 1:-1:1]
-        bp = copy(ap)
-        bm = copy(am)
-        totalp = zeros(N + 1)
-        totalm = zeros(N + 1)
-        ainf = 1 - sum(ap) * δ
-        binf = 1 - sum(bp) * δ
-        for l in 2:length(ρ)
-            # update polynomial evaluation
-            totalp .+= bp * ρ[l]
-            totalm .+= bm * ρ[l]
+        b = _check_node_update_BMSDE_quantized(ρ, a)
+        # b = _check_node_update_BMSDE(ρ, a)
 
-            # update convolution
-            cp = zeros(N + 1)
-            cm = zeros(N + 1)
-
-            for i in 1:N + 1
-                k = Q(i - 1, i - 1) + 1
-                cp[k] += ap[i] * bp[i]
-                cm[k] += am[i] * bm[i]
-                for j in i + 1:N + 1
-                    k = Q(i - 1, j - 1) + 1
-                    cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
-                    cm[k] += am[i] * bm[j] + am[j] * bm[i]
-                end
-            end
-            @. cp += ap * binf + ainf * bp
-            @. cm += am * binf + ainf * bm
-
-            # update bp, bm, binf
-            bp .= cp .* δ
-            bm .= cm .* δ
-            binf = 1 - sum(bp) * δ
-        end
-
-        b = _LDensity(N, δ)
-        b.data[N + 1] = totalp[1]
-        b.data[N + 2:end] .= (totalp[2:end] .+ totalm[2:end]) ./ 2
-        b.data[1:N] .= (totalp[end:-1:2] .- totalm[end:-1:2]) ./ 2
-
-        # if the total probability exceeds 1, normalize
+        # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
         sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
 
-        push!(evob, b)
+        # a = _variable_node_update_BMSDE(λ, b, initialfft)
+        a = _variable_node_update_BMSDE_bad(λ, b, initial)
 
-
-        # variable node
-        a = _LDensity(N, δ)
-
-        # Transform (via `temp`) to exploit L-symmetry
-        afft[1:N + 1] .= b.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2) * δ
-        afft[N + 2:end - N] .= zero(ComplexF64)
-        afft[end - N + 1:end] .= b.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2) * δ
-        fft!(afft)
-
-        # need to convolve with itself multiple times, so save the FFT in atemp
-        atemp = copy(afft)
-
-        # keep the running total in atotal
-        atotal = zeros(ComplexF64, 2^t)
-
-        # collect everything
-        for i in 2:length(λ)
-            atotal .+= λ[i] .* atemp
-            atemp .*= afft
-        end
-
-        # convolution with the original channel message
-        atotal .*= initialfft
-
-        # get back to the proper domain and undo the transformation from above
-        ifft!(atotal)
-        a.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
-        a.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
-
-        # if the total probability exceeds 1, normalize
+        # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
         sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
 
+        # normalize to 1 probability no matter what (this is mathematically incorrect)
+        # a.data ./= sum(a.data) * δ
+
+        push!(evob, b)
         push!(evoa, a)
-        print(".")
+
+        # just to easily track how long things are taking while debugging
+        iter % 10 == 0 ? print(iter) : print(".")
     end
     print("\n")
     return evoa, evob
+end
+
+function _check_node_update_BMSDE_quantized(ρ::Vector{<:Real}, a::_LDensity)
+    N = a.N
+    δ = a.δ
+    ap = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
+    ap[1] = a.data[N + 1]
+    am = a.data[N + 1:end] .- a.data[N + 1:-1:1]
+    bp = copy(ap)
+    bm = copy(am)
+    totalp = zeros(N + 1)
+    totalm = zeros(N + 1)
+    ainf = 1 - sum(ap) * δ
+    binf = 1 - sum(bp) * δ
+    for l in 2:length(ρ)
+        # update polynomial evaluation
+        totalp .+= bp * ρ[l]
+        totalm .+= bm * ρ[l]
+
+        # update convolution
+        cp = zeros(N + 1)
+        cm = zeros(N + 1)
+
+        for i in 1:N + 1
+            k = _DEquantizer(i - 1, i - 1, δ) + 1
+            cp[k] += ap[i] * bp[i]
+            cm[k] += am[i] * bm[i]
+            for j in i + 1:N + 1
+                k = _DEquantizer(i - 1, j - 1, δ) + 1
+                cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
+                cm[k] += am[i] * bm[j] + am[j] * bm[i]
+            end
+        end
+        @. cp += ap * binf + ainf * bp
+        @. cm += am * binf + ainf * bm
+
+        # update bp, bm, binf
+        @. bp = cp * δ
+        @. bm = cm * δ
+        binf = 1 - sum(bp) * δ
+    end
+
+    b = _LDensity(N, δ)
+    b.data[N + 1] = totalp[1]
+    b.data[N + 2:end] .= (totalp[2:end] .+ totalm[2:end]) ./ 2
+    b.data[1:N] .= (totalp[end:-1:2] .- totalm[end:-1:2]) ./ 2
+
+    return b
+end
+
+function _check_node_update_BMSDE(ρ::Vector{<:Real}, a::_LDensity)
+end
+
+function _variable_node_update_BMSDE(λ::Vector{<:Real}, dist::_LDensity, initialfft::Vector{<:Complex})
+    N = dist.N
+    δ = dist.δ
+    afft = zeros(ComplexF64, length(initialfft))
+    afft[1:N + 1] .= dist.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+    afft[end - N + 1:end] .= dist.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
+    fft!(afft)
+
+    # need to convolve with itself multiple times, so save the FFT in atemp
+    atemp = copy(afft)
+
+    # keep the running total in atotal
+    atotal = zeros(ComplexF64, length(initialfft))
+
+    # collect the FFT domain result (still transformed to take advantage of L-symmetry) of the
+    # polynomial λ applied to `dist`
+    for i in 2:length(λ)
+        @. atotal += λ[i] * atemp
+        @. atemp *= afft * δ
+    end
+
+    # convolution with the original channel message
+    atotal .*= initialfft * δ
+
+    # get back to the proper domain and undo the transformation from above
+    ifft!(atotal)
+    result = _LDensity(N, δ)
+    result.data[N + 1:end] .= real.(atotal[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
+    result.data[1:N] .= real.(atotal[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
+
+    return result
+end
+
+function _variable_node_update_BMSDE_bad(λ::Vector{<:Real}, b::_LDensity, initial::_LDensity)
+    _conv(x, y) = b.δ * [sum(x[i - k + b.N + 1] * y[k] for k in eachindex(y) if 1 <= i - k + b.N + 1 <= length(x)) for i in eachindex(y)]
+    temp = copy(b.data)
+    a = _LDensity(b.N, b.δ)
+    for i in 2:length(λ)
+        a.data .+= λ[i] * temp
+        temp .= _conv(temp, b.data)
+    end
+    a.data .= _conv(a.data, initial.data)
+    return a
 end
 
 function DEBMStest()
@@ -558,6 +594,7 @@ function DEBMStest()
     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
 
     inds = (1, 5, 10, 14, 15)
+    # inds = (1, 5, 10, 25, 50)
     # inds = (1, 5, 10, 50, 140)
 
     evoa, evob = _densityevolutionBMS(λ, ρ, initial; maxiters = maximum(inds) + 1)
@@ -665,7 +702,6 @@ function DEBMStest()
 
     return plt, evoa, evob
 end
-
 
 #########################################################################
 ########## below is old code, delete after verifying the above ##########
