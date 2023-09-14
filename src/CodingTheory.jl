@@ -11,7 +11,7 @@ module CodingTheory
 using AutoHashEquals
 using CairoMakie, NetworkLayout, GraphMakie, GLMakie, WGLMakie, Graphs
 import Graphs as Grphs
-# using Plots
+using Plots
 # import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
 using JLD2
@@ -122,8 +122,9 @@ export variabledegreedistribution, checkdegreedistribution,
     degreedistributions, columnbound, rowbound, bounds, density, isregular,
     LDPCCode, degreedistributionsplot, variabledegreepolynomial,
     checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode,
-    shortestcycleACE, shortestcycles, computationgraph, ACEspectrumofnode,
-    ACEspectrum, countshortcycles
+    shortestcycleACE, shortestcycles, computationgraph, ACE_distribution,
+    ACEspectrum, countshortcycles, average_ACE_distribution,
+    median_ACE_distribution, mode_ACE_distribution
 
 #############################
         # LDPCalgs.jl

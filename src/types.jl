@@ -70,7 +70,7 @@ mutable struct LinearCode <: AbstractLinearCode
 end
 
 #############################
-        # LDPC/LDPC.jl
+       # LDPC/codes.jl
 #############################
 
 mutable struct LDPCCode <: AbstractLDPCCode
@@ -92,11 +92,14 @@ mutable struct LDPCCode <: AbstractLDPCCode
     tangr::Union{Figure, Missing}
     λ::fmpq_poly
     ρ::fmpq_poly
-    girth::Union{UInt8, Missing}
+    girth::Union{Int, Missing}
+    ACEspervarnode::Vector{Vector{Int}}
+    cyclens::Vector{Vector{Int}}
+    short_cycles::Vector{Vector{Tuple{Int,Int}}}
 end
 
 #############################
-     # LDPC/analysis.jl
+     # LDPC/channels.jl
 #############################
 
 struct BinaryErasureChannel <: AbstractBinaryErasureChannel
@@ -113,6 +116,10 @@ mutable struct BAWGNChannel <: AbstractBAWGNChannel
     param::Float64
     capacity::Union{Float64, Missing}
 end
+
+#############################
+    # LDPC/ensembles.jl
+#############################
 
 mutable struct LDPCEnsemble
     λ::PolyRingElem

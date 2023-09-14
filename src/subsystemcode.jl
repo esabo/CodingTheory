@@ -318,7 +318,7 @@ Zsigns(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes."
 Return the stabilizer matrix of the code.
 
 # Notes
-* If the optional parameter `standform` is set to `true`, the standard form of the
+- If the optional parameter `standform` is set to `true`, the standard form of the
   stabilizer matrix is returned instead.
 """
 stabilizers(S::AbstractSubsystemCode, standform::Bool=false) = standform ? (return S.stabsstand) : (return S.stabs)
@@ -500,7 +500,7 @@ logicalsstandardform(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(
 Return a vector of gauge operator generator pairs for `S`.
 
 # Notes
-* Here, gauge operators refers to the gauge group minus the stabilizers.
+- Here, gauge operators refers to the gauge group minus the stabilizers.
 """
 gauges(S::T) where {T <: AbstractSubsystemCode} = gauges(GaugeTrait(T), S)
 gauges(::HasGauges, S::AbstractSubsystemCode) = S.gaugeops
@@ -526,7 +526,7 @@ gaugeoperatorsmatrix(S::AbstractSubsystemCode) = gaugesmatrix(S)
 Return a vector of pairs generators for the dressed operators of `S`.
 
 # Notes
-* Here, the dressed operators are the logicals and the gauge operators.
+- Here, the dressed operators are the logicals and the gauge operators.
 """
 function dressed(S::T) where {T <: AbstractSubsystemCode}
     if LogicalTrait(T) == HasNoLogicals
@@ -587,7 +587,7 @@ setsigns(S::AbstractSubsystemCode, charvec::Vector{nmod}) = (Snew = deepcopy(S);
 Set the stabilizers of `S` to `stabs`.
 
 # Notes
-* A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
+- A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
 function setstabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))

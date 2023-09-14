@@ -36,7 +36,7 @@ function Tannergraphplot(H::Union{T, Matrix{Int}}) where T <: CTMatrixTypes
     # display(A)
     G = SimpleDiGraph(A)
     # display(G)
-    parents = [inneighbors(G, i) for i in vertices(G)]
+    parents = [Grphs.inneighbors(G, i) for i in Grphs.vertices(G)]
     childs = findall(x -> length(x) > 0, parents)
     # println(parents)
     # println(childs)
