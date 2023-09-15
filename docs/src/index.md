@@ -29,3 +29,7 @@ It is recommended to avoid `deepcopy(C)` and instead use `copy(C)` to create a c
 The various code families in the library are mathematically related in complex patterns which are unable to be faithfully represented in Julia's linear type hierarchy. As such, it is not recommended to rely on `typeof` to discern properties of codes. For quantum codes where this is more useful, the traits `HasLogicals/HasNoLogicals`, `HasGauges/HasNoGauges`, and `IsCSS/IsNotCSS` have been setup to detect graph states ($k = 0$), subsystem codes, and CSS codes, respectively.
 
 It is often desirable to build a code with a specific matrix representation. While properties such as standard forms and correct parameters are computed and used throughout in the background, the original matrix (matrices) used to create the code is always kept and displayed. This is of particular importance in LDPC codes, where one wants a specific representation of the code, and quantum codes, where one often prefers an over complete set of stabilizers. The user should not use matrix dimensions to determine code parameters or code parameters to iterate over matrices. Use the function `isovercomplete` to determine if any of the matrices representing the code are over complete, i.e., have more rows than its rank.
+
+## Suppressing The Oscar Banner
+
+The Oscar banner will display be default when calling `using ErrorCorrection`. This can be suppressed by running Julia with the `-q` flag: `julia -q`. Note that this also suppressed the Julia banner.
