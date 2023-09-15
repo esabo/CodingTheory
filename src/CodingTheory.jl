@@ -28,7 +28,8 @@ using StatsBase
 import LinearAlgebra: tr, Adjoint, transpose, kron
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement, isprimitive,
-    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗
+    isregular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
+    girth
 import Oscar.Nemo: exponent_vectors
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
@@ -124,7 +125,7 @@ export variabledegreedistribution, checkdegreedistribution,
     checkdegreepolynomial, columnrowbounds, limited, regularLDPCCode,
     shortestcycleACE, shortestcycles, computationgraph, ACE_distribution,
     ACEspectrum, countshortcycles, average_ACE_distribution,
-    median_ACE_distribution, mode_ACE_distribution
+    median_ACE_distribution, mode_ACE_distribution, girth
 
 #############################
         # LDPCalgs.jl
