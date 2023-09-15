@@ -95,7 +95,8 @@ mutable struct LDPCCode <: AbstractLDPCCode
     girth::Union{Int, Missing}
     ACEspervarnode::Vector{Vector{Int}}
     cyclens::Vector{Vector{Int}}
-    short_cycles::Vector{Vector{Tuple{Int,Int}}}
+    shortest_cycles::Vector{Vector{Vector{Tuple{Int, Int}}}}
+    short_cycle_counts::Dict{Int, Int}
 end
 
 #############################
