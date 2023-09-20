@@ -46,10 +46,10 @@ function RepetitionCode(q::Int, n::Int)
     end
     G = matrix(F, ones(Int, 1, n))
     H = hcat(matrix(F, ones(Int, n - 1, 1)), identity_matrix(F, n - 1))
-    Gstand, Hstand, P, _ = _standardform(G)
+    G_stand, H_stand, P, _ = _standard_form(G)
     _, vars = PolynomialRing(Nemo.ZZ, Int(order(F)))
     W = WeightEnumerator(sum(v^n for v in vars), :complete)
-    return LinearCode(F, n, 1, n, n, n, G, H, Gstand, Hstand, P, W)
+    return LinearCode(F, n, 1, n, n, n, G, H, G_stand, H_stand, P, W)
 end
 
 """
@@ -83,8 +83,8 @@ function Hexacode()
     ω = gen(F)
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
-    Gstand, Hstand, P, rnk = _standardform(G)
-    return LinearCode(F, 6, 3, 4, 4, 4, G, H, Gstand, Hstand, P, _weightenumeratorBF(Gstand))
+    G_stand, H_stand, P, rnk = _standard_form(G)
+    return LinearCode(F, 6, 3, 4, 4, 4, G, H, G_stand, H_stand, P, _weight_enumerator_BF(G_stand))
 end
 
 #############################
@@ -113,9 +113,9 @@ function HammingCode(q::Int, r::Int)
         # overhead is not worth it for the sizes required here
         H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
         C = LinearCode(H, true, false)
-        setminimumdistance!(C, 3)
+        set_minimum_distance!(C, 3)
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        C.weightenum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n *
+        C.weight_enum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n *
             (vars[2] + vars[1])^div(C.n - 1, 2)*(vars[1] - vars[2])^div(C.n + 1,
             2), C.n + 1), :complete)
         return C
@@ -143,11 +143,11 @@ function TetraCode()
     F = GF(3)
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G_stand, H_stand, P, rnk = _standard_form(G)
     R, vars = PolynomialRing(Nemo.ZZ, 3)
     CWE = WeightEnumerator(vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
         3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, :complete)
-    return LinearCode(F, 4, 2, 3, 3, 3, G, H, Gstand, Hstand, P, CWE)
+    return LinearCode(F, 4, 2, 3, 3, 3, G, H, G_stand, H_stand, P, CWE)
 end
 
 #############################
@@ -198,9 +198,9 @@ function SimplexCode(q::Int, r::Int)
     # all nonzero codewords have weights q^{r - 1}
     # should have q^r - 1 nonzero codewords
     R, vars = PolynomialRing(Nemo.ZZ, 2)
-    C.weightenum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
+    C.weight_enum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
         vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), :complete)
-    setminimumdistance!(C, 2^(r - 1))
+    set_minimum_distance!(C, 2^(r - 1))
     return C
 end
 
@@ -232,9 +232,9 @@ function ExtendedGolayCode(p::Int)
         G = hcat(identity_matrix(F, 12), A)
         H = hcat(-transpose(A), identity_matrix(F, 12))
         R, vars = PolynomialRing(Nemo.ZZ, 2)
-        wtenum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
+        wt_enum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
-        return LinearCode(F, 24, 12, 8, 8, 8, G, H, G, H, missing, wtenum)
+        return LinearCode(F, 24, 12, 8, 8, 8, G, H, G, H, missing, wt_enum)
     elseif p == 3
         F = GF(3)
         A = matrix(F, [0  1  1  1  1  1;
@@ -247,9 +247,9 @@ function ExtendedGolayCode(p::Int)
         H = hcat(-transpose(A), identity_matrix(F, 6))
         R, vars = PolynomialRing(Nemo.ZZ, 2)
         # this looks like Hamming and not complete
-        # wtenum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
+        # wt_enum = WeightEnumerator(vars[1]^12 + 264*vars[2]^6*vars[1]^6 +
         #     440*vars[2]^9*vars[1]^3 + 24*vars[2]^12, :complete)
-        return LinearCode(F, 12, 6, 6, 6, 6, G, H, G, H, missing, _weightenumeratorBF(G))
+        return LinearCode(F, 12, 6, 6, 6, 6, G, H, G, H, missing, _weight_enumerator_BF(G))
     else
         throw(ArgumentError("Golay code not implemented for q = $q."))
     end
@@ -300,7 +300,7 @@ end
 #     C = LinearCode(G)
 #     R, vars = PolynomialRing(Nemo.ZZ, 2)
 #     # each non-zero codeword has a Hamming weight of exactly 2^{k-1}
-#     C.weightenum = WeightEnumerator(vars[1]^(2^m) + (2^m - 1) * vars[1]^2 *
+#     C.weight_enum = WeightEnumerator(vars[1]^(2^m) + (2^m - 1) * vars[1]^2 *
 #         vars[2]^(2^m - 1), :complete)
 #     return C
 # end

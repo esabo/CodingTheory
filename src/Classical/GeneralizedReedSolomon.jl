@@ -55,10 +55,10 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nm
     end
 
     iszero(G * transpose(H)) || error("Calculation of dual scalars failed in constructor.")
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G_stand, H_stand, P, rnk = _standardform(G)
     d = n - k + 1
     return GeneralizedReedSolomonCode(F, n, k, d, d, d, v, w, γ, G, H,
-        Gstand, Hstand, P, missing)
+        G_stand, H_stand, P, missing)
 end
 
 #############################
@@ -73,18 +73,18 @@ Return the scalars `v` of the Generalized Reed-Solomon code `C`.
 scalars(C::GeneralizedReedSolomonCode) = C.v
 
 """
-    dualscalars(C::GeneralizedReedSolomonCode)
+    dual_scalars(C::GeneralizedReedSolomonCode)
 
 Return the scalars of the dual of the Generalized Reed-Solomon code `C`.
 """
-dualscalars(C::GeneralizedReedSolomonCode) = C.w
+dual_scalars(C::GeneralizedReedSolomonCode) = C.w
 
 """
-    evaluationpoints(C::GeneralizedReedSolomonCode)
+    evaluation_points(C::GeneralizedReedSolomonCode)
 
 Return the evaluation points `γ` of the Generalized Reed-Solomon code `C`.
 """
-evaluationpoints(C::GeneralizedReedSolomonCode) = C.γ
+evaluation_points(C::GeneralizedReedSolomonCode) = C.γ
 
 #############################
       # setter functions

@@ -31,69 +31,69 @@ Return the Bacon-Shor subsystem code on a `m x n` lattice.
 """
 function BaconShorCode(m::Int, n::Int)
     F = GF(2)
-    Fone = F(1)
-    numqubits = m * n
+    F_one = F(1)
+    num_qubits = m * n
 
     # X stabilizers: X[r, :] = X[r + 1, :] = 1
     # X gauge: X[r, c] = X[r + 1, c] = 1
-    Xstabs = zero_matrix(F, m - 1, numqubits)
-    Xgauges = zero_matrix(F, (m - 1) * n, numqubits)
-    currrow = 1
-    currrowG = 1
+    X_stabs = zero_matrix(F, m - 1, num_qubits)
+    X_gauges = zero_matrix(F, (m - 1) * n, num_qubits)
+    curr_row = 1
+    curr_row_G = 1
     for r in 1:m - 1
         for c in 1:n
-            Xstabs[currrow, (r - 1) * m + c] = Fone
-            Xstabs[currrow, r * m + c] = Fone
-            Xgauges[currrowG, (r - 1) * m + c] = Fone
-            Xgauges[currrowG, r * m + c] = Fone
-            currrowG += 1
+            X_stabs[curr_row, (r - 1) * m + c] = F_one
+            X_stabs[curr_row, r * m + c] = F_one
+            X_gauges[curr_row_G, (r - 1) * m + c] = F_one
+            X_gauges[curr_row_G, r * m + c] = F_one
+            curr_row_G += 1
         end
-        currrow += 1
+        curr_row += 1
     end
 
     # Z stabilizers: Z[:, c] = Z[:, c + 1] = 1
     # Z gauge: Z[r, c] = Z[r, c + 1] = 1
-    Zstabs = zero_matrix(F, n - 1, numqubits)
-    Zgauges = zero_matrix(F, (n - 1) * m, numqubits)
-    currrow = 1
-    currrowG = 1
+    Z_stabs = zero_matrix(F, n - 1, num_qubits)
+    Z_gauges = zero_matrix(F, (n - 1) * m, num_qubits)
+    curr_row = 1
+    curr_row_G = 1
     for c in 1:n - 1
         for r in 1:m
-            Zstabs[currrow, (r - 1) * m + c] = Fone
-            Zstabs[currrow, (r - 1) * m + c + 1] = Fone
-            Zgauges[currrowG, (r - 1) * m + c] = Fone
-            Zgauges[currrowG, (r - 1) * m + c + 1] = Fone
-            currrowG += 1
+            Z_stabs[curr_row, (r - 1) * m + c] = F_one
+            Z_stabs[curr_row, (r - 1) * m + c + 1] = F_one
+            Z_gauges[curr_row_G, (r - 1) * m + c] = F_one
+            Z_gauges[curr_row_G, (r - 1) * m + c + 1] = F_one
+            curr_row_G += 1
         end
-        currrow += 1
+        curr_row += 1
     end
 
     # X logical: X[1, :] = 1
-    Xlogical = zero_matrix(F, 1, numqubits)
+    X_logical = zero_matrix(F, 1, num_qubits)
     # TODO: consider @simd or @unroll here
     for c in 1:n
-        Xlogical[1, c] = Fone
+        X_logical[1, c] = F_one
     end
 
     # Z logical: Z[:, 1] = 1
-    Zlogical = zero_matrix(F, 1, numqubits)
+    Z_logical = zero_matrix(F, 1, num_qubits)
     # TODO: consider @simd or @unroll here
     for r in 1:m
-        Zlogical[1, (r - 1) * m + 1] = Fone
+        Z_logical[1, (r - 1) * m + 1] = F_one
     end
     
-    stabs = Xstabs ⊕ Zstabs
-    logs = Xlogical ⊕ Zlogical
-    gauges = Xgauges ⊕ Zgauges
-    # S = SubsystemCodeCSS(Xstabs, Zstabs, (Xlogical, Zlogical), {})
+    stabs = X_stabs ⊕ Z_stabs
+    logs = X_logical ⊕ Z_logical
+    gauges = X_gauges ⊕ Z_gauges
+    # S = SubsystemCodeCSS(X_stabs, Z_stabs, (X_logical, Z_logical), {})
     # S = SubsystemCode(stabs, logs, gauges, true)
     S = SubsystemCode(gauges)
-    setstabilizers!(S, stabs)
-    S.Xstabs = Xstabs
-    S.Zstabs = Zstabs
+    set_stabilizers!(S, stabs)
+    S.X_stabs = X_stabs
+    S.Z_stabs = Z_stabs
     # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
-    setlogicals!(S, logs)
-    m == n && setminimumdistance!(S, m)
+    set_logicals!(S, logs)
+    m == n && set_minimum_distance!(S, m)
     # Z distance is m
     # X distance is n
     return S
@@ -120,49 +120,49 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
 
     n = 0
     nr, nc = size(A)
-    rowwts = zeros(Int, 1, nr)
-    colwts = zeros(Int, 1, nc)
-    linearindex = Dict{Tuple{Int, Int}, Int}()
+    row_wts = zeros(Int, 1, nr)
+    col_wts = zeros(Int, 1, nc)
+    linear_index = Dict{Tuple{Int, Int}, Int}()
     for r in 1:nr
         for c in 1:nc
             if !iszero(A[r, c])
                 n += 1
-                rowwts[r] += 1
-                colwts[c] += 1
-                linearindex[(r, c)] = n
+                row_wts[r] += 1
+                col_wts[c] += 1
+                linear_index[(r, c)] = n
             end
         end
     end
 
     for i in 1:nr
-        rowwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+        row_wts[i] == 1 && throw(ArgumentError("The input matrix cannot have a row of weight one."))
     end
     for i in 1:nc
-        colwts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+        col_wts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
     # the original paper appears to switch X and Z compared to Bacon-Shor
     # but this is corrected here to match
     # X - consequetive column pairs
-    Xgauges = zero_matrix(F, sum([colwts[i] - 1 for i in 1:length(colwts)]), n)
-    currrow = 1
-    Fone = F(1)
+    X_gauges = zero_matrix(F, sum([col_wts[i] - 1 for i in 1:length(col_wts)]), n)
+    curr_row = 1
+    F_one = F(1)
     for c in 1:nc
         r1 = 1
         while r1 < nr
             if !iszero(A[r1, c])
-                atend = true
+                at_end = true
                 for r2 in r1 + 1:nr
                     if !iszero(A[r2, c])
-                        Xgauges[currrow, linearindex[r1, c]] = Fone
-                        Xgauges[currrow, linearindex[r2, c]] = Fone
-                        currrow += 1
+                        X_gauges[curr_row, linear_index[r1, c]] = F_one
+                        X_gauges[curr_row, linear_index[r2, c]] = F_one
+                        curr_row += 1
                         r1 = r2
-                        atend = false
+                        at_end = false
                         break
                     end
                 end
-                atend && (r1 = nr;)
+                at_end && (r1 = nr;)
             else
                 r1 += 1
             end
@@ -170,35 +170,35 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     # Z - consequetive row pairs
-    Zgauges = zero_matrix(F, sum([rowwts[i] - 1 for i in 1:length(rowwts)]), n)
-    currrow = 1
+    Z_gauges = zero_matrix(F, sum([row_wts[i] - 1 for i in 1:length(row_wts)]), n)
+    curr_row = 1
     for r in 1:nr
         c1 = 1
         while c1 < nc
             if !iszero(A[r, c1])
-                atend = true
+                at_end = true
                 for c2 in c1 + 1:nc
                     if !iszero(A[r, c2])
-                        Zgauges[currrow, linearindex[r, c1]] = Fone
-                        Zgauges[currrow, linearindex[r, c2]] = Fone
-                        currrow += 1
+                        Z_gauges[curr_row, linear_index[r, c1]] = F_one
+                        Z_gauges[curr_row, linear_index[r, c2]] = F_one
+                        curr_row += 1
                         c1 = c2
-                        atend = false
+                        at_end = false
                         break
                     end
                 end
-                atend && (c1 = nc;)
+                at_end && (c1 = nc;)
             else
                 c1 += 1
             end
         end
     end
 
-    S = SubsystemCode(Xgauges ⊕ Zgauges)
-    minrowwt = minimum(rowwts)
-    mincolwt = minimum(colwts)
-    setminimumdistance!(S, minimum([minrowwt, mincolwt]))
-    # TODO: also set dx and dz
+    S = SubsystemCode(X_gauges ⊕ Z_gauges)
+    min_row_wt = minimum(row_wts)
+    min_col_wt = minimum(col_wts)
+    set_minimum_distance!(S, minimum([min_row_wt, min_col_wt]))
+    # TODO: also set d_x and d_z
     # Z distance is min col wt?
     # X distance is min row wt?
     return S
@@ -211,12 +211,12 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
 
     nr, nc = size(A)
-    rowfirsts = zeros(Int, 1, nr)
-    rowlasts = zeros(Int, 1, nr)
+    row_firsts = zeros(Int, 1, nr)
+    row_lasts = zeros(Int, 1, nr)
     for r in 1:nr
         for c in 1:nc
             if !iszero(A[r, c])
-                rowfirsts[r] = c
+                row_firsts[r] = c
                 break
             end
         end
@@ -224,22 +224,22 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     for r in 1:nr
         for c in nc:-1:1
             if !iszero(A[r, c])
-                rowlasts[r] = c
+                row_lasts[r] = c
                 break
             end
         end
     end
 
     for i in 1:nr
-        rowfirsts[i] == rowlasts[i] && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+        row_firsts[i] == row_lasts[i] && throw(ArgumentError("The input matrix cannot have a row of weight one."))
     end
 
-    colfirsts = zeros(Int, 1, nc)
-    collasts = zeros(Int, 1, nc)
+    col_firsts = zeros(Int, 1, nc)
+    col_lasts = zeros(Int, 1, nc)
     for c in 1:nc
         for r in 1:nr
             if !iszero(A[r, c])
-                colfirsts[c] = r
+                col_firsts[c] = r
                 break
             end
         end
@@ -247,77 +247,77 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     for c in 1:nc
         for r in nr:-1:1
             if !iszero(A[r, c])
-                collasts[c] = r
+                col_lasts[c] = r
                 break
             end
         end
     end
 
     for i in 1:nc
-        colfirsts[i] == collasts[i] && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+        col_firsts[i] == col_lasts[i] && throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
     n = 0
-    extraXs = 0
-    extraZs = 0
-    linearindex = Dict{Tuple{Int, Int}, Int}()
+    extra_Xs = 0
+    extra_Zs = 0
+    linear_index = Dict{Tuple{Int, Int}, Int}()
     for r in 1:nr
         for c in 1:nc
-            if rowfirsts[r] <= c <= rowlasts[r] || colfirsts[c] <= r <= collasts[c]
+            if row_firsts[r] <= c <= row_lasts[r] || col_firsts[c] <= r <= col_lasts[c]
                 n += 1
-                linearindex[(r, c)] = n
+                linear_index[(r, c)] = n
             end
             if iszero(A[r, c])
-                rowfirsts[r] <= c <= rowlasts[r] && (extraXs += 1;)
-                colfirsts[c] <= r <= collasts[c] && (extraZs += 1;)
+                row_firsts[r] <= c <= row_lasts[r] && (extra_Xs += 1;)
+                col_firsts[c] <= r <= col_lasts[c] && (extra_Zs += 1;)
             end
         end
     end
 
     # X - consequetive column pairs + single qubit operators for each 0 in a row
-    Xgauges = zero_matrix(F, sum([rowlasts[i] - rowfirsts[i] for i in 1:nr]) + extraXs, n)
+    X_gauges = zero_matrix(F, sum([row_lasts[i] - row_firsts[i] for i in 1:nr]) + extra_Xs, n)
     # Z - consequetive row pairs + single qubit operators for each 0 in a column
-    Zgauges = zero_matrix(F, sum([collasts[i] - colfirsts[i] for i in 1:nc]) + extraZs, n)
-    currrowX = 1
-    currrowZ = 1
+    Z_gauges = zero_matrix(F, sum([col_lasts[i] - col_firsts[i] for i in 1:nc]) + extra_Zs, n)
+    curr_row_X = 1
+    curr_row_Z = 1
 
     # the original paper appears to switch X and Z compared to Bacon-Shor
     # but this is corrected here to match
-    Fone = F(1)
+    F_one = F(1)
     for c in 1:nc
-        for r in colfirsts[c]:collasts[c]
-            if r != collasts[c]
-                Xgauges[currrowX, linearindex[r, c]] = Fone
-                Xgauges[currrowX, linearindex[r + 1, c]] = Fone
-                currrowX += 1
+        for r in col_firsts[c]:col_lasts[c]
+            if r != col_lasts[c]
+                X_gauges[curr_row_X, linear_index[r, c]] = F_one
+                X_gauges[curr_row_X, linear_index[r + 1, c]] = F_one
+                curr_row_X += 1
             end
             if iszero(A[r, c])
-                Zgauges[currrowZ, linearindex[r, c]] = Fone
-                currrowZ += 1
+                Z_gauges[curr_row_Z, linear_index[r, c]] = F_one
+                curr_row_Z += 1
             end
         end
     end
 
     for r in 1:nr
-        for c in rowfirsts[r]:rowlasts[r]
-            if c != rowlasts[r]
-                Zgauges[currrowZ, linearindex[r, c]] = Fone
-                Zgauges[currrowZ, linearindex[r, c + 1]] = Fone
-                currrowZ += 1
+        for c in row_firsts[r]:row_lasts[r]
+            if c != row_lasts[r]
+                Z_gauges[curr_row_Z, linear_index[r, c]] = F_one
+                Z_gauges[curr_row_Z, linear_index[r, c + 1]] = F_one
+                curr_row_Z += 1
             end
             if iszero(A[r, c])
-                Xgauges[currrowX, linearindex[r, c]] = Fone
-                currrowX += 1
+                X_gauges[curr_row_X, linear_index[r, c]] = F_one
+                curr_row_X += 1
             end
         end
     end
 
-    # return Xgauges, Zgauges
-    S = SubsystemCode(Xgauges ⊕ Zgauges, missing, :VS)
-    # minrowwt = minimum(rowwts)
-    # mincolwt = minimum(colwts)
-    # setminimumdistance!(S, minimum([minrowwt, mincolwt]))
-    # TODO: also set dx and dz
+    # return X_gauges, Z_gauges
+    S = SubsystemCode(X_gauges ⊕ Z_gauges, missing, :VS)
+    # min_row_wt = minimum(row_wts)
+    # min_col_wt = minimum(col_wts)
+    # set_minimum_distance!(S, minimum([min_row_wt, min_col_wt]))
+    # TODO: also set d_x and d_z
     # Z distance is min col wt?
     # X distance is min row wt?
     return S
@@ -335,27 +335,27 @@ Return the Napp and Preskill 3D, modifed Bacon-Shor code.
 function NappPreskill3DCode(m::Int, n::Int, k::Int)
     (2 <= m && 2 <= n && 2 <= k) || throw(DomainError("Lattice dimensions must be at least two"))
 
-    linearindex = Dict{Tuple{Int, Int, Int}, Int}()
+    linear_index = Dict{Tuple{Int, Int, Int}, Int}()
     for (i, tup) in enumerate(Base.Iterators.product(1:m, 1:n, 1:k))
-        linearindex[tup] = i
+        linear_index[tup] = i
     end
 
     len = m * n * k
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     gauges = zero_matrix(F, (m - 1) * n * k + m * (n - 1) * k + m * n * (k - 1), 2 * len)
-    currrow = 1
+    curr_row = 1
     # X's
     for l in 1:k
         for i in 1:m
             for j in 1:n
                 if j != n
-                    gauges[currrow, linearindex[i, j, l]] = gauges[currrow, linearindex[i, j + 1, l]] = Fone
-                    currrow += 1
+                    gauges[curr_row, linear_index[i, j, l]] = gauges[curr_row, linear_index[i, j + 1, l]] = F_one
+                    curr_row += 1
                 end
                 if i != m
-                    gauges[currrow, linearindex[i, j, l]] = gauges[currrow, linearindex[i + 1, j, l]] = Fone
-                    currrow += 1
+                    gauges[curr_row, linear_index[i, j, l]] = gauges[curr_row, linear_index[i + 1, j, l]] = F_one
+                    curr_row += 1
                 end
             end
         end
@@ -365,15 +365,15 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     for i in 1:m
         for j in 1:n
             for l in 1:k - 1
-                gauges[currrow, linearindex[i, j, l] + len] = gauges[currrow, linearindex[i, j, l + 1] + len] = Fone
-                currrow += 1
+                gauges[curr_row, linear_index[i, j, l] + len] = gauges[curr_row, linear_index[i, j, l + 1] + len] = F_one
+                curr_row += 1
             end
         end
     end
 
     S = SubsystemCode(gauges, missing, :VS)
-    S.dx = k
-    S.dz = m * n
+    S.d_x = k
+    S.d_z = m * n
     S.d = minimum([k, m * n])
     return S
 end
@@ -387,16 +387,16 @@ Return the Napp and Preskill 4D, modifed Bacon-Shor code.
 function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     (2 <= x && 2 <= y && 2 <= z && 2 <= w) || throw(DomainError("Lattice dimensions must be at least two"))
 
-    linearindex = Dict{Tuple{Int, Int, Int, Int}, Int}()
+    linear_index = Dict{Tuple{Int, Int, Int, Int}, Int}()
     for (i, tup) in enumerate(Base.Iterators.product(1:x, 1:y, 1:z, 1:w))
-        linearindex[tup] = i
+        linear_index[tup] = i
     end
 
     len = x * y * z * w
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     gauges = zero_matrix(F, (x - 1) * y * z * w + x * (y - 1) * z * w + x * y * (z - 1) * w + x * y * z * (w - 1), 2 * len)
-    currrow = 1
+    curr_row = 1
     ## XX acting on each neighboring qubits in each xy-plane with z, w fixed
     ## ZZ in zw-plane with x, y fixed
 
@@ -406,12 +406,12 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
             for i in 1:x
                 for j in 1:y
                     if i != x
-                        gauges[currrow, linearindex[i, j, k, l]] = gauges[currrow, linearindex[i + 1, j, k, l]] = Fone
-                        currrow += 1
+                        gauges[curr_row, linear_index[i, j, k, l]] = gauges[curr_row, linear_index[i + 1, j, k, l]] = F_one
+                        curr_row += 1
                     end
                     if j != y
-                        gauges[currrow, linearindex[i, j, k, l]] = gauges[currrow, linearindex[i, j + 1, k, l]] = Fone
-                        currrow += 1
+                        gauges[curr_row, linear_index[i, j, k, l]] = gauges[curr_row, linear_index[i, j + 1, k, l]] = F_one
+                        curr_row += 1
                     end
                 end
             end
@@ -424,12 +424,12 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
             for k in 1:z
                 for l in 1:w
                     if k != z
-                        gauges[currrow, linearindex[i, j, k, l] + len] = gauges[currrow, linearindex[i, j, k + 1, l] + len] = Fone
-                        currrow += 1
+                        gauges[curr_row, linear_index[i, j, k, l] + len] = gauges[curr_row, linear_index[i, j, k + 1, l] + len] = F_one
+                        curr_row += 1
                     end
                     if l != w
-                        gauges[currrow, linearindex[i, j, k, l] + len] = gauges[currrow, linearindex[i, j, k, l + 1] + len] = Fone
-                        currrow += 1
+                        gauges[curr_row, linear_index[i, j, k, l] + len] = gauges[curr_row, linear_index[i, j, k, l + 1] + len] = F_one
+                        curr_row += 1
                     end
                 end
             end
@@ -450,131 +450,131 @@ function SubsystemToricCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
 
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     len = 3 * m * n
     gauges = zero_matrix(F, 4 * m * n, 2 * len)
     stabs = zero_matrix(F, 2 * m * n, 2 * len)
-    currrowstab = 1
-    currrowgauge = 1
+    curr_row_stab = 1
+    curr_row_gauge = 1
     for r in 1:m
-        topleft = 3 * n * (r - 1) + 1
-        rowright = topleft + 2 * n - 1
+        top_left = 3 * n * (r - 1) + 1
+        row_right = top_left + 2 * n - 1
         for c in 1:n
             # top left - Z
-            gauges[currrowgauge, topleft + len] = Fone
-            gauges[currrowgauge, topleft + 1 + len] = Fone
-            gauges[currrowgauge, rowright + c + len] = Fone
-            currrowgauge += 1
+            gauges[curr_row_gauge, top_left + len] = F_one
+            gauges[curr_row_gauge, top_left + 1 + len] = F_one
+            gauges[curr_row_gauge, row_right + c + len] = F_one
+            curr_row_gauge += 1
 
             # top right - X
-            gauges[currrowgauge, topleft + 1] = Fone
+            gauges[curr_row_gauge, top_left + 1] = F_one
             if c != n
-                gauges[currrowgauge, topleft + 2] = Fone
-                gauges[currrowgauge, rowright + c + 1] = Fone
+                gauges[curr_row_gauge, top_left + 2] = F_one
+                gauges[curr_row_gauge, row_right + c + 1] = F_one
             else
-                gauges[currrowgauge, rowright - 2 * n + 1] = Fone
-                gauges[currrowgauge, rowright + 1] = Fone
+                gauges[curr_row_gauge, row_right - 2 * n + 1] = F_one
+                gauges[curr_row_gauge, row_right + 1] = F_one
             end
-            currrowgauge += 1
+            curr_row_gauge += 1
 
             # bottom left - X
-            gauges[currrowgauge, rowright + c] = Fone
+            gauges[curr_row_gauge, row_right + c] = F_one
             if r != m
-                gauges[currrowgauge, rowright + n + 2 * (c - 1) + 1] = Fone
-                gauges[currrowgauge, rowright + n + 2 * (c - 1) + 2] = Fone
+                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 1] = F_one
+                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2] = F_one
             else
-                gauges[currrowgauge, 2 * (c - 1) + 1] = Fone
-                gauges[currrowgauge, 2 * (c - 1) + 2] = Fone
+                gauges[curr_row_gauge, 2 * (c - 1) + 1] = F_one
+                gauges[curr_row_gauge, 2 * (c - 1) + 2] = F_one
             end
-            currrowgauge += 1
+            curr_row_gauge += 1
 
             # bottom right - Z
             if r == m && c == n
-                gauges[currrowgauge, 1 + len] = Fone
-                gauges[currrowgauge, 2 * n + len] = Fone
-                gauges[currrowgauge, rowright + 1 + len] = Fone
+                gauges[curr_row_gauge, 1 + len] = F_one
+                gauges[curr_row_gauge, 2 * n + len] = F_one
+                gauges[curr_row_gauge, row_right + 1 + len] = F_one
             elseif r == m
-                gauges[currrowgauge, rowright + c + 1 + len] = Fone
-                gauges[currrowgauge, 2 * (c - 1) + 2 + len] = Fone
-                gauges[currrowgauge, 2 * (c - 1) + 3 + len] = Fone
+                gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
+                gauges[curr_row_gauge, 2 * (c - 1) + 2 + len] = F_one
+                gauges[curr_row_gauge, 2 * (c - 1) + 3 + len] = F_one
             elseif c != n
-                gauges[currrowgauge, rowright + c + 1 + len] = Fone
-                gauges[currrowgauge, rowright + n + 2 * (c - 1) + 2 + len] = Fone
-                gauges[currrowgauge, rowright + n + 2 * (c - 1) + 3 + len] = Fone
+                gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
+                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2 + len] = F_one
+                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3 + len] = F_one
             else
-                gauges[currrowgauge, rowright + 1 + len] = Fone
-                gauges[currrowgauge, rowright + n + 1 + len] = Fone
-                gauges[currrowgauge, rowright + n + 2 * (c - 1) + 2 + len] = Fone
+                gauges[curr_row_gauge, row_right + 1 + len] = F_one
+                gauges[curr_row_gauge, row_right + n + 1 + len] = F_one
+                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2 + len] = F_one
             end
-            currrowgauge += 1
+            curr_row_gauge += 1
 
             # X
-            stabs[currrowstab, topleft + 1] = Fone
+            stabs[curr_row_stab, top_left + 1] = F_one
             if c != n
-                stabs[currrowstab, topleft + 2] = Fone
-                stabs[currrowstab, rowright + c + 1] = Fone
+                stabs[curr_row_stab, top_left + 2] = F_one
+                stabs[curr_row_stab, row_right + c + 1] = F_one
             else
-                stabs[currrowstab, rowright - 2 * n + 1] = Fone
-                stabs[currrowstab, rowright + 1] = Fone
+                stabs[curr_row_stab, row_right - 2 * n + 1] = F_one
+                stabs[curr_row_stab, row_right + 1] = F_one
             end
-            stabs[currrowstab, rowright + c] = Fone
+            stabs[curr_row_stab, row_right + c] = F_one
             if r != m
-                stabs[currrowstab, rowright + n + 2 * (c - 1) + 1] = Fone
-                stabs[currrowstab, rowright + n + 2 * (c - 1) + 2] = Fone
+                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 1] = F_one
+                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2] = F_one
             else
-                stabs[currrowstab, 2 * (c - 1) + 1] = Fone
-                stabs[currrowstab, 2 * (c - 1) + 2] = Fone
+                stabs[curr_row_stab, 2 * (c - 1) + 1] = F_one
+                stabs[curr_row_stab, 2 * (c - 1) + 2] = F_one
             end
-            currrowstab += 1
+            curr_row_stab += 1
 
             # Z
-            stabs[currrowstab, topleft + len] = Fone
-            stabs[currrowstab, topleft + 1 + len] = Fone
-            stabs[currrowstab, rowright + c + len] = Fone
+            stabs[curr_row_stab, top_left + len] = F_one
+            stabs[curr_row_stab, top_left + 1 + len] = F_one
+            stabs[curr_row_stab, row_right + c + len] = F_one
             if r == m && c == n
-                stabs[currrowstab, 1 + len] = Fone
-                stabs[currrowstab, 2 * n + len] = Fone
-                stabs[currrowstab, rowright + 1 + len] = Fone
+                stabs[curr_row_stab, 1 + len] = F_one
+                stabs[curr_row_stab, 2 * n + len] = F_one
+                stabs[curr_row_stab, row_right + 1 + len] = F_one
             elseif r == m
-                stabs[currrowstab, rowright + c + 1 + len] = Fone
-                stabs[currrowstab, 2 * (c - 1) + 2 + len] = Fone
-                stabs[currrowstab, 2 * (c - 1) + 3 + len] = Fone
+                stabs[curr_row_stab, row_right + c + 1 + len] = F_one
+                stabs[curr_row_stab, 2 * (c - 1) + 2 + len] = F_one
+                stabs[curr_row_stab, 2 * (c - 1) + 3 + len] = F_one
             elseif c != n
-                stabs[currrowstab, rowright + c + 1 + len] = Fone
-                stabs[currrowstab, rowright + n + 2 * (c - 1) + 2 + len] = Fone
-                stabs[currrowstab, rowright + n + 2 * (c - 1) + 3 + len] = Fone
+                stabs[curr_row_stab, row_right + c + 1 + len] = F_one
+                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2 + len] = F_one
+                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3 + len] = F_one
             else
-                stabs[currrowstab, rowright + 1 + len] = Fone
-                stabs[currrowstab, rowright + n + 1 + len] = Fone
-                stabs[currrowstab, rowright + n + 2 * (c - 1) + 2 + len] = Fone
+                stabs[curr_row_stab, row_right + 1 + len] = F_one
+                stabs[curr_row_stab, row_right + n + 1 + len] = F_one
+                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2 + len] = F_one
             end
-            currrowstab += 1
-            topleft += 2
+            curr_row_stab += 1
+            top_left += 2
         end
     end
     
     logs = zero_matrix(F, 4, 2 * len)
     # top row is an X for pair one and a Z for pair two
     for c in 1:2 * n
-        logs[1, c] = Fone
-        logs[4, c + len] = Fone
+        logs[1, c] = F_one
+        logs[4, c + len] = F_one
     end
     # left column is a Z for pair one and an X for pair two
     for r in 1:m
-        topleft = 3 * n * (r - 1) + 1
-        logs[2, topleft + len] = Fone
-        logs[2, topleft + 2 * n + len] = Fone
-        logs[3, topleft] = Fone
-        logs[3, topleft + 2 * n] = Fone
+        top_left = 3 * n * (r - 1) + 1
+        logs[2, top_left + len] = F_one
+        logs[2, top_left + 2 * n + len] = F_one
+        logs[3, top_left] = F_one
+        logs[3, top_left + 2 * n] = F_one
     end
     
     S = SubsystemCode(gauges, missing, :VS)
     S.k == 2 || error("Got wrong dimension for periodic case.")
-    setstabilizers!(S, stabs)
-    setlogicals!(S, logs)
-    setminimumdistance!(S, minimum([m, n]))
-    S.dx = S.d
-    S.dx = S.d
+    set_stabilizers!(S, stabs)
+    set_logicals!(S, logs)
+    set_minimum_distance!(S, minimum([m, n]))
+    S.d_x = S.d
+    S.d_x = S.d
     return S
 end
 
@@ -597,128 +597,128 @@ function SubsystemSurfaceCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
 
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     len = (3n + 2) * m + 2 * n + 1
     gauges = zero_matrix(F, 4 * m * n + 2 * n + 2 * m, 2 * len)
     stabs = zero_matrix(F, 2 * m * n + 2 * n + 2 * m, 2 * len)
-    currrowstab = 1
-    currrowgauge = 1
+    curr_row_stab = 1
+    curr_row_gauge = 1
     for r in 1:m
-        topleft = (3 * n + 2) * (r - 1) + 1
-        rowright = topleft + 2 * n
+        top_left = (3 * n + 2) * (r - 1) + 1
+        row_right = top_left + 2 * n
         for c in 1:n
             # top left - Z
-            gauges[currrowgauge, topleft + len] = Fone
-            gauges[currrowgauge, topleft + 1 + len] = Fone
-            gauges[currrowgauge, rowright + c + len] = Fone
-            currrowgauge += 1
+            gauges[curr_row_gauge, top_left + len] = F_one
+            gauges[curr_row_gauge, top_left + 1 + len] = F_one
+            gauges[curr_row_gauge, row_right + c + len] = F_one
+            curr_row_gauge += 1
 
             # top right - X
-            gauges[currrowgauge, topleft + 1] = Fone
-            gauges[currrowgauge, topleft + 2] = Fone
-            gauges[currrowgauge, rowright + c + 1] = Fone
-            currrowgauge += 1
+            gauges[curr_row_gauge, top_left + 1] = F_one
+            gauges[curr_row_gauge, top_left + 2] = F_one
+            gauges[curr_row_gauge, row_right + c + 1] = F_one
+            curr_row_gauge += 1
 
             # bottom left - X
-            gauges[currrowgauge, rowright + c] = Fone
-            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 2] = Fone
-            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 3] = Fone
-            currrowgauge += 1
+            gauges[curr_row_gauge, row_right + c] = F_one
+            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2] = F_one
+            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3] = F_one
+            curr_row_gauge += 1
 
             # bottom right - Z
-            gauges[currrowgauge, rowright + c + 1 + len] = Fone
-            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 3 + len] = Fone
-            gauges[currrowgauge, rowright + n + 2 * (c - 1) + 4 + len] = Fone
-            currrowgauge += 1
+            gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
+            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3 + len] = F_one
+            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 4 + len] = F_one
+            curr_row_gauge += 1
 
             # X
-            stabs[currrowstab, topleft + 1] = Fone
-            stabs[currrowstab, topleft + 2] = Fone
-            stabs[currrowstab, rowright + c + 1] = Fone
-            stabs[currrowstab, rowright + c] = Fone
-            stabs[currrowstab, rowright + n + 2 * (c - 1) + 2] = Fone
-            stabs[currrowstab, rowright + n + 2 * (c - 1) + 3] = Fone
-            currrowstab += 1
+            stabs[curr_row_stab, top_left + 1] = F_one
+            stabs[curr_row_stab, top_left + 2] = F_one
+            stabs[curr_row_stab, row_right + c + 1] = F_one
+            stabs[curr_row_stab, row_right + c] = F_one
+            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2] = F_one
+            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3] = F_one
+            curr_row_stab += 1
 
             # Z
-            stabs[currrowstab, topleft + len] = Fone
-            stabs[currrowstab, topleft + 1 + len] = Fone
-            stabs[currrowstab, rowright + c + len] = Fone
-            stabs[currrowstab, rowright + c + 1 + len] = Fone
-            stabs[currrowstab, rowright + n + 2 * (c - 1) + 3 + len] = Fone
-            stabs[currrowstab, rowright + n + 2 * (c - 1) + 4 + len] = Fone
-            currrowstab += 1
-            topleft += 2
+            stabs[curr_row_stab, top_left + len] = F_one
+            stabs[curr_row_stab, top_left + 1 + len] = F_one
+            stabs[curr_row_stab, row_right + c + len] = F_one
+            stabs[curr_row_stab, row_right + c + 1 + len] = F_one
+            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3 + len] = F_one
+            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 4 + len] = F_one
+            curr_row_stab += 1
+            top_left += 2
         end
     end
 
     # left - X
     for r in 1:m
-        topleft = (3 * n + 2) * (r - 1) + 1
+        top_left = (3 * n + 2) * (r - 1) + 1
         shift = 2 * n + 1
-        stabs[currrowstab, topleft] = Fone
-        stabs[currrowstab, topleft + shift] = Fone
-        currrowstab += 1
-        gauges[currrowgauge, topleft] = Fone
-        gauges[currrowgauge, topleft + shift] = Fone
-        currrowgauge += 1
+        stabs[curr_row_stab, top_left] = F_one
+        stabs[curr_row_stab, top_left + shift] = F_one
+        curr_row_stab += 1
+        gauges[curr_row_gauge, top_left] = F_one
+        gauges[curr_row_gauge, top_left + shift] = F_one
+        curr_row_gauge += 1
     end
 
     # right - X
     for r in 1:m
-        topleft = (3 * n + 2) * (r - 1) + 1
-        rowright = topleft + 2 * n
-        stabs[currrowstab, rowright + n + 1] = Fone
-        stabs[currrowstab, rowright + 3 * n + 2] = Fone
-        currrowstab += 1
-        gauges[currrowgauge, rowright + n + 1] = Fone
-        gauges[currrowgauge, rowright + 3 * n + 2] = Fone
-        currrowgauge += 1
+        top_left = (3 * n + 2) * (r - 1) + 1
+        row_right = top_left + 2 * n
+        stabs[curr_row_stab, row_right + n + 1] = F_one
+        stabs[curr_row_stab, row_right + 3 * n + 2] = F_one
+        curr_row_stab += 1
+        gauges[curr_row_gauge, row_right + n + 1] = F_one
+        gauges[curr_row_gauge, row_right + 3 * n + 2] = F_one
+        curr_row_gauge += 1
     end
 
     # top - Z
-    topleft = 1
+    top_left = 1
     for c in 1:n
-        stabs[currrowstab, topleft + 1 + len] = Fone
-        stabs[currrowstab, topleft + 2 + len] = Fone
-        currrowstab += 1
-        gauges[currrowgauge, topleft + 1 + len] = Fone
-        gauges[currrowgauge, topleft + 2 + len] = Fone
-        currrowgauge += 1
-        topleft += 2
+        stabs[curr_row_stab, top_left + 1 + len] = F_one
+        stabs[curr_row_stab, top_left + 2 + len] = F_one
+        curr_row_stab += 1
+        gauges[curr_row_gauge, top_left + 1 + len] = F_one
+        gauges[curr_row_gauge, top_left + 2 + len] = F_one
+        curr_row_gauge += 1
+        top_left += 2
     end
 
     # bottom - Z
-    bottomleft = len - 2 * n
+    bottom_left = len - 2 * n
     for c in 1:n
-        stabs[currrowstab, bottomleft + len] = Fone
-        stabs[currrowstab, bottomleft + 1 + len] = Fone
-        currrowstab += 1
-        gauges[currrowgauge, bottomleft + len] = Fone
-        gauges[currrowgauge, bottomleft + 1 + len] = Fone
-        currrowgauge += 1
-        bottomleft += 2
+        stabs[curr_row_stab, bottom_left + len] = F_one
+        stabs[curr_row_stab, bottom_left + 1 + len] = F_one
+        curr_row_stab += 1
+        gauges[curr_row_gauge, bottom_left + len] = F_one
+        gauges[curr_row_gauge, bottom_left + 1 + len] = F_one
+        curr_row_gauge += 1
+        bottom_left += 2
     end
 
     logs = zero_matrix(F, 2, 2 * len)
     # top row is a logical X
     for c in 1:2 * n + 1
-        logs[1, c] = Fone
+        logs[1, c] = F_one
     end
     # left column is a logical Z 
     for r in 1:m
-        logs[2, (3 * n + 2) * (r - 1) + 1 + len] = Fone
-        logs[2, (3 * n + 2) * (r - 1) + 2 * n + 2 + len] = Fone
+        logs[2, (3 * n + 2) * (r - 1) + 1 + len] = F_one
+        logs[2, (3 * n + 2) * (r - 1) + 2 * n + 2 + len] = F_one
     end
-    logs[2, 2 * len -  2 * n] = Fone
+    logs[2, 2 * len -  2 * n] = F_one
     
     S = SubsystemCode(gauges, missing, :VS)
     S.k == 1 || error("Got wrong dimension for non-periodic case.")
-    setstabilizers!(S, stabs)
-    setlogicals!(S, logs)
-    setminimumdistance!(S, minimum([m, n]))
-    S.dx = 2 * n + 1
-    S.dz = 2 * m + 1
+    set_stabilizers!(S, stabs)
+    set_logicals!(S, logs)
+    set_minimum_distance!(S, minimum([m, n]))
+    S.d_x = 2 * n + 1
+    S.d_z = 2 * m + 1
     return S
 end
 
@@ -832,7 +832,7 @@ Q1573() = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX
  # Triangular Surface Codes
 #############################
 
-function _triangularlattice(L::Int)
+function _triangular_lattice(L::Int)
     # 0 - vertical
     # 1 - horizontal
     # 2 - diagonal
@@ -849,7 +849,7 @@ function _triangularlattice(L::Int)
     return numbering
 end
 
-function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64, 3})
     F = GF(2)
     stabilizers = zero_matrix(F, L^2, 3 * L^2)
     r = 1
@@ -883,7 +883,7 @@ function _triangularlatticeXstabilizers(L::Int, numbering::Array{Int64, 3})
     return hcat(stabilizers, zero_matrix(F, L^2, 3 * L^2))
 end
 
-function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64, 3})
     F = GF(2)
     stabilizers = zero_matrix(F, 2 * L^2, 3 * L^2)
     r = 1
@@ -911,7 +911,7 @@ function _triangularlatticeZstabilizers(L::Int, numbering::Array{Int64, 3})
     return hcat(zero_matrix(F, 2 * L^2, 3 * L^2), stabilizers)
 end
 
-function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_X_logicals(L::Int, numbering::Array{Int64, 3})
     # should be 0110110110
     z = zeros(UInt8, 3 * L^2)
     logical1 = zeros(UInt8, 3 * L^2)
@@ -944,7 +944,7 @@ function _triangularlatticeXlogicals(L::Int, numbering::Array{Int64, 3})
     return [logical1, logical2]
 end
 
-function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
+function _triangular_lattice_Z_logicals(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
     # should be 1001001001
     x = zeros(UInt8, 3 * L^2)
     logical1 = zeros(UInt8, 3 * L^2)
@@ -978,33 +978,33 @@ function _triangularlatticeZlogicals(L::Int, numbering::Array{Int64, 3}, symp::B
 end
 
 function TriangularSurfaceCode(L::Int)
-    numbering = _triangularlattice(L)
-    Xstabs = _triangularlatticeXstabilizers(L, numbering)
-    # println(rank(Xstabs))
-    Zstabs = _triangularlatticeZstabilizers(L, numbering)
-    # println(Zstabs)
-    # logicals = [triangularlatticeXlogicals(L, numbering), triangularlatticeZlogicals(L, numbering)]
-    return CSSCode(Xstabs[1:end - 1, :], Zstabs[1:end - 1, :])
+    numbering = _triangular_lattice(L)
+    X_stabs = _triangular_lattice_X_stabilizers(L, numbering)
+    # println(rank(X_stabs))
+    Z_stabs = _triangular_lattice_Z_stabilizers(L, numbering)
+    # println(Z_stabs)
+    # logicals = [_triangular_lattice_X_logicals(L, numbering), _triangular_lattice_Z_logicals(L, numbering)]
+    return CSSCode(X_stabs[1:end - 1, :], Z_stabs[1:end - 1, :])
 end
 
 #############################
    # Rotated Surface Codes
 #############################
 
-function _RSurfstabs(d::Int)
+function _R_Surf_stabs(d::Int)
     n = d^2
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
 
     # X's
     i = 1
     while i <= n - d
-        S[row, i] = Fone
-        S[row, i + 1] = Fone
-        S[row, i + d] = Fone
-        S[row, i + d + 1] = Fone
+        S[row, i] = F_one
+        S[row, i + 1] = F_one
+        S[row, i + d] = F_one
+        S[row, i + d + 1] = F_one
         row += 1
         if (i + 2) % d == 0
             i += 4
@@ -1016,8 +1016,8 @@ function _RSurfstabs(d::Int)
     # top row X's
     i = 2
     while i <= d - 1
-        S[row, i] = Fone
-        S[row, i + 1] = Fone
+        S[row, i] = F_one
+        S[row, i + 1] = F_one
         row += 1
         i += 2
     end
@@ -1025,8 +1025,8 @@ function _RSurfstabs(d::Int)
     # bottom row X's
     i = d * (d - 1) + 1
     while i <= d * d - 2
-        S[row, i] = Fone
-        S[row, i + 1] = Fone
+        S[row, i] = F_one
+        S[row, i + 1] = F_one
         row += 1
         i += 2
     end
@@ -1034,10 +1034,10 @@ function _RSurfstabs(d::Int)
     # Z's
     i = 2
     while i < n - d
-        S[row, i + n] = Fone
-        S[row, i + 1 + n] = Fone
-        S[row, i + d + n] = Fone
-        S[row, i + d + 1 + n] = Fone
+        S[row, i + n] = F_one
+        S[row, i + 1 + n] = F_one
+        S[row, i + d + n] = F_one
+        S[row, i + d + 1 + n] = F_one
         row += 1
         if (i + 2) % d == 0
             i += 4
@@ -1049,8 +1049,8 @@ function _RSurfstabs(d::Int)
     # left Z's
     i = 1
     while i < d * (d - 1)
-        S[row, i + n] = Fone
-        S[row, i + d + n] = Fone
+        S[row, i + n] = F_one
+        S[row, i + d + n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1058,8 +1058,8 @@ function _RSurfstabs(d::Int)
     # right Z's
     i = 2 * d
     while i < d * d
-        S[row, i + n] = Fone
-        S[row, i + d + n] = Fone
+        S[row, i + n] = F_one
+        S[row, i + d + n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1067,18 +1067,18 @@ function _RSurfstabs(d::Int)
     return S
 end
 
-function _RSurflogs(F::CTFieldTypes, d::Int)
+function _R_Surf_logs(F::CTFieldTypes, d::Int)
     n = d^2
-    Fone = F(1)
+    F_one = F(1)
     logs = zero_matrix(F, 2, 2 * n)
     i = d
     while i <= d * d
-        logs[1, i] = Fone
+        logs[1, i] = F_one
         i += d
     end
     i = 1
     while i <= d
-        logs[2, i + n] = Fone
+        logs[2, i + n] = F_one
         i += 1
     end
 
@@ -1098,9 +1098,9 @@ can be seen by viewing the stabilizers of PlanarSurfaceCode as an adjacency matr
 function RotatedSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
 
-    stabs = _RSurfstabs(d)
+    stabs = _R_Surf_stabs(d)
     S = StabilizerCode(stabs)
-    d <= 10 && setlogicals!(S, _RSurflogs(base_ring(stabs), d))
+    d <= 10 && set_logicals!(S, _R_Surf_logs(base_ring(stabs), d))
     return S
 end
 
@@ -1108,20 +1108,20 @@ end
      # XZZX Surface Codes
 #############################
 
-function _XZZXstabslogs(d::Int)
+function _XZZX_stabs_logs(d::Int)
     n = d^2
     F = GF(2)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
-    Fone = F(1)
+    F_one = F(1)
 
     i = 1
     for i in 1:n - d
         if i % d != 0
-            S[row, i] = Fone
-            S[row, i + 1 + n] = Fone
-            S[row, i + d + n] = Fone
-            S[row, i + d + 1] = Fone
+            S[row, i] = F_one
+            S[row, i + 1 + n] = F_one
+            S[row, i + d + n] = F_one
+            S[row, i + d + 1] = F_one
             row += 1;
         end
     end
@@ -1129,8 +1129,8 @@ function _XZZXstabslogs(d::Int)
     # top row ZX's
     i = 2
     while i <= d - 1
-        S[row, i + n] = Fone
-        S[row, i + 1] = Fone
+        S[row, i + n] = F_one
+        S[row, i + 1] = F_one
         row += 1
         i += 2
     end
@@ -1138,8 +1138,8 @@ function _XZZXstabslogs(d::Int)
     # bottom row XZ's
     i = d * (d - 1) + 1
     while i <= d * d - 2
-        S[row, i] = Fone
-        S[row, i + 1 + n] = Fone
+        S[row, i] = F_one
+        S[row, i + 1 + n] = F_one
         row += 1
         i += 2
     end
@@ -1147,8 +1147,8 @@ function _XZZXstabslogs(d::Int)
     # left ZX's
     i = 1
     while i < d * (d - 1)
-        S[row, i + n] = Fone
-        S[row, i + d] = Fone
+        S[row, i + n] = F_one
+        S[row, i + d] = F_one
         row += 1
         i += 2 * d
     end
@@ -1156,8 +1156,8 @@ function _XZZXstabslogs(d::Int)
     # right XZ's
     i = 2 * d
     while i < d * d
-        S[row, i] = Fone
-        S[row, i + d + n] = Fone
+        S[row, i] = F_one
+        S[row, i + d + n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1167,9 +1167,9 @@ function _XZZXstabslogs(d::Int)
     count = 1
     while i <= d * d
         if count % 2 == 1
-            logs[1, i] = Fone
+            logs[1, i] = F_one
         else
-            logs[1, i + n] = Fone
+            logs[1, i + n] = F_one
         end
         i += d
         count += 1
@@ -1178,9 +1178,9 @@ function _XZZXstabslogs(d::Int)
     count = 1
     while i <= d
         if count % 2 == 1
-            logs[2, i + n] = Fone
+            logs[2, i + n] = F_one
         else
-            logs[2, i] = Fone
+            logs[2, i] = F_one
         end
         i += 1
         count += 1
@@ -1197,9 +1197,9 @@ Return the `[[d^2, 1, d]]` XZZX surface code.
 function XZZXSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
 
-    stabs, logs = _XZZXstabslogs(d)
+    stabs, logs = _XZZX_stabs_logs(d)
     S = StabilizerCode(stabs)
-    setlogicals!(S, logs)
+    set_logicals!(S, logs)
     return S
 end
 
@@ -1222,116 +1222,116 @@ function TriangularColorCode488(d::Int)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 5
         # S, logs = _488d5trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d5stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 7
         # S, logs = _488d7trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d7stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 9
         # S, logs = _488d9trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d9stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 11
         # S, logs = _488d11trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d11stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 13
         # S, logs = _488d13trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d13stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 15
         # S, logs = _488d15trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d15stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 17
         # S, logs = _488d17trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d17stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 19
         # S, logs = _488d19trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d19stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     # elseif d == 21
     #     # S, logs = _488d21trellis()
     #     # S = StabilizerCode(stabs)
-    #     # setlogicals!(Q, logs)
+    #     # set_logicals!(Q, logs)
     #     @load "../data/488d21stabslogs_trellis.jld2" S l
     #     F = GF(2)
     #     stabs = matrix(F, S)
     #     S = StabilizerCode(stabs)
     #     l = matrix(F, l)
-    #     # setlogicals!(S, [(l[1, :], l[2, :])])
-    #     setlogicals!(S, l)
+    #     # set_logicals!(S, [(l[1, :], l[2, :])])
+    #     set_logicals!(S, l)
     #     return S
     end
 end
@@ -1352,122 +1352,122 @@ function TriangularColorCode666(d::Int)
         # same as 4.8.8
         # S, logs = _488d3trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/488d3stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 5
         # S, logs = _666d5trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d5stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 7
         # S, logs = _666d7trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d7stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 9
         # S, logs = _666d9trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d9stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 11
         # S, logs = _666d11trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d11stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 13
         # S, logs = _666d13trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d13stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 15
         # S, logs = _666d15trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d15stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 17
         # S, logs = _666d17trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d17stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 19
         # S, logs = _666d19trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d19stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     elseif d == 21
         # S, logs = _666d21trellis()
         # S = StabilizerCode(stabs)
-        # setlogicals!(Q, logs)
+        # set_logicals!(Q, logs)
         @load "../data/666d21stabslogs_trellis.jld2" S l
         F = GF(2)
         stabs = matrix(F, S)
         S = StabilizerCode(stabs)
         l = matrix(F, l)
-        # setlogicals!(S, [(l[1, :], l[2, :])])
-        setlogicals!(S, l)
+        # set_logicals!(S, [(l[1, :], l[2, :])])
+        set_logicals!(S, l)
         return S
     end
 end
@@ -1487,46 +1487,46 @@ function ToricCode(d::Int)
     2 <= d || throw(DomainError("Distance must be at least two."))
 
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     A = zero_matrix(F, d^2, 2 * d^2) # stars, X stabilizers
     B = zero_matrix(F, d^2, 2 * d^2) # faces, Z stabilizers
     qubit = 1
-    rowA = 1
-    rowB = 1
+    row_A = 1
+    row_B = 1
     for r in 1:2 * d
         if isodd(r)
             for c in 1:d
-                # println("r = $r, c = $c, rowA = $rowA")
+                # println("r = $r, c = $c, row_A = $row_A")
                 if r != 2 * d - 1 && c != d
-                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + d + 1] = A[rowA, qubit + 2 * d] = Fone
+                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + d + 1] = A[row_A, qubit + 2 * d] = F_one
                 elseif r == 2 * d - 1 && c != d
-                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + d + 1] = A[rowA, c] = Fone
+                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + d + 1] = A[row_A, c] = F_one
                 elseif r != 2 * d - 1 && c == d
-                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + 1] = A[rowA, qubit + 2 * d] = Fone
+                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + 1] = A[row_A, qubit + 2 * d] = F_one
                 elseif r == 2 * d - 1 && c == d
-                    A[rowA, qubit] = A[rowA, qubit + d] = A[rowA, qubit + 1] = A[rowA, c] = Fone
+                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + 1] = A[row_A, c] = F_one
                 else
                     error("Ran into unaccounted for case in creating the toric code lattice.")
                 end
-                rowA += 1
+                row_A += 1
                 qubit += 1
             end
         else
             for c in 1:d
-                # println("r = $r, c = $c, rowB = $rowB")
+                # println("r = $r, c = $c, row_B = $row_B")
                 if r != 2 * d && c == 1
-                    B[rowB, qubit] = B[rowB, qubit + d] = B[rowB, qubit + 2 * d] = B[rowB, qubit + 2 * d - 1] = Fone
+                    B[row_B, qubit] = B[row_B, qubit + d] = B[row_B, qubit + 2 * d] = B[row_B, qubit + 2 * d - 1] = F_one
                 elseif r != 2 * d && c != 1
-                    B[rowB, qubit] = B[rowB, qubit + d - 1] = B[rowB, qubit + d] = B[rowB, qubit + 2 * d] = Fone
+                    B[row_B, qubit] = B[row_B, qubit + d - 1] = B[row_B, qubit + d] = B[row_B, qubit + 2 * d] = F_one
                 elseif r == 2 * d && c == 1
-                    B[rowB, qubit] = B[rowB, d] = B[rowB, d + 1] = B[rowB, 1] = Fone
+                    B[row_B, qubit] = B[row_B, d] = B[row_B, d + 1] = B[row_B, 1] = F_one
                 elseif r == 2 * d && c != 1
-                    B[rowB, qubit] = B[rowB, c - 1] = B[rowB, c] = B[rowB, c + d] = Fone
+                    B[row_B, qubit] = B[row_B, c - 1] = B[row_B, c] = B[row_B, c + d] = F_one
                 else
                     println("here")
                     error("Ran into unaccounted for case in creating the toric code lattice.")
                 end
-                rowB += 1
+                row_B += 1
                 qubit += 1
             end
         end
@@ -1534,23 +1534,23 @@ function ToricCode(d::Int)
     S = CSSCode(A, B)
     X1 = zero_matrix(S.F, 1, 4 * d^2)
     for c in 1:d
-        X1[1, c + d] = Fone
+        X1[1, c + d] = F_one
     end
     Z1 = zero_matrix(S.F, 1, 4 * d^2)
     for r in 1:2:2 * d
-        Z1[1, r * d + 1 + S.n] = Fone
+        Z1[1, r * d + 1 + S.n] = F_one
     end
     X2 = zero_matrix(S.F, 1, 4 * d^2)
     for r in 1:2:2 * d
-        X2[1, (r - 1) * d + 1] = Fone
+        X2[1, (r - 1) * d + 1] = F_one
     end
     Z2 = zero_matrix(S.F, 1, 4 * d^2)
     for c in 1:d
-        Z2[1, c + S.n] = Fone
+        Z2[1, c + S.n] = F_one
     end
     S.logicals = [(X1, Z1), (X2, Z2)]
-    S.dx = d
-    S.dz = d
+    S.d_x = d
+    S.d_z = d
     S.d = d
     return S
 end
@@ -1560,69 +1560,69 @@ end
 ################################
 
 """
-    PlanarSurfaceCode(dx::Int, dz::Int)
+    PlanarSurfaceCode(d_x::Int, d_z::Int)
     PlanarSurfaceCode(d::Int)
 
-Return the `[[dx * dz + (dx - 1) * (dz - 1), 1, dx/dz]]` planar surface code.
+Return the `[[d_x * d_z + (d_x - 1) * (d_z - 1), 1, d_x/d_z]]` planar surface code.
 
 The top and bottom boundaries are "smooth" (`Z`) and the left and right are "rough" (`X`).
 """
-function PlanarSurfaceCode(dx::Int, dz::Int)
-    (2 <= dx && 2 <= dz) || throw(DomainError("Distances must be at least two."))
+function PlanarSurfaceCode(d_x::Int, d_z::Int)
+    (2 <= d_x && 2 <= d_z) || throw(DomainError("Distances must be at least two."))
 
     F = GF(2)
-    Fone = F(1)
-    numV = dx * dz + (dx - 1) * (dz - 1)
-    A = zero_matrix(F, dx * (dz - 1) + 1, numV) # stars, X stabilizers
-    B = zero_matrix(F, dz * (dx - 1), numV) # faces, Z stabilizers
+    F_one = F(1)
+    num_V = d_x * d_z + (d_x - 1) * (d_z - 1)
+    A = zero_matrix(F, d_x * (d_z - 1) + 1, num_V) # stars, X stabilizers
+    B = zero_matrix(F, d_z * (d_x - 1), num_V) # faces, Z stabilizers
     qubit = 1
-    rowA = 1
-    rowB = 1
-    for r in 1:dz
-        for c in 1:dx
-            if r != dz
+    row_A = 1
+    row_B = 1
+    for r in 1:d_z
+        for c in 1:d_x
+            if r != d_z
                 if c == 1
-                    B[rowB, qubit] = B[rowB, qubit + dx] = B[rowB, qubit + 2 * dx - 1] = Fone
-                    rowB += 1
-                elseif c == dx
-                    B[rowB, qubit] = B[rowB, qubit + dx - 1] = B[rowB, qubit + 2 * dx - 1] = Fone
-                    rowB += 1
+                    B[row_B, qubit] = B[row_B, qubit + d_x] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    row_B += 1
+                elseif c == d_x
+                    B[row_B, qubit] = B[row_B, qubit + d_x - 1] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    row_B += 1
                 else
-                    B[rowB, qubit] = B[rowB, qubit + dx - 1] = B[rowB, qubit + dx] = B[rowB, qubit + 2 * dx - 1] = Fone
-                    rowB += 1
+                    B[row_B, qubit] = B[row_B, qubit + d_x - 1] = B[row_B, qubit + d_x] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    row_B += 1
                 end
             end
 
-            if c != dx
+            if c != d_x
                 if r == 1
-                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit + dx] = Fone
-                    rowA += 1
-                elseif r == dz
-                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit - dx + 1] = Fone
-                    rowA += 1
+                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit + d_x] = F_one
+                    row_A += 1
+                elseif r == d_z
+                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit - d_x + 1] = F_one
+                    row_A += 1
                 else
-                    A[rowA, qubit] = A[rowA, qubit + 1] = A[rowA, qubit + dx] = A[rowA, qubit - dx + 1] = Fone
-                    rowA += 1
+                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit + d_x] = A[row_A, qubit - d_x + 1] = F_one
+                    row_A += 1
                 end
             end
             qubit += 1
         end
-        qubit += dx - 1
+        qubit += d_x - 1
     end
 
     S = CSSCode(A, B)
     X1 = zero_matrix(S.F, 1, 2 * S.n)
-    for r in 1:2:dx
-        X1[1, dz * (r - 1) + (dz - 1) * (r - 1) + 1] = Fone
+    for r in 1:2:d_x
+        X1[1, d_z * (r - 1) + (d_z - 1) * (r - 1) + 1] = F_one
     end
     Z1 = zero_matrix(S.F, 1, 2 * S.n)
-    for c in 1:dz
-        Z1[1, c + S.n] = Fone
+    for c in 1:d_z
+        Z1[1, c + S.n] = F_one
     end
     S.logicals = [(X1, Z1)]
-    S.dx = dx
-    S.dz = dz
-    S.d = minimum([dx, dz])
+    S.d_x = d_x
+    S.d_z = d_z
+    S.d = minimum([d_x, d_z])
     return S
 end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
@@ -1632,73 +1632,73 @@ PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
 ################################
 
 """
-    XYSurfaceCode(dx::Int, dz::Int)
+    XYSurfaceCode(d_x::Int, d_z::Int)
     XYSurfaceCode(d::Int)
 
-Return the `[[dx * dy + (dx - 1) * (dy - 1), 1, dx/dy]]` XY surface code of
+Return the `[[d_x * d_y + (d_x - 1) * (d_y - 1), 1, d_x/d_y]]` XY surface code of
 "Ultrahigh Error Threshold for Surface Codes with Biased Noise" by Tuckett, Bartlett, and Flammia.
 
 The top and bottom boundaries are "smooth" (`Y`) and the left and right are "rough" (`X`).
 """
 # TODO: remove quadratic
-function XYSurfaceCode(dx::Int, dy::Int)
-    (2 <= dx && 2 <= dy) || throw(DomainError("Distances must be at least two."))
+function XYSurfaceCode(d_x::Int, d_y::Int)
+    (2 <= d_x && 2 <= d_y) || throw(DomainError("Distances must be at least two."))
 
     F = GF(2)
-    Fone = F(1)
-    numV = dx * dy + (dx - 1) * (dy - 1)
-    M = zero_matrix(F, numV - 1, 2 * numV)
+    F_one = F(1)
+    num_V = d_x * d_y + (d_x - 1) * (d_y - 1)
+    M = zero_matrix(F, num_V - 1, 2 * num_V)
     qubit = 1
     row = 1
-    for r in 1:dy
-        for c in 1:dx
-            if r != dz
+    for r in 1:d_y
+        for c in 1:d_x
+            if r != d_z
                 if c == 1
-                    M[row, qubit] = M[row, qubit + dx] = M[row, qubit + 2 * dx - 1] = Fone
-                    M[row, qubit + numV] = M[row, qubit + dx + numV] = M[row, qubit + 2 * dx - 1 + numV] = Fone
+                    M[row, qubit] = M[row, qubit + d_x] = M[row, qubit + 2 * d_x - 1] = F_one
+                    M[row, qubit + num_V] = M[row, qubit + d_x + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
                     row += 1
-                elseif c == dx
-                    M[row, qubit] = M[row, qubit + dx - 1] = M[row, qubit + 2 * dx - 1] = Fone
-                    M[row, qubit + numV] = M[row, qubit + dx - 1 + numV] = M[row, qubit + 2 * dx - 1 + numV] = Fone
+                elseif c == d_x
+                    M[row, qubit] = M[row, qubit + d_x - 1] = M[row, qubit + 2 * d_x - 1] = F_one
+                    M[row, qubit + num_V] = M[row, qubit + d_x - 1 + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
                     row += 1
                 else
-                    M[row, qubit] = M[row, qubit + dx - 1] = M[row, qubit + dx] = M[row, qubit + 2 * dx - 1] = Fone
-                    M[row, qubit + numV] = M[row, qubit + dx - 1 + numV] = M[row, qubit + dx + numV] = M[row, qubit + 2 * dx - 1 + numV] = Fone
+                    M[row, qubit] = M[row, qubit + d_x - 1] = M[row, qubit + d_x] = M[row, qubit + 2 * d_x - 1] = F_one
+                    M[row, qubit + num_V] = M[row, qubit + d_x - 1 + num_V] = M[row, qubit + d_x + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
                     row += 1
                 end
             end
 
-            if c != dx
+            if c != d_x
                 if r == 1
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + dx] = Fone
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + d_x] = F_one
                     row += 1
-                elseif r == dz
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit - dx + 1] = Fone
+                elseif r == d_z
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit - d_x + 1] = F_one
                     row += 1
                 else
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + dx] = M[row, qubit - dx + 1] = Fone
+                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + d_x] = M[row, qubit - d_x + 1] = F_one
                     row += 1
                 end
             end
             qubit += 1
         end
-        qubit += dx - 1
+        qubit += d_x - 1
     end
     S = StabilizerCode(M)
     # Eone = S.E(1)
     # ω = gen(S.E)
-    # X1 = zero_matrix(S.E, 1, numV)
-    # for r in 1:2:dx
-    #     X1[1, dz * (r - 1) + (dz - 1) * (r - 1) + 1] = Eone
+    # X1 = zero_matrix(S.E, 1, num_V)
+    # for r in 1:2:d_x
+    #     X1[1, d_z * (r - 1) + (d_z - 1) * (r - 1) + 1] = Eone
     # end
-    # Z1 = zero_matrix(S.E, 1, numV)
-    # for c in 1:dz
+    # Z1 = zero_matrix(S.E, 1, num_V)
+    # for c in 1:d_z
     #     Z1[1, c] = ω
     # end
     # S.logicals = [(X1, Z1)]
-    # S.dx = dx
-    # S.dz = dz
-    # S.d = minimum([dx, dz])
+    # S.d_x = d_x
+    # S.d_z = d_z
+    # S.d = minimum([d_x, d_z])
     return S
 end
 XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
@@ -1757,8 +1757,8 @@ XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
 #     display(M)
 #     return
 #     S.d = d
-#     S.dx = d
-#     S.dz = 2 * d^2
+#     S.d_x = d
+#     S.d_z = 2 * d^2
 #     # Y distance is also 2 * d^2
 # end
 
@@ -1775,16 +1775,16 @@ function HCode(k::Int)
     (2 <= k && iseven(k)) || throw(DomainError("Input must be >= 2 and even.")) 
 
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
     X = zero_matrix(F, 2, k + 4)
     Z = zero_matrix(F, 2, k + 4)
-    X[1, 1] = X[1, 2] = X[1, 3] = X[1, 4] = Fone
-    Z[1, 1] = Z[1, 2] = Z[1, 3] = Z[1, 4] = Fone
-    X[2, 1] = X[2, 2] = Fone
-    Z[2, 1] = Z[2, 2] = Fone
+    X[1, 1] = X[1, 2] = X[1, 3] = X[1, 4] = F_one
+    Z[1, 1] = Z[1, 2] = Z[1, 3] = Z[1, 4] = F_one
+    X[2, 1] = X[2, 2] = F_one
+    Z[2, 1] = Z[2, 2] = F_one
     for c in 5:k + 3
-        X[2, c] = X[2, c + 1] = Fone
-        Z[2, c] = Z[2, c + 1] = Fone
+        X[2, c] = X[2, c + 1] = F_one
+        Z[2, c] = Z[2, c + 1] = F_one
     end
     return CSSCode(X, Z)
 end
@@ -1807,20 +1807,23 @@ end
 function _compute_cells_periodic(l::Int, n::Int, d::Int = 4)
     cells = Set{_Cell}()    
     coords_to_change = collect(combinations(1:d, n))
-    for coord in Iterators.product([0:l-1 for i=1:d]...), directions in coords_to_change
-        coord = collect(coord)
-        new_coords = Vector([copy(coord) for _ in 1:2^n-1])
-        for i in 1:2^n-1, j in 1:n
-            (i >> (j-1)) & 1 == 1 ? new_coords[i][directions[j]] += 1 : nothing
-        end
-        vertices = Set{_Vertex}()
-        push!(vertices, _Vertex(coord))
-        for new_coord in new_coords
-            l > 2 ? new_coord .%= l : nothing
-            push!(vertices, _Vertex(new_coord))
-        end
+    for coord in Iterators.product([0:l - 1 for i in 1:d]...)
+        for directions in coords_to_change
+            coord = collect(coord)
+            new_coords = Vector([copy(coord) for _ in 1:2^n - 1])
+            for i in 1:2^n - 1, j in 1:n
+                # TODO: convert to binary operator
+                (i >> (j - 1)) & 1 == 1 ? new_coords[i][directions[j]] += 1 : nothing
+            end
+            vertices = Set{_Vertex}()
+            push!(vertices, _Vertex(coord))
+            for new_coord in new_coords
+                l > 2 ? new_coord .%= l : nothing
+                push!(vertices, _Vertex(new_coord))
+            end
 
-        push!(cells, _Cell(vertices) )
+            push!(cells, _Cell(vertices) )
+        end
     end
     return cells
 end
@@ -1876,36 +1879,36 @@ end
     Create and fills check_matrices. 
 """
 function _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
-    x_check_mat = spzeros(Bool, length(X_dict), length(q_dict) )
-    z_check_mat = spzeros(Bool, length(Z_dict), length(q_dict) )
+    X_stabs = spzeros(Bool, length(X_dict), length(q_dict) )
+    Z_stabs = spzeros(Bool, length(Z_dict), length(q_dict) )
 
     for (e, v) in X_dict
         for c in v
-            x_check_mat[edge_dict[e], q_dict[c]] = true
+            X_stabs[edge_dict[e], q_dict[c]] = true
         end
     end
 
     for (v_, v) in Z_dict
         for c in v
-            z_check_mat[volume_dict[v_], q_dict[c]] = true
+            Z_stabs[volume_dict[v_], q_dict[c]] = true
         end
     end
 
-    return x_check_mat, z_check_mat
+    return X_stabs, Z_stabs
 end
 
 """
     Create vectors of logicals.
 """
 function _compute_logical_vectors(X_dict, Z_dict, q_dict)
-    x_logicals, z_logicals = Vector{Vector{Int}}(), Vector{Vector{Int}}()
+    X_logicals, Z_logicals = Vector{Vector{Int}}(), Vector{Vector{Int}}()
     n = 1
     for (_, v) in X_dict
         logical = []
         for c in v
             push!(logical, q_dict[c])
         end
-        push!(x_logicals, copy(logical))
+        push!(X_logicals, copy(logical))
     end
 
     for (_, v) in Z_dict
@@ -1913,10 +1916,10 @@ function _compute_logical_vectors(X_dict, Z_dict, q_dict)
         for c in v
             push!(logical, q_dict[c])
         end
-        push!(z_logicals, copy(logical))
+        push!(Z_logicals, copy(logical))
     end
 
-    return x_logicals, z_logicals
+    return X_logicals, Z_logicals
 end
 
 """
@@ -2017,27 +2020,27 @@ function ToricCode4D(l::Int)
     volume_dict = _build_q_dict(volumes)
     edge_dict = _build_q_dict(edges)
 
-    x_check_matrix, z_check_matrix = _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
-    z_redundant = _compute_redundant(Z_redundancy, volume_dict)
-    x_redundant = _compute_redundant(X_redundancy, edge_dict)
+    X_stabs, Z_stabs = _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
+    Z_redundant = _compute_redundant(Z_redundancy, volume_dict)
+    X_redundant = _compute_redundant(X_redundancy, edge_dict)
 
     X_logicals, Z_logicals = _compute_logicals(l)
-    x_logical, z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
+    X_logical, Z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
 
     # defining the code objects
     F = GF(2)
-    Fone = F(1)
+    F_one = F(1)
 
-    X = zero_matrix(F, size(x_check_matrix)[1], size(x_check_matrix)[2])
-    Z = zero_matrix(F, size(z_check_matrix)[1], size(z_check_matrix)[2])
+    X = zero_matrix(F, size(X_stabs)[1], size(X_stabs)[2])
+    Z = zero_matrix(F, size(Z_stabs)[1], size(Z_stabs)[2])
 
-    I, J, _ = findnz(x_check_matrix)
+    I, J, _ = findnz(X_stabs)
     for i in 1:length(I)
-        X[I[i], J[i]] = Fone
+        X[I[i], J[i]] = F_one
     end
-    I, J, _ = findnz(z_check_matrix)
+    I, J, _ = findnz(Z_stabs)
     for i in 1:length(I)
-        Z[I[i], J[i]] = Fone
+        Z[I[i], J[i]] = F_one
     end
 
     return CSSCode(X, Z)

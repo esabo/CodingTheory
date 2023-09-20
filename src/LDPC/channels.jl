@@ -53,25 +53,25 @@ BAWGNC(σ::Float64) = BAWGNChannel(σ)
 #############################
 
 """
-    erasureprobability(Ch::BinaryErasureChannel)
+    erasure_probability(Ch::BinaryErasureChannel)
 
 Return the erasure probability of the binary erasure channel.
 """
-erasureprobability(Ch::BinaryErasureChannel) = Ch.param
+erasure_probability(Ch::BinaryErasureChannel) = Ch.param
 
 """
-    crossoverprobability(Ch::BinarySymmetricChannel)
+    crossover_probability(Ch::BinarySymmetricChannel)
 
 Return the crossover probability of the binary symmetric channel.
 """
-crossoverprobability(Ch::BinarySymmetricChannel) = Ch.param
+crossover_probability(Ch::BinarySymmetricChannel) = Ch.param
 
 """
-    standarddeviation(Ch::BAWGNChannel)
+    standard_deviation(Ch::BAWGNChannel)
 
 Return the standard deviation of the BAWGN channel.
 """
-standarddeviation(Ch::BAWGNChannel) = Ch.param
+standard_deviation(Ch::BAWGNChannel) = Ch.param
 
 """
     variance(Ch::BAWGNChannel)

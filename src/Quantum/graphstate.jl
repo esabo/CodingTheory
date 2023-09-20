@@ -18,16 +18,16 @@ function GraphState(G::SimpleGraph{Int64})
     end
     # are there non-binary graph states?
     F = GF(2)
-    fone = F(1)
-    symstabs = zero_matrix(F, nc, 2 * nc)
+    Fone = F(1)
+    sym_stabs = zero_matrix(F, nc, 2 * nc)
     for r in 1:nc
-        symstabs[r, r] = fone
+        sym_stabs[r, r] = Fone
         for c in 1:nc
-            isone(A[r, c]) && (symstabs[r, c + nc] = fone;)
+            isone(A[r, c]) && (sym_stabs[r, c + nc] = Fone;)
         end
     end
     # this should automatically compute everything for the GraphState constructor
-    return StabilizerCode(symstabs, missing)
+    return StabilizerCode(sym_stabs, missing)
 end
 
 """

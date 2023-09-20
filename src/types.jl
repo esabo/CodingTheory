@@ -59,14 +59,14 @@ mutable struct LinearCode <: AbstractLinearCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
 
 #############################
@@ -78,23 +78,23 @@ mutable struct LDPCCode <: AbstractLDPCCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     H::CTMatrixTypes
-    numedges::Int
-    vardegs::Vector{Int}
-    checkdegs::Vector{Int}
-    colbound::Int
-    rowbound::Int
+    num_edges::Int
+    var_degs::Vector{Int}
+    check_degs::Vector{Int}
+    col_bound::Int
+    row_bound::Int
     limited::Int
     density::Float64
-    isreg::Bool
-    tangr::Union{Figure, Missing}
+    is_reg::Bool
+    Tanner_graph::Union{Figure, Missing}
     λ::fmpq_poly
     ρ::fmpq_poly
     girth::Union{Int, Missing}
-    ACEspervarnode::Vector{Vector{Int}}
-    cyclens::Vector{Vector{Int}}
+    ACEs_per_var_node::Vector{Vector{Int}}
+    cycle_lens::Vector{Vector{Int}}
     shortest_cycles::Vector{Vector{Vector{Tuple{Int, Int}}}}
     short_cycle_counts::Dict{Int, Int}
 end
@@ -127,10 +127,10 @@ mutable struct LDPCEnsemble
     ρ::PolyRingElem
     L::PolyRingElem
     R::PolyRingElem
-    lavg::Float64
-    ravg::Float64
-    designrate::Float64
-    densityevo::Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}
+    l_avg::Float64
+    r_avg::Float64
+    design_rate::Float64
+    density_evo::Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}
     threshold::Dict{Type, Float64}
 end
 
@@ -143,14 +143,14 @@ mutable struct MatrixProductCode <: AbstractMatrixProductCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
     Cvec::Vector{AbstractLinearCode}
     A::fq_nmod_mat
 end
@@ -164,16 +164,16 @@ mutable struct ReedMullerCode <: AbstractReedMullerCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     r::Integer # order
     m::Integer # number of variables
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
 
 #############################
@@ -191,20 +191,20 @@ mutable struct CyclicCode <: AbstractCyclicCode
     b::Int # offset
     δ::Int # BCH bound
     HT::Int # Hartmann-Tzeng refinement
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     qcosets::Vector{Vector{Int}}
-    qcosetsreps::Vector{Int}
-    defset::Vector{Int}
+    qcosets_reps::Vector{Int}
+    def_set::Vector{Int}
     g::CTPolyRingElem
     h::CTPolyRingElem
     e::CTPolyRingElem
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
   
 mutable struct BCHCode <: AbstractBCHCode
@@ -218,20 +218,20 @@ mutable struct BCHCode <: AbstractBCHCode
     b::Int # offset
     δ::Int # BCH bound
     HT::Int # Hartmann-Tzeng refinement
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     qcosets::Vector{Vector{Int}}
-    qcosetsreps::Vector{Int}
-    defset::Vector{Int}
+    qcosets_reps::Vector{Int}
+    def_set::Vector{Int}
     g::CTPolyRingElem
     h::CTPolyRingElem
     e::CTPolyRingElem
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
   
 mutable struct ReedSolomonCode <: AbstractReedSolomonCode
@@ -245,20 +245,20 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     b::Int # offset
     δ::Int # BCH bound
     HT::Int # Hartmann-Tzeng refinement
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     qcosets::Vector{Vector{Int}}
-    qcosetsreps::Vector{Int}
-    defset::Vector{Int}
+    qcosets_reps::Vector{Int}
+    def_set::Vector{Int}
     g::CTPolyRingElem
     h::CTPolyRingElem
     e::CTPolyRingElem
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
 
 #############################
@@ -271,18 +271,18 @@ mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     G::Union{CTMatrixTypes, Missing}
     H::Union{CTMatrixTypes, Missing}
-    Gstand::Union{CTMatrixTypes, Missing}
-    Hstand::Union{CTMatrixTypes, Missing}
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::Union{CTMatrixTypes, Missing}
+    H_stand::Union{CTMatrixTypes, Missing}
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
     l::Int
     m::Int
     A::MatElem{<:ResElem}
-    Atype::Symbol
+    A_type::Symbol
     W::Matrix{Int}
     type::Int
 end
@@ -296,17 +296,17 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     scalars::Vector{<:CTFieldElem}
-    dualscalars::Vector{<:CTFieldElem}
-    evalpts::Vector{<:CTFieldElem}
+    dual_scalars::Vector{<:CTFieldElem}
+    eval_pts::Vector{<:CTFieldElem}
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is completely known for MDS?
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is completely known for MDS?
 end
 
 #############################
@@ -314,23 +314,23 @@ end
 #############################
 
 mutable struct ConcatenatedCode <: AbstractLinearCode
-    Cin::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
-    Cout::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
+    C_in::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
+    C_out::Union{AbstractLinearCode, Vector{<:AbstractLinearCode}}
     type::Union{Symbol, Vector{Symbol}}
     basis::Union{Missing, Vector{Union{Missing, <:CTFieldElem, Vector{<:CTFieldElem}}}}
-    dualbasis::Union{Missing, Vector{Union{Missing, <:CTFieldElem, Vector{<:CTFieldElem}}}}
+    dual_basis::Union{Missing, Vector{Union{Missing, <:CTFieldElem, Vector{<:CTFieldElem}}}}
     F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension
     d::Union{Int, Missing} # minimum distance
-    lbound::Int # lower bound on d
-    ubound::Int # upper bound on d
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
     G::CTMatrixTypes
     H::CTMatrixTypes
-    Gstand::CTMatrixTypes
-    Hstand::CTMatrixTypes
-    Pstand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> Gstand
-    weightenum::Union{WeightEnumerator, Missing}
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
 end
 
 #############################
@@ -372,23 +372,23 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
     r::Int
     d::Union{Int, Missing}
     stabs::CTMatrixTypes
-    Xstabs::CTMatrixTypes
-    Zstabs::CTMatrixTypes
-    Xorigcode::Union{LinearCode, Missing}
-    ZorigCode::Union{LinearCode, Missing}
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    X_orig_code::Union{LinearCode, Missing}
+    Z_orig_code::Union{LinearCode, Missing}
     signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
+    X_signs::Vector{nmod}
+    Z_signs::Vector{nmod}
     logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    logsmat::CTMatrixTypes
-    charvec::Vector{nmod}
-    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    gopsmat::CTMatrixTypes
+    logs_mat::CTMatrixTypes
+    char_vec::Vector{nmod}
+    gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    g_ops_mat::CTMatrixTypes
     overcomplete::Bool
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct SubsystemCode <: AbstractSubsystemCode
@@ -399,16 +399,16 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
     d::Union{Int, Missing}
     stabs::CTMatrixTypes
     logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    logsmat::CTMatrixTypes
-    charvec::Vector{nmod}
+    logs_mat::CTMatrixTypes
+    char_vec::Vector{nmod}
     signs::Vector{nmod}
-    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    gopsmat::CTMatrixTypes
+    gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    g_ops_mat::CTMatrixTypes
     overcomplete::Bool
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -420,28 +420,28 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
     n::Int
     k::Union{Int, Rational{BigInt}}
     d::Union{Int, Missing}
-    dx::Union{Int, Missing}
-    dz::Union{Int, Missing}
+    d_x::Union{Int, Missing}
+    d_z::Union{Int, Missing}
     stabs::CTMatrixTypes
-    Xstabs::CTMatrixTypes
-    Zstabs::CTMatrixTypes
-    Xorigcode::Union{LinearCode, Missing}
-    ZorigCode::Union{LinearCode, Missing}
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    X_orig_code::Union{LinearCode, Missing}
+    Z_orig_code::Union{LinearCode, Missing}
     signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
+    X_signs::Vector{nmod}
+    Z_signs::Vector{nmod}
     logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    logsmat::CTMatrixTypes
-    charvec::Vector{nmod}
-    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
-    sCWElogs::Union{WeightEnumerator, Missing}
+    logs_mat::CTMatrixTypes
+    char_vec::Vector{nmod}
+    sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
+    sgn_CWE_logs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
     pure::Union{Bool, Missing}
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct StabilizerCode <: AbstractStabilizerCode
@@ -451,18 +451,18 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
     d::Union{Int, Missing}
     stabs::CTMatrixTypes
     logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    logsmat::CTMatrixTypes
-    charvec::Vector{nmod}
+    logs_mat::CTMatrixTypes
+    char_vec::Vector{nmod}
     signs::Vector{nmod}
-    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
-    sCWElogs::Union{WeightEnumerator, Missing}
+    sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
+    sgn_CWE_logs::Union{WeightEnumerator, Missing}
     overcomplete::Bool
     pure::Union{Bool, Missing}
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -476,16 +476,16 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
     r::Int
     d::Union{Int, Missing}
     stabs::CTMatrixTypes
-    charvec::Vector{nmod}
+    char_vec::Vector{nmod}
     signs::Vector{nmod}
     wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
-    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    gopsmat::CTMatrixTypes
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    g_ops_mat::CTMatrixTypes
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
@@ -494,25 +494,25 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     k::Int
     r::Int
     d::Union{Int, Missing}
-    dx::Union{Int, Missing}
-    dz::Union{Int, Missing}
+    d_x::Union{Int, Missing}
+    d_z::Union{Int, Missing}
     stabs::CTMatrixTypes
-    Xstabs::CTMatrixTypes
-    Zstabs::CTMatrixTypes
-    Xorigcode::Union{LinearCode, Missing}
-    ZorigCode::Union{LinearCode, Missing}
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    X_orig_code::Union{LinearCode, Missing}
+    Z_orig_code::Union{LinearCode, Missing}
     signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
-    charvec::Vector{nmod}
-    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    X_signs::Vector{nmod}
+    Z_signs::Vector{nmod}
+    char_vec::Vector{nmod}
+    sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
-    gaugeops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    gopsmat::CTMatrixTypes
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
+    g_ops_mat::CTMatrixTypes
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
@@ -521,14 +521,14 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
     k::Int
     d::Union{Int, Missing}
     stabs::CTMatrixTypes
-    charvec::Vector{nmod}
+    char_vec::Vector{nmod}
     signs::Vector{nmod}
-    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
     overcomplete::Bool
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
   
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
@@ -536,23 +536,23 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
     n::Int
     k::Int
     d::Union{Int, Missing}
-    dx::Union{Int, Missing}
-    dz::Union{Int, Missing}
+    d_x::Union{Int, Missing}
+    d_z::Union{Int, Missing}
     stabs::CTMatrixTypes
-    Xstabs::CTMatrixTypes
-    Zstabs::CTMatrixTypes
-    Xorigcode::Union{LinearCode, Missing}
-    ZorigCode::Union{LinearCode, Missing}
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    X_orig_code::Union{LinearCode, Missing}
+    Z_orig_code::Union{LinearCode, Missing}
     signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
-    charvec::Vector{nmod}
-    wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    X_signs::Vector{nmod}
+    Z_signs::Vector{nmod}
+    char_vec::Vector{nmod}
+    sgn_CWE_stabs::Union{WeightEnumerator,Missing} # signed complete weight enumerator
     overcomplete::Bool
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -566,26 +566,26 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
     n::Integer
     k::Union{Integer, Rational{BigInt}}
     d::Union{Integer, Missing}
-    dx::Union{Integer, Missing}
-    dz::Union{Integer, Missing}
+    d_x::Union{Integer, Missing}
+    d_z::Union{Integer, Missing}
     stabs::CTMatrixTypes
-    Xstabs::CTMatrixTypes
-    Zstabs::CTMatrixTypes
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
     C1::Union{LinearCode, Missing}
     C2::Union{LinearCode, Missing}
     signs::Vector{nmod}
-    Xsigns::Vector{nmod}
-    Zsigns::Vector{nmod}
+    X_signs::Vector{nmod}
+    Z_signs::Vector{nmod}
     logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-    logsmat::CTMatrixTypes
-    charvec::Vector{nmod}
+    logs_mat::CTMatrixTypes
+    char_vec::Vector{nmod}
     overcomplete::Bool
-    stabsstand::CTMatrixTypes
-    standr::Int
-    standk::Int
-    Pstand::Union{CTMatrixTypes, Missing}
-    sCWEstabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-    sCWEdual::Union{WeightEnumerator, Missing} # S^⟂
+    stabs_stand::CTMatrixTypes
+    stand_r::Int
+    stand_k::Int
+    P_stand::Union{CTMatrixTypes, Missing}
+    sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
+    sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
 end
 
 #############################

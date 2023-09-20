@@ -21,7 +21,7 @@ and call the appropriate constructor.
 # Examples
 ```julia
 julia> q = 2; n = 15; b = 3; δ = 4;
-julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
+julia> cosets = defining_set([i for i = b:(b + δ - 2)], q, n, false);
 julia> C = CyclicCode(q, n, cosets)
 ```
 """
@@ -39,55 +39,55 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     R, x = PolynomialRing(E, :x)
     β = α^(div(BigInt(q)^deg - 1, n))
 
-    defset = sort!(reduce(vcat, cosets))
-    k = n - length(defset)
-    comcosets = complementqcosets(q, n, cosets)
-    g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
+    def_set = sort!(reduce(vcat, cosets))
+    k = n - length(def_set)
+    com_cosets = complement_qcosets(q, n, cosets)
+    g = _generator_polynomial(R, β, def_set)
+    h = _generator_polynomial(R, β, reduce(vcat, com_cosets))
     e = _idempotent(g, h, n)
-    G = _generatormatrix(F, n, k, g)
-    H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G = _generator_matrix(F, n, k, g)
+    H = _generator_matrix(F, n, n - k, reverse(h))
+    G_stand, H_stand, P, rnk = _standard_form(G)
     # HT will serve as a lower bound on the minimum weight
     # take the weight of g as an upper bound
-    δ, b, HT = finddelta(n, cosets)
+    δ, b, HT = find_delta(n, cosets)
     ub = wt(G[1, :])
 
     # verify
-    trH = transpose(H)
-    flag, htest = divides(x^n - 1, g)
+    tr_H = transpose(H)
+    flag, h_test = divides(x^n - 1, g)
     flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    h_test == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
-    size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
-    iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
+    size(H) == (n - k, k) && (temp = H; H = tr_H; tr_H = temp;)
+    iszero(G * tr_H) || error("Generator and parity check matrices are not transpose orthogonal.")
 
     if t == 1
         F = GF(p)
         G = change_base_ring(F, G)
         H = change_base_ring(F, H)
-        Gstand = change_base_ring(F, Gstand)
-        Hstand = change_base_ring(F, Hstand)
+        G_stand = change_base_ring(F, G_stand)
+        H_stand = change_base_ring(F, H_stand)
         ismissing(P) || (P = change_base_ring(F, P);)
     end
 
-    if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
+    if δ >= 2 && def_set == defining_set([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
             # known distance, should probably not do δ, HT here
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-                H, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+                H, G_stand, H_stand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
-            cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            H, Gstand, Hstand, P, missing)
+            cosets, sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+            H, G_stand, H_stand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, ub,
-        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        H, Gstand, Hstand, P, missing)
+        cosets, sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+        H, G_stand, H_stand, P, missing)
 end
 
 """
@@ -109,58 +109,58 @@ function CyclicCode(n::Int, g::fq_nmod_poly)
     E = GF(p, t * deg, :α)
     α = gen(E)
     β = α^(div(q^deg - 1, n))
-    ordE = Int(order(E))
-    RE, y = PolynomialRing(E, :y)
-    gE = RE([E(i) for i in collect(coefficients(g))])
-    # _, h = divides(gen(RE)^n - 1, gE)
+    ord_E = Int(order(E))
+    R_E, y = PolynomialRing(E, :y)
+    g_E = R_E([E(i) for i in collect(coefficients(g))])
+    # _, h = divides(gen(R_E)^n - 1, g_E)
 
     dic = Dict{fq_nmod, Int}()
-    for i in 0:ordE - 1
+    for i in 0:ord_E - 1
         dic[β^i] = i
     end
-    cosets = definingset(sort!([dic[rt] for rt in roots(gE)]), q, n, false)
-    defset = sort!(reduce(vcat, cosets))
-    k = n - length(defset)
+    cosets = defining_set(sort!([dic[rt] for rt in roots(g_E)]), q, n, false)
+    def_set = sort!(reduce(vcat, cosets))
+    k = n - length(def_set)
     e = _idempotent(g, h, n)
-    G = _generatormatrix(F, n, k, g)
-    H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G = _generator_matrix(F, n, k, g)
+    H = _generator_matrix(F, n, n - k, reverse(h))
+    G_stand, H_stand, P, rnk = _standard_form(G)
     # HT will serve as a lower bound on the minimum weight
     # take the weight of g as an upper bound
-    δ, b, HT = finddelta(n, cosets)
+    δ, b, HT = find_delta(n, cosets)
     upper = wt(G[1, :])
 
     # verify
-    trH = transpose(H)
+    tr_H = transpose(H)
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
-    size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
-    iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
+    size(H) == (n - k, k) && (temp = H; H = tr_H; tr_H = temp;)
+    iszero(G * tr_H) || error("Generator and parity check matrices are not transpose orthogonal.")
 
     if t == 1
         F = GF(p)
         G = change_base_ring(F, G)
         H = change_base_ring(F, H)
-        Gstand = change_base_ring(F, Gstand)
-        Hstand = change_base_ring(F, Hstand)
+        G_stand = change_base_ring(F, G_stand)
+        H_stand = change_base_ring(F, H_stand)
         ismissing(P) || (P = change_base_ring(F, P);)
     end
 
-    if δ >= 2 && defset == definingset([i for i = b:(b + δ - 2)], q, n, true)
+    if δ >= 2 && def_set == defining_set([i for i = b:(b + δ - 2)], q, n, true)
         if deg == 1 && n == q - 1
             d = n - k + 1
             return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-                sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-                H, Gstand, Hstand, P, missing)
+                sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+                H, G_stand, H_stand, P, missing)
         end
 
         return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
-            cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            H, Gstand, Hstand, P, missing)
+            cosets, sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+            H, G_stand, H_stand, P, missing)
     end
 
     return CyclicCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
-        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        H, Gstand, Hstand, P, missing)
+        cosets, sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+        H, G_stand, H_stand, P, missing)
 end
 
 # self orthogonal cyclic codes are even-like
@@ -209,49 +209,49 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int=0)
     R, x = PolynomialRing(E, :x)
     β = α^(div(q^deg - 1, n))
 
-    cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
-    defset = sort!(reduce(vcat, cosets))
-    k = n - length(defset)
-    comcosets = complementqcosets(q, n, cosets)
-    g = _generatorpolynomial(R, β, defset)
-    h = _generatorpolynomial(R, β, reduce(vcat, comcosets))
+    cosets = defining_set([i for i = b:(b + δ - 2)], q, n, false)
+    def_set = sort!(reduce(vcat, cosets))
+    k = n - length(def_set)
+    com_cosets = complement_qcosets(q, n, cosets)
+    g = _generator_polynomial(R, β, def_set)
+    h = _generator_polynomial(R, β, reduce(vcat, com_cosets))
     e = _idempotent(g, h, n)
-    G = _generatormatrix(F, n, k, g)
-    H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G = _generator_matrix(F, n, k, g)
+    H = _generator_matrix(F, n, n - k, reverse(h))
+    G_stand, H_stand, P, rnk = _standard_form(G)
     # HT will serve as a lower bound on the minimum weight
     # take the weight of g as an upper bound
-    δ, b, HT = finddelta(n, cosets)
+    δ, b, HT = find_delta(n, cosets)
     upper = wt(G[1, :])
 
     # verify
-    trH = transpose(H)
-    flag, htest = divides(x^n - 1, g)
+    tr_H = transpose(H)
+    flag, h_test = divides(x^n - 1, g)
     flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    h_test == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
-    size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
-    iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
+    size(H) == (n - k, k) && (temp = H; H = tr_H; tr_H = temp;)
+    iszero(G * tr_H) || error("Generator and parity check matrices are not transpose orthogonal.")
 
     if t == 1
         F = GF(p)
         G = change_base_ring(F, G)
         H = change_base_ring(F, H)
-        Gstand = change_base_ring(F, Gstand)
-        Hstand = change_base_ring(F, Hstand)
+        G_stand = change_base_ring(F, G_stand)
+        H_stand = change_base_ring(F, H_stand)
         ismissing(P) || (P = change_base_ring(F, P);)
     end
 
     if deg == 1 && n == q - 1
         d = n - k + 1
         return ReedSolomonCode(F, E, R, β, n, k, d, b, d, d, d, d, cosets,
-            sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-            H, Gstand, Hstand, P, missing)
+            sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+            H, G_stand, H_stand, P, missing)
     end
 
     return BCHCode(F, E, R, β, n, k, missing, b, δ, HT, HT, upper,
-        cosets, sort!([arr[1] for arr in cosets]), defset, g, h, e, G,
-        H, Gstand, Hstand, P, missing)
+        cosets, sort!([arr[1] for arr in cosets]), def_set, g, h, e, G,
+        H, G_stand, H_stand, P, missing)
 end
 
 """
@@ -309,31 +309,31 @@ function ReedSolomonCode(q::Int, d::Int, b::Int=0)
     R, x = PolynomialRing(F, :x)
 
     n = q - 1
-    cosets = definingset([i for i = b:(b + d - 2)], q, n, false)
-    defset = sort!(reduce(vcat, cosets))
-    k = n - length(defset)
-    comcosets = complementqcosets(q, n, cosets)
-    g = _generatorpolynomial(R, α, defset)
-    h = _generatorpolynomial(R, α, reduce(vcat, comcosets))
+    cosets = defining_set([i for i = b:(b + d - 2)], q, n, false)
+    def_set = sort!(reduce(vcat, cosets))
+    k = n - length(def_set)
+    com_cosets = complement_qcosets(q, n, cosets)
+    g = _generator_polynomial(R, α, def_set)
+    h = _generator_polynomial(R, α, reduce(vcat, com_cosets))
     e = _idempotent(g, h, n)
-    G = _generatormatrix(F, n, k, g)
-    H = _generatormatrix(F, n, n - k, reverse(h))
-    Gstand, Hstand, P, rnk = _standardform(G)
+    G = _generator_matrix(F, n, k, g)
+    H = _generator_matrix(F, n, n - k, reverse(h))
+    G_stand, H_stand, P, rnk = _standard_form(G)
 
     # verify
-    trH = transpose(H)
-    flag, htest = divides(x^n - 1, g)
+    tr_H = transpose(H)
+    flag, h_test = divides(x^n - 1, g)
     flag || error("Incorrect generator polynomial, does not divide x^$n - 1.")
-    htest == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
+    h_test == h || error("Division of x^$n - 1 by the generator polynomial does not yield the constructed parity check polynomial.")
     # e * e == e || error("Idempotent polynomial is not an idempotent.")
-    size(H) == (n - k, k) && (temp = H; H = trH; trH = temp;)
-    iszero(G * trH) || error("Generator and parity check matrices are not transpose orthogonal.")
-    iszero(Gstand * trH) || error("Column swap appeared in _standardform.")
+    size(H) == (n - k, k) && (temp = H; H = tr_H; tr_H = temp;)
+    iszero(G * tr_H) || error("Generator and parity check matrices are not transpose orthogonal.")
+    iszero(G_stand * tr_H) || error("Column swap appeared in _standard_form.")
 
     # TODO: known weight enumerator
     return ReedSolomonCode(F, F, R, α, n, k, d, b, d, d, d, d, cosets,
-        sort!([arr[1] for arr in cosets]), defset, g, h, e, G, H,
-        Gstand, Hstand, P, missing)
+        sort!([arr[1] for arr in cosets]), def_set, g, h, e, G, H,
+        G_stand, H_stand, P, missing)
 end
 
 # TODO: think further about how I use δ here
@@ -345,7 +345,7 @@ Return the BCH supercode of the cyclic code `C`.
 """
 function BCHCode(C::AbstractCyclicCode)
     typeof(C) <: AbstractBCHCode && return C
-    δ, b, _ = finddelta(C.n, C.qcosets)
+    δ, b, _ = find_delta(C.n, C.qcosets)
     B = BCHCode(Int(order(C.F)), C.n, δ, b)
     C ⊆ B && return B
     error("Failed to create BCH supercode.")
@@ -357,7 +357,7 @@ end
 
 Return the cyclic code whose roots are the quadratic residues of `q`, `n`.
 """
-QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)])
+QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadratic_residues(q, n)])
 
 #TODO: cyclic code constructors from zeros and nonzeros
 
@@ -366,25 +366,25 @@ QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadraticresidues(q, n)
 #############################
 
 """
-    splittingfield(C::AbstractCyclicCode)
+    splitting_field(C::AbstractCyclicCode)
 
 Return the splitting field of the generator polynomial.
 """
-splittingfield(C::AbstractCyclicCode) = C.E
+splitting_field(C::AbstractCyclicCode) = C.E
 
 """
-    polynomialring(C::AbstractCyclicCode)
+    polynomial_ring(C::AbstractCyclicCode)
 
 Return the polynomial ring of the generator polynomial.
 """
-polynomialring(C::AbstractCyclicCode) = C.R
+polynomial_ring(C::AbstractCyclicCode) = C.R
 
 """
-    primitiveroot(C::AbstractCyclicCode)
+    primitive_root(C::AbstractCyclicCode)
 
 Return the primitive root of the splitting field.
 """
-primitiveroot(C::AbstractCyclicCode) = C.β
+primitive_root(C::AbstractCyclicCode) = C.β
 
 """
     offset(C::AbstractBCHCode)
@@ -394,11 +394,11 @@ Return the offset of the BCH code.
 offset(C::AbstractBCHCode) = C.b
 
 """
-    designdistance(C::AbstractBCHCode)
+    design_distance(C::AbstractBCHCode)
 
 Return the design distance of the BCH code.
 """
-designdistance(C::AbstractBCHCode) = C.δ
+design_distance(C::AbstractBCHCode) = C.δ
 
 """
     qcosets(C::AbstractCyclicCode)
@@ -408,46 +408,46 @@ Return the q-cyclotomic cosets of the cyclic code.
 qcosets(C::AbstractCyclicCode) = C.qcosets
 
 """
-    qcosetsreps(C::AbstractCyclicCode)
+    qcosets_reps(C::AbstractCyclicCode)
 
 Return the set of representatives for the q-cyclotomic cosets of the cyclic code.
 """
-qcosetsreps(C::AbstractCyclicCode) = C.qcosetsreps
+qcosets_reps(C::AbstractCyclicCode) = C.qcosets_reps
 
 """
-    definingset(C::AbstractCyclicCode)
+    defining_set(C::AbstractCyclicCode)
 
 Return the defining set of the cyclic code.
 """
-definingset(C::AbstractCyclicCode) = C.defset
+defining_set(C::AbstractCyclicCode) = C.def_set
 
 """
     zeros(C::AbstractCyclicCode)
 
 Return the zeros of `C`.
 """
-zeros(C::AbstractCyclicCode) = [C.β^i for i in C.defset]
+zeros(C::AbstractCyclicCode) = [C.β^i for i in C.def_set]
 
 """
     nonzeros(C::AbstractCyclicCode)
 
 Return the nonzeros of `C`.
 """
-nonzeros(C::AbstractCyclicCode) = [C.β^i for i in setdiff(0:C.n - 1, C.defset)]
+nonzeros(C::AbstractCyclicCode) = [C.β^i for i in setdiff(0:C.n - 1, C.def_set)]
 
 """
-    generatorpolynomial(C::AbstractCyclicCode)
+    generator_polynomial(C::AbstractCyclicCode)
 
 Return the generator polynomial of the cyclic code.
 """
-generatorpolynomial(C::AbstractCyclicCode) = C.g
+generator_polynomial(C::AbstractCyclicCode) = C.g
 
 """
-    paritycheckpolynomial(C::AbstractCyclicCode)
+    parity_check_polynomial(C::AbstractCyclicCode)
 
 Return the parity-check polynomial of the cyclic code.
 """
-paritycheckpolynomial(C::AbstractCyclicCode) = C.h
+parity_check_polynomial(C::AbstractCyclicCode) = C.h
 
 """
     idempotent(C::AbstractCyclicCode)
@@ -457,37 +457,37 @@ Return the idempotent (polynomial) of the cyclic code.
 idempotent(C::AbstractCyclicCode) = C.e
 
 """
-    BCHbound(C::AbstractCyclicCode)
+    BCH_bound(C::AbstractCyclicCode)
 
 Return the BCH bound for `C`.
 """
-BCHbound(C::AbstractCyclicCode) = C.δ
+BCH_bound(C::AbstractCyclicCode) = C.δ
 
 # """
-#     HTbound(C::AbstractCyclicCode)
+#     HT_bound(C::AbstractCyclicCode)
 
 # Return the Hartmann-Tzeng refinement to the BCH bound for `C`.
 
 # This is a lower bound on the minimum distance of `C`.
 # """
-# HTbound(C::AbstractCyclicCode) = C.HT
+# HT_bound(C::AbstractCyclicCode) = C.HT
 
 """
-    isnarrowsense(C::AbstractBCHCode)
+    is_narrow_sense(C::AbstractBCHCode)
 
 Return `true` if the BCH code is narrowsense.
 """
-isnarrowsense(C::AbstractBCHCode) = iszero(C.b) # should we define this as b = 1 instead?
+is_narrowsense(C::AbstractBCHCode) = iszero(C.b) # should we define this as b = 1 instead?
 
 """
-    isreversible(C::AbstractCyclicCode)
+    is_reversible(C::AbstractCyclicCode)
 
 Return `true` if the cyclic code is reversible.
 """
-isreversible(C::AbstractCyclicCode) = [C.n - i for i in C.defset] ⊆ C.defset
+is_reversible(C::AbstractCyclicCode) = [C.n - i for i in C.def_set] ⊆ C.def_set
 
 """
-    isdegenerate(C::AbstractCyclicCode)
+    is_degenerate(C::AbstractCyclicCode)
 
 Return `true` if the cyclic code is degenerate.
 
@@ -495,7 +495,7 @@ Return `true` if the cyclic code is degenerate.
 * A cyclic code is degenerate if the parity-check polynomial divides `x^r - 1` for
 some `r` less than the length of the code.
 """
-function isdegenerate(C::AbstractCyclicCode)
+function is_degenerate(C::AbstractCyclicCode)
     x = gen(C.R)
     for r in 1:C.n - 1
         flag, _ = divides(x^r - 1, C.h)
@@ -505,18 +505,18 @@ function isdegenerate(C::AbstractCyclicCode)
 end
 
 """
-    isprimitive(C::AbstractBCHCode)
+    is_primitive(C::AbstractBCHCode)
 
 Return `true` if the BCH code is primitive.
 """
-isprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
+is_primitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) - 1
 
 """
-    isantiprimitive(C::AbstractBCHCode)
+    is_antiprimitive(C::AbstractBCHCode)
 
 Return `true` if the BCH code is antiprimitive.
 """
-isantiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
+is_antiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
 
 #############################
       # setter functions
@@ -526,7 +526,7 @@ isantiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
      # general functions
 #############################
 
-function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
+function _generator_polynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     # from_roots(R, [β^i for i in Z]) - R has wrong type for this
     g = one(R)
     x = gen(R)
@@ -535,14 +535,14 @@ function _generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, Z::Vector{Int})
     end
     return g
 end
-_generatorpolynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generatorpolynomial(R, β, reduce(vcat, qcosets))
+_generator_polynomial(R::FqNmodPolyRing, β::fq_nmod, qcosets::Vector{Vector{Int}}) = _generator_polynomial(R, β, reduce(vcat, qcosets))
 
-function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
+function _generator_matrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
     # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
     coeffs = collect(coefficients(g))
     len = length(coeffs)
-    k + len - 1 <= n || error("Too many coefficients for $k shifts in _generatormatrix.")
+    k + len - 1 <= n || error("Too many coefficients for $k shifts in _generator_matrix.")
 
     G = zero_matrix(F, k, n)
     for i in 1:k
@@ -552,20 +552,20 @@ function _generatormatrix(F::FqNmodFiniteField, n::Int, k::Int, g::fq_nmod_poly)
 end
 
 """
-    definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
+    defining_set(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
 
 Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo `n`.
 
 # Notes
 * If `flat` is set to true, the result will be a single flattened and sorted array.
 """
-function definingset(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
+function defining_set(nums::Vector{Int}, q::Int, n::Int, flat::Bool=true)
     arr = Vector{Vector{Int}}()
-    arrflat = Vector{Int}()
+    arr_flat = Vector{Int}()
     for x in nums
-        Cx = cyclotomiccoset(x, q, n)
-        if Cx[1] ∉ arrflat
-            arrflat = [arrflat; Cx]
+        Cx = cyclotomic_coset(x, q, n)
+        if Cx[1] ∉ arr_flat
+            arr_flat = [arr_flat; Cx]
             push!(arr, Cx)
         end
     end
@@ -585,7 +585,7 @@ end
 # inverseMattsonSolomontransform
 
 """
-    finddelta(n::Int, cosets::Vector{Vector{Int}})
+    find_delta(n::Int, cosets::Vector{Vector{Int}})
 
 Return the number of consecutive elements of `cosets`, the offset for this, and
 a lower bound on the distance of the code defined with length `n` and
@@ -596,32 +596,32 @@ cyclotomic cosets `cosets`.
 the BCH bound.
 """
 # TODO: check why d is sometimes lower than HT but never than BCH
-function finddelta(n::Int, cosets::Vector{Vector{Int}})
-    defset = sort!(reduce(vcat, cosets))
+function find_delta(n::Int, cosets::Vector{Vector{Int}})
+    def_set = sort!(reduce(vcat, cosets))
     runs = Vector{Vector{Int}}()
-    for x in defset
-        useddefset = Vector{Int}()
+    for x in def_set
+        used_def_set = Vector{Int}()
         reps = Vector{Int}()
-        cosetnum = 0
+        coset_num = 0
         for i in 1:length(cosets)
             if x ∈ cosets[i]
-                cosetnum = i
-                append!(useddefset, cosets[i])
+                coset_num = i
+                append!(used_def_set, cosets[i])
                 append!(reps, x)
                 break
             end
         end
 
         y = x + 1
-        while y ∈ defset
-            if y ∈ useddefset
+        while y ∈ def_set
+            if y ∈ used_def_set
                 append!(reps, y)
             else
-                cosetnum = 0
+                coset_num = 0
                 for i in 1:length(cosets)
                     if y ∈ cosets[i]
-                        cosetnum = i
-                        append!(useddefset, cosets[i])
+                        coset_num = i
+                        append!(used_def_set, cosets[i])
                         append!(reps, y)
                         break
                     end
@@ -632,8 +632,8 @@ function finddelta(n::Int, cosets::Vector{Vector{Int}})
         push!(runs, reps)
     end
 
-    runlens = [length(i) for i in runs]
-    (consec, ind) = findmax(runlens)
+    run_lens = [length(i) for i in runs]
+    (consec, ind) = findmax(run_lens)
     # there are δ - 1 consecutive numbers for designed distance δ
     δ = consec + 1
     # start of run
@@ -650,7 +650,7 @@ function finddelta(n::Int, cosets::Vector{Vector{Int}})
     #                     for s in 0:(δ - 2)
     #                         B = [mod(j * b, n) for j in 0:s]
     #                         AB = [x + y for x in A for y in B]
-    #                         if AB ⊆ defset
+    #                         if AB ⊆ def_set
     #                             if currbound < δ + s
     #                                 currbound = δ + s
     #                             end
@@ -666,25 +666,25 @@ function finddelta(n::Int, cosets::Vector{Vector{Int}})
 end
 
 """
-    dualdefiningset(defset::Vector{Int}, n::Int)
+    dual_defining_set(def_set::Vector{Int}, n::Int)
 
-Return the defining set of the dual code of length `n` and defining set `defset`.
+Return the defining set of the dual code of length `n` and defining set `def_set`.
 """
-dualdefiningset(defset::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, defset)])
+dual_defining_set(def_set::Vector{Int}, n::Int) = sort!([mod(n - i, n) for i in setdiff(0:n - 1, def_set)])
 
 """
-    iscyclic(C::AbstractLinearCode)
+    is_cyclic(C::AbstractLinearCode)
 
 Return `true` and the equivalent cyclic code object if `C` is a cyclic code; otherwise,
 return `false, missing`.
 """
-function iscyclic(C::AbstractLinearCode)
+function is_cyclic(C::AbstractLinearCode)
     typeof(C) <: AbstractCyclicCode && (return true, C;)
     
-    ordF = Int(order(C.F))
-    gcd(C.n, ordF) == 1 || return false
-    (p, t), = Nemo.factor(ordF)
-    deg = ord(C.n, ordF)
+    ord_F = Int(order(C.F))
+    gcd(C.n, ord_F) == 1 || return false
+    (p, t), = Nemo.factor(ord_F)
+    deg = ord(C.n, ord_F)
     E = GF(p, t * deg, :α)
     α = gen(E)
     R, x = PolynomialRing(E, :x)
@@ -701,9 +701,9 @@ function iscyclic(C::AbstractLinearCode)
     # need to setup x
     flag, h = divides(x^C.n - 1, g)
     flag || return false
-    Gcyc = _generatormatrix(C.F, C.n, C.k, g)
-    for r in 1:nrows(Gcyc)
-        (Gcyc[r, :] ∈ C) || (return false;)
+    G_cyc = _generator_matrix(C.F, C.n, C.k, g)
+    for r in 1:nrows(G_cyc)
+        (G_cyc[r, :] ∈ C) || (return false;)
     end
 
     return true, CyclicCode(C.n, g)
@@ -715,8 +715,8 @@ end
 Return the cyclic code whose cyclotomic cosets are the completement of `C`'s.
 """
 function complement(C::AbstractCyclicCode)
-    ordC = Int(order(C.F))
-    D = CyclicCode(ordC, C.n, complementqcosets(ordC, C.n, C.qcosets))
+    ord_C = Int(order(C.F))
+    D = CyclicCode(ord_C, C.n, complement_qcosets(ord_C, C.n, C.qcosets))
     (C.h != D.g || D.e != (1 - C.e)) && error("Error constructing the complement cyclic code.")
     return D
 end
@@ -725,13 +725,13 @@ end
 """
     ⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     ⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
-    issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
+    is_subcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
 
 Return whether or not `C1` is a subcode of `C2`.
 """
-⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.defset ⊆ C1.defset
+⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.def_set ⊆ C1.def_set
 ⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
-issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
+is_subcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 # TODO: discuss eqivalent vs == vs === here
 """
@@ -739,18 +739,18 @@ issubcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 Return whether or not `C1` and `C2` have the same fields, lengths, and defining sets.
 """
-==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.defset == C2.defset && C1.β == C2.β
+==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.def_set == C2.def_set && C1.β == C2.β
 
 # this checks def set, need to rewrite == for linear first
 """
-    isselfdual(C::AbstractCyclicCode)
+    is_self_dual(C::AbstractCyclicCode)
 
 Return whether or not `C == dual(C)`.
 """
-isselfdual(C::AbstractCyclicCode) = C == dual(C)
+is_self_dual(C::AbstractCyclicCode) = C == dual(C)
 
 # don't think this is necessary in order to invoke the ⊆ for CyclicCode
-# function isselforthogonal(C::AbstractCyclicCode)
+# function is_self_orthogonal(C::AbstractCyclicCode)
 #     # A code is self-orthogonal if it is a subcode of its dual.
 #     return C ⊆ dual(C)
 # end
@@ -769,8 +769,8 @@ function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial lcm(g_1(x), g_2(x))
     # has generator idempotent e_1(x) e_2(x)
     if C1.F == C2.F && C1.n == C2.n
-        ordC1 = Int(order(C1.F))
-        return CyclicCode(ordC1, C1.n, definingset(C1.defset ∪ C2.defset, ordC1,
+        ord_C1 = Int(order(C1.F))
+        return CyclicCode(ord_C1, C1.n, defining_set(C1.def_set ∪ C2.def_set, ord_C1,
             C1.n, false))
     else
         throw(ArgumentError("Cannot intersect two codes over different base fields or lengths."))
@@ -786,10 +786,10 @@ function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     # has generator polynomial gcd(g_1(x), g_2(x))
     # has generator idempotent e_1(x) + e_2(x) - e_1(x) e_2(x)
     if C1.F == C2.F && C1.n == C2.n
-        defset = C1.defset ∩ C2.defset
-        if length(defset) != 0
-            ordC1 = Int(order(C1.F))
-            return CyclicCode(ordC1, C1.n, definingset(defset, ordC1, C1.n, false))
+        def_set = C1.def_set ∩ C2.def_set
+        if length(def_set) != 0
+            ord_C1 = Int(order(C1.F))
+            return CyclicCode(ord_C1, C1.n, defining_set(def_set, ord_C1, C1.n, false))
         else
             error("Addition of codes has empty defining set.")
         end
@@ -801,30 +801,30 @@ end
 # "Schur products of linear codes: a study of parameters"
 # Diego Mirandola
 # """
-#     entrywiseproductcode(C::AbstractCyclicCode)
+#     entrywise_product_code(C::AbstractCyclicCode)
 #     *(C::AbstractCyclicCode)
-#     Schurproductcode(C::AbstractCyclicCode)
-#     Hadamardproductcode(C::AbstractCyclicCode)
-#     componentwiseproductcode(C::AbstractCyclicCode)
+#     Schur_product_code(C::AbstractCyclicCode)
+#     Hadamard_product_code(C::AbstractCyclicCode)
+#     componentwise_product_code(C::AbstractCyclicCode)
 #
 # Return the entrywise product of `C` with itself, which is also a cyclic code.
 #
 # Note that this is known to often be the full ambient space.
 # """
-# function entrywiseproductcode(C::AbstractCyclicCode)
+# function entrywise_product_code(C::AbstractCyclicCode)
 #     # generator polynomial is gcd(g*g, g*g*x, g*g*x^{k - 1})
 #     R = parent(g)
-#     g = generatorpolynomial(C)
-#     coefsg = collect(coefficients(g))
-#     n = length(coefsg)
-#     cur = R([coefsg[i] * coefsg[i] for i in 1:n])
+#     g = generator_polynomial(C)
+#     coefs_g = collect(coefficients(g))
+#     n = length(coefs_g)
+#     cur = R([coefs_g[i] * coefs_g[i] for i in 1:n])
 #     for i in 1:dimension(C) - 1
-#         coefsgx = collect(coefficents(g * x^i))
-#         cur = gcd(cur, R([coefsg[i] * coefsgx[i] for i in 1:n]))
+#         coefs_g_x = collect(coefficents(g * x^i))
+#         cur = gcd(cur, R([coefs_g[i] * coefs_g_x[i] for i in 1:n]))
 #     end
 #     return CyclicCode(cur)
 # end
-# *(C::AbstractCyclicCode) = entrywiseproductcode(C)
-# Schurproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
-# Hadamardproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
-# componentwiseproductcode(C::AbstractCyclicCode) = entrywiseproductcode(C)
+# *(C::AbstractCyclicCode) = entrywise_product_code(C)
+# Schur_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)
+# Hadamard_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)
+# componentwise_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)

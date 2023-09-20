@@ -35,27 +35,27 @@ function MatrixProductCode(C::Vector{AbstractLinearCode}, A::CTMatrixTypes)
     # need to do in this row/column order
     for r in 1:s
         for c in 1:l
-            G[curr:curr + C[r].k, 1 + (r - 1) * n:r * n] = A[r, c] * generatormatrix(C[r], true)
+            G[curr:curr + C[r].k, 1 + (r - 1) * n:r * n] = A[r, c] * generator_matrix(C[r], true)
             # H[currH:currH + nrows(C[r].H), 1 + (r - 1) * n:r * n] = A[r, c] * paritycheckmatrix(C[r])
         end
         curr += C[r].k
         # currH += nrows(C[r].H)
     end
     
-    Gstand, Hstand, P, k = _standardform(G)
+    G_stand, H_stand, P, k = _standard_form(G)
     if ismissing(P)
         _, H = right_kernel(G)
         # note the H here is transpose of the standard definition
-        H = _removeempty(transpose(H), :rows)
+        H = _remove_empty(transpose(H), :rows)
     else
-        H = Hstand * P
+        H = H_stand * P
     end
 
-    ub1, _ = _minwtrow(G)
-    ub2, _ = _minwtrow(Gstand)
+    ub1, _ = _min_wt_row(G)
+    ub2, _ = _min_wt_row(G_stand)
     ub = minimum([ub1, ub2])
-    return MatrixProductCode(F, n, k, 1, ub, missing, G, H, Gstand,
-        Hstand, P, missing, C, A)
+    return MatrixProductCode(F, n, k, 1, ub, missing, G, H, G_stand,
+        H_stand, P, missing, C, A)
 end
 
 #############################
