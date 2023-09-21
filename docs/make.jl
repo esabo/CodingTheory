@@ -37,14 +37,14 @@ Documenter.makedocs(
 		"LDPC" => [
 			"LDPC/codes.md",
 			"LDPC/Tannercodes.md",
-			"LDPC/ensembles.md",
+			"LDPC/analysis.md",
 			"LDPC/channels.md",
 			"LDPC/decoders.md"
 		],
     	"Quantum" => [
         	"Quantum/quantumcode.md",
-			"Quantum/quantumproductcodes.md",
-        	"Quantum/miscknownquantumcodes.md"
+			"Quantum/productcodes.md",
+        	"Quantum/miscknowncodes.md"
     	],
     	"Misc" => [
         	"tilings.md",

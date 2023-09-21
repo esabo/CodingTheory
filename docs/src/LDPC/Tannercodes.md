@@ -3,5 +3,5 @@
 ## Constructors
 
 ```@docs
-Tannercode
+Tanner_code
 ```

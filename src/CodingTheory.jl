@@ -296,7 +296,8 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
     GeneralizedHypergraphProductCodeMatrices, LiftedGeneralizedHypergraphProductCode,
     QuasiCyclicLiftedProductCodeMatrices, QuasiCyclicLiftedProductCode,
-    BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode
+    BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode,
+    strongly_lower_triangular_reduction
 
 #############################
         # tilings.jl

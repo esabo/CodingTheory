@@ -72,14 +72,21 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     n_in = first(inners).n
 
     outers = copy(outers_unexpanded)
-    β = Union{Vector{<:CTFieldElem}, Missing}[missing for i in eachindex(outers)]
-    λ = Union{Vector{<:CTFieldElem}, Missing}[missing for i in eachindex(outers)]
+    β = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
+    λ = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
     type = [:same for i in eachindex(outers)]
     ord_F = Int(order(F))
     for (i, C_out) in enumerate(outers)
         if Int(order(C_out.F)) == ord_F
             # it was either pre-expanded or just doesn't need expansion
-            C_out.F != F || (outers[i] = change_field(C_out, F);)
+            C_out.F != F || (outers[i] = change_field(C_out, F))
+
+            # if it could have been "expanded" without changing
+            # anything, list as expanded so that the distance
+            # calculation at the end knows
+            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i - 1].k == 1)
+                type[i] = :expanded
+            end
         elseif is_subfield(F, C_out.F)[1]
             β[i], λ[i] = primitive_basis(outers[i].F, F)
             outers[i] = expanded_code(outers[i], F, β[i])
@@ -93,6 +100,13 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     n_out = divexact(outers[1].n, inners[1].k)
     for i in 2:length(outers)
         n_out == divexact(outers[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
+    end
+
+    B = [generator_matrix(inners[1])]
+    for i in 2:length(inners)
+        Gi = generator_matrix(inners[i])
+        Gim1 = generator_matrix(inners[i - 1])
+        push!(B, _quotient_space(Gi, Gim1, :VS))
     end
 
     G1 = reduce(direct_sum, generator_matrix(C) for C in outers)
@@ -110,72 +124,79 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     G = G1 * G2
     G_stand, H_stand, P, k = _standard_form(G)
     H = ismissing(P) ? H_stand : H_stand * P
-    d = reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
+
+    d = if all(isequal(:expanded), type)
+        # if any of these distances are missing, it correctly results in missing
+        reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
+    else
+        missing
+    end
     lb = ismissing(d) ? 1 : d
     ub1, _ = _min_wt_row(G)
     ub2, _ = _min_wt_row(G_stand)
-    ub = min(ub1, ub2)
-    ub = ismissing(d) ? 1 : ub
+    ub = ismissing(d) ? min(ub1, ub2) : d
 
     return ConcatenatedCode(outers_unexpanded, inners, type, β, λ, F, ncols(G), k, d, lb, ub, G, H, G_stand, H_stand, P, missing)
 end
 multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
 # cascade?
 
-function generalized_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
-    isempty(outers) || isempty(inners) && throw(ArgumentError("List of codes cannot be empty"))
-    for i in 1:length(inners) - 1
-        inners[i + 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
-    end
-    F = first(inners).F
-    n_in = first(inners).n
-    iszero(generator_matrix(inners[end])) || push!(inners, ZeroCode(F, n_in))
+# Eric had written this so it's in the way explained by the book but technically it's equivalent to the above
+# so it was never finished
+# function generalized_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
+#     isempty(outers) || isempty(inners) && throw(ArgumentError("List of codes cannot be empty"))
+#     for i in 1:length(inners) - 1
+#         inners[i + 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+#     end
+#     F = first(inners).F
+#     n_in = first(inners).n
+#     iszero(generator_matrix(inners[end])) || push!(inners, ZeroCode(F, n_in))
 
-    # ord_F = Int(order(F))
-    # for (i, C_out) in enumerate(outers)
-    #     if Int(order(C_out.F)) == ord_F
-    #         C_out.F != F || (outers[i] = change_field(C_out, F);)
-    #     elseif is_subfield(F, C_out.F)
-    #         # TODO: expansion step here
-    #     else
-    #         throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
-    #     end
-    # end
+#     # ord_F = Int(order(F))
+#     # for (i, C_out) in enumerate(outers)
+#     #     if Int(order(C_out.F)) == ord_F
+#     #         C_out.F != F || (outers[i] = change_field(C_out, F);)
+#     #     elseif is_subfield(F, C_out.F)
+#     #         # TODO: expansion step here
+#     #     else
+#     #         throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
+#     #     end
+#     # end
 
-    G_in_part = matrix(F, 0, n_in, [])
-    H_in_part = matrix(F, 0, n_in, [])
-    G_part_locs = Vector{Vector{Int}}()
-    H_part_locs = Vector{Vector{Int}}()
-    for i in 1:length(inners) - 1
-        if i != length(inners) - 1
-            Gi = generator_matrix(inners[i])
-            Gip1 = generator_matrix(inners[i + 1])
-            new_rows = _quotient_space(Gi, Gip1, :VS)
-            G_in_part = vcat(G_in_part, new_rows)
-            isempty(G_part_locs) ? (push!(G_part_locs, [1, nrows(new_rows)]);) : (push!(G_part_locs, [G_part_locs[end][2] + 1, G_part_locs[end][2] + nrows(new_rows)]);)
-            # println("G")
-            # display(G_in_part)
-            # println(" ")
-        end
-        Hi = parity_check_matrix(inners[i])
-        Hip1 = parity_check_matrix(inners[i + 1])
-        new_rows = _quotient_space(Hip1, Hi, :VS)
-        H_in_part = vcat(H_in_part, new_rows)
-        isempty(H_part_locs) ? (push!(H_part_locs, [1, nrows(new_rows)]);) : (push!(H_part_locs, [H_part_locs[end][2] + 1, H_part_locs[end][2] + nrows(new_rows)]);)
-        # println("H")
-        # display(H_in_part)
-        # println(" ")
-    end
+#     G_in_part = matrix(F, 0, n_in, [])
+#     H_in_part = matrix(F, 0, n_in, [])
+#     G_part_locs = Vector{Vector{Int}}()
+#     H_part_locs = Vector{Vector{Int}}()
+#     for i in 1:length(inners) - 1
+#         if i != length(inners) - 1
+#             Gi = generator_matrix(inners[i])
+#             Gip1 = generator_matrix(inners[i + 1])
+#             new_rows = _quotient_space(Gi, Gip1, :VS)
+#             G_in_part = vcat(G_in_part, new_rows)
+#             isempty(G_part_locs) ? (push!(G_part_locs, [1, nrows(new_rows)]);) : (push!(G_part_locs, [G_part_locs[end][2] + 1, G_part_locs[end][2] + nrows(new_rows)]);)
+#             # println("G")
+#             # display(G_in_part)
+#             # println(" ")
+#         end
+#         Hi = parity_check_matrix(inners[i])
+#         Hip1 = parity_check_matrix(inners[i + 1])
+#         new_rows = _quotient_space(Hip1, Hi, :VS)
+#         H_in_part = vcat(H_in_part, new_rows)
+#         isempty(H_part_locs) ? (push!(H_part_locs, [1, nrows(new_rows)]);) : (push!(H_part_locs, [H_part_locs[end][2] + 1, H_part_locs[end][2] + nrows(new_rows)]);)
+#         # println("H")
+#         # display(H_in_part)
+#         # println(" ")
+#     end
 
-    # TODO: finish
-    # now to check to make sure outer code dimensions are equal to H_part_locs length (label sizes)
-    for C_out in outers
+#     # TODO: finish
+#     # now to check to make sure outer code dimensions are equal to H_part_locs length (label sizes)
+#     for C_out in outers
 
-    end
+#     end
 
-    return G_in_part, H_in_part, G_part_locs, H_part_locs
-end
-Blokh_Zyablov_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = generalized_concatenation(outers, inners)
+#     return G_in_part, H_in_part, G_part_locs, H_part_locs
+# end
+# Blokh_Zyablov_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = generalized_concatenation(outers, inners)
 
 #############################
       # getter functions

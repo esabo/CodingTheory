@@ -2,37 +2,37 @@
 
 ## Message Passing
 ```@docs
-GallagerA
+Gallager_A
 ```
 
 ```@docs
-GallagerB
+Gallager_B
 ```
 
 ```@docs
-sumproduct
+sum_product
 ```
 
 ```@docs
-sumproductboxplus
+sum_product_box_plus
 ```
 
 ```@docs
-minsum
+min_sum
 ```
 
 ```@docs
-findMPschedule
+find_MP_schedule
 ```
 
 ## Linear Programming
 
 ```@docs
-LPdecoderLDPC
+LP_decoder_LDPC
 ```
 
 ## Simulations
 
 ```@docs
-decodersimulation
+decoder_simulation
 ```

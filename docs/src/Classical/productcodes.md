@@ -10,8 +10,8 @@ MatrixProductCode
 
 ```
 
-productcode
-tensorproductcode
+product_code
+tensor_product_code
 
 
 ## Attributes

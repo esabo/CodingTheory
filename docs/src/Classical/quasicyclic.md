@@ -15,19 +15,19 @@ CodingTheory.index
 ```
 
 ```@docs
-expansionfactor
+expansion_factor
 ```
 
 ```@docs
-issinglegenerator
+is_single_generator
 ```
 
 ```@docs
-polynomialmatrix
+polynomial_matrix
 ```
 
 ```@docs
-polynomialmatrixtype
+polynomial_matrix_type
 ```
 
 The type parameter is either `:G` or `:H`, specifying whether the polynomial matrix represents the generator or parity-check matrix.
@@ -40,15 +40,15 @@ type
 The following are not computed and stored at the time of construction and must be computed by using these methods.
 
 ```@docs
-weightmatrix
+weight_matrix
 ```
 
 ```@docs
-noncirculantgeneratormatrix
+noncirculant_generator_matrix
 ```
 
 ```@docs
-noncirculantparitycheckmatrix
+noncirculant_parity_check_matrix
 ```
 
 ```@docs

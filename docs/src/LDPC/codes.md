@@ -33,51 +33,51 @@ Parity-check matrix: 6 × 9
 
 Random regular LDPC codes maybe be constructed via
 ```@docs
-regularLDPCCode
+regular_LDPC_code
 ```
 and irregular LDPC codes via
 ```@docs
-irregularLDPCCode
+irregular_LDPC_code
 ```
 
 ## Attributes
 The polynomials ``\lambda(x)`` and ``\rho(x)`` as well as the degrees of each variable and check nodes are computed upon construction.
 ```@docs
-variabledegreepolynomial
+variable_degree_polynomial
 ```
 
 ```@docs
-checkdegreepolynomial
+check_degree_polynomial
 ```
 
 ```@docs
-variabledegreedistribution
+variable_degree_distribution
 ```
 
 ```@docs
-checkdegreedistribution
+check_degree_distribution
 ```
 
 ```@docs
-degreedistributions
+degree_distributions
 ```
 
 A bar graph of the degree distributions is available
 ```@docs
-degreedistributionssplot
+degree_distributions_plot
 ```
 
 For convenience, the maximum degrees are also stored.
 ```@docs
-columnbound
+column_bound
 ```
 
 ```@docs
-rowbound
+row_bound
 ```
 
 ```@docs
-columnrowbounds
+column_row_bounds
 ```
 
 ```@docs
@@ -89,47 +89,60 @@ CodingTheory.density
 ```
 
 ```@docs
-isregular
+is_regular
 ```
 
 The Tanner graph corresponding to the parity-matrix defining the LDPC code can be generated as a `SimpleDiGraph` and visually in a `Figure` object.
 ```@docs
-Tannergraph
+Tanner_graph
 ```
 
 ```@docs
-Tannergraphplot
+Tanner_graph_plot
 ```
 
 ## Methods
 Occassionally useful for small examples, the following function produces a `Figure` of the Tanner graph unrolled to a given level.
 ```@docs
-computationgraph
+computation_graph
+```
+
+```@docs
+girth
 ```
 
 To count or explicitly enumerate the short cycles of the Tanner graph, use
 ```@docs
-countshortcycles
+count_short_cycles
 ```
 
 ```@docs
-shortestcycles
+shortest_cycles
 ```
 
 Various information about the ACE values of cycles in the Tanner graph may be computed with the following functions.
 ```@docs
-ACEspectrumofnode
+ACE_spectrum
 ```
 
 ```@docs
-shortestcycleACE
+shortest_cycle_ACE
 ```
 
 ```@docs
-ACEspectrum
+ACE_distribution
 ```
 
+```@docs
+average_ACE_distribution
+```
 
+```@docs
+median_ACE_distribution
+```
 
+```@docs
+mode_ACE_distribution
+```
 
 ## Greedy Construction Algorithms

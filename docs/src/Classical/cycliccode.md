@@ -11,27 +11,27 @@ ord
 ```
 
 ```@docs
-cyclotomiccoset
+cyclotomic_coset
 ```
 
 ```@docs
-allcyclotomiccosets
+all_cyclotomic_cosets
 ```
 
 ```@docs
-complementqcosets
+complement_qcosets
 ```
 
 ```@docs
-qcosetpairings
+qcoset_pairings
 ```
 
 ```@docs
-qcosettable
+qcoset_table
 ```
 
 ```@docs
-dualqcosets
+dual_qcosets
 ```
 
 ## Constructors
@@ -55,15 +55,15 @@ QuadraticResidueCode
 ## Attributes
 
 ```@docs
-splittingfield
+splitting_field
 ```
 
 ```@docs
-polynomialring
+polynomial_ring
 ```
 
 ```@docs
-primitiveroot
+primitive_root
 ```
 
 ```@docs
@@ -71,7 +71,7 @@ offset
 ```
 
 ```@docs
-designdistance
+design_distance
 ```
 
 ```@docs
@@ -79,11 +79,11 @@ qcosets
 ```
 
 ```@docs
-qcosetsreps
+qcosets_reps
 ```
 
 ```@docs
-definingset
+defining_set
 ```
 
 ```@docs
@@ -95,11 +95,11 @@ nonzeros
 ```
 
 ```@docs
-generatorpolynomial
+generator_polynomial
 ```
 
 ```@docs
-paritycheckpolynomial
+parity_check_polynomial
 ```
 
 ```@docs
@@ -107,41 +107,41 @@ idempotent
 ```
 
 ```@docs
-BCHbound
+BCH_bound
 ```
 
 ```@docs
-isnarrowsense
+is_narrowsense
 ```
 
 ```@docs
-isreversible
+is_reversible
 ```
 
 ```@docs
-CodingTheory.isdegenerate
+CodingTheory.is_degenerate
 ```
 
 ```@docs
-isprimitive
+is_primitive
 ```
 
 ```@docs
-isantiprimitive
+is_antiprimitive
 ```
 
 ## Methods
 
 ```@docs
-definingset
+defining_set
 ```
 
 ```@docs
-dualdefiningset
+dual_defining_set
 ```
 
 ```@docs
-CodingTheory.iscyclic
+CodingTheory.is_cyclic
 ```
 
 ```@docs

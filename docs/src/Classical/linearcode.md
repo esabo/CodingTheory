@@ -31,37 +31,37 @@ cardinality
 rate
 ```
 
-If the linear code was created by passing in a generator (parity-check) matrix, then this matrix is stored in addition to the standard form. Note that this matrix is potentially over complete (has more rows than its rank). The standard form is returned when the optional parameter `standform` is set to true. Some code families are not constructed using these matrices. In these cases, the matrices are initially `missing` and are computed and cached when these functions are called for the first time. Direct access to the underlying structs is not recommended.
+If the linear code was created by passing in a generator (parity-check) matrix, then this matrix is stored in addition to the standard form. Note that this matrix is potentially over complete (has more rows than its rank). The standard form is returned when the optional parameter `stand_form` is set to true. Some code families are not constructed using these matrices. In these cases, the matrices are initially `missing` and are computed and cached when these functions are called for the first time. Direct access to the underlying structs is not recommended.
 ```@docs
-generatormatrix
+generator_matrix
 ```
 
 ```@docs
-paritycheckmatrix
+parity_check_matrix
 ```
 
 ```@docs
-isovercomplete
+is_overcomplete
 ```
 
 Recall that putting the matrix into standard form may require column permutations. If this is the case, the column permutation matrix $P$ such that $\mathrm{rowspace}(G) = \mathrm{rowspace}(G_\mathrm{stand} * P)$ may be accessed using the following function. If no column permutations are required, this returns `missing`.
 ```@docs
-standardformpermutation
+standard_form_permutation
 ```
 
 The minimum distance of some code families are known and are set during construction. The minimum distance is automatically computed in the constructor for codes which are deemed "small enough". Otherwise, the minimum distance is `missing`. Primitive bounds on the minimum distance are given by
 ```@docs
-minimumdistancelowerbound
+minimum_distance_lower_bound
 ```
 
 ```@docs
-minimumdistanceupperbound
+minimum_distance_upper_bound
 ```
 
 If the minimum distance of the code is known, the following functions return useful properties; otherwise they return `missing`.
 
 ```@docs
-relativedistance
+relative_distance
 ```
 
 ```@docs
@@ -69,30 +69,30 @@ CodingTheory.genus
 ```
 
 ```@docs
-isMDS
+is_MDS
 ```
 
 ```@docs
-numbercorrectableerrors
+number_correctable_errors
 ```
 
 The minimum distance and its bounds may be manually set as well. Nothing is done to check this value for correctness.
 ```@docs
-setdistancelowerbound!
+set_distance_lower_bound!
 ```
 
 ```@docs
-setdistanceupperbound!
+set_distance_upper_bound!
 ```
 
 ```@docs
-setminimumdistance!
+set_minimum_distance!
 ```
 
 ## Methods
 
 ```@docs
-Singletonbound
+Singleton_bound
 ```
 
 ```@docs
@@ -112,7 +112,7 @@ in
 ```
 
 ```@docs
-areequivalent
+are_equivalent
 ```
 
 ```@docs
@@ -120,15 +120,15 @@ dual
 ```
 
 ```@docs
-isselfdual
+is_self_dual
 ```
 
 ```@docs
-isselforthogonal
+is_self_orthogonal
 ```
 
 ```@docs
-isdualcontaining
+is_dual_containing
 ```
 
 ```@docs
@@ -136,47 +136,47 @@ hull
 ```
 
 ```@docs
-isLCD
+is_LCD
 ```
 
 ```@docs
-Hermitiandual
+Hermitian_dual
 ```
 
 ```@docs
-isHermitianselfdual
+is_Hermitian_self_dual
 ```
 
 ```@docs
-isHermitianselforthogonal
+is_Hermitian_self_orthogonal
 ```
 
 ```@docs
-isHermitiandualcontaining
+is_Hermitian_dual_containing
 ```
 
 ```@docs
-Hermitianhull
+Hermitian_hull
 ```
 
 ```@docs
-isHermitianLCD
+is_Hermitian_LCD
 ```
 
 ```@docs
-iseven
+is_even
 ```
 
 ```@docs
-isdoublyeven
+is_doubly_even
 ```
 
 ```@docs
-istriplyeven
+is_triply_even
 ```
 
 ```@docs
-characteristicpolynomial
+characteristic_polynomial
 ```
 
 ```@docs

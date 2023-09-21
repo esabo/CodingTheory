@@ -15,11 +15,11 @@ scalars
 ```
 
 ```@docs
-dualscalars
+dual_scalars
 ```
 
 ```@docs
-evaluationpoints
+evaluation_points
 ```
 
 ## Methods

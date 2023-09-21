@@ -17,15 +17,15 @@ BAWGNChannel
 ## Attributes
 
 ```@docs
-erasureprobability
+erasure_probability
 ```
 
 ```@docs
-crossoverprobability
+crossover_probability
 ```
 
 ```@docs
-standarddeviation
+standard_deviation
 ```
 
 ```@docs

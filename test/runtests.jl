@@ -14,9 +14,9 @@ using Test
 # # include("Classical/GeneralizedReedSolomon_test.jl")
 # include("Classical/quasicycliccode_test.jl")
 # include("Classical/tilings_Tanner_test.jl")
-include("Classical/concatenation_test.jl")
+# include("Classical/concatenation_test.jl")
 
-# include("LDPC/codes_test.jl")
+include("LDPC/codes_test.jl")
 
 # include("Quantum/stabilizercode_test.jl")
 # # include("Quantum/quantum_MC_ids_test.jl")
