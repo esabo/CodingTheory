@@ -49,7 +49,7 @@ function LDPCCode(H::CTMatrixTypes)
         cols, rows, c, r, maximum([c, r]), den, is_reg, missing, col_poly,
         row_poly, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Int}() for _ in 1:C.n],
         [Vector{Tuple{Int, Int}}() for _ in 1:C.n],
-        Dict{Int, Int}())
+        Dict{Int, Int}(), Dict{Int, Int}())
 end
 
 """
@@ -98,7 +98,7 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
         r * ones(Int, m), l, r, max(l, r), r / n, true, missing, (1 // l) * x^l,
         (1 // r) * x^r, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Int}() for _ in 1:C.n],
         [Vector{Tuple{Int, Int}}() for _ in 1:C.n],
-        Dict{Int,Int}())
+        Dict{Int, Int}(), Dict{Int, Int}())
 end
 regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int}=nothing) = regular_LDPC_code(2, n,
     l, r, seed=seed)
@@ -366,7 +366,7 @@ end
 Return a cycle of minimum length and minimum ACE in the Tanner graph of `C`
 for the vertex `v` or vertices `vs`, in the order (ACEs, cycles). If no vertices
 are given, all vertices are computed by default. The cycle `v1 -- c1 -- ... -- 
-cn -- vn` are returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
+cn -- vn` is returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
 """
 function shortest_cycle_ACE(C::LDPCCode, vs::Vector{Int})
     isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
@@ -722,6 +722,93 @@ function _progressive_node_adjacencies(H::CTMatrixTypes, vs::Vector{Int}, v_type
     return check_adj_lists, var_adj_lists
 end
 
+function _count_cycles(C::LDPCCode)
+    check_adj_lists, var_adj_lists = _progressive_node_adjacencies(C.H, collect(1:C.n), :v)
+    lengths = [Vector{Int}() for _ in 1:C.n]
+    Threads.@threads for i in 1:C.n
+        check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
+        var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
+
+        cycle_lens = Vector{Int}()
+        root = var_nodes[i]
+        root.lvl = 0
+        queue = Queue{Union{_ACECheckNode,_ACEVarNode}}()
+        enqueue!(queue, root)
+        while length(queue) > 0
+            curr = first(queue)
+            if isa(curr, _ACEVarNode)
+                for cn in var_adj_lists[i][curr.id]
+                    # can't pass messages back to the same node
+                    if cn != curr.parent_id
+                        cn_node = check_nodes[cn]
+                        if cn_node.lvl != -1
+                            # have seen before
+                            push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
+                        else
+                            cn_node.lvl = curr.lvl + 1
+                            cn_node.parent_id = curr.id
+                            enqueue!(queue, cn_node)
+                        end
+                    end
+                end
+            else
+                for vn in check_adj_lists[i][curr.id]
+                    # can't pass messages back to the same node
+                    if vn != curr.parent_id
+                        vn_node = var_nodes[vn]
+                        if vn_node.lvl != -1
+                            # have seen before
+                            push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
+                        else
+                            vn_node.lvl = curr.lvl + 1
+                            vn_node.parent_id = curr.id
+                            enqueue!(queue, vn_node)
+                        end
+                    end
+                end
+            end
+            dequeue!(queue)
+        end
+        lengths[i] = cycle_lens
+    end
+
+    counts = Dict{Int, Int}()
+    lens = unique!(reduce(vcat, lengths))
+    for i in lens
+        for j in 1:C.n
+            if i ∈ keys(counts)
+                counts[i] += count(x -> x == i, lengths[j])
+            else
+                counts[i] = count(x -> x == i, lengths[j])
+            end
+        end
+    end
+    C.elementary_cycle_counts = counts
+
+    girth = minimum([isempty(lengths[i]) ? 9999999 : minimum(lengths[i]) for i in 1:C.n])
+    girth == 9999999 && (girth = -1)
+    if ismissing(C.girth)
+        C.girth = girth
+    else
+        if C.girth != girth
+            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
+        end
+    end
+
+    counts = Dict{Int, Int}()
+    for i in girth:2:2 * girth - 2
+        for j in 1:C.n
+            if i ∈ keys(counts)
+                counts[i] += count(x -> x == i, lengths[j])
+            else
+                counts[i] = count(x -> x == i, lengths[j])
+            end
+        end
+    end
+    C.short_cycle_counts = counts
+    return nothing
+end
+
 """
     count_short_cycles(C::LDPCCode)
 
@@ -734,79 +821,10 @@ when there are no cycles.
   where ``g`` is the girth.
 """
 function count_short_cycles(C::LDPCCode)
-    if !isempty(C.short_cycle_counts)
-        check_adj_lists, var_adj_lists = _progressive_node_adjacencies(C.H, collect(1:C.n), :v)
-        lengths = [Vector{Int}() for _ in 1:C.n]
-        Threads.@threads for i in 1:C.n
-            check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
-            var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
-
-            cycle_lens = Vector{Int}()
-            root = var_nodes[i]
-            root.lvl = 0
-            queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
-            enqueue!(queue, root)
-            while length(queue) > 0
-                curr = first(queue)
-                if isa(curr, _ACEVarNode)
-                    for cn in var_adj_lists[i][curr.id]
-                        # can't pass messages back to the same node
-                        if cn != curr.parent_id
-                            cn_node = check_nodes[cn]
-                            if cn_node.lvl != -1
-                                # have seen before
-                                push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
-                            else
-                                cn_node.lvl = curr.lvl + 1
-                                cn_node.parent_id = curr.id
-                                enqueue!(queue, cn_node)
-                            end
-                        end
-                    end
-                else
-                    for vn in check_adj_lists[i][curr.id]
-                        # can't pass messages back to the same node
-                        if vn != curr.parent_id
-                            vn_node = var_nodes[vn]
-                            if vn_node.lvl != -1
-                                # have seen before
-                                push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
-                            else
-                                vn_node.lvl = curr.lvl + 1
-                                vn_node.parent_id = curr.id
-                                enqueue!(queue, vn_node)
-                            end
-                        end
-                    end
-                end
-                dequeue!(queue)
-            end
-            lengths[i] = cycle_lens
-        end
-
-        girth = minimum([isempty(lengths[i]) ? 9999999 : minimum(lengths[i]) for i in 1:C.n])
-        girth == 9999999 && (girth = -1;)
-        if ismissing(C.girth)
-            C.girth = girth
-        else
-            if C.girth != girth
-                @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
-            end
-        end
-
-        counts = Dict{Int, Int}()
-        for i in girth:2:2 * girth - 2
-            for j in 1:C.n
-                if i ∈ keys(counts)
-                    counts[i] += count(x -> x == i, lengths[j])
-                else
-                    counts[i] = count(x -> x == i, lengths[j])
-                end
-            end
-        end
-        C.short_cycle_counts = counts
+    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
+        _count_cycles(C)
     end
-
+    
     len = length(C.short_cycle_counts)
     x_data = [0 for _ in 1:len]
     y_data = [0 for _ in 1:len]
@@ -821,6 +839,38 @@ function count_short_cycles(C::LDPCCode)
         legend=false, xlabel="Cycle Length", ylabel="Occurrences", title="Short Cycle Counts")
     display(fig)
     return fig, C.short_cycle_counts
+end
+
+"""
+    count_elementary_cycles(C::LDPCCode)
+
+Return a bar graph and a dictionary of (length, count) pairs for unique elementary
+cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
+when there are no cycles.
+
+# Note
+- Elementary cycles do not contain the same vertex twice and are unable to be
+  decomposed into a sequence of shorter cycles.
+"""
+function count_elementary_cycles(C::LDPCCode)
+    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
+        _count_cycles(C)
+    end
+
+    len = length(C.elementary_cycle_counts)
+    x_data = [0 for _ in 1:len]
+    y_data = [0 for _ in 1:len]
+    index = 1
+    for (i, j) in C.elementary_cycle_counts
+        x_data[index] = i
+        y_data[index] = j
+        index += 1
+    end
+
+    fig = Plots.bar(x_data, y_data, bar_width=1, xticks=x_data, yticks=y_data,
+        legend=false, xlabel="Cycle Length", ylabel="Occurrences", title="Elementary Cycle Counts")
+    display(fig)
+    return fig, C.elementary_cycle_counts
 end
 
 """

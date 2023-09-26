@@ -74,7 +74,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     is_primitive_basis, is_normal_basis, is_extension, poly_to_circ_matrix,
     is_regular, edge_vertex_incidence_matrix, edge_vertex_incidence_graph,
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
-    row_supports, row_supports_symplectic
+    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction
     # , _min_wt_row
     # , circ_shift
     # , lift
@@ -126,7 +126,7 @@ export variable_degree_distribution, check_degree_distribution,
     check_degree_polynomial, column_row_bounds, limited, regular_LDPC_code,
     shortest_cycle_ACE, shortest_cycles, computation_graph, ACE_distribution,
     ACE_spectrum, count_short_cycles, average_ACE_distribution,
-    median_ACE_distribution, mode_ACE_distribution, girth
+    median_ACE_distribution, mode_ACE_distribution, girth, count_elementary_cycles
 
 #############################
         # LDPCalgs.jl
@@ -297,7 +297,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     GeneralizedHypergraphProductCodeMatrices, LiftedGeneralizedHypergraphProductCode,
     QuasiCyclicLiftedProductCodeMatrices, QuasiCyclicLiftedProductCode,
     BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode,
-    strongly_lower_triangular_reduction
+    Quintavalle_basis
 
 #############################
         # tilings.jl

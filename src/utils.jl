@@ -839,6 +839,51 @@ function _node_adjacencies(H::CTMatrixTypes)
     return check_adj_list, var_adj_list
 end
 
+"""
+    strongly_lower_triangular_reduction(A::CTMatrixTypes)
+
+Return a strongly lower triangular basis for the kernel of `A` and
+a unit vector basis for the complement of the image of `transpose(A)`.
+
+* Note
+- This implements Algorithm 1 from https://doi.org/10.48550/arXiv.2204.10812
+"""
+function strongly_lower_triangular_reduction(A::CTMatrixTypes)
+    B = deepcopy(A)
+    F = base_ring(B)
+    nr, nc = size(B)
+    id_mat = identity_matrix(F, nc)
+    κ = deepcopy(id_mat)
+    π = collect(1:nc)
+    for j in 1:nc
+        i = 1
+        while i < nr && !isone(A[i, j])
+            i += 1
+        end
+
+        if isone(B[i, j])
+            # more natural and probably faster to push pivots to a list
+            π = setdiff(π, [j])
+            for l in j+1:nc
+                if isone(B[i, l])
+                    B[:, l] += B[:, j]
+                    κ[:, l] += κ[:, j]
+                end
+            end
+        end
+    end
+
+    ker = zero_matrix(F, nc, length(π))
+    im = deepcopy(ker)
+    i = 1
+    for j in π
+        ker[:, i] = κ[:, j]
+        im[:, i] = id_mat[:, j]
+        i += 1
+    end
+    return ker, im
+end
+
 #############################
   # Quantum Helper Functions
 #############################

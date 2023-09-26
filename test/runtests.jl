@@ -16,10 +16,10 @@ using Test
 # include("Classical/tilings_Tanner_test.jl")
 # include("Classical/concatenation_test.jl")
 
-include("LDPC/codes_test.jl")
+# include("LDPC/codes_test.jl")
 
 # include("Quantum/stabilizercode_test.jl")
 # # include("Quantum/quantum_MC_ids_test.jl")
 # include("Quantum/miscknowncodes_test.jl")
-# include("Quantum/quantumproductcodes_test.jl")
+include("Quantum/productcodes_test.jl")
 # include("Quantum/subsystemcode_test.jl")

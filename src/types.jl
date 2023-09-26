@@ -97,6 +97,7 @@ mutable struct LDPCCode <: AbstractLDPCCode
     cycle_lens::Vector{Vector{Int}}
     shortest_cycles::Vector{Vector{Vector{Tuple{Int, Int}}}}
     short_cycle_counts::Dict{Int, Int}
+    elementary_cycle_counts::Dict{Int, Int}
 end
 
 #############################

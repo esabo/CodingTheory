@@ -14,7 +14,7 @@
 Return the hypergraph product code of matrices `A` and `B` whose signs are determined by `char_vec`.
 """
 function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes, char_vec::Union{Vector{nmod},
-    Missing}=missing, logs_alg::Symbol=:stnd_frm)
+        Missing}=missing, logs_alg::Symbol=:stnd_frm)
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
@@ -642,47 +642,51 @@ end
 #############################
 
 """
-    strongly_lower_triangular_reduction(A::CTMatrixTypes)
+    Quintavalle_basis(C::HypergraphProductCode)
 
-Return a strongly lower triangular basis for the kernel of `A`, 
-a unit vector basis for the complement of the image of `transpose(A)`,
-and a list of pivots.
-
+Return a symplectic canonical basis for the logical operators of `C`.
+    
 * Note
-- This implements Algorithm 1 from https://doi.org/10.48550/arXiv.2204.10812
+- This implements https://doi.org/10.48550/arXiv.2204.10812.
 """
-function strongly_lower_triangular_reduction(A::CTMatrixTypes)
-    B = deepcopy(A)
-    F = base_ring(B)
-    nr, nc = size(B)
-    id_mat = identity_matrix(F, nc)
-    κ = deepcopy(id_mat)
-    π = collect(1:nc)
-    for j in 1:nc
-        i = 1
-        while i < nr && !isone(A[i, j])
-            i += 1
-        end
+function Quintavalle_basis(C::HypergraphProductCode)
+    H1 = parity_check_matrix(C.C1)
+    H2 = parity_check_matrix(C.C2)
 
-        if isone(B[i, j])
-            # more natural and probably faster to push pivots to a list
-            π = setdiff(π, [j])
-            for l in j + 1:nc
-                if isone(B[i, l])
-                    B[:, l] += B[:, j]
-                    κ[:, l] += κ[:, j]
-                end
-            end
+    # c - complement
+    ker_H1, im_H1_tr_c = strongly_lower_triangular_reduction(H1)
+    ker_H1_tr, im_H1_c = strongly_lower_triangular_reduction(transpose(H1))
+    ker_H2, im_H2_tr_c = strongly_lower_triangular_reduction(H2)
+    ker_H2_tr, im_H2_c = strongly_lower_triangular_reduction(transpose(H2))
+    F = C.F
+    lx = zero_matrix(F, C.k, C.n)
+    lz = deepcopy(lx)
+
+    l = 1
+    temp = zero_matrix(F, 1, nrows(ker_H1_tr) * nrows(ker_H2_tr))
+    tr_im_H1_tr_c = transpose(im_H1_tr_c)
+    tr_ker_H2 = transpose(ker_H2)
+    tr_ker_H1 = transpose(ker_H1)
+    tr_im_H2_tr_c = transpose(im_H2_tr_c)
+    for i in 1:nrows(tr_ker_H1)
+        for h in 1:nrows(tr_ker_H2)
+            lx[l, :] = hcat(tr_im_H1_tr_c[i, :] ⊗ tr_ker_H2[h, :], temp)
+            lz[l, :] = hcat(tr_ker_H1[i, :] ⊗ tr_im_H2_tr_c[h, :], temp)
+            l += 1
         end
     end
 
-    ker = zero_matrix(F, nc, length(π))
-    im = deepcopy(ker)
-    i = 1
-    for j in π
-        ker[:, i] = κ[:, j]
-        im[:, i] = id_mat[:, j]
-        i += 1
+    temp = zero_matrix(F, 1, nrows(ker_H1) * nrows(ker_H2))
+    tr_ker_H1_tr = transpose(ker_H1_tr)
+    tr_im_H2_c = transpose(im_H2_c)
+    tr_im_H1_c = transpose(im_H1_c)
+    tr_ker_H2_tr = transpose(ker_H2_tr)
+    for i in 1:nrows(tr_ker_H1_tr)
+        for h in 1:nrows(tr_ker_H2_tr)
+            lx[l, :] = hcat(temp, tr_ker_H1_tr[i, :] ⊗ tr_im_H2_c[h, :])
+            lz[l, :] = hcat(temp, tr_im_H1_c[i, :] ⊗ tr_ker_H2_tr[h, :])
+            l += 1
+        end
     end
-    return ker, im, π
+    return lx, lz
 end
