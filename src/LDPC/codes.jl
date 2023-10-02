@@ -195,15 +195,19 @@ check_degree_polynomial(C::AbstractLDPCCode) = C.ρ
      # general functions
 #############################
 
-function _degree_distribution(H::CTMatrixTypes)
+function _degree_distribution(H::Union{CTMatrixTypes,
+    MatElem{AbstractAlgebra.Generic.ResidueRingElem{fpPolyRingElem}}})
+
     nr, nc = size(H)
     cols = zeros(Int, 1, nc)
     @inbounds @views @simd for i in 1:nc
-        cols[i] = wt(H[:,  i])
+        # cols[i] = wt(H[:,  i])
+        cols[i] = count(x -> !iszero(x), H[:, i])
     end
     rows = zeros(Int, 1, nr)
     @inbounds @views @simd for i in 1:nr
-        rows[i] = wt(H[i,  :])
+        # rows[i] = wt(H[i,  :])
+        rows[i] = count(x -> !iszero(x), H[i, :])
     end
     return vec(cols), vec(rows)
 end
