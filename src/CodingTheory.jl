@@ -297,7 +297,8 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     GeneralizedHypergraphProductCodeMatrices, LiftedGeneralizedHypergraphProductCode,
     QuasiCyclicLiftedProductCodeMatrices, QuasiCyclicLiftedProductCode,
     BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode,
-    Quintavalle_basis
+    Quintavalle_basis, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
+    asymmetric_product, symmetric_product
 
 #############################
         # tilings.jl

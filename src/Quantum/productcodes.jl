@@ -629,6 +629,38 @@ function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, 
     return StabilizerCode(lift(stabs), char_vec, logs_alg)
 end
 
+"""
+    SPCDFoldProductCode(D::Int, s::Int = 1)
+    SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s)
+
+Return the single-parity-check `D`-fold product code.
+
+* Note
+- This is defined in https://arxiv.org/abs/2209.13474
+"""
+function SPCDFoldProductCode(D::Int, s::Int = 1)
+    vec_S = Vector{AbstractStabilizerCode}()
+    for i in 1:D
+        for l in 1:D
+            if l == (i - 1) * D + i
+                # RepetitionCode(2, x) is dual(SPCCode(2, x))
+                push!(vec_S, CSSCode(RepetitionCode(2, 2 * s)))
+            else
+                push!(vec_S, CSSCode(RepetitionCode(2, 2)))
+            end
+        end
+    end
+    
+    S = symmetric_product(vec_S)
+    set_minimum_distance!(S, 2^D)
+    S.d_x = S.d
+    S.d_x = S.d
+    S.is_pure = true
+    # metacheck distance = 3
+    return S
+end
+SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s)
+
 #############################
       # getter functions
 #############################
@@ -690,3 +722,105 @@ function Quintavalle_basis(C::HypergraphProductCode)
     end
     return lx, lz
 end
+
+# TODO: present the stabilizers in the docs and mention how to switch X and Z by
+# using the switch on the inputs beforehand
+"""
+    asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode}
+
+Return the asymmetric 2-fold product quantum CSS code of the CSS codes `S1` and `S2`.
+
+* Note
+- This is defined in https://arxiv.org/abs/2209.13474
+"""
+asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode} = asymmetric_product(CSSTrait(T), S1, S2)
+function asymmetric_product(::IsCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemCode)
+    # TODO: check fields are the same or convertable
+    H_X = vcat(S1.X_stabs ⊗ identity_matrix(S1.F, S2.n), identity_matrix(S1.F, S1.n) ⊗ S2.X_stabs)
+    H_Z = S1.Z_stabs ⊗ S2.Z_stabs
+    return CSSCode(H_X, H_Z)
+end
+asymmetric_product(::IsNotCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemCode) = error("Only valid for CSS codes.")
+
+"""
+    symmetric_product(vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
+
+Return the symmetric `D`-fold product quantum CSS code, where `D` is
+the square-root of the length of the vector of CSS codes `vec_S`.
+
+* Note
+- This is defined in https://arxiv.org/abs/2209.13474
+"""
+function symmetric_product(vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
+    isempty(vec_S) && throw(ArgumentError("Input vector of CSS codes cannot be empty"))
+    for S in vec_S
+        if CSSTrait(typeof(S)) == IsNotCSS()
+            return symmetric_product(IsNotCSS(), vec_S)
+        end
+    end
+    return symmetric_product(IsCSS(), vec_S)
+end
+function symmetric_product(::IsCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
+    # TODO: check fields are the same or convertable
+    length(vec_S) >= 4 || throw(DomainError("The length of the input vector must be at least 4"))
+    D = sqrt(length(vec_S))
+    isinteger(D) ? (D = Int(D);) : throw(ArgumentError("The number of CSS codes must be D^2"))
+
+    # since the sizes of the identities are different for every entry,
+    # there's not too much of a better way to do this
+    F = vec_S[1].F
+    # X stabilizers
+    H_X = nothing
+    for j in 0:D - 1
+        temp_row = nothing
+        for l in 1:D^2
+            if j * D + 1 <= l <= (j + 1) * D
+                if l == 1
+                    temp_row = vec_S[l].X_stabs
+                else
+                    temp_row = temp_row ⊗ vec_S[l].X_stabs
+                end
+            else
+                if l == 1
+                    temp_row = identity_matrix(F, vec_S[l].n)
+                else
+                    temp_row = temp_row ⊗ identity_matrix(F, vec_S[l].n)
+                end
+            end
+        end
+        if j == 0
+            H_X = temp_row
+        else
+            H_X = vcat(H_X, temp_row)
+        end
+    end
+
+    # Z stabilizers
+    H_Z = nothing
+    for j in 0:D - 1
+        temp_row = nothing
+        for l in 1:D^2
+            if (l - 1) % D == j
+                if l == 1
+                    temp_row = vec_S[l].Z_stabs
+                else
+                    temp_row = temp_row ⊗ vec_S[l].Z_stabs
+                end
+            else
+                if l == 1
+                    temp_row = identity_matrix(F, vec_S[l].n)
+                else
+                    temp_row = temp_row ⊗ identity_matrix(F, vec_S[l].n)
+                end
+            end
+        end
+        if j == 0
+            H_Z = temp_row
+        else
+            H_Z = vcat(H_Z, temp_row)
+        end
+    end
+    
+    return CSSCode(H_X, H_Z)
+end
+symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode} = error("Only valid for CSS codes.")

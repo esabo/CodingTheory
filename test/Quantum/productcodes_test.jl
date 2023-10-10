@@ -150,4 +150,23 @@
         (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
     end
     @test weight_flag
+
+    # product codes
+    F = GF(2);
+    h = matrix(F, [1 1]);
+    id = identity_matrix(F, 2);
+    H_X = vcat(
+        h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id,
+        id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id,
+        id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h);
+    H_Z = vcat(
+        h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
+        id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
+        id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h);
+    SPCtest = CodingTheory.SPCDFoldProductCode(3);
+    @test length(SPCtest) == 512
+    @test dimension(SPCtest) == 174
+    @test H_X = SPCtest.X_stabs
+    @test H_Z = SPCtest.Z_stabs
+
 end
