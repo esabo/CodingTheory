@@ -615,6 +615,16 @@ CSSTrait(::Type{T}) where {T <: AbstractSubsystemCode} = IsNotCSS()
 CSSTrait(::Type{T}) where {T <: CSSTypes} = IsCSS()
 
 #############################
+         # chain complexes
+#############################
+
+struct ChainComplex{T <: CTMatrixTypes}
+    F::CTFieldTypes
+    length::UInt8
+    boundaries::Vector{T}
+end
+
+#############################
        # copy function
 #############################
 

@@ -30,7 +30,8 @@ import LinearAlgebra: tr, Adjoint, transpose, kron
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
-    girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space
+    girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
+    tensor_product
 import Oscar.Nemo: exponent_vectors
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
@@ -56,7 +57,7 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
 # misc
-export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges, copy
+export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges, copy, ChainComplex
 
 #############################
          # utils.jl
@@ -74,7 +75,8 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     is_primitive_basis, is_normal_basis, is_extension, poly_to_circ_matrix,
     is_regular, edge_vertex_incidence_matrix, edge_vertex_incidence_graph,
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
-    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction
+    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction, tensor_product,
+    ⊗, cochain
     # , _min_wt_row
     # , circ_shift
     # , lift
