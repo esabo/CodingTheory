@@ -316,4 +316,11 @@ export ReflectionGroup, triangle_group, r_s_group, tetrahedron_group, q_r_s_grou
 include("Classical/Tanner.jl")
 export Tanner_graph_plot, Tanner_graph, Tanner_code
 
+#############################
+       # chaincomplex.jl
+#############################
+
+include("chaincomplex.jl")
+export ChainComplex, boundaries, cochain, distance_balancing
+
 end

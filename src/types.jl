@@ -590,7 +590,17 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
 end
 
 #############################
-         # traits
+       # chaincomplex.jl
+#############################
+
+struct ChainComplex{T <: CTMatrixTypes}
+    F::CTFieldTypes
+    length::UInt8
+    boundaries::Vector{T}
+end
+
+#############################
+          # traits
 #############################
 
 const CSSTypes = Union{AbstractSubsystemCodeCSS, AbstractStabilizerCodeCSS, AbstractGraphStateStabilizerCSS, AbstractGraphStateSubsystemCSS, AbstractHypergraphProductCode}

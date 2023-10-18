@@ -824,3 +824,33 @@ function symmetric_product(::IsCSS, vec_S::Vector{T}) where {T <: AbstractSubsys
     return CSSCode(H_X, H_Z)
 end
 symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode} = error("Only valid for CSS codes.")
+
+# extend to subsystem codes?
+⊠(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(CSSTrait(typeof(S)), S, U)
+function ⊠(::IsCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes
+    num_stabs = num_X_stabs(S)
+    num_stabs == num_Z_stabs(S) || throw(ArgumentError("The code must have the same number of X and Z stabilizers"))
+    if !ismissing(U)
+        T == typeof(S.X_stabs) || throw(ArgumentError("Input matrix must have the same type as the stabilizers"))
+        base_ring(U) == S.F || throw(ArgumentError("Input matrix must have the same base ring as the stabilizers"))
+    end
+    
+    δ = zero_matrix(S.F, S.n, S.n)
+    for i in 1:num_stabs
+        for j in 1:num_stabs
+            if ismissing(U)
+                δ += transpose(S.Z_stabs[i, :]) * S.X_stabs[j, :]
+            else
+                δ += U[i, j] * transpose(S.Z_stabs[i, :]) * S.X_stabs[j, :]
+            end
+        end
+    end
+    chain = ChainComplex([δ])
+    prod = chain ⊗ chain
+    # extract code from this
+    return prod
+    # kernel of boundary is
+    # return CSSCode(..., ...)
+end
+⊠(::IsNotCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = throw(ArgumentError("This is only defined for CSS codes"))
+homological_product(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(S, U)
