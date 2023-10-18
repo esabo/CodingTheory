@@ -75,8 +75,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     is_primitive_basis, is_normal_basis, is_extension, poly_to_circ_matrix,
     is_regular, edge_vertex_incidence_matrix, edge_vertex_incidence_graph,
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
-    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction, tensor_product,
-    ⊗, cochain
+    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction
     # , _min_wt_row
     # , circ_shift
     # , lift
@@ -323,6 +322,6 @@ export Tanner_graph_plot, Tanner_graph, Tanner_code
 #############################
 
 include("chaincomplex.jl")
-export ChainComplex, boundaries, cochain, distance_balancing
+export boundaries, cochain, distance_balancing
 
 end

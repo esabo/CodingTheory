@@ -142,3 +142,11 @@ function ⊗(chain_A::ChainComplex{T}, chain_B::ChainComplex{T}) where T <: CTMa
     return ChainComplex(boundaries)
 end
 tensor_product(chain_A::ChainComplex, chain_B::ChainComplex) = ⊗(chain_A, chain_B)
+
+# TODO: this isn't a reliable way to detect CSS codes, but I don't believe this is
+# defined for subsystem CSS codes or graph states?
+"""
+    distance_balancing(S::StabilizerCodeCSS, C::AbstractLinearCode)
+
+Return the distance balanced code of `S` and `C`.
+"""
