@@ -721,12 +721,43 @@ function digits_to_int(x::Vector{Int}, base::Int=2)
     return res
 end
 
-"""
-    poly_to_circ_matrix(f::ResElem)
+function _CT_adjoint(A::MatElem{T}) where T <: ResElem
+    R = parent(A[1, 1])
+    S = base_ring(A[1, 1])
+    f = modulus(R)
+    l = degree(f)
+    Fz = base_ring(S)(0)
 
-Return the circulant matrix whose first column is the coefficients of `f`.
+    A_tr = transpose(A)
+    nr, nc = size(A_tr)
+    for c in 1:nc
+        for r in 1:nr
+            h_coeffs = collect(coefficients(Nemo.lift(A_tr[r, c])))
+            for _ in 1:l - length(h_coeffs)
+                push!(h_coeffs, Fz)
+            end
+            h_coeffs[2:end] = reverse(h_coeffs[2:end])
+            A_tr[r, c] = R(S(h_coeffs))
+        end
+    end
+    return A_tr
+end
+
+function _CT_adjoint(A::MatElem{T}) where T <: CTGroupAlgebra
+    FG = parent(A[1, 1])
+    f = hom(FG, FG, basis_matrix([inv(g) for g in basis(FG)]))
+    # for each element of A, map the sum \sum_i c_i g_i to \sum_i c_i (g_i)^-1
+    return map(f, transpose(A))
+end
+
 """
-function poly_to_circ_matrix(f::ResElem)
+    residue_polynomial_to_circulant_matrix(f::ResElem)
+
+    Return the circulant matrix whose first row or column is the coefficients of `f` if `type` is `:row` or `:col`, respectively.
+"""
+function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol=:col)
+    type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
+
     R = parent(f)
     S = base_ring(R)
     F = base_ring(S)
@@ -736,24 +767,68 @@ function poly_to_circ_matrix(f::ResElem)
     # gcd(l, Int(characteristic(F))) == 1 || throw(ArgumentError("Residue ring over F_q[x] must have modulus x^l - 1 with gcd(l, q) = 1."))
 
     A = zero_matrix(F, l, l)
-    f_coeffs = zero_matrix(F, l, 1)
-    temp = collect(coefficients(Nemo.lift(f)))
-    f_coeffs[1:length(temp), 1] = temp
-    A[:, 1] = f_coeffs
-    for c in 2:l
-        # A[:, c] = circshift(f_coeffs, c - 1)
-        A[1:c - 1, c] = f_coeffs[l - (c - 1) + 1:l, 1]
-        A[c:end, c] = f_coeffs[1:l - (c - 1), 1]
+    if type == :col
+        F_coeffs = zero_matrix(F, l, 1)
+        temp = collect(coefficients(Nemo.lift(f)))
+        F_coeffs[1:length(temp), 1] = temp
+        A[:, 1] = F_coeffs
+        for c in 2:l
+            # A[:, c] = circshift(F_coeffs, c - 1)
+            A[1:c - 1, c] = F_coeffs[l - (c - 1) + 1:l, 1]
+            A[c:end, c] = F_coeffs[1:l - (c - 1), 1]
+        end
+    elseif type == :row
+        F_coeffs = zero_matrix(F, 1, l)
+        temp = collect(coefficients(Nemo.lift(f)))
+        F_coeffs[1, 1:length(temp)] = temp
+        A[1, :] = F_coeffs
+        for c in 2:l
+            A[c, 1:c - 1] = F_coeffs[1, l - (c - 1) + 1:l]
+            A[c, c:end] = F_coeffs[1, 1:l - (c - 1)]
+        end
     end
     return A
 end
 
 """
-    lift(A::MatElem{T}) where T <: ResElem
+    group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra; type::Symbol=:col)
 
-Return the matrix whose polynomial elements are converted to circulant matrices over the base field.
+Return the circulant matrix whose first row or column is the coefficients of `x` if `type` is `:row` or `:col`, respectively.
 """
-function lift(A::MatElem{T}) where T <: ResElem
+function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symbol=:col)
+    type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
+    
+    F = base_ring(parent(x))
+    F_coeffs = coefficients(x)
+    l = length(F_coeffs)
+    A = zero_matrix(F, l, l)
+    if type == :col
+        F_coeffs = matrix(F, l, 1, F_coeffs)
+        A[:, 1] = F_coeffs
+        for c in 2:l
+            A[1:c - 1, c] = F_coeffs[l - (c - 1) + 1:l, 1]
+            A[c:end, c] = F_coeffs[1:l - (c - 1), 1]
+        end
+    elseif type == :row
+        F_coeffs = matrix(F, 1, l, F_coeffs)
+        A[1, :] = F_coeffs
+        for c in 2:l
+            A[c, 1:c - 1] = F_coeffs[1, l - (c - 1) + 1:l]
+            A[c, c:end] = F_coeffs[1, 1:l - (c - 1)]
+        end
+    end
+    return A
+end
+
+"""
+    lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
+
+Return the matrix whose residue polynomial elements are converted to circulant matrices
+over the base field.
+"""
+function lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
+    type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
+
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
@@ -767,7 +842,32 @@ function lift(A::MatElem{T}) where T <: ResElem
     for c in axes(A, 2)
         for r in axes(A, 1)
             if !iszero(A[r, c])
-                A_lift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] = poly_to_circ_matrix(A[r, c])
+                A_lift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] =
+                    residue_polynomial_to_circulant_matrix(A[r, c], type)
+            end
+        end
+    end
+    return A_lift
+end
+
+"""
+    lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
+
+Return the matrix whose group algebra elements are converted to circulant matrices
+over the base field.
+"""
+function lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
+    type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
+
+    F = base_ring(parent(A[1, 1]))
+    l = length(coefficients(A[1, 1]))
+    nr, nc = size(A)
+    A_lift = zero_matrix(F, nr * l, nc * l)
+    for c in axes(A, 2)
+        for r in axes(A, 1)
+            if !iszero(A[r, c])
+                A_lift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] =
+                    group_algebra_element_to_circulant_matrix(A[r, c], type)
             end
         end
     end

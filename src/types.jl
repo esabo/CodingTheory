@@ -40,6 +40,7 @@ const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
+const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
 
 #############################
       # concrete types

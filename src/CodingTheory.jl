@@ -72,10 +72,11 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     digits_to_int, is_basis, primitive_basis, #polynomial_basis, monomial_basis,
     normal_basis, dual_basis, complementary_basis, verify_dual_basis,
     verify_complementary_basis, are_equivalent_basis, is_self_dual_basis,
-    is_primitive_basis, is_normal_basis, is_extension, poly_to_circ_matrix,
+    is_primitive_basis, is_normal_basis, is_extension,
     is_regular, edge_vertex_incidence_matrix, edge_vertex_incidence_graph,
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
-    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction
+    row_supports, row_supports_symplectic, strongly_lower_triangular_reduction,
+    residue_polynomial_to_circulant_matrix, group_algebra_element_to_circulant_matrix
     # , _min_wt_row
     # , circ_shift
     # , lift
@@ -295,11 +296,10 @@ export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
 include("Quantum/productcodes.jl")
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
-    GeneralizedHypergraphProductCodeMatrices, LiftedGeneralizedHypergraphProductCode,
-    QuasiCyclicLiftedProductCodeMatrices, QuasiCyclicLiftedProductCode,
-    BiasTailoredQuasiCyclicLiftedProductCodeMatrices, BiasTailoredQuasiCyclicLiftedProductCode,
-    Quintavalle_basis, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
-    asymmetric_product, symmetric_product
+    generalized_hypergraph_product_matrices, GHGP_matrices, lifted_product_matrices,
+    GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
+    BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
+    Quintavalle_basis, asymmetric_product, symmetric_product
 
 #############################
         # tilings.jl

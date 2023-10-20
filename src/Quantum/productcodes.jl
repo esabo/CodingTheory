@@ -88,52 +88,6 @@ function HypergraphProductCode(C::AbstractLinearCode, char_vec::Union{Vector{nmo
     S.C2 = C
     S.d = C.d
     return S
-    # H_tr = transpose(C.H)
-    # eye = identity_matrix(C.F, C.n)
-    # eyetr = identity_matrix(C.F, ncols(H_tr))
-    # # branch for speed
-    # Int(order(C.F)) == 2 ? (H_X = hcat(C.H ⊗ eye, eyetr ⊗ H_tr)) : (H_X = hcat(C.H ⊗ eye, -eyetr ⊗ H_tr);)
-    # H_Z = hcat(eye ⊗ C.H, H_tr ⊗ eyetr)
-    # n = ncols(H_X)
-    # stabs = direct_sum(H_X, H_Z)
-    # stabs_stand, P_stand, stand_r, stand_k, rnk = _standard_form_stabilizer(stabs)
-    # if !iszero(stand_k)
-    #     if logs_alg == :stnd_frm
-    #         logs = _make_pairs(_logicals_standard_form(stabs_stand, n, stand_k, stand_r, P_stand))
-    #         logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
-    #     else
-    #         rnk_H, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
-    #         if ncols(H) == rnk_H
-    #             H_tr = transpose(H)
-    #         else
-    #             # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    #             nr = nrows(H)
-    #             H_tr = zero_matrix(base_ring(H), rnk_H, nr)
-    #             for r in 1:nr
-    #                 for c in 1:rnk_H
-    #                     !iszero(H[r, c]) && (H_tr[c, r] = H[r, c];)
-    #                 end
-    #             end
-    #         end
-    #         # n + (n - Srank)
-    #         nrows(H_tr) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
-    #         logs, logs_mat = _logicals(stabs, H_tr, logs_alg)
-    #     end
-    # end
-
-    # F = base_ring(stabs)
-    # p = Int(characteristic(F))
-    # char_vec = _process_char_vec(char_vec, p, 2 * n)
-    # signs, X_signs, Z_signs = _determine_signs_CSS(stabs, char_vec, nrows(H_X), nrows(H_Z))
-    # over_comp = nrows(stabs) > rnk
-
-    # # q^n / p^k but rows is n - k
-    # dimcode = BigInt(order(F))^n // BigInt(p)^rnk
-    # isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
-
-    # return HypergraphProductCode(C.F, n, dimcode, C.d, missing, missing, stabs, H_X, H_Z, C, C,
-    #     signs, X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r, stand_k, P_stand,
-    #     missing, missing)
 end
 
 """
@@ -149,58 +103,6 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     S.C2 = C2
     (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
     return S
-
-    # logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
-    # Int(order(C1.F)) == Int(order(C2.F)) || throw(ArgumentError("Codes need to be over the same base ring"))
-
-    # # note that orthogonality of C1 and C2 here is not necessary because
-    # # H_X * transpose(H_Z) = C1.H \otimes transpose(C2.H) + C1.H \otimes transpose(C2.H) = 0
-    # # in characteristic 2
-    # H1tr = transpose(C1.H)
-    # H2tr = transpose(C2.H)
-    # H_X = hcat(H1 ⊗ identity_matrix(C2.F, C2.n), -identity_matrix(C1.F, ncols(H1tr)) ⊗ H2tr)
-    # H_Z = hcat(identity_matrix(C1.F, C1.n) ⊗ H2, H1tr ⊗ identity_matrix(C2.F, ncols(H2tr)))
-    # n = ncols(H_X)
-    # stabs = direct_sum(H_X, H_Z)
-    # stabs_stand, P_stand, stand_r, stand_k, rnk = _standard_form_stabilizer(stabs)
-    # if !iszero(stand_k)
-    #     if logs_alg == :stnd_frm
-    #         logs = _make_pairs(_logicals_standard_form(stabs_stand, n, stand_k, stand_r, P_stand))
-    #         logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
-    #     else
-    #         rnk_H, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
-    #         if ncols(H) == rnk_H
-    #             H_tr = transpose(H)
-    #         else
-    #             # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-    #             nr = nrows(H)
-    #             H_tr = zero_matrix(base_ring(H), rnk_H, nr)
-    #             for r in 1:nr
-    #                 for c in 1:rnk_H
-    #                     !iszero(H[r, c]) && (H_tr[c, r] = H[r, c];)
-    #                 end
-    #             end
-    #         end
-    #         # n + (n - Srank)
-    #         nrows(H_tr) == 2 * n - rnk || error("Normalizer matrix is not size n + k.")
-    #         logs, logs_mat = _logicals(stabs, H_tr, logs_alg)
-    #     end
-    # end
-
-    # F = base_ring(stabs)
-    # p = Int(characteristic(F))
-    # char_vec = _process_char_vec(char_vec, p, 2 * n)
-    # signs, X_signs, Z_signs = _determine_signs_CSS(stabs, char_vec, nrows(H_X), nrows(H_Z))
-    # over_comp = nrows(stabs) > rnk
-
-    # # q^n / p^k but rows is n - k
-    # dimcode = BigInt(order(F))^n // BigInt(p)^rnk
-    # isinteger(dimcode) && (dimcode = round(Int, log(BigInt(p), dimcode));)
-    # (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
-
-    # return HypergraphProductCode(C.F, n, dimcode, d, missing, missing, stabs, H_X, H_Z, C1, C2,
-    #     signs, X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r, stand_k, P_stand,
-    #     missing, missing)
 end
 
 # unable to yield quantum LDPC code families with non constant minimum distance
@@ -235,10 +137,10 @@ BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
 Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are determined by `char_vec`.
 
 # Arguments
-* a: A vector of length `c` of binary matrices of the same dimensions.
-* b: A vector of length `c` of binary matrices of the same dimensions,
+- a: A vector of length `c` of binary matrices of the same dimensions.
+- b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
-* χ: A strictly positive integer coprime with `c`.
+- χ: A strictly positive integer coprime with `c`.
 """
 function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int,
     char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTMatrixTypes
@@ -311,10 +213,10 @@ end
 Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are determined by `char_vec`.
 
 # Arguments
-* a: A vector of length `c` of binary matrices of the same dimensions.
-* b: A vector of length `c` of binary matrices of the same dimensions,
+- a: A vector of length `c` of binary matrices of the same dimensions.
+- b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
-* χ: A strictly positive integer coprime with `c`.
+- χ: A strictly positive integer coprime with `c`.
 """
 function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int,
     char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTMatrixTypes
@@ -393,7 +295,7 @@ end
 Return the generealized bicycle code determined by `a` and `b` whose signs are determined by `char_vec`.
 
 # Notes
-* `l x l` circulant matrices are constructed using the coefficients of the polynomials
+- `l x l` circulant matrices are constructed using the coefficients of the polynomials
   `a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column
 """
 function GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
@@ -402,7 +304,26 @@ function GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missin
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
 
-    return GeneralizedBicycleCode(poly_to_circ_matrix(a), poly_to_circ_matrix(b), char_vec, logs_alg)
+    return GeneralizedBicycleCode(residue_polynomial_to_circulant_matrix(a),
+        residue_polynomial_to_circulant_matrix(b), char_vec, logs_alg)
+end
+
+"""
+    GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTGroupAlgebra
+
+Return the generealized bicycle code determined by `a` and `b` whose signs are determined by `char_vec`.
+
+# Notes
+- `|G| x |G|` circulant matrices are constructed using the coefficients of the elements in the group algebra `FG` as` the first column
+"""
+function GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
+    logs_alg::Symbol=:stnd_frm) where T <: CTGroupAlgebra
+
+    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
+
+    return GeneralizedBicycleCode(group_algebra_element_to_circulant_matrix(a),
+        group_algebra_element_to_circulant_matrix(b), char_vec, logs_alg)
 end
 
 # function BicycleCode(A::fq_nmot_mat)
@@ -415,23 +336,25 @@ end
 # end
     
 """
-    GeneralizedHypergraphProductCodeMatrices(A::MatElem{T}, b::T) where T <: ResElem
+    generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: ResElem
+    GHGP_matrices(A::MatElem{T}, b::T) where T <: ResElem
+    lifted_product_matrices(A::MatElem{T}, b::T) where T <: ResElem
 
 Return the pre-lifted matrices `H_X` and `H_Z` of the generalized hypergraph product code of `A` and `b`.
 
 # Arguments
-* `A` - an `m x n` matrix with coefficents in `F_2[x]/(x^m - 1)`
-* `b` - a polynomial over the same residue ring
+- `A` - an `m x n` matrix with elements in `F_2[x]/(x^m - 1)`
+- `b` - a polynomial over the same residue ring
 
 # Notes
-* Use `LiftedGeneralizedHypergraphProductCode` to return a quantum code over the base ring directly.
+- Use `LiftedProductCode` to return a quantum code over the base ring directly.
 """
-function GeneralizedHypergraphProductCodeMatrices(A::MatElem{T}, b::T) where T <: ResElem
+function generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: ResElem
 
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(b)
     F = base_ring(S)
-    Int(order(F)) == 2 || throw(ArgumentError("The generalized hypergraph product is only defined over GF(2)."))
+    # Int(order(F)) == 2 || throw(ArgumentError("The generalized hypergraph product is only defined over GF(2)."))
     R = parent(A[1, 1])
     R == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
     m, n = size(A)
@@ -441,59 +364,105 @@ function GeneralizedHypergraphProductCodeMatrices(A::MatElem{T}, b::T) where T <
     f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
     # gcd(l, Int(characteristic(F))) == 1 || throw(ArgumentError("Residue ring over F_q[x] must be defined by x^l - 1 with gcd(l, q) = 1."))
     
-    A_tr = transpose(A)
-    for c in 1:m
-        for r in 1:n
-            h_coeffs = collect(coefficients(Nemo.lift(A_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
-                push!(h_coeffs, F(0))
-            end
-            h_coeffs[2:end] = reverse(h_coeffs[2:end])
-            A_tr[r, c] = R(S(h_coeffs))
-        end
-    end
-    b_coeffs = collect(coefficients(Nemo.lift(b)))
-    for _ in 1:l - length(b_coeffs)
-        push!(b_coeffs, F(0))
-    end
-    b_coeffs[2:end] = reverse(b_coeffs[2:end])
-    B_tr = R(S(b_coeffs))
+    A_tr = _CT_adjoint(A)
+    # b_coeffs = collect(coefficients(Nemo.lift(b)))
+    # for _ in 1:l - length(b_coeffs)
+    #     push!(b_coeffs, F(0))
+    # end
+    # b_coeffs[2:end] = reverse(b_coeffs[2:end])
+    # B_tr = R(S(b_coeffs))
+    B_tr = _CT_adjoint(matrix(R, 1, 1, [b]))[1, 1]
     Mn = MatrixSpace(R, n, n)
     H_Z = hcat(Mn(B_tr), A_tr)
     Mm = MatrixSpace(R, m, m)
-    H_X = hcat(A, Mm(b))
+    # TODO: check extending this function past F_2 makes sense
+    # branch for speed
+    if Int(order(F)) == 2
+        H_X = hcat(A, Mm(b))
+    else
+        H_X = hcat(A, -Mm(b))
+    end
     return H_X, H_Z
 end
+GHGP_matrices(A::MatElem{T}, b::T) where T <: ResElem =
+    generalized_hypergraph_product_matrices(A, b)
+lifted_product_matrices(A::MatElem{T}, b::T) where T <: ResElem =
+    generalized_hypergraph_product_matrices(A, b)
+
 
 """
-    LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: ResElem
+    generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
+    GHGP_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
+    lifted_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
 
-Return the lifted generalized hypergraph product code of `A` and `b`.
+Return the pre-lifted matrices `H_X` and `H_Z` of the generalized hypergraph product code of `A` and `b`.
 
 # Arguments
-* `A` - an `m x n` matrix with coefficents in `F_2[x]/(x^m - 1)`
-* `b` - a polynomial over the same residue ring
-"""
-function LiftedGeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: ResElem
+- `A` - a matrix with elements in a group algebra
+- `b` - a polynomial over the same group algebra
 
-    H_X, H_Z = GeneralizedHypergraphProductCodeMatrices(A, b)
+# Notes
+- Use `LiftedProductCode` to return a quantum code over the base ring directly.
+"""
+function generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
+    FG = parent(A[1, 1])
+    parent(b) == FG || throw(ArgumentError("Inputs must be over the same group algebra"))
+
+    A_tr = _CT_adjoint(A)
+    B_tr = _CT_adjoint(matrix(FG, 1, 1, [b]))[1, 1]
+    m, n = size(A)
+    Mn = MatrixSpace(FG, n, n)
+    H_Z = hcat(Mn(B_tr), A_tr)
+    Mm = MatrixSpace(FG, m, m)
+    F = base_ring(FG)
+    # TODO: check extending this function past F_2 makes sense
+    # branch for speed
+    if Int(order(F)) == 2
+        H_X = hcat(A, Mm(b))
+    else
+        H_X = hcat(A, -Mm(b))
+    end
+    return H_X, H_Z
+end
+GHGP_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra =
+    generalized_hypergraph_product_matrices(A, b)
+lifted_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra =
+    generalized_hypergraph_product_matrices(A, b)
+
+"""
+    GeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+    LiftedProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
+        logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+
+Return the lifted (generalized hypergraph) product code of `A` and `b`.
+
+# Arguments
+- `A` - either an `m x n` matrix with elements in `F_2[x]/(x^m - 1)` or a group algebra
+- `b` - a polynomial over the same residue ring or group algebra
+"""
+function GeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
+    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+
+    H_X, H_Z = generalized_hypergraph_product_matrices(A, b)
     return CSSCode(lift(H_X), lift(H_Z), char_vec, logs_alg)
 end
+LiftedProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
+logs_alg::Symbol=:stnd_frm) where T <: ResElem =
+    GeneralizedHypergraphProductCode(A, b, char_vec, logs_alg)
 
 """
-    QuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+    lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
 Return the pre-lifted matrices `H_X` and `H_Z` for the lifted quasi-cyclic lifted product code.
 
 # Arguments
-* `A` - an `m x n1` matrix with coefficents in `F_2[x]/(x^m - 1)`
-* `B` - an `m x n2` matrix with coefficents in the same residue ring
+- `A` - an `m x n1` matrix with elements in `F_2[x]/(x^m - 1)`
+- `B` - an `m x n2` matrix with elements in the same residue ring
 
 # Notes
-* Use `QuasiCyclicLiftedProductCode` to return a quantum code over the base ring directly.
+- Use `LiftedProductCode` to return a quantum code over the base ring directly.
 """
-function QuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+function lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
@@ -504,67 +473,77 @@ function QuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}) wher
     l = degree(f)
     f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
     
+    A_tr = _CT_adjoint(A)
+    B_tr = _CT_adjoint(B)
+
     k1, n1 = size(A)
-    A_tr = transpose(A)
-    for c in 1:k1
-        for r in 1:n1
-            h_coeffs = collect(coefficients(Nemo.lift(A_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
-                push!(h_coeffs, F(0))
-            end
-            h_coeffs[2:end] = reverse(h_coeffs[2:end])
-            A_tr[r, c] = R(S(h_coeffs))
-        end
-    end
-
     k2, n2 = size(B)
-    B_tr = transpose(B)
-    for c in 1:k2
-        for r in 1:n2
-            h_coeffs = collect(coefficients(Nemo.lift(B_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
-                push!(h_coeffs, F(0))
-            end
-            h_coeffs[2:end] = reverse(h_coeffs[2:end])
-            B_tr[r, c] = R(S(h_coeffs))
-        end
-    end
-
     Ek1 = identity_matrix(R, k1)
     Ek2 = identity_matrix(R, k2)
     En1 = identity_matrix(R, n1)
     En2 = identity_matrix(R, n2)
 
-    H_X = hcat(kronecker_product(A, Ek2), kronecker_product(Ek1, B))
-    H_Z = hcat(kronecker_product(En1, B_tr), kronecker_product(A_tr, En2))
+    H_X = hcat(A ⊗ Ek2, Ek1 ⊗ B)
+    H_Z = hcat(En1 ⊗ B_tr, A_tr ⊗ En2)
     return H_X, H_Z
 end
 
 """
-    QuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: ResElem
+    lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
-Return the quasi-cyclic lifted product code given by the matrices `A` and `B` and whose signs are determined by `char_vec`.
+Return the pre-lifted matrices `H_X` and `H_Z` for the lifted quasi-cyclic lifted product code.
+
+# Arguments
+- `A` - a matrix with elements in a group algebra
+- `B` - a matrix with coefficents in the same group algebra
+
+# Notes
+- Use `LiftedProductCode` to return a quantum code over the base ring directly.
 """
-function QuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: ResElem
+function lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGroupAlgebra
+    FG = parent(A[1, 1])
+    parent(B[1, 1]) == FG || throw(ArgumentError("Inputs must be over the same group algebra"))
 
-    H_X, H_Z = QuasiCyclicLiftedProductCodeMatrices(A, B)
+    A_tr = _CT_adjoint(A)
+    B_tr = _CT_adjoint(B)
+
+    k1, n1 = size(A)
+    k2, n2 = size(B)
+    Ek1 = identity_matrix(FG, k1)
+    Ek2 = identity_matrix(FG, k2)
+    En1 = identity_matrix(FG, n1)
+    En2 = identity_matrix(FG, n2)
+
+    H_X = hcat(A ⊗ Ek2, Ek1 ⊗ B)
+    H_Z = hcat(En1 ⊗ B_tr, A_tr ⊗ En2)
+    return H_X, H_Z
+end
+
+"""
+    LiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+
+Return the lifted product code given by the matrices `A` and `B` and whose signs are determined by `char_vec`.
+"""
+function LiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
+    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+
+    H_X, H_Z = lifted_product_matrices(A, B)
     return CSSCode(lift(H_X), lift(H_Z), char_vec, logs_alg)
 end
 
 """
-    BiasTailoredQuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+    bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
 
 Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of `A` and `B`.
 
 # Arguments
-* `A` - an `m x n1` matrix with coefficents in `F_2[x]/(x^m - 1)`
-* `B` - an `m x n2` matrix with coefficents in the same residue ring
+- `A` - an `m x n1` matrix with elements in `F_2[x]/(x^m - 1)`
+- `B` - an `m x n2` matrix with elements in the same residue ring
 
 # Notes
-* Use `BiasTailoredQuasiCyclicLiftedProductCode` to return a quantum code over the base ring directly.
+- Use `BiasTailoredLiftedProductCode` to return a quantum code over the base ring directly.
 """
-function BiasTailoredQuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
+function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
     @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
@@ -575,57 +554,70 @@ function BiasTailoredQuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatE
     l = degree(f)
     f == gen(S)^l - 1 || throw(ArgumentError("Residue ring not of the form x^l - 1."))
     
+    A_tr = _CT_adjoint(A)
+    B_tr = _CT_adjoint(B)
+
     k1, n1 = size(A)
-    A_tr = transpose(A)
-    for c in 1:k1
-        for r in 1:n1
-            h_coeffs = collect(coefficients(Nemo.lift(A_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
-                push!(h_coeffs, F(0))
-            end
-            h_coeffs[2:end] = reverse(h_coeffs[2:end])
-            A_tr[r, c] = R(S(h_coeffs))
-        end
-    end
-
     k2, n2 = size(B)
-    B_tr = transpose(B)
-    for c in 1:k2
-        for r in 1:n2
-            h_coeffs = collect(coefficients(Nemo.lift(B_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
-                push!(h_coeffs, F(0))
-            end
-            h_coeffs[2:end] = reverse(h_coeffs[2:end])
-            B_tr[r, c] = R(S(h_coeffs))
-        end
-    end
-
     Ek1 = identity_matrix(R, k1)
     Ek2 = identity_matrix(R, k2)
     En1 = identity_matrix(R, n1)
     En2 = identity_matrix(R, n2)
 
-    A12 = kronecker_product(A_tr, Ek2)
-    A13 = kronecker_product(En1, B)
-    A21 = kronecker_product(A, En2)
-    A24 = kronecker_product(Ek1, B_tr)
+    A12 = A_tr ⊗ Ek2
+    A13 = En1 ⊗ B
+    A21 = A ⊗ En2
+    A24 = Ek1 ⊗ B_tr
     return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
 end
 
 """
-    BiasTailoredQuasiCyclicLiftedProductCodeMatrices(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: ResElem
+    bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGroupAlgebra
+
+Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of `A` and `B`.
+
+# Arguments
+- `A` - a matrix with elements in a group algebra
+- `B` - a matrix with elements in the same group algebra
+
+# Notes
+- Use `BiasTailoredLiftedProductCode` to return a quantum code over the base ring directly.
+"""
+function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGroupAlgebra
+
+    FG = parent(A[1, 1])
+    parent(B[1, 1]) == FG || throw(ArgumentError("Inputs must be over the same group algebra"))
+
+    A_tr = _CT_adjoint(A)
+    B_tr = _CT_adjoint(B)
+
+    k1, n1 = size(A)
+    k2, n2 = size(B)
+    Ek1 = identity_matrix(R, k1)
+    Ek2 = identity_matrix(R, k2)
+    En1 = identity_matrix(R, n1)
+    En2 = identity_matrix(R, n2)
+
+    A12 = A_tr ⊗ Ek2
+    A13 = En1 ⊗ B
+    A21 = A ⊗ En2
+    A24 = Ek1 ⊗ B_tr
+    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+end
+
+"""
+    BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
 Return the bias-tailored lifted product code of `A` and `B` whose signs are given by `char_vec`.
 
 # Arguments
-* `A` - an `m x n1` matrix with coefficents in `F_2[x]/(x^m - 1)`
-* `B` - an `m x n2` matrix with coefficents in the same residue ring
+- `A` - either an `m x n` matrix with elements in `F_2[x]/(x^m - 1)` or a group algebra
+- `B` - an `m x n2` matrix with elements in the same parent as `A`
 """
-function BiasTailoredQuasiCyclicLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: ResElem
+function BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
+    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
-    stabs = BiasTailoredQuasiCyclicLiftedProductCodeMatrices(A, B)
+    stabs = bias_tailored_lifted_product_matrices(A, B)
     return StabilizerCode(lift(stabs), char_vec, logs_alg)
 end
 
@@ -635,7 +627,7 @@ end
 
 Return the single-parity-check `D`-fold product code.
 
-* Note
+# Note
 - This is defined in https://arxiv.org/abs/2209.13474
 """
 function SPCDFoldProductCode(D::Int, s::Int = 1)
@@ -678,7 +670,7 @@ SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s
 
 Return a symplectic canonical basis for the logical operators of `C`.
     
-* Note
+# Note
 - This implements https://doi.org/10.48550/arXiv.2204.10812.
 """
 function Quintavalle_basis(C::HypergraphProductCode)
@@ -730,7 +722,7 @@ end
 
 Return the asymmetric 2-fold product quantum CSS code of the CSS codes `S1` and `S2`.
 
-* Note
+# Note
 - This is defined in https://arxiv.org/abs/2209.13474
 """
 asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode} = asymmetric_product(CSSTrait(T), S1, S2)
@@ -748,7 +740,7 @@ asymmetric_product(::IsNotCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemC
 Return the symmetric `D`-fold product quantum CSS code, where `D` is
 the square-root of the length of the vector of CSS codes `vec_S`.
 
-* Note
+# Note
 - This is defined in https://arxiv.org/abs/2209.13474
 """
 function symmetric_product(vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
@@ -825,7 +817,13 @@ function symmetric_product(::IsCSS, vec_S::Vector{T}) where {T <: AbstractSubsys
 end
 symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode} = error("Only valid for CSS codes.")
 
-# extend to subsystem codes?
+# has this been extended to subsystem codes?
+"""
+
+# Note
+- This is the single-sector homological product. Use ⊗ for the more general product.
+"""
+# TODO: needs two codes and two maps or just two codes assuming the U has been done already
 ⊠(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(CSSTrait(typeof(S)), S, U)
 function ⊠(::IsCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes
     num_stabs = num_X_stabs(S)

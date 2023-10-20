@@ -23,4 +23,4 @@ using Test
 # include("Quantum/miscknowncodes_test.jl")
 include("Quantum/productcodes_test.jl")
 # include("Quantum/subsystemcode_test.jl")
-include("chaincomplex.jl")
+# include("chaincomplex_test.jl")

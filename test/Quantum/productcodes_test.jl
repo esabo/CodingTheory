@@ -41,7 +41,7 @@
 	     0, 1, x^18, x^27, 1, x^27, 0,
 	     0, 0, 1, x^18, x^27, 1, x^27])
     b = R(1 + x + x^6)
-    Q = LiftedGeneralizedHypergraphProductCode(A, b)
+    Q = LiftedProductCode(A, b)
     @test length(Q) == 882
     @test CodingTheory.dimension(Q) == 48
     @test LogicalTrait(typeof(Q)) == HasLogicals()

@@ -27,6 +27,16 @@ function ChainComplex(chain::Vector{T}) where T <: CTMatrixTypes
     return ChainComplex{T}(F, len + 1, chain)
 end
 
+function test_Oscar_chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T <: CTMatrixTypes
+    F = base_ring(∂s[1])
+    all(x -> base_ring(x) == F, ∂s) || throw(ArgumentError("All inputs must be over the same base ring"))
+    spaces = [[vector_space(F, ncols(∂i)) for ∂i in ∂s]; vector_space(F, nrows(∂s[end]))]
+    # return spaces
+    morphisms = [hom(spaces[i], spaces[i + 1], transpose(∂i)) for (i, ∂i) in enumerate(∂s)]
+    C = chain_complex(morphisms; seed = lowest_degree)
+    return C
+end
+
 """
     ChainComplex(F::CTFieldTypes, len::Integer, boundaries::Vector{T}) where T <: CTMatrixTypes
 
@@ -151,7 +161,7 @@ tensor_product(chain_A::ChainComplex, chain_B::ChainComplex) = ⊗(chain_A, chai
 Return the distance balanced code of `S` and `C`.
 """
 function distance_balancing(S::StabilizerCodeCSS, C::AbstractLinearCode)
-    is_overcomplete(C, :H) && throw(ArgumentError("Parity check matrix is overcomplete"))
+    is_overcomplete(C, :H) && throw(ArgumentError("Parity-check matrix is overcomplete"))
     chain = tensor_product(ChainComplex(S), cochain(ChainComplex(C)))
     ∂ = boundaries(chain)
     return CSSCode(∂[1], transpose(∂[2]))
