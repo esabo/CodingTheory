@@ -852,3 +852,39 @@ function ⊠(::IsCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing)
 end
 ⊠(::IsNotCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = throw(ArgumentError("This is only defined for CSS codes"))
 homological_product(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(S, U)
+
+function _rand_single_sector_boundary(num_logicals, num_stabs)
+    n = num_logicals + 2 * num_stabs
+    U = _rand_invertible_matrix(GF(2), n)
+    d0 = zero_matrix(GF(2), n, n)
+    d0[num_logicals + 1:num_logicals + num_stabs, num_logicals + num_stabs + 1:end] = identity_matrix(GF(2), num_stabs)
+    return U * d0 * inv(U)
+end
+
+"""
+   random_CSS_code(num_logicals::Integer, num_stabs::Integer)
+
+Create a random CSS code with equal number of X and Z stabilizers.
+"""
+function random_CSS_code(num_logicals::Integer, num_stabs::Integer)
+    d = _rand_single_sector_boundary(num_logicals, num_stabs)
+    return CSSCode(d, transpose(d))
+end
+
+"""
+   random_homological_product_code(num_logicals1::Integer, num_stabs1::Integer,
+       num_logicals2::Integer, num_stabs2::Integer)
+
+Create a random homological product code using the single sector theory from Bravyi and
+Hastings 2013, "Homological Product Codes".
+"""
+function random_homological_product_code(num_logicals1::Integer, num_stabs1::Integer,
+    num_logicals2::Integer, num_stabs2::Integer)
+
+    d1 = _rand_single_sector_boundary(num_logicals1, num_stabs1)
+    d2 = _rand_single_sector_boundary(num_logicals2, num_stabs2)
+    i1 = identity_matrix(GF(2), nrows(d1))
+    i2 = identity_matrix(GF(2), nrows(d2))
+    d = d1 ⊗ i2 + i1 ⊗ d2
+    return CSSCode(d, transpose(d))
+end

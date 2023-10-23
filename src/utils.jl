@@ -1604,6 +1604,39 @@ function extract_bipartition(G::SimpleGraph{Int})
     return left, right
 end
 
+function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
+    n > 0 || throw(DomainError(n, "The dimension `n` must be positive."))
+
+    # start with random, nonzero, 1×1 matrix
+    A = matrix(F, 1, 1, [rand(collect(F)[2:end])])
+
+    # extend from (k-1)×(k-1) to k×k, repeat up to n×n
+    for k in 2:n
+
+        # pick a random nonzero vector of length n
+        v = zero_matrix(F, 1, k)
+        while iszero(v)
+            v = matrix(F, 1, k, rand(F, k))
+        end
+
+        # pick random nonzero index of v
+        r = rand(findall(!iszero, v))[2]
+
+        # create identity matrix with r-th row replaced by v (note, this is invertible)
+        I_v = identity_matrix(F, k)
+        I_v[r, :] = v
+
+        # copy data from A into the right places
+        B = zero_matrix(F, k, k)
+        B[1, r] = one(F)
+        B[2:end, 1:r - 1] = A[:, 1:r - 1]
+        B[2:end, r + 1:end] = A[:, r:end]
+
+        A = B * I_v
+    end
+
+    return A
+end
 
 
 
