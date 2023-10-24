@@ -404,6 +404,17 @@ function _logicals(stabs::T, dual_gens::T, logs_alg::Symbol=:sys_eqs) where {T<:
     return logs, logs_mat
 end
 
+# TODO: switch to n, k inputs
+"""
+   random_CSS_code(num_logicals::Int, num_stabs::Int)
+
+Return a random CSS code with an equal number of X and Z stabilizers.
+"""
+function random_CSS_code(num_logicals::Int, num_stabs::Int)
+    d = _rand_single_sector_boundary(num_logicals, num_stabs)
+    return CSSCode(d, transpose(d))
+end
+
 #############################
 #   Generator Coefficients  #
 #############################

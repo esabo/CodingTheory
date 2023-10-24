@@ -844,6 +844,7 @@ function ⊠(::IsCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing)
         end
     end
     chain = ChainComplex([δ])
+    # TODO
     prod = chain ⊗ chain
     # extract code from this
     return prod
@@ -853,7 +854,8 @@ end
 ⊠(::IsNotCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = throw(ArgumentError("This is only defined for CSS codes"))
 homological_product(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(S, U)
 
-function _rand_single_sector_boundary(num_logicals, num_stabs)
+# TODO: switch to n, k inputs
+function _rand_single_sector_boundary(num_logicals::Int, num_stabs::Int)
     n = num_logicals + 2 * num_stabs
     U = _rand_invertible_matrix(GF(2), n)
     d0 = zero_matrix(GF(2), n, n)
@@ -861,30 +863,24 @@ function _rand_single_sector_boundary(num_logicals, num_stabs)
     return U * d0 * inv(U)
 end
 
+# TODO: switch to n, k inputs
 """
-   random_CSS_code(num_logicals::Integer, num_stabs::Integer)
+   random_homological_product_code(num_logicals1::Int, num_stabs1::Int,
+       num_logicals2::Int, num_stabs2::Int)
 
-Create a random CSS code with equal number of X and Z stabilizers.
-"""
-function random_CSS_code(num_logicals::Integer, num_stabs::Integer)
-    d = _rand_single_sector_boundary(num_logicals, num_stabs)
-    return CSSCode(d, transpose(d))
-end
+Return a random homological product code.
 
+* Note
+- This implements the construction in https://arxiv.org/abs/1311.0885.
 """
-   random_homological_product_code(num_logicals1::Integer, num_stabs1::Integer,
-       num_logicals2::Integer, num_stabs2::Integer)
-
-Create a random homological product code using the single sector theory from Bravyi and
-Hastings 2013, "Homological Product Codes".
-"""
-function random_homological_product_code(num_logicals1::Integer, num_stabs1::Integer,
-    num_logicals2::Integer, num_stabs2::Integer)
+function random_homological_product_code(num_logicals1::Int, num_stabs1::Int,
+    num_logicals2::Int, num_stabs2::Int)
 
     d1 = _rand_single_sector_boundary(num_logicals1, num_stabs1)
     d2 = _rand_single_sector_boundary(num_logicals2, num_stabs2)
     i1 = identity_matrix(GF(2), nrows(d1))
     i2 = identity_matrix(GF(2), nrows(d2))
+    # TODO: should put in the - sign or specialize function to binary
     d = d1 ⊗ i2 + i1 ⊗ d2
     return CSSCode(d, transpose(d))
 end

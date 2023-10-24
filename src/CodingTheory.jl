@@ -244,7 +244,7 @@ export SubsystemCode, field, length, num_qubits, dimension, cardinality,
 #############################
 
 include("Quantum/stabilizercode.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode
+export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code
 
 #############################
       # graphstate.jl
@@ -299,8 +299,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     generalized_hypergraph_product_matrices, GHGP_matrices, lifted_product_matrices,
     GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
-    Quintavalle_basis, asymmetric_product, symmetric_product, random_CSS_code,
-    random_homological_product_code
+    Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code
 
 #############################
         # tilings.jl

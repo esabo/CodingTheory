@@ -32,8 +32,10 @@ function test_Oscar_chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T
     all(x -> base_ring(x) == F, ∂s) || throw(ArgumentError("All inputs must be over the same base ring"))
     spaces = [[vector_space(F, ncols(∂i)) for ∂i in ∂s]; vector_space(F, nrows(∂s[end]))]
     # return spaces
+    # need to transpose because they are doing right multiplication
     morphisms = [hom(spaces[i], spaces[i + 1], transpose(∂i)) for (i, ∂i) in enumerate(∂s)]
-    C = chain_complex(morphisms; seed = lowest_degree)
+    # C = chain_complex(morphisms; seed = lowest_degree)
+    C = ComplexOfMorphisms(typeof(spaces[1]), morphisms, typ = :chain, seed = lowest_degree)
     return C
 end
 
