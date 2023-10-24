@@ -484,6 +484,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
     perm = missing
 
     G = generator_matrix(C)
+    # generate if not pre-stored
+    parity_check_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
         gen_mats = _get_information_sets(G, "Chen")
@@ -552,9 +554,9 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
         if typeof(C) <: AbstractCyclicCode
             new_lower = _lower_bounds(r, C.n, C.k, 0, [0], "Chen")
             C.l_bound < new_lower && (C.l_bound = new_lower;)
-        elseif typeof(C) <: AbstractQuasiCyclicCode
-            new_lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
-            C.l_bound < new_lower && (C.l_bound = new_lower;)
+        # elseif typeof(C) <: AbstractQuasiCyclicCode
+        #     new_lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
+        #     C.l_bound < new_lower && (C.l_bound = new_lower;)
         else
             new_lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, "BZ")
             C.l_bound < new_lower && (C.l_bound = new_lower;)
