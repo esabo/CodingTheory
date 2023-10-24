@@ -854,33 +854,27 @@ end
 ⊠(::IsNotCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = throw(ArgumentError("This is only defined for CSS codes"))
 homological_product(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(S, U)
 
-# TODO: switch to n, k inputs
-function _rand_single_sector_boundary(num_logicals::Int, num_stabs::Int)
-    n = num_logicals + 2 * num_stabs
+function _rand_single_sector_boundary(n::Int, k::Int)
+    num_stabs = divexact(n - k, 2)
     U = _rand_invertible_matrix(GF(2), n)
     d0 = zero_matrix(GF(2), n, n)
-    d0[num_logicals + 1:num_logicals + num_stabs, num_logicals + num_stabs + 1:end] = identity_matrix(GF(2), num_stabs)
+    d0[k + 1:k + num_stabs, k + num_stabs + 1:end] = identity_matrix(GF(2), num_stabs)
     return U * d0 * inv(U)
 end
 
-# TODO: switch to n, k inputs
 """
-   random_homological_product_code(num_logicals1::Int, num_stabs1::Int,
-       num_logicals2::Int, num_stabs2::Int)
+   random_homological_product_code(n1::Int, k1::Int, n2::Int, k2::Int)
 
 Return a random homological product code.
 
 * Note
 - This implements the construction in https://arxiv.org/abs/1311.0885.
 """
-function random_homological_product_code(num_logicals1::Int, num_stabs1::Int,
-    num_logicals2::Int, num_stabs2::Int)
-
-    d1 = _rand_single_sector_boundary(num_logicals1, num_stabs1)
-    d2 = _rand_single_sector_boundary(num_logicals2, num_stabs2)
+function random_homological_product_code(n1::Int, k1::Int, n2::Int, k2::Int)
+    d1 = _rand_single_sector_boundary(n1, k1)
+    d2 = _rand_single_sector_boundary(n2, k2)
     i1 = identity_matrix(GF(2), nrows(d1))
     i2 = identity_matrix(GF(2), nrows(d2))
-    # TODO: should put in the - sign or specialize function to binary
-    d = d1 ⊗ i2 + i1 ⊗ d2
+    d = d1 ⊗ i2 - i1 ⊗ d2
     return CSSCode(d, transpose(d))
 end
