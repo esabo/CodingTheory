@@ -819,40 +819,64 @@ symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCod
 
 # has this been extended to subsystem codes?
 """
+    homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
+        U::CTMatrixTypes = identity_matrix(S1.F, S1.n),
+        V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
+    ⊠(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode) = homological_product(S1, S2)
 
 # Note
 - This is the single-sector homological product. Use ⊗ for the more general product.
 """
-# TODO: needs two codes and two maps or just two codes assuming the U has been done already
-⊠(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(CSSTrait(typeof(S)), S, U)
-function ⊠(::IsCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes
-    num_stabs = num_X_stabs(S)
-    num_stabs == num_Z_stabs(S) || throw(ArgumentError("The code must have the same number of X and Z stabilizers"))
-    if !ismissing(U)
-        T == typeof(S.X_stabs) || throw(ArgumentError("Input matrix must have the same type as the stabilizers"))
-        base_ring(U) == S.F || throw(ArgumentError("Input matrix must have the same base ring as the stabilizers"))
-    end
-    
-    δ = zero_matrix(S.F, S.n, S.n)
-    for i in 1:num_stabs
-        for j in 1:num_stabs
-            if ismissing(U)
-                δ += transpose(S.Z_stabs[i, :]) * S.X_stabs[j, :]
-            else
-                δ += U[i, j] * transpose(S.Z_stabs[i, :]) * S.X_stabs[j, :]
-            end
+function homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
+    U::CTMatrixTypes = identity_matrix(S1.F, S1.n),
+    V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
+
+    return homological_product(CSSTrait(typeof(S1)), CSSTrait(typeof(S2)), S1, S2, U, V)
+end
+
+function homological_product(::IsCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
+    U::CTMatrixTypes, V::CTMatrixTypes)
+
+    num_stabs1 = num_X_stabs(S1)
+    num_stabs1 == num_Z_stabs(S1) || throw(ArgumentError("The first code didn't have the same number of X and Z stabilizers"))
+    num_stabs2 = num_X_stabs(S2)
+    num_stabs2 == num_Z_stabs(S2) || throw(ArgumentError("The second code didn't have the same number of X and Z stabilizers"))
+    nrows(U) == ncols(U) == S1.n || throw(ArgumentError("U is the wrong size for the code S1"))
+    nrows(V) == ncols(V) == S2.n || throw(ArgumentError("V is the wrong size for the code S2"))
+    isinvertible(U) || throw(ArgumentError("U must be invertible"))
+    isinvertible(V) || throw(ArgumentError("V must be invertible"))
+    F = S1.F
+    F == S2.F == base_ring(U) == base_ring(V) || throw(ArgumentError("S1, S2, U, and V should all have the same base ring"))
+
+    δ1 = zero_matrix(F, S1.n, S1.n)
+    for i in 1:num_stabs1
+        for j in 1:num_stabs1
+            # TODO are X and Z in the correct order here?
+            δ1 += U[i, j] * transpose(S1.Z_stabs[i, :]) * S1.X_stabs[j, :]
         end
     end
-    chain = ChainComplex([δ])
-    # TODO
-    prod = chain ⊗ chain
-    # extract code from this
-    return prod
-    # kernel of boundary is
-    # return CSSCode(..., ...)
+
+    δ2 = zero_matrix(F, S2.n, S2.n)
+    for i in 1:num_stabs2
+        for j in 1:num_stabs2
+            # TODO are X and Z in the correct order here?
+            δ2 += V[i, j] * transpose(S2.Z_stabs[i, :]) * S2.X_stabs[j, :]
+        end
+    end
+
+    i1 = identity_matrix(F, S1.n)
+    i2 = identity_matrix(F, S2.n)
+    ∂ = δ1 ⊗ i2 - i1 ⊗ δ2
+
+    return CSSCode(∂, transpose(∂))
 end
-⊠(::IsNotCSS, S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = throw(ArgumentError("This is only defined for CSS codes"))
-homological_product(S::AbstractStabilizerCode, U::Union{Missing, T} = missing) where T <: CTMatrixTypes = ⊠(S, U)
+
+homological_product(::IsNotCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
+homological_product(::IsNotCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
+homological_product(::IsCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
+
+@doc (@doc homological_product)
+⊠(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode) = homological_product(S1, S2)
 
 function _rand_single_sector_boundary(n::Int, k::Int)
     num_stabs = divexact(n - k, 2)
