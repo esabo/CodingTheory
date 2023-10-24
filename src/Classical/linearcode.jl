@@ -23,7 +23,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=t
     G_new = _remove_empty(G_new, :rows)
 
     C = if parity
-        rnk_H, H = right_kernel(G_new)
+            rnk_H, H = right_kernel(G_new)
         if ncols(H) == rnk_H
             H_tr = transpose(H)
         else
@@ -178,11 +178,19 @@ function generator_matrix(C::AbstractLinearCode, stand_form::Bool=false)
         if ismissing(C.G)
             if C.A_type == :G
                 G = lift(C.A)
+                C.G = G
             else
-                _, G = right_kernel(lift(C.A))
-                G = transpose(G)
+                rnk_G, G = right_kernel(lift(C.A))
+                # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+                nr = nrows(G)
+                G_tr = zero_matrix(base_ring(G), rnk_G, nr)
+                for r in 1:nr
+                    for c in 1:rnk_G
+                        !iszero(G[r, c]) && (G_tr[c, r] = G[r, c];)
+                    end
+                end
+                C.G = G_tr
             end
-            C.G = G
         end
         if stand_form
             C.G_stand, C.H_stand, C.P_stand, _ = _standard_form(C.G)
@@ -208,11 +216,19 @@ function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool=false)
             if ismissing(C.G)
                 if C.A_type == :G
                     G = lift(C.A)
+                    C.G = G
                 else
-                    _, G = right_kernel(lift(C.A))
-                    G = transpose(G)
+                    rnk_G, G = right_kernel(lift(C.A))
+                    # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+                    nr = nrows(G)
+                    G_tr = zero_matrix(base_ring(G), rnk_G, nr)
+                    for r in 1:nr
+                        for c in 1:rnk_G
+                            !iszero(G[r, c]) && (G_tr[c, r] = G[r, c];)
+                        end
+                    end
+                    C.G = G_tr
                 end
-                C.G = G
             end
             C.G_stand, C.H_stand, C.P_stand, _ = _standard_form(C.G)
             return C.H_stand

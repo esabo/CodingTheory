@@ -410,14 +410,14 @@ function _get_information_sets(G::CTMatrixTypes, alg::String)
     rnk = nr
     if alg == "Brouwer"
         for i in 0:Int(floor(nc / nr)) - 1
-            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
             push!(gen_mats, (rnk, Gi, Pi))
             # Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
             # push!(gen_mats, Ai)
         end
     elseif alg == "Zimmermann"
         for i in 0:Int(floor(nc / nr))
-            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
             push!(gen_mats, (rnk, Gi, Pi))
             # display(Gi)
             # println(rnk)
@@ -427,10 +427,11 @@ function _get_information_sets(G::CTMatrixTypes, alg::String)
             # push!(gen_mats, (rnk, Ai))
         end
     elseif alg == "White"
+        # TODO: this is not true when the parity-check matrix is true
         # the expansion factor of the code
         for i in 0:div(nc, nr) - 1
             # could use Gi here instead of G
-            rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, i * nr + 1:(i + 1) * nr)
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * nr + 1:(i + 1) * nr)
             # display(Gi)
             # println(rnk)
             push!(gen_mats, (rnk, Gi, Pi))
@@ -463,7 +464,7 @@ end
 end
 
 """
-    Gray_code_min_dist(C::AbstractLinearCode, verbose::Bool=false)
+    Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
 
 Return the minimum distance of `C` using a deterministic algorithm based on enumerating
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
@@ -474,7 +475,7 @@ is returned.
 # but does allow one to update the lower bound using a single matrix after every
 # GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
 # once will overcome this. Could be tested though.
-function Gray_code_min_dist(C::AbstractLinearCode, verbose::Bool=false)
+function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
 
@@ -486,9 +487,10 @@ function Gray_code_min_dist(C::AbstractLinearCode, verbose::Bool=false)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
         gen_mats = _get_information_sets(G, "Chen")
-    elseif typeof(C) <: AbstractQuasiCyclicCode
-        verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, "White")
+    # TODO: fix this case
+    # elseif typeof(C) <: AbstractQuasiCyclicCode
+    #     verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+    #     gen_mats = _get_information_sets(G, "White")
     else
         gen_mats = _get_information_sets(G, "Zimmermann")
     end
@@ -505,6 +507,7 @@ function Gray_code_min_dist(C::AbstractLinearCode, verbose::Bool=false)
             rank_defs[i] = C.k - gen_mats[i][1]
         end
     end
+    # display(gen_mats)
     
     even_flag = false
     doubly_even_flag = false
@@ -1345,10 +1348,10 @@ function minimum_distance(C::AbstractLinearCode, alg::String="auto", sect::Bool=
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         else
-            return Gray_code_min_dist(C, verbose)
+            return Gray_code_minimum_distance(C, verbose)
         end
     elseif alg == "Gray"
-        return Gray_code_min_dist(C, verbose)
+        return Gray_code_minimum_distance(C, verbose)
     elseif alg == "trellis"
         weight_enumerator_C(syndrome_trellis(C, "primal", false), type)
         return C.d

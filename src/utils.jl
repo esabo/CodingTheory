@@ -89,10 +89,9 @@ direct_sum(A::T, B::T) where T <: CTMatrixTypes = A ⊕ B
 
 Return the Kronecker product of the two matrices `A` and `B`.
 """
-⊗(A::CTMatrixTypes, B::CTMatrixTypes) = kronecker_product(A, B)
-kron(A::CTMatrixTypes, B::CTMatrixTypes) = kronecker_product(A, B)
-tensor_product(A::CTMatrixTypes, B::CTMatrixTypes) = kronecker_product(A, B)
-# kroneckerproduct(A::CTMatrixTypes, B::CTMatrixTypes) = kronecker_product(A, B)
+⊗(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
+kron(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
+tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
 
 # I think we should avoid length checking here and return it for entire matrix if given
 # Hamming_weight(v::T) where T <: Union{CTMatrixTypes, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)

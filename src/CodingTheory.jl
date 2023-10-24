@@ -140,7 +140,7 @@ include("LDPC/algorithms.jl")
      # LDPC/decoders.jl
 #############################
 
-include("LDPC/decoders.jl")
+# include("LDPC/decoders.jl")
 export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, min_sum,
     find_MP_schedule, MPNoiseModel, decoder_simulation
 
