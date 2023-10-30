@@ -411,7 +411,12 @@ Return a random CSS code with an equal number of X and Z stabilizers.
 """
 function random_CSS_code(n::Int, k::Int)
     d = _rand_single_sector_boundary(n, k)
-    return CSSCode(d, transpose(d))
+    dt = transpose(d)
+    Xrref = rref(dt)
+    Xind = [findfirst(!iszero, Xrref[2][i, :])[2] for i in 1:Xrref[1]]
+    Zrref = rref(d)
+    Zind = [findfirst(!iszero, Zrref[2][i, :])[2] for i in 1:Zrref[1]]
+    return CSSCode(d[Xind, :], dt[Zind, :])
 end
 
 #############################
