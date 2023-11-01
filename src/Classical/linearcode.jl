@@ -807,7 +807,7 @@ function is_doubly_even(C::AbstractLinearCode)
     nr = nrows(G)
     all(wt(view(G, r:r, :)) % 4 == 0 for r in 1:nr) || (return false;)
     all(wt(view(G, r1:r1, :) + view(G, r2:r2, :)) % 4 == 0
-        for r1 in r:nr, r2 in 1:nr) || (return false;)
+        for r1 in 1:nr, r2 in 1:nr) || (return false;)
     return true
 end
 

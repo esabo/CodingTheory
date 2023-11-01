@@ -102,11 +102,11 @@ tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAl
 
 Return the Hamming weight of `v`.
 """
-function Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer
+function Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer
     count(x -> !iszero(x), v)
 end
-weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hamming_weight(v)
-wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}} where S <: Integer = Hamming_weight(v)
+weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
+wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
 # Hamming_weight(v::Matrix{Int}) = return sum(v)
 
