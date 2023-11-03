@@ -361,7 +361,7 @@ function _remove_empty(A::CTMatrixTypes, type::Symbol)
                     break
                 end
             end
-            append!(del, c)
+            flag && append!(del, c)
         end
         return isempty(del) ? A : A[:, setdiff(1:ncols(A), del)]
     end
