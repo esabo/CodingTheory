@@ -958,7 +958,7 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
     π = collect(1:nc)
     for j in 1:nc
         i = 1
-        while i < nr && !isone(A[i, j])
+        while i < nr && !isone(B[i, j])
             i += 1
         end
 

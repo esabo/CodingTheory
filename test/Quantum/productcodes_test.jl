@@ -151,6 +151,59 @@
     end
     @test weight_flag
 
+    # [[400,16,6]] code from Table 1 of https://doi.org/10.1103/PhysRevResearch.2.043423
+    H = matrix(
+        GF(2),
+        [
+            1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0;
+            0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0;
+            0 0 0 1 1 0 1 0 0 0 0 0 0 1 0 0;
+            0 0 0 0 0 1 0 0 1 1 0 0 0 0 0 1;
+            0 1 0 0 0 0 0 1 1 0 0 1 0 0 0 0;
+            0 0 0 0 0 0 0 0 1 0 0 0 1 1 1 0;
+            1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 1;
+            0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 0;
+            0 0 1 1 0 0 0 0 0 0 0 1 0 0 0 1;
+            0 0 0 0 1 0 0 0 0 1 1 1 0 0 0 0;
+            0 1 0 0 0 0 1 0 0 0 1 0 0 0 1 0;
+            1 0 1 0 0 0 0 0 0 1 0 0 0 0 1 0
+        ]
+    )
+    HGP = HypergraphProductCode(LinearCode(H, true))
+
+    lx, lz = Quintavalle_basis(HGP)
+    # Check the logical operators commute with the stabilizers
+    @test iszero(HGP.X_stabs * transpose(lz))
+    @test iszero(HGP.Z_stabs * transpose(lx))
+
+    # Overlap should be zero in all cases except i == ii
+    zero_sum_flag = true
+    one_sum_flag = true
+    count_zero_flag = true
+    count_one_flag = true
+    for i in 1:nrows(lx)
+        for ii in 1:nrows(lz)
+            if i != ii
+                iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
+                iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false)
+            else
+                isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false)
+                isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false)
+            end
+        end
+    end
+    @test zero_sum_flag
+    @test one_sum_flag
+    @test count_zero_flag
+    @test count_one_flag
+
+    # Check the logical operators have weight >= code distance
+    weight_flag = true
+    for i in 1:HGP.k
+        (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
+    end
+    @test weight_flag
+
     # product codes
     F = GF(2);
     h = matrix(F, [1 1]);
