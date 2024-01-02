@@ -28,7 +28,7 @@ Return the binary symmetric channel with crossover probability `p`.
 """
 function BinarySymmetricChannel(p::Float64)
     0 <= p <= 1 || throw(DomainError("The crossover probability must be in [0, 1]"))
-    return BinarySymmetricChannel(p, 1 - _binaryentropy(p))
+    return BinarySymmetricChannel(p, 1 - _binary_entropy(p))
 end
 BSC(p::Float64) = BinarySymmetricChannel(p)
 

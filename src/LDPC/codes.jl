@@ -227,7 +227,7 @@ end
 function show(io::IO, C::AbstractLDPCCode)
     if ismissing(C.d)
         if C.is_reg
-            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.col_bound), $(C.rowbound))-LDPC code with density $(C.density).")
+            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).")
         else
             println(io, "[$(C.n), $(C.k)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
         end
