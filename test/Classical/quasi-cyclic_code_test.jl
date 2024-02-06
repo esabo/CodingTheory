@@ -1,4 +1,4 @@
-@testset "quasicycliccode.jl" begin
+@testset "Classical/quasi-cyclic_code.jl" begin
     using Oscar, CodingTheory
 
     F = GF(2)

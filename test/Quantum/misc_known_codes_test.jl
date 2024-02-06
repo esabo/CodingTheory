@@ -1,4 +1,4 @@
-@testset "miscknownquantumcodes.jl" begin
+@testset "Quantum/misc_known_codes.jl" begin
     using CodingTheory
 
     S = Q9143()

@@ -1,4 +1,4 @@
-@testset "subsystemcode.jl" begin
+@testset "Quantum/subsystem_code.jl" begin
     using Oscar, CodingTheory
 
     # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)

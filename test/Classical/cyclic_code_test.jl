@@ -1,4 +1,4 @@
-@testset "cycliccode.jl" begin
+@testset "Classical/cyclic_code.jl" begin
     using Oscar, CodingTheory
 
     # examples: Huffman & Pless

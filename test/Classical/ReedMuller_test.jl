@@ -1,4 +1,4 @@
-@testset "ReedMuller.jl" begin
+@testset "Classical/ReedMuller.jl" begin
     using Oscar, CodingTheory
 
     F = GF(2)

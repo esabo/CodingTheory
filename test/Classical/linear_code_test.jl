@@ -1,4 +1,4 @@
-@testset "linearcode.jl" begin
+@testset "Classical/linear_code.jl" begin
     using Oscar, CodingTheory
 
     F = GF(2)

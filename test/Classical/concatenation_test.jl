@@ -1,4 +1,4 @@
-@testset "concatenation.jl" begin
+@testset "Classical/concatenation.jl" begin
     using Oscar, CodingTheory
 
     # same field examples come from https://benjamin-hackl.at/downloads/BA-Thesis_Hackl.pdf

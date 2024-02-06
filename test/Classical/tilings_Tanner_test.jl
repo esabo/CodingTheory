@@ -1,4 +1,4 @@
-@testset "tilings.jl & Tanner.jl" begin
+@testset "Classical/tilings.jl & Classical/Tanner.jl" begin
     using Oscar, CodingTheory, Graphs, GAP
     GAP.Packages.load("LINS");
     # GAP.Packages.load("GUAVA")

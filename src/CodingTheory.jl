@@ -4,8 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-# TODO: did we turn the Oscar banner off? ENV["NEMO_PRINT_BANNER"] = "false"
-
 module CodingTheory
 
 using AutoHashEquals
@@ -84,7 +82,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     # , _Pauli_string_to_symplectic
 
 #############################
-        # cyclotomic.jl
+  # Classical/cyclotomic.jl
 #############################
 
 include("Classical/cyclotomic.jl")
@@ -92,10 +90,10 @@ export ord, cyclotomic_coset, all_cyclotomic_cosets, complement_qcosets,
     qcoset_pairings, qcoset_pairings, qcoset_table, dual_qcosets
 
 #############################
-       # linearcode.jl
+  # Classical/linear_code.jl
 #############################
 
-include("Classical/linearcode.jl")
+include("Classical/linear_code.jl")
 export LinearCode, field, length, dimension, cardinality, rate, relative_distance, generator_matrix,
     parity_check_matrix, genus, Singleton_bound, number_correctable_errors, encode, syndrome, in, ⊆, ⊂,
     is_subcode, dual, Hermitian_dual, are_equivalent, is_self_dual, is_self_orthogonal, is_weakly_self_dual, ⊕,
@@ -106,10 +104,10 @@ export LinearCode, field, length, dimension, cardinality, rate, relative_distanc
     is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode
 
 #############################
-    # newcodesfromold.jl
+# Classical/new_codes_from_old.jl
 #############################
 
-include("Classical/newcodesfromold.jl")
+include("Classical/new_codes_from_old.jl")
 export code_complement, quo, quotient, /, direct_sum, ⊗, kron, tensor_product, direct_product, ×,
     product_code, extend, puncture, expurgate, augment, shorten, lengthen, u_u_plus_v,
     Plotkin_construction, subcode, juxtaposition, construction_X, construction_X3,
@@ -161,27 +159,27 @@ include("LDPC/analysis.jl")
 
 export LDPCEnsemble, erasure_probability, crossover_probability, standard_deviation, variance,
     type, density_evolution, density_evolution!, plot_EXIT_chart, multiplicative_gap,
-    multiplicative_gap_lower_bound, density_lower_bound, check_concentrated_degreedistribution
+    multiplicative_gap_lower_bound, density_lower_bound, check_concentrated_degree_distribution
 
 #############################
-    # MatrixProductCode.jl
+# Classical/MatrixProductCode.jl
 #############################
 
 include("Classical/MatrixProductCode.jl")
 export MatrixProductCode
 
 #############################
-      # ReedMuller.jl
+  # Classical/ReedMuller.jl
 #############################
 
 include("Classical/ReedMuller.jl")
 export order, RMr, RMm, ReedMullerCode, number_of_variables
 
 #############################
-      # cycliccode.jl
+  # Classical/cyclic_code.jl
 #############################
 
-include("Classical/cycliccode.jl")
+include("Classical/cyclic_code.jl")
 export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     design_distance, qcosets, qcosets_reps, generator_polynomial, parity_check_polynomial,
     idempotent, is_primitive, is_narrowsense, is_reversible, find_delta, dual_defining_set,
@@ -189,42 +187,42 @@ export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     zeros, BCHbound, is_degenerate, nonzeros, is_cyclic, is_antiprimitive
 
 #############################
-    # quasicycliccode.jl
+# Classical/quasi-cyclic_code.jl
 #############################
 
-include("Classical/quasicycliccode.jl")
+include("Classical/quasi-cyclic_code.jl")
 export weight_matrix, base_matrix, protograph_matrix, QuasiCyclicCode, index,
     expansion_factor, type, polynomial_matrix, polynomial_matrix_type,
     noncirculant_generator_matrix, noncirculant_parity_check_matrix, generators,
     circulants, is_single_generator, lift
 
 #############################
-      # miscknowncodes.jl
+# Classical/miscknowncodes.jl
 #############################
 
-include("Classical/miscknowncodes.jl")
+include("Classical/misc_known_codes.jl")
 export ZeroCode, IdentityCode, RepetitionCode, SingleParityCheckCode, SPCCode,
     Hexacode, HammingCode, TetraCode, SimplexCode, GolayCode, ExtendedGolayCode
 
 #############################
- # GeneralizedReedSolomon.jl
+# Classical/GeneralizedReedSolomon.jl
 #############################
 
 include("Classical/GeneralizedReedSolomon.jl")
 export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points
 
 #############################
-      # concatenation.jl
+# Classical/concatenation.jl
 #############################
 
 include("Classical/concatenation.jl")
 export concatenate, inner_code, outer_code, expansion_basis, expansion_dual_basis, concatenation_type
 
 #############################
-      # subsystemcode.jl
+ # Quantum/subsystem_code.jl
 #############################
 
-include("Quantum/subsystemcode.jl")
+include("Quantum/subsystem_code.jl")
 export SubsystemCode, field, length, num_qubits, dimension, cardinality,
     rate, signs, X_signs, Z_signs, stabilizers, symplectic_stabilizers, X_stabilizers, Z_stabilizers,
     num_X_stabs, num_Z_stabs, character_vector, is_over_complete, is_CSS, relative_distance, logicals,
@@ -240,24 +238,24 @@ export SubsystemCode, field, length, num_qubits, dimension, cardinality,
     promote_gauges_to_logical, promote_logicals_to_gauge
 
 #############################
-      # stabilizercode.jl
+ # Quantum/stabilizer_code.jl
 #############################
 
-include("Quantum/stabilizercode.jl")
+include("Quantum/stabilizer_code.jl")
 export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code
 
 #############################
-      # graphstate.jl
+   # Quantum/graphstate.jl
 #############################
 
-include("Quantum/graphstate.jl")
+include("Quantum/graph_state.jl")
 export ClusterState, GraphState
 
 #############################
-  # miscknownquantumcodes.jl
+# Quantum/misc_known_codes.jl
 #############################
 
-include("Quantum/miscknowncodes.jl")
+include("Quantum/misc_known_codes.jl")
 # subsystem
 export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode, GeneralizedBaconShorCode,
     NappPreskill3DCode, NappPreskill4DCode, SubsystemToricCode, SubsystemSurfaceCode
@@ -280,21 +278,28 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
     shiftandweightQ!, shiftanddecodeQ!, shift!, isshifted
 
 #############################
-      # weight_dist.jl
+  # Classical/weight_dist.jl
 #############################
 
-include("weight_dist.jl")
+include("Classical/weight_dist.jl")
 export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
-    weight_distribution, weight_plot, support, minimum_distance, weight_plot_CSS_X,
-    weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z, minimum_distance_X,
-    minimum_distance_Z, is_pure, Sterns_attack, Gray_code_minimum_distance, minimum_words,
-    words_of_weight, QDistRndCSS
+    weight_distribution, weight_plot, support, minimum_distance, Sterns_attack,
+    Gray_code_minimum_distance, minimum_words, words_of_weight
 
 #############################
-   # quantumproductcodes.jl
+   # Quantum/weight_dist.jl
 #############################
 
-include("Quantum/productcodes.jl")
+include("Quantum/weight_dist.jl")
+# export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
+#     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
+export QDistRndCSS
+
+#############################
+# Quantum/product_codes.jl
+#############################
+
+include("Quantum/product_codes.jl")
 export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
     generalized_hypergraph_product_matrices, GHGP_matrices, lifted_product_matrices,
@@ -313,7 +318,7 @@ export ReflectionGroup, triangle_group, r_s_group, tetrahedron_group, q_r_s_grou
     is_orientable, is_k_colorable, coset_intersection
 
 #############################
-        # Tanner.jl
+    # Classical/Tanner.jl
 #############################
 
 include("Classical/Tanner.jl")

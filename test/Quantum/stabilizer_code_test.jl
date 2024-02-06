@@ -1,4 +1,4 @@
-@testset "stabilizercode.jl" begin
+@testset "Quantum/stabilizer_code.jl" begin
     using Oscar, CodingTheory
 
     Q = Q1573()

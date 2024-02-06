@@ -1,4 +1,4 @@
-@testset "cyclotomic.jl" begin
+@testset "Classical/cyclotomic.jl" begin
     using CodingTheory
 
     @test all_cyclotomic_cosets(2, 15, false) == [[0], [1, 2, 4, 8], [3, 6, 12, 9],

@@ -1,4 +1,4 @@
-# @testset "GeneralizedReedSolomon.jl" begin
+# @testset "Classical/GeneralizedReedSolomon.jl" begin
 #     using CodingTheory
 
 #     # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS

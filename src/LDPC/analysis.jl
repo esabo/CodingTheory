@@ -431,430 +431,405 @@ end
 #     circshift(paddedconv, k + length(x))[length(v)+1:2length(v)] .* w
 # end
 
-using FFTW
+# using FFTW
 
-struct _L_Density
-    # `data` is a vector of length 2N+1 on the quadrature -δN:δ:δN. It represents a probability dist:
-    # 0 <= sum(data) * δ <= 1, where the remaining density is assumed to be at ∞
-    N::Int
-    δ::Float64
-    data::Vector{Float64}
-end
+# struct _L_Density
+#     # `data` is a vector of length 2N+1 on the quadrature -δN:δ:δN. It represents a probability dist:
+#     # 0 <= sum(data) * δ <= 1, where the remaining density is assumed to be at ∞
+#     N::Int
+#     δ::Float64
+#     data::Vector{Float64}
+# end
 
-_L_Density(N::Int, δ::Float64) = _L_Density(N, δ, zeros(2N+1))
+# _L_Density(N::Int, δ::Float64) = _L_Density(N, δ, zeros(2N+1))
 
-_DE_quantizer(i::Int, j::Int, δ::Real) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
+# _DE_quantizer(i::Int, j::Int, δ::Real) = round(Int, ((i * δ) ⊞ (j * δ)) / δ)
 
-function _density_evolution_BMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_L_Density; max_iters::Int=10)
-    # set up `initial_fft` just once so it can be reused throughout
-    N = initial.N
-    δ = initial.δ
-    t = ceil(Int, log2(3N + 3)) + 1
-    initial_fft = zeros(ComplexF64, 2^t)
-    initial_fft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
-    initial_fft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
-    fft!(initial_fft)
+# function _density_evolution_BMS(λ::Vector{<:Real}, ρ::Vector{<:Real}, initial::_L_Density; max_iters::Int=10)
+#     # set up `initial_fft` just once so it can be reused throughout
+#     N = initial.N
+#     δ = initial.δ
+#     t = ceil(Int, log2(3N + 3)) + 1
+#     initial_fft = zeros(ComplexF64, 2^t)
+#     initial_fft[1:N + 1] .= initial.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+#     initial_fft[end - N + 1:end] .= initial.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
+#     fft!(initial_fft)
 
-    # main loop
-    iter = 0
-    a = initial
-    evo_a = CodingTheory._L_Density[]
-    evo_b = CodingTheory._L_Density[]
-    while iter < max_iters
-        iter += 1
+#     # main loop
+#     iter = 0
+#     a = initial
+#     evo_a = CodingTheory._L_Density[]
+#     evo_b = CodingTheory._L_Density[]
+#     while iter < max_iters
+#         iter += 1
 
-        b = _check_node_update_BMS_DE_quantized(ρ, a)
-        # b = _check_node_update_BMS_DE(ρ, a)
+#         b = _check_node_update_BMS_DE_quantized(ρ, a)
+#         # b = _check_node_update_BMS_DE(ρ, a)
 
-        # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
-        sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
+#         # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
+#         sum(b.data) * δ > 1 && (b.data ./= sum(b.data) * δ;)
 
-        # a = _variable_node_update_BMS_DE(λ, b, initial_fft)
-        a = _variable_node_update_BMS_DE_bad(λ, b, initial)
+#         # a = _variable_node_update_BMS_DE(λ, b, initial_fft)
+#         a = _variable_node_update_BMS_DE_bad(λ, b, initial)
 
-        # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
-        sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
+#         # if the total probability exceeds 1, normalize (this shouldn't be necessary but is mathematically fine)
+#         sum(a.data) * δ > 1 && (a.data ./= sum(a.data) * δ;)
 
-        # normalize to 1 probability no matter what (this is mathematically incorrect)
-        # a.data ./= sum(a.data) * δ
+#         # normalize to 1 probability no matter what (this is mathematically incorrect)
+#         # a.data ./= sum(a.data) * δ
 
-        push!(evo_b, b)
-        push!(evo_a, a)
+#         push!(evo_b, b)
+#         push!(evo_a, a)
 
-        # just to easily track how long things are taking while debugging
-        iter % 10 == 0 ? print(iter) : print(".")
-    end
-    print("\n")
-    return evo_a, evo_b
-end
+#         # just to easily track how long things are taking while debugging
+#         iter % 10 == 0 ? print(iter) : print(".")
+#     end
+#     print("\n")
+#     return evo_a, evo_b
+# end
 
-function _check_node_update_BMS_DE_quantized(ρ::Vector{<:Real}, a::_L_Density)
-    N = a.N
-    δ = a.δ
-    ap = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
-    ap[1] = a.data[N + 1]
-    am = a.data[N + 1:end] .- a.data[N + 1:-1:1]
-    bp = copy(ap)
-    bm = copy(am)
-    total_p = zeros(N + 1)
-    total_m = zeros(N + 1)
-    ainf = 1 - sum(ap) * δ
-    binf = 1 - sum(bp) * δ
-    for l in 2:length(ρ)
-        # update polynomial evaluation
-        total_p .+= bp * ρ[l]
-        total_m .+= bm * ρ[l]
+# function _check_node_update_BMS_DE_quantized(ρ::Vector{<:Real}, a::_L_Density)
+#     N = a.N
+#     δ = a.δ
+#     ap = a.data[N + 1:end] .+ a.data[N + 1:-1:1]
+#     ap[1] = a.data[N + 1]
+#     am = a.data[N + 1:end] .- a.data[N + 1:-1:1]
+#     bp = copy(ap)
+#     bm = copy(am)
+#     total_p = zeros(N + 1)
+#     total_m = zeros(N + 1)
+#     ainf = 1 - sum(ap) * δ
+#     binf = 1 - sum(bp) * δ
+#     for l in 2:length(ρ)
+#         # update polynomial evaluation
+#         total_p .+= bp * ρ[l]
+#         total_m .+= bm * ρ[l]
 
-        # update convolution
-        cp = zeros(N + 1)
-        cm = zeros(N + 1)
+#         # update convolution
+#         cp = zeros(N + 1)
+#         cm = zeros(N + 1)
 
-        for i in 1:N + 1
-            k = _DE_quantizer(i - 1, i - 1, δ) + 1
-            cp[k] += ap[i] * bp[i]
-            cm[k] += am[i] * bm[i]
-            for j in i + 1:N + 1
-                k = _DE_quantizer(i - 1, j - 1, δ) + 1
-                cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
-                cm[k] += am[i] * bm[j] + am[j] * bm[i]
-            end
-        end
-        @. cp += ap * binf + ainf * bp
-        @. cm += am * binf + ainf * bm
+#         for i in 1:N + 1
+#             k = _DE_quantizer(i - 1, i - 1, δ) + 1
+#             cp[k] += ap[i] * bp[i]
+#             cm[k] += am[i] * bm[i]
+#             for j in i + 1:N + 1
+#                 k = _DE_quantizer(i - 1, j - 1, δ) + 1
+#                 cp[k] += ap[i] * bp[j] + ap[j] * bp[i]
+#                 cm[k] += am[i] * bm[j] + am[j] * bm[i]
+#             end
+#         end
+#         @. cp += ap * binf + ainf * bp
+#         @. cm += am * binf + ainf * bm
 
-        # update bp, bm, binf
-        @. bp = cp * δ
-        @. bm = cm * δ
-        binf = 1 - sum(bp) * δ
-    end
+#         # update bp, bm, binf
+#         @. bp = cp * δ
+#         @. bm = cm * δ
+#         binf = 1 - sum(bp) * δ
+#     end
 
-    b = _L_Density(N, δ)
-    b.data[N + 1] = total_p[1]
-    b.data[N + 2:end] .= (total_p[2:end] .+ total_m[2:end]) ./ 2
-    b.data[1:N] .= (total_p[end:-1:2] .- total_m[end:-1:2]) ./ 2
+#     b = _L_Density(N, δ)
+#     b.data[N + 1] = total_p[1]
+#     b.data[N + 2:end] .= (total_p[2:end] .+ total_m[2:end]) ./ 2
+#     b.data[1:N] .= (total_p[end:-1:2] .- total_m[end:-1:2]) ./ 2
 
-    return b
-end
+#     return b
+# end
 
-function _check_node_update_BMS_DE(ρ::Vector{<:Real}, a::_L_Density)
-end
+# function _check_node_update_BMS_DE(ρ::Vector{<:Real}, a::_L_Density)
+# end
 
-function _variable_node_update_BMS_DE(λ::Vector{<:Real}, dist::_L_Density, initial_fft::Vector{<:Complex})
-    N = dist.N
-    δ = dist.δ
-    a_fft = zeros(ComplexF64, length(initial_fft))
-    a_fft[1:N + 1] .= dist.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
-    a_fft[end - N + 1:end] .= dist.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
-    fft!(a_fft)
+# function _variable_node_update_BMS_DE(λ::Vector{<:Real}, dist::_L_Density, initial_fft::Vector{<:Complex})
+#     N = dist.N
+#     δ = dist.δ
+#     a_fft = zeros(ComplexF64, length(initial_fft))
+#     a_fft[1:N + 1] .= dist.data[N + 1:end] .* exp.(.-collect(0:N) .* δ ./ 2)
+#     a_fft[end - N + 1:end] .= dist.data[1:N] .* exp.(.-collect(-N:-1) .* δ ./ 2)
+#     fft!(a_fft)
 
-    # need to convolve with itself multiple times, so save the FFT in a_temp
-    a_temp = copy(a_fft)
+#     # need to convolve with itself multiple times, so save the FFT in a_temp
+#     a_temp = copy(a_fft)
 
-    # keep the running total in a_total
-    a_total = zeros(ComplexF64, length(initial_fft))
+#     # keep the running total in a_total
+#     a_total = zeros(ComplexF64, length(initial_fft))
 
-    # collect the FFT domain result (still transformed to take advantage of L-symmetry) of the
-    # polynomial λ applied to `dist`
-    for i in 2:length(λ)
-        @. a_total += λ[i] * a_temp
-        @. a_temp *= a_fft * δ
-    end
+#     # collect the FFT domain result (still transformed to take advantage of L-symmetry) of the
+#     # polynomial λ applied to `dist`
+#     for i in 2:length(λ)
+#         @. a_total += λ[i] * a_temp
+#         @. a_temp *= a_fft * δ
+#     end
 
-    # convolution with the original channel message
-    a_total .*= initial_fft * δ
+#     # convolution with the original channel message
+#     a_total .*= initial_fft * δ
 
-    # get back to the proper domain and undo the transformation from above
-    ifft!(a_total)
-    result = _L_Density(N, δ)
-    result.data[N + 1:end] .= real.(a_total[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
-    result.data[1:N] .= real.(a_total[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
+#     # get back to the proper domain and undo the transformation from above
+#     ifft!(a_total)
+#     result = _L_Density(N, δ)
+#     result.data[N + 1:end] .= real.(a_total[1:N + 1]) .* exp.(collect(0:N) .* δ ./ 2)
+#     result.data[1:N] .= real.(a_total[end - N + 1:end]) .* exp.(collect(-N:-1) .* δ ./ 2)
 
-    return result
-end
+#     return result
+# end
 
-function _variable_node_update_BMS_DE_bad(λ::Vector{<:Real}, b::_L_Density, initial::_L_Density)
-    _conv(x, y) = b.δ * [sum(x[i - k + b.N + 1] * y[k] for k in eachindex(y) if 1 <= i - k + b.N + 1 <= length(x)) for i in eachindex(y)]
-    temp = copy(b.data)
-    a = _L_Density(b.N, b.δ)
-    for i in 2:length(λ)
-        a.data .+= λ[i] * temp
-        temp .= _conv(temp, b.data)
-    end
-    a.data .= _conv(a.data, initial.data)
-    return a
-end
+# function _variable_node_update_BMS_DE_bad(λ::Vector{<:Real}, b::_L_Density, initial::_L_Density)
+#     _conv(x, y) = b.δ * [sum(x[i - k + b.N + 1] * y[k] for k in eachindex(y) if 1 <= i - k + b.N + 1 <= length(x)) for i in eachindex(y)]
+#     temp = copy(b.data)
+#     a = _L_Density(b.N, b.δ)
+#     for i in 2:length(λ)
+#         a.data .+= λ[i] * temp
+#         temp .= _conv(temp, b.data)
+#     end
+#     a.data .= _conv(a.data, initial.data)
+#     return a
+# end
 
-function DEBMStest()
-    δ = 0.01
-    N = round(Int, 50 / δ)
-    initial = CodingTheory._L_Density(N, δ)
+# function DEBMStest()
+#     δ = 0.01
+#     N = round(Int, 50 / δ)
+#     initial = CodingTheory._L_Density(N, δ)
 
-    # example 4.100, p221
-    sigma = 0.93
-    initial.data .= [(sigma / √(8π)) * exp(-(y - (2 / sigma^2))^2 * sigma^2 / 8) for y in -δ*N:δ:δ*N]
-    λ = [0, 0.212332, 0.197596, 0, 0.0142733, 0.0744898, 0.0379457, 0.0693008, 0.086264, 0, 0.00788586, 0.0168657, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.283047]
-    ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
+#     # example 4.100, p221
+#     sigma = 0.93
+#     initial.data .= [(sigma / √(8π)) * exp(-(y - (2 / sigma^2))^2 * sigma^2 / 8) for y in -δ*N:δ:δ*N]
+#     λ = [0, 0.212332, 0.197596, 0, 0.0142733, 0.0744898, 0.0379457, 0.0693008, 0.086264, 0, 0.00788586, 0.0168657, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.283047]
+#     ρ = [0, 0, 0, 0, 0, 0, 0, 0, 1.0]
 
-    inds = (1, 5, 10, 14, 15)
-    # inds = (1, 5, 10, 25, 50)
-    # inds = (1, 5, 10, 50, 140)
+#     inds = (1, 5, 10, 14, 15)
+#     # inds = (1, 5, 10, 25, 50)
+#     # inds = (1, 5, 10, 50, 140)
 
-    evo_a, evo_b = _density_evolution_BMS(λ, ρ, initial; max_iters = maximum(inds) + 1)
+#     evo_a, evo_b = _density_evolution_BMS(λ, ρ, initial; max_iters = maximum(inds) + 1)
 
-    plot_delta = 0.5
-    skip = round(Int, plot_delta / δ)
-    x = -δ * N:plot_delta:δ * N
-    y_inds = 1:skip:length(-plot_delta * N:plot_delta:plot_delta * N)
+#     plot_delta = 0.5
+#     skip = round(Int, plot_delta / δ)
+#     x = -δ * N:plot_delta:δ * N
+#     y_inds = 1:skip:length(-plot_delta * N:plot_delta:plot_delta * N)
 
-    # This plot should look like fig 4.101, top left panel
-    plt1 = plot(x, initial.data[y_inds],
-                title = "\$a_0\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
+#     # This plot should look like fig 4.101, top left panel
+#     plt1 = plot(x, initial.data[y_inds],
+#                 title = "\$a_0\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
 
-    # This should look like fig 4.101, top right panel
-    plt2 = plot(x, evo_b[1].data[y_inds],
-                title = "\$b_1\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
+#     # This should look like fig 4.101, top right panel
+#     plt2 = plot(x, evo_b[1].data[y_inds],
+#                 title = "\$b_1\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
 
-    plt3 = plot(x, evo_a[inds[2]].data[y_inds],
-                title = "\$a_{$(inds[2])}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt4 = plot(x, evo_b[inds[2]+1].data[y_inds],
-                title = "\$b_{$(inds[2]+1)}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt5 = plot(x, evo_a[inds[3]].data[y_inds],
-                title = "\$a_{$(inds[3])}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt6 = plot(x, evo_b[inds[3]+1].data[y_inds],
-                title = "\$b_{$(inds[3]+1)}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt7 = plot(x, evo_a[inds[4]].data[y_inds],
-                title = "\$a_{$(inds[4])}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt8 = plot(x, evo_b[inds[4]+1].data[y_inds],
-                title = "\$b_{$(inds[4]+1)}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt9 = plot(x, evo_a[inds[5]].data[y_inds],
-                title = "\$a_{$(inds[5])}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt10 = plot(x, evo_b[inds[5]+1].data[y_inds],
-                title = "\$b_{$(inds[5]+1)}\$",
-                xlims = (-10, 45),
-                ylims = (0,0.25),
-                legend = false,
-                framestyle = :box,
-                yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
-                xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
-                )
-    plt = plot(plt1, plt2, plt3, plt4, plt5, plt6, plt7, plt8, plt9, plt10, layout = (5,2), size = (600, 900))
+#     plt3 = plot(x, evo_a[inds[2]].data[y_inds],
+#                 title = "\$a_{$(inds[2])}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt4 = plot(x, evo_b[inds[2]+1].data[y_inds],
+#                 title = "\$b_{$(inds[2]+1)}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt5 = plot(x, evo_a[inds[3]].data[y_inds],
+#                 title = "\$a_{$(inds[3])}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt6 = plot(x, evo_b[inds[3]+1].data[y_inds],
+#                 title = "\$b_{$(inds[3]+1)}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt7 = plot(x, evo_a[inds[4]].data[y_inds],
+#                 title = "\$a_{$(inds[4])}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt8 = plot(x, evo_b[inds[4]+1].data[y_inds],
+#                 title = "\$b_{$(inds[4]+1)}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt9 = plot(x, evo_a[inds[5]].data[y_inds],
+#                 title = "\$a_{$(inds[5])}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt10 = plot(x, evo_b[inds[5]+1].data[y_inds],
+#                 title = "\$b_{$(inds[5]+1)}\$",
+#                 xlims = (-10, 45),
+#                 ylims = (0,0.25),
+#                 legend = false,
+#                 framestyle = :box,
+#                 yticks = ([0.05, 0.1, 0.15, 0.2], ["0.05", "0.10", "0.15", "0.20"]),
+#                 xticks = (-10:5:40, ["-10", "", "0", "", "10", "", "20", "", "30", "", "40"])
+#                 )
+#     plt = plot(plt1, plt2, plt3, plt4, plt5, plt6, plt7, plt8, plt9, plt10, layout = (5,2), size = (600, 900))
 
-    return plt, evo_a, evo_b
-end
+#     return plt, evo_a, evo_b
+# end
 
-#########################################################################
-########## below is old code, delete after verifying the above ##########
-#########################################################################
+# #########################################################################
+# ########## below is old code, delete after verifying the above ##########
+# #########################################################################
 
-# # @assert l_max > 1
-# # @assert 0 < ε < 1
-# # channel ∈ (:BEC, :BSC, :BIAWGN) || throw(ArgumentError("Channel not yet implemented"))
-# # decoder ∈ (:BEC, :A, :SP) || throw(ArgumentError("Decoder not supported"))
-# # if channel == :BEC
-# #     decoder == :BEC || throw(ArgumentError("The only decoder supported for the BEC channel is :BEC"))
+# # # @assert l_max > 1
+# # # @assert 0 < ε < 1
+# # # channel ∈ (:BEC, :BSC, :BIAWGN) || throw(ArgumentError("Channel not yet implemented"))
+# # # decoder ∈ (:BEC, :A, :SP) || throw(ArgumentError("Decoder not supported"))
+# # # if channel == :BEC
+# # #     decoder == :BEC || throw(ArgumentError("The only decoder supported for the BEC channel is :BEC"))
+# # # end
+
+# # # R, x = PolynomialRing(RealField(), :x)
+
+# # function optimal_lambda_and_rho(l_max::Int, r_max::Int, real_param::Float64, var_type::Symbol)
+# #     var_type ∈ (:r, :ε) || throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
+# #     var_type == :r && real_param >= 1 - 2/r_max && throw(ArgumentError("This rate is unachieveable with the given r_max."))
+# #     # TODO: check for when var_type == :ε as well
+
+# #     tolerance = 1e-9
+
+# #     # initial guess: ρ(x) = x^(r_max - 1)
+# #     ρ = zeros(r_max); ρ[end] = 1
+# #     # this makes sense to me, but we could choose for some c ∈ (0, 1]
+# #     #   ρ(x) = (1 - c) * x^(r_max - 2) + c * x^(r_max - 1)
+# #     # which would be given by the code:
+# #     # ρ = zeros(r_max); c = 0.5; ρ[end - 1] = 1 - c; ρ[end] = c;
+
+# #     # if we need an initial λ, this would be it:
+# #     # λ, _, _ = _optimal_distributions(ρ, :ρ, l_max, real_param, var_type)
+
+# #     # solve until convergence for each ε, see if rates match, else change ε and repeat
+# #     if var_type == :r
+# #         max_iters = 100
+# #         high = 1.0
+# #         low = 0.0
+# #         mid = 0.5
+
+# #         countinner = 0
+# #         λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
+# #         ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
+# #         λprev = copy(λ)
+# #         ρprev = copy(ρ)
+# #         convergedinner = false
+# #         while countinner <= max_iters
+# #             countinner += 1
+# #             λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
+# #             ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
+# #             normλ = _L2_dist_sq(λ, λprev)
+# #             normρ = _L2_dist_sq(ρ, ρprev)
+# #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
+# #             λprev .= λ
+# #             ρprev .= ρ
+# #         end
+# #         if !convergedinner
+# #             # TODO: better error here, just putting something for now
+# #             error("inner convergence failed")
+# #         end
+# #         sol_rate = 1 - _integrate_poly_0_1(ρ) / _integrate_poly_0_1(λ)
+# #         Δ = sol_rate - real_param
+
+# #         converged = abs(Δ) <= tolerance
+# #         count = 0
+# #         while count <= max_iters && !converged
+# #             count += 1
+# #             Δ > 0 ? (low = mid;) : (high = mid;)
+# #             mid = (high + low) / 2
+
+# #             countinner = 0
+# #             convergedinner = false
+# #             while countinner <= max_iters
+# #                 countinner += 1
+# #                 λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
+# #                 ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
+# #                 normλ = _L2_dist_sq(λ, λprev)
+# #                 normρ = _L2_dist_sq(ρ, ρprev)
+# #                 normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
+# #                 λprev .= λ
+# #                 ρprev .= ρ
+# #             end
+# #             if !convergedinner
+# #                 # TODO: better error here, just putting something for now
+# #                 error("inner convergence failed")
+# #             end
+# #             converged = abs(Δ) <= tolerance
+# #         end
+# #         # TODO: better error here, just putting something for now
+# #         converged ? (return λ, ρ, mid;) : error("outer convergence failed")
+# #     else # var_type == :ε
+# #         countinner = 0
+# #         λ, _ = _find_lambda_given_rho(ρ, real_param, l_max)
+# #         ρ, _ = _find_rho_given_lambda(λ, real_param, r_max)
+# #         λprev = copy(λ)
+# #         ρprev = copy(ρ)
+# #         convergedinner = false
+# #         while countinner <= max_iters
+# #             countinner += 1
+# #             λ, _ = _find_lambda_given_rho(ρ, real_param, l_max)
+# #             ρ, _ = _find_rho_given_lambda(λ, real_param, r_max)
+# #             normλ = _L2_dist_sq(λ, λprev)
+# #             normρ = _L2_dist_sq(ρ, ρprev)
+# #             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
+# #             λprev .= λ
+# #             ρprev .= ρ
+# #         end
+# #         convergedinner && (return λ, ρ, 1 - _integrate_poly_0_1(ρ) / _integrate_poly_0_1(λ))
+# #     end
 # # end
 
-# # R, x = PolynomialRing(RealField(), :x)
+# # function optimal_threshold(λ, ρ)
+# #     high = 1.0
+# #     low = 0.0
+# #     Δ = 1
+# #     tolerance = 1e-9
+# #     while Δ > tolerance
+# #         mid = (high + low) / 2
+# #         # some way to evaluate f(x) on this range
+# #         # for x in 0.001:001:1
+# #         #     # l_max
+# #         #     mid * sum(λ[i] * (1 - _poly_eval(1 - x, ρ_vec))^i for i in 1:l_max - 1) - x
+# #         # end
 
-# function optimal_lambda_and_rho(l_max::Int, r_max::Int, real_param::Float64, var_type::Symbol)
-#     var_type ∈ (:r, :ε) || throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
-#     var_type == :r && real_param >= 1 - 2/r_max && throw(ArgumentError("This rate is unachieveable with the given r_max."))
-#     # TODO: check for when var_type == :ε as well
-
-#     tolerance = 1e-9
-
-#     # initial guess: ρ(x) = x^(r_max - 1)
-#     ρ = zeros(r_max); ρ[end] = 1
-#     # this makes sense to me, but we could choose for some c ∈ (0, 1]
-#     #   ρ(x) = (1 - c) * x^(r_max - 2) + c * x^(r_max - 1)
-#     # which would be given by the code:
-#     # ρ = zeros(r_max); c = 0.5; ρ[end - 1] = 1 - c; ρ[end] = c;
-
-#     # if we need an initial λ, this would be it:
-#     # λ, _, _ = _optimal_distributions(ρ, :ρ, l_max, real_param, var_type)
-
-#     # solve until convergence for each ε, see if rates match, else change ε and repeat
-#     if var_type == :r
-#         max_iters = 100
-#         high = 1.0
-#         low = 0.0
-#         mid = 0.5
-
-#         countinner = 0
-#         λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
-#         ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
-#         λprev = copy(λ)
-#         ρprev = copy(ρ)
-#         convergedinner = false
-#         while countinner <= max_iters
-#             countinner += 1
-#             λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
-#             ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
-#             normλ = _L2_dist_sq(λ, λprev)
-#             normρ = _L2_dist_sq(ρ, ρprev)
-#             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
-#             λprev .= λ
-#             ρprev .= ρ
-#         end
-#         if !convergedinner
-#             # TODO: better error here, just putting something for now
-#             error("inner convergence failed")
-#         end
-#         sol_rate = 1 - _integrate_poly_0_1(ρ) / _integrate_poly_0_1(λ)
-#         Δ = sol_rate - real_param
-
-#         converged = abs(Δ) <= tolerance
-#         count = 0
-#         while count <= max_iters && !converged
-#             count += 1
-#             Δ > 0 ? (low = mid;) : (high = mid;)
-#             mid = (high + low) / 2
-
-#             countinner = 0
-#             convergedinner = false
-#             while countinner <= max_iters
-#                 countinner += 1
-#                 λ, _ = _find_lambda_given_rho(ρ, mid, l_max)
-#                 ρ, _ = _find_rho_given_lambda(λ, mid, r_max)
-#                 normλ = _L2_dist_sq(λ, λprev)
-#                 normρ = _L2_dist_sq(ρ, ρprev)
-#                 normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
-#                 λprev .= λ
-#                 ρprev .= ρ
-#             end
-#             if !convergedinner
-#                 # TODO: better error here, just putting something for now
-#                 error("inner convergence failed")
-#             end
-#             converged = abs(Δ) <= tolerance
-#         end
-#         # TODO: better error here, just putting something for now
-#         converged ? (return λ, ρ, mid;) : error("outer convergence failed")
-#     else # var_type == :ε
-#         countinner = 0
-#         λ, _ = _find_lambda_given_rho(ρ, real_param, l_max)
-#         ρ, _ = _find_rho_given_lambda(λ, real_param, r_max)
-#         λprev = copy(λ)
-#         ρprev = copy(ρ)
-#         convergedinner = false
-#         while countinner <= max_iters
-#             countinner += 1
-#             λ, _ = _find_lambda_given_rho(ρ, real_param, l_max)
-#             ρ, _ = _find_rho_given_lambda(λ, real_param, r_max)
-#             normλ = _L2_dist_sq(λ, λprev)
-#             normρ = _L2_dist_sq(ρ, ρprev)
-#             normλ <= tolerance && normρ <= tolerance && (convergedinner = true; break;)
-#             λprev .= λ
-#             ρprev .= ρ
-#         end
-#         convergedinner && (return λ, ρ, 1 - _integrate_poly_0_1(ρ) / _integrate_poly_0_1(λ))
-#     end
-# end
-
-# function optimal_threshold(λ, ρ)
-#     high = 1.0
-#     low = 0.0
-#     Δ = 1
-#     tolerance = 1e-9
-#     while Δ > tolerance
-#         mid = (high + low) / 2
-#         # some way to evaluate f(x) on this range
-#         # for x in 0.001:001:1
-#         #     # l_max
-#         #     mid * sum(λ[i] * (1 - _poly_eval(1 - x, ρ_vec))^i for i in 1:l_max - 1) - x
-#         # end
-
-#         # some loop
-#         f(low) * f(high) < 0 ? (high = mid;) : (low = mid;)
-#         Δ = abs(f(mid))
-#     end
-#     return mid
-# end
-
-#############################
-         # Quantum
-#############################
-
-#############################
-        # constructors
-#############################
-
-#############################
-      # getter functions
-#############################
-
-#############################
-      # setter functions
-#############################
-
-#############################
-     # general functions
-#############################
-
-
-
-
-
+# #         # some loop
+# #         f(low) * f(high) < 0 ? (high = mid;) : (low = mid;)
+# #         Δ = abs(f(mid))
+# #     end
+# #     return mid
+# # end

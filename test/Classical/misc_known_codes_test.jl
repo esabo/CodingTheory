@@ -1,4 +1,4 @@
-@testset "miscknowncodes.jl" begin
+@testset "Classical/misc_known_codes.jl" begin
     using Oscar, CodingTheory
 
     # Right now these are hardcoded in the function Hexacode(), but

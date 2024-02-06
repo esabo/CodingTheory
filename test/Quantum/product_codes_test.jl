@@ -1,4 +1,4 @@
-@testset "Quantum/productcodes.jl" begin
+@testset "Quantum/product_codes.jl" begin
     using Oscar, CodingTheory
 
     # Degenerate Quantum LDPC Codes With Good Finite Length Performance
