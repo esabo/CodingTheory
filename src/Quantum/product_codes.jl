@@ -647,7 +647,7 @@ function SPCDFoldProductCode(D::Int, s::Int = 1)
     set_minimum_distance!(S, 2^D)
     S.d_x = S.d
     S.d_x = S.d
-    S.is_pure = true
+    S.pure = true
     # metacheck distance = 3
     return S
 end

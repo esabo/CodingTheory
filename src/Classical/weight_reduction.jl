@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 function _reduce_rows(H::Union{CTMatrixTypes, MatElem{<: ResElem}}, rows::AbstractVector{Int},
-    compressed::Bool = false, permute::Bool)
+    compressed::Bool = false, permute::Bool = false)
 
     isempty(rows) && return H
     nr, nc = size(H)

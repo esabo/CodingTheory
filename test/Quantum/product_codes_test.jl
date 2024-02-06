@@ -166,7 +166,7 @@
     SPCtest = CodingTheory.SPCDFoldProductCode(3);
     @test length(SPCtest) == 512
     @test dimension(SPCtest) == 174
-    @test H_X = SPCtest.X_stabs
-    @test H_Z = SPCtest.Z_stabs
+    @test H_X == SPCtest.X_stabs
+    @test H_Z == SPCtest.Z_stabs
 
 end
