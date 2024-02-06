@@ -155,16 +155,17 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
 end
 
 """
-    copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, method::Symbol = :Hastings, target_q_X::Int = 3)
+    copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings, target_q_X::Int = 3)
 
 Return the result of copying on `H_X` and `H_Z` using either the Hastings, reduced, or targeted
 methods.
 """
-function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, method::Symbol = :Hastings,
+function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings,
     target_q_X::Int = 3)
 
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
+    # should we check these commute or trust the user?
 
     if method == :Hastings
        return _copying_Hastings(H_X, H_Z)
@@ -176,18 +177,21 @@ function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, method::Symbol = :Hasti
 end
 
 """
-    copying(S::StabilizerCodeCSS, method::Symbol = :Hastings, target_q_X::Int = 3)
+    copying(S::AbstractStabilizerCode, method::Symbol = :Hastings, target_q_X::Int = 3)
 
 Return the result of copying on `S` using either the Hastings, reduced, or targeted methods.
 """
-# TODO: use traits
-function copying(S::StabilizerCodeCSS, method::Symbol = :Hastings, target_q_X::Int = 3)
+copying(S::T; method::Symbol = :Hastings, target_q_X::Int = 3) where {T <: AbstractStabilizerCode} =
+    copying(CSSTrait(T), S, method, target_q_X)
+function copying(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int)
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
-    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method, target_q_X)
+    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X)
     return CSSCode(H_X, H_Z)
 end
+copying(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
+    error("Only valid for CSS codes.")
 
 """
     gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
@@ -263,23 +267,27 @@ function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 end
 
 """
-    gauging(S::StabilizerCodeCSS)
+    gauging(S::AbstractStabilizerCode)
 
 Return the result of gauging on `S`.
 """
-gauging(S::StabilizerCodeCSS) = CSSCode(gauging(S.X_stabs, S.Z_stabs)...)
+gauging(S::T) where {T <: AbstractStabilizerCode} = gauging(CSSTrait(T), S)
+gauging(::IsCSS, S::AbstractStabilizerCode) = CSSCode(gauging(S.X_stabs, S.Z_stabs)...)
+gauging(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes.")
 
-# this is thickening on its own
-"""
-    thickening(S::StabilizerCodeCSS, l::Integer)
+# should just call distance balancing and keep with that function
+# # this is thickening on its own
+# """
+#     thickening(S::AbstractStabilizerCode, l::Integer)
 
-Return the result of thickening on `S`.
-"""
-function thickening(S::StabilizerCodeCSS, l::Integer)
-    # C is just the repetition code, but thickening requires the parity check matrix to be in a particular form
-    H = matrix(GF(2), diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
-    return distance_balancing(S, LinearCode(H, true))
-end
+# Return the result of thickening on `S`.
+# """
+# function thickening(S::AbstractStabilizerCode, l::Integer)
+#     # C is just the repetition code, but thickening requires the parity check matrix to be in a particular form
+#     H = matrix(GF(2), diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
+#     # TODO: make a version of this function to take in two matrices
+#     return distance_balancing(S, LinearCode(H, true))
+# end
 
 # for weight reduction, it's easier to choose heights with thickening
 """
@@ -303,12 +311,17 @@ function thickening_and_choose_heights(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, l
 end
 
 """
-    thickening_and_choose_heights(S::StabilizerCodeCSS, l::Integer, heights::Vector{Int})
+    thickening_and_choose_heights(S::AbstractStabilizerCode, l::Integer, heights::Vector{Int})
 
 Return the result of thickening and choosing heights on `S`.
 """
-thickening_and_choose_heights(S::StabilizerCodeCSS, l::Integer, heights::Vector{Int}) =
-    CSSCode(thickening_and_choose_heights(S.X_stabs, S.Z_stabs, l, heights)...)
+thickening_and_choose_heights(S::T, l::Integer, heights::Vector{Int}) where {T <:
+    AbstractStabilizerCode} = thickening_and_choose_heights(CSSTrait(T), S, l, heights)
+thickening_and_choose_heights(::IsCSS, S::AbstractStabilizerCode, l::Integer,
+    heights::Vector{Int}) =  CSSCode(thickening_and_choose_heights(S.X_stabs, S.Z_stabs,
+    l, heights)...)
+thickening_and_choose_heights(::IsNotCSS, S::AbstractStabilizerCode, l::Integer,
+    heights::Vector{Int}) = error("Only valid for CSS codes.")
 
 function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     edges = Vector{T}[[e...] for e in _edges]
@@ -411,7 +424,6 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     return cycles
 end
 
-# make optional
 """
     coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
@@ -560,24 +572,31 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_
     return ∂0, transpose(∂1) # this is the new H_X, H_Z
 end
 
-# make optional
 """
-    coning(S::StabilizerCodeCSS, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `S` by reducing the `Z` stabilizers in `whichZ` and using the
 optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::StabilizerCodeCSS, whichZ::AbstractVector{Int}, l::Int, desired_q_X::Int = 3) =
-    CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l, desired_q_X)...)
+coning(S::T, whichZ::AbstractVector{Int}, l::Int, target_q_X::Int = 3) where {T <:
+    AbstractStabilizerCode} = coning(CSSTrait(T), S, whichZ, l, target_q_X)
+coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int,
+    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l, target_q_X)...)
+coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int,
+    target_q_X::Int) = error("Only valid for CSS codes.")
 
 """
-    weight_reduction(S::StabilizerCodeCSS, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
-    quantum_weight_reduction(S::StabilizerCodeCSS, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
+    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
+    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
 
 Return the weight-reduced CSS code of `S`.
 """
-function quantum_weight_reduction(S::StabilizerCodeCSS, l1::Int, heights::Vector{Int},
-    copying_type::Symbol=:Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3)
+quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}, copying_type::Symbol = :Hastings,
+    copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) where {T <: AbstractStabilizerCode} =
+    quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type, copying_target, l2,
+    target_q_X)
+function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
+    copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int)
 
     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
     # check copying target
@@ -593,6 +612,10 @@ function quantum_weight_reduction(S::StabilizerCodeCSS, l1::Int, heights::Vector
     H_X, H_Z = coning(H_X, H_Z, whichZ, l2, target_q_X)
     return CSSCode(H_X, H_Z)
 end
-weight_reduction(S::StabilizerCodeCSS, l1::Int, heights::Vector{Int},
-    copying_type::Symbol=:Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
+quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
+    copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int) =
+    error("Only valid for CSS codes.")
+
+weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
+    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
     quantum_weight_reduction(S, l1, heights, copying_type, copying_target, l2, target_q_X)
