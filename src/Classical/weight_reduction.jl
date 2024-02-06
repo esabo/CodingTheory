@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 function _reduce_rows(H::Union{CTMatrixTypes, MatElem{<: ResElem}}, rows::AbstractVector{Int},
-    method::Symbol, permute::Bool)
+    compressed::Bool = false, permute::Bool)
 
     isempty(rows) && return H
     nr, nc = size(H)
-    if method == :compressed
+    if compressed
         temp = sum(count(!iszero, H[r, :]) - 3 for r in rows)
         H_new = zero_matrix(base_ring(H), nr + temp, nc + temp)
         t_C(n) = matrix(base_ring(H), diagm(n, n - 1, 0 => ones(Int, n - 1), -1 => ones(Int, n - 1)))
@@ -55,21 +55,20 @@ function _reduce_rows(H::Union{CTMatrixTypes, MatElem{<: ResElem}}, rows::Abstra
     return H_new
 end
 
-# to do: make optional arguments and redo seed
 """
-weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}, rows::Bool = true,
-    row_indices::AbstractVector{Int}, permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int}, permute_columns::Bool = true,
-    column_target::Int = 3, method::Symbol = :identity, seed = nothing)
+weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bool = true,
+    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
+    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
+    column_target::Int = 3, compressed::Bool = false, seed = nothing)
 
 Return the weight-reduced code of `H` with the given arguments.
 """
 function weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bool = true,
-    row_indices::AbstractVector{Int} = [], permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int} = [], permute_columns::Bool = true,
-    column_target::Int = 3, method::Symbol = :identity, seed = nothing)
+    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
+    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
+    column_target::Int = 3, compressed::Bool = false, seed = nothing)
 
-    method ∈ (:compressed, :identity) || throw(ArgumentError("Unknown reduction method"))
+    # method ∈ (:compressed, :identity) || throw(ArgumentError("Unknown reduction method"))
     Random.seed!(seed)
 
     if rows
@@ -79,8 +78,7 @@ function weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bo
             _, row_wts = _degree_distribution(H)
             row_indices = findall(x -> x > row_target, row_wts)
         end
-        # H_reduced = _reduce_rows(permute ? H * permutation_matrix(base_ring(H), shuffle(1:ncols(H))) : H, row_indices)
-        H_reduced = _reduce_rows(H, row_indices, method, permute_rows)
+        H_reduced = _reduce_rows(H, row_indices, compressed, permute_rows)
     else
         H_reduced = H
     end
@@ -92,30 +90,28 @@ function weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bo
             col_wts, _ = _degree_distribution(H_reduced)
             column_indices = findall(x -> x > column_target, col_wts)
         end
-        # permutation && (H_reduced = permutation_matrix(base_ring(H), shuffle(1:nrows(H_reduced))) * H_reduced)
-        # H_reduced = transpose(_reduce_rows(transpose(H_reduced), cols_to_be_reduced))
-        H_reduced = transpose(_reduce_rows(transpose(H_reduced), column_indices, method, permute_columns))
+        H_reduced = transpose(_reduce_rows(transpose(H_reduced), column_indices, compressed, permute_columns))
     end
     return H_reduced
 end
 
 """
-weight_reduction(C::Union{AbstractLinearCode, AbstractLDPCCode}, rows::Bool = true,
-    row_indices::AbstractVector{Int}, permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int}, permute_columns::Bool = true,
-    column_target::Int = 3, method::Symbol = :identity, seed = nothing)
+weight_reduction(C::Union{AbstractLinearCode, AbstractLDPCCode}; rows::Bool = true,
+    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
+    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
+    column_target::Int = 3, compressed::Bool = false, seed = nothing)
 
 Return the weight-reduced code of `C` with the given arguments.
 """
 function weight_reduction(C::Union{AbstractLinearCode, AbstractLDPCCode}; rows::Bool = true,
-    row_indices::AbstractVector{Int} = [], permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int} = [], permute_columns::Bool = true,
-    column_target::Int = 3, method::Symbol = :identity, seed = nothing)
+    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
+    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
+    column_target::Int = 3, compressed::Bool = false, seed = nothing)
 
     H_reduced = weight_reduction(parity_check_matrix(C), rows = rows, row_indices = row_indices,
         permute_rows = permute_rows, row_target = row_target, columns = columns,
         column_indices = column_indices, permute_columns = permute_columns,
-        column_target = column_target, method = method, seed = seed)
+        column_target = column_target, compressed = compressed, seed = seed)
     
     if C isa QuasiCyclicCode
         return QuasiCyclicCode(H_reduced, true)
