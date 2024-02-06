@@ -95,7 +95,7 @@ function _copying_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 end
 
 function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3)
-    target_q_X ≤ 3 && throw(DomainError(target_q_X, "Target column weight must be at least 3."))
+    target_q_X >= 3 || throw(DomainError(target_q_X, "Target column weight must be at least 3."))
 
     n_X, n = size(H_X)
     # get column weights
@@ -164,7 +164,7 @@ function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, method::Symbol = :Hasti
     target_q_X::Int = 3)
 
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
-    target_q_X >= 3 || throw(DomainError("Target must be at least 3"))
+    target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
     if method == :Hastings
        return _copying_Hastings(H_X, H_Z)
@@ -183,7 +183,7 @@ Return the result of copying on `S` using either the Hastings, reduced, or targe
 # TODO: use traits
 function copying(S::StabilizerCodeCSS, method::Symbol = :Hastings, target_q_X::Int = 3)
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
-    target_q_X >= 3 || throw(DomainError("Target must be at least 3"))
+    target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
     H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method, target_q_X)
     return CSSCode(H_X, H_Z)
@@ -386,7 +386,7 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
 
             else # graph is not a multigraph, must find a short cycle more traditionally
                 temp = [(first(e), last(e)) for e in edges]
-                tempcycles = Grphs.cycle_basis(Grphs.SimpleGraph(Graphs.SimpleEdge.(temp)))
+                tempcycles = Grphs.cycle_basis(Grphs.SimpleGraph(Grphs.SimpleEdge.(temp)))
                 _, i = findmin(length, tempcycles)
                 c = tempcycles[i]
                 length(c) > 2log2(count(!iszero, degrees)) && @warn "cycle $(length(cycles) + 1) is longer than necessary"
@@ -411,16 +411,15 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     return cycles
 end
 
-# AbstractVector?
 # make optional
 """
-    coning(H_X::T, H_Z::T, whichZ::AbstractVector, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in
 `whichZ` and using the optional arguments `l` and `target_q_X` for an optional round of
 thickening and choosing heights.
 """
-function coning(H_X::T, H_Z::T, whichZ::AbstractVector, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
     
     F = base_ring(H_X)
     n_X, n = size(H_X)
@@ -445,7 +444,7 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector, l::Int = 0, target_q_X::
         isempty(edges) && (edges = Tuple{Int, Int}[];)
         unique_edges = unique(edges)
 
-        # c = Graphs.cycle_basis(Graphs.SimpleGraph(Graphs.SimpleEdge.(unique_edges)))
+        # c = Grphs.cycle_basis(Grphs.SimpleGraph(Grphs.SimpleEdge.(unique_edges)))
         c = _cycle_basis_decongestion(unique_edges)
 
         # Bim1[i] = c
@@ -561,15 +560,14 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector, l::Int = 0, target_q_X::
     return ∂0, transpose(∂1) # this is the new H_X, H_Z
 end
 
-# AbstractVector?
 # make optional
 """
-    coning(S::StabilizerCodeCSS, whichZ::AbstractVector, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(S::StabilizerCodeCSS, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `S` by reducing the `Z` stabilizers in `whichZ` and using the
 optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::StabilizerCodeCSS, whichZ::AbstractVector, l::Int, desired_q_X::Int = 3) =
+coning(S::StabilizerCodeCSS, whichZ::AbstractVector{Int}, l::Int, desired_q_X::Int = 3) =
     CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l, desired_q_X)...)
 
 """
