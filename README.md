@@ -18,3 +18,9 @@ and then
     GAP.Packages.load("QDistRnd");
     GAP.Packages.load("LINS");
 These are not automatically installed and loaded.
+
+Quantum minimum distance functions are currently disabled due to a change in the underlying structs. DistRandCSS is still available via the built-in GAP interface.
+
+Parts of the library are multi-threaded and benefit greatly from the use of multiple cores.
+
+A growing list of examples and tutorials are provided in the documentation (which is only slightly out of date).
