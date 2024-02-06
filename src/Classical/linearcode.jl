@@ -881,14 +881,17 @@ Return the (Euclidean) hull of `C` and its dimension.
 function hull(C::AbstractLinearCode)
     G = generator_matrix(C)
     H = parity_check_matrix(C)
+    F = field(C)
     VS = VectorSpace(F, C.n)
-    U, _ = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
-    W, W_to_VS = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
-    I, _ = intersect(U, W)
+    U, U_to_VS = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
+    W, _ = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
+    I, I_to_W = intersect(U, W)
     if !iszero(AbstractAlgebra.dim(I))
-        I_basis = [W_to_VS(g) for g in gens(I)]
+        I_basis = [U_to_VS(I_to_W(g)) for g in gens(I)]
         G_I = reduce(vcat, I_basis)
-        return LinearCode(G_I), AbstractAlgebra.dim(I)
+        F_basis = [[F(G_I[j][i]) for i in 1:C.n] for j in 1:AbstractAlgebra.dim(I)]
+        G_hull = matrix(F, length(F_basis), length(F_basis[1]), reduce(vcat, F_basis))
+        return LinearCode(G_hull), AbstractAlgebra.dim(I)
     else
         return missing, 0 # is this the behavior I want?
     end
@@ -906,15 +909,18 @@ Return the Hermitian hull of `C` and its dimension.
 function Hermitian_hull(C::AbstractLinearCode)
     D = Hermitian_dual(C)
     G = generator_matrix(C)
-    H = generator_matrix(D)
+    H = parity_check_matrix(D)
+    F = field(C)
     VS = VectorSpace(F, C.n)
-    U, _ = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
-    W, W_to_VS = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
-    I, _ = intersect(U, W)
+    U, U_to_VS = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
+    W, _ = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
+    I, I_to_W = intersect(U, W)
     if !iszero(AbstractAlgebra.dim(I))
-        I_basis = [W_to_VS(g) for g in gens(I)]
+        I_basis = [U_to_VS(I_to_W(g)) for g in gens(I)]
         G_I = reduce(vcat, I_basis)
-        return LinearCode(G_I), AbstractAlgebra.dim(I)
+        F_basis = [[F(G_I[j][i]) for i in 1:C.n] for j in 1:AbstractAlgebra.dim(I)]
+        G_hull = matrix(F, length(F_basis), length(F_basis[1]), reduce(vcat, F_basis))
+        return LinearCode(G_hull), AbstractAlgebra.dim(I)
     else
         return missing, 0 # is this the behavior I want?
     end
@@ -949,3 +955,25 @@ function is_Hermitian_LCD(C::AbstractLinearCode)
 end
 
 # TODO: add l-Galois hull and is_LCD functions for that dual
+
+"""
+    contains_self_dual_subcode(C::AbstractLinearCode)
+
+Return `true` if `C` contains a self-dual subcode.
+"""
+function contains_self_dual_subcode(C::AbstractLinearCode)
+    # conditions in https://arxiv.org/abs/2310.16504v1
+    q = Int(order(C.F))
+    factors = Nemo.factor(q)
+    (p, t), = factors
+
+    if p == 2 # also works for powers of 2
+        return iseven(C.n) && is_self_orthogonal(dual(C))
+    elseif q % 4 == 1 # is it necessary to require k >= n / 2 here?
+        return iseven(C.n) && is_self_orthogonal(dual(C))
+    elseif q % 4 == 3 # is it necessary to require k >= n / 2 here?
+        return C.n % 4 == 0 && is_self_orthogonal(dual(C))
+    else
+        error("Unknown case for finite field of order $p^$t")
+    end
+end

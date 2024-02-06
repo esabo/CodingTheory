@@ -419,6 +419,86 @@ function random_CSS_code(n::Int, k::Int)
     return CSSCode(d[Xind, :], dt[Zind, :])
 end
 
+"""
+    is_CSS_T_code(S::AbstractStabilizerCode)
+
+Return `true` if `S` is a CSS-T code.
+"""
+is_CSS_T_code(S::AbstractStabilizerCode; verbose::Bool = false) = is_CSS_T_code(CSSTrait(typeof(S)), S; verbose = verbose)
+function is_CSS_T_code(::IsCSS, S::AbstractStabilizerCode; verbose::Bool = false)
+    C_X = LinearCode(S.X_stabs) # C_2
+    C_Z = LinearCode(S.Z_stabs) # dual(C_1)
+    
+    num_thrds = Threads.nthreads()
+    verbose && println("Detected $num_thrds threads.")
+    # should probably floor some logs here
+    power = 0
+    for i in 1:20
+        if 2^i > num_thrds
+            power = i - 1
+            break
+        end
+    end
+
+    p = Int(characteristic(C_X.F))
+    n = S.n
+    k = C_X.k
+    z = zeros(Int, n)
+    G = FpmattoJulia(transpose(C_X.G))
+    for r in 1:k
+        verbose && println("r: $r")
+        flag = Threads.Atomic{Bool}(true)
+        Threads.@threads for m in 1:num_thrds # 
+            # println("here")
+            c = deepcopy(z)
+            # prefix = digits(m - 1, base = 2, pad = power)
+            # println(k, ", ", r, ", ", prefix)
+            # TODO: fix this for SteaneCode - prefix is larger than k so iterator is empty
+            # for u in GrayCode(k, r, prefix, mutate = true)
+            for u in GrayCode(k, r, Int[], mutate = true)
+                # println("u:", u)
+                if flag[]
+                    LinearAlgebra.mul!(c, G, u)
+                    wt_c = 0
+                    supp_c = Int[]
+                    @inbounds for j in 1:n
+                        c[j] % p != 0 && (wt_c += 1; append!(supp_c, j);)
+                    end
+
+                     # for binary codes we can do this with a homomorphism, but this is non-linear for q-ary
+                    # since we have to enumerate the codes anyway, we might as well just do this
+                    # note, this is not even-like for q-ary
+                    if !iseven(wt_c)
+                        Threads.atomic_cas!(flag, true, false)
+                        verbose && println("not even weight")
+                        break
+                    end
+                    verbose && println("shortening on ", setdiff(1:n, supp_c))
+                    # shorten C_Z on the complement of supp_x
+                    temp = shorten(C_Z, setdiff(1:n, supp_c))
+                    # println("thread: $m ", temp)
+                    # display(temp)
+                    if !contains_self_dual_subcode(temp)
+                        Threads.atomic_cas!(flag, true, false)
+                        verbose && println("m: $m, no subcode")
+                        break
+                    end
+                else
+                    break
+                end
+            end
+            if !flag[]
+                break
+            end
+        end
+        if !flag[]
+            return false
+        end
+    end
+    return true
+end
+is_CSS_T_code(::IsNotCSS, S::AbstractStabilizerCode; verbose::Bool = false) = false
+
 #############################
 #   Generator Coefficients  #
 #############################

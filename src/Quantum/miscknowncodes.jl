@@ -808,6 +808,9 @@ function Q823()
     return StabilizerCode(stabs)
 end
 
+Q832() = StabilizerCode(["XXXXXXXX", "ZZZZIIII", "ZZIIZZII", "ZIZIZIZI", "ZZZZZZZZ"])
+SmallestInterestingColorCode() = Q832()
+
 """
     Q15RM()
     Q1513()

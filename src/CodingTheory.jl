@@ -26,7 +26,7 @@ using DataStructures
 using StatsBase
 
 # TODO: no need to import things I switched to snake_case
-import LinearAlgebra: tr, Adjoint, transpose, kron
+import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
@@ -103,7 +103,7 @@ export LinearCode, field, length, dimension, cardinality, rate, relative_distanc
     is_doubly_even, is_triply_even, characteristic_polynomial, is_Hermitian_LCD, is_Hermitian_dual_containing,
     is_LCD, Hermitian_hull, hull, is_Hermitian_self_dual, is_dual_containing, minimum_distance_lower_bound,
     minimum_distance_upper_bound, set_distance_upper_bound!, standard_form_permutation, genus,
-    is_overcomplete, are_permutation_equivalent, vector_space
+    is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode
 
 #############################
     # newcodesfromold.jl
@@ -244,7 +244,7 @@ export SubsystemCode, field, length, num_qubits, dimension, cardinality,
 #############################
 
 include("Quantum/stabilizercode.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code
+export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code
 
 #############################
       # graphstate.jl
@@ -266,7 +266,8 @@ export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode, GeneralizedBac
 export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D
+    ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D,
+    Q832, SmallestInterestingColorCode
 
 #############################
         # trellis.jl
@@ -322,7 +323,22 @@ export Tanner_graph_plot, Tanner_graph, Tanner_code
        # chaincomplex.jl
 #############################
 
-include("chaincomplex.jl")
-export boundaries, cochain, distance_balancing
+# include("chaincomplex.jl")
+# export boundaries, cochain, distance_balancing
+
+#############################
+# Classical/weight_reduction.jl
+#############################
+
+include("Classical/weight_reduction.jl")
+export weight_reduction
+
+#############################
+# Quantum/weight_reduction.jl
+#############################
+
+include("Quantum/weight_reduction.jl")
+export copying, gauging, thickening, thickening_and_choose_heights,
+    coning, quantum_weight_reduction
 
 end

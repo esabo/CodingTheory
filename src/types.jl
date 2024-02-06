@@ -41,6 +41,7 @@ const CTMatrixTypes = MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
+const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
 
 #############################
       # concrete types
@@ -376,8 +377,8 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
     stabs::CTMatrixTypes
     X_stabs::CTMatrixTypes
     Z_stabs::CTMatrixTypes
-    X_orig_code::Union{LinearCode, Missing}
-    Z_orig_code::Union{LinearCode, Missing}
+    X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
+    Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
     signs::Vector{nmod}
     X_signs::Vector{nmod}
     Z_signs::Vector{nmod}
@@ -427,8 +428,8 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
     stabs::CTMatrixTypes
     X_stabs::CTMatrixTypes
     Z_stabs::CTMatrixTypes
-    X_orig_code::Union{LinearCode, Missing}
-    Z_orig_code::Union{LinearCode, Missing}
+    X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
+    Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
     signs::Vector{nmod}
     X_signs::Vector{nmod}
     Z_signs::Vector{nmod}
@@ -501,8 +502,8 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
     stabs::CTMatrixTypes
     X_stabs::CTMatrixTypes
     Z_stabs::CTMatrixTypes
-    X_orig_code::Union{LinearCode, Missing}
-    Z_orig_code::Union{LinearCode, Missing}
+    X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
+    Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
     signs::Vector{nmod}
     X_signs::Vector{nmod}
     Z_signs::Vector{nmod}
@@ -543,8 +544,8 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
     stabs::CTMatrixTypes
     X_stabs::CTMatrixTypes
     Z_stabs::CTMatrixTypes
-    X_orig_code::Union{LinearCode, Missing}
-    Z_orig_code::Union{LinearCode, Missing}
+    X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
+    Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
     signs::Vector{nmod}
     X_signs::Vector{nmod}
     Z_signs::Vector{nmod}
@@ -573,8 +574,8 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
     stabs::CTMatrixTypes
     X_stabs::CTMatrixTypes
     Z_stabs::CTMatrixTypes
-    C1::Union{LinearCode, Missing}
-    C2::Union{LinearCode, Missing}
+    C1::Union{S, Missing} where S <: AbstractLinearCode
+    C2::Union{S, Missing} where S <: AbstractLinearCode
     signs::Vector{nmod}
     X_signs::Vector{nmod}
     Z_signs::Vector{nmod}

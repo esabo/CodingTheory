@@ -8,90 +8,80 @@
         # constructors
 #############################
 
+# Base.zero(phi::AbstractAlgebra.Generic.ModuleHomomorphism) = hom(domain(phi), codomain(phi), [zero(codomain(phi)) for i in 1:ngens(domain(phi))])
+
 """
-    ChainComplex(chain::Vector{T}) where T <: CTMatrixTypes
+    chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T <: CTMatrixTypes
 
-Return a chain complex based on the boundary maps in `chain`.
+Return the chain complex whose boundary maps are given by `∂s` and lowest degree by
+`lowest_degree`.
 """
-function ChainComplex(chain::Vector{T}) where T <: CTMatrixTypes
-    F = base_ring(chain[1])
-    all(x -> base_ring(x) == F, chain) || throw(ArgumentError("All inputs must be over the same base ring"))
-    # println([size(mat) for mat in chain])
-
-    # check to make sure matrices define a valid chain complex
-    len = length(chain)
-    # this is one place people may actually not index linearly
-    for i in 1:len - 1
-        iszero(chain[i] * chain[i + 1]) || throw(ArgumentError("Boundary maps must satisfy `iszero(chain[i] * chain[i + 1])`"))
-    end
-    return ChainComplex{T}(F, len + 1, chain)
-end
-
-function test_Oscar_chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T <: CTMatrixTypes
+function chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T <: CTMatrixTypes
     F = base_ring(∂s[1])
     all(x -> base_ring(x) == F, ∂s) || throw(ArgumentError("All inputs must be over the same base ring"))
     spaces = [[vector_space(F, ncols(∂i)) for ∂i in ∂s]; vector_space(F, nrows(∂s[end]))]
-    # return spaces
-    # need to transpose because they are doing right multiplication
+    # need to transpose because they are forced into right multiplication for noncommuntative rings
     morphisms = [hom(spaces[i], spaces[i + 1], transpose(∂i)) for (i, ∂i) in enumerate(∂s)]
-    # C = chain_complex(morphisms; seed = lowest_degree)
-    C = ComplexOfMorphisms(typeof(spaces[1]), morphisms, typ = :chain, seed = lowest_degree)
-    return C
+    # ComplexOfMorphisms(typeof(spaces[1]), morphisms, typ = :chain, seed = lowest_degree)
+    return chain_complex(morphisms; seed = lowest_degree)
 end
 
+# these are not defined for subsystem CSS codes or graph states?
 """
-    ChainComplex(F::CTFieldTypes, len::Integer, boundaries::Vector{T}) where T <: CTMatrixTypes
-
-Return the chain complex based on the input data.
-"""
-ChainComplex(F::CTFieldTypes, len::Integer, boundaries::Vector{T}) where T <: CTMatrixTypes = ChainComplex{T}(F, len, boundaries)
-
-"""
-    ChainComplex(S::AbstractStabilizerCode)
+    chain_complex(S::AbstractStabilizerCode)
 
 Return the 3-term chain complex associated with the CSS code `S`.
 """
-ChainComplex(S::AbstractStabilizerCode) = ChainComplex(CSSTrait(typeof(S)), S)
-ChainComplex(::IsCSS, S::AbstractStabilizerCode) = ChainComplex(S.F, 3, [S.X_stabs, transpose(S.Z_stabs)])
-ChainComplex(::IsNotCSS, S::AbstractStabilizerCode) = throw(ArgumentError("This is only defined for CSS codes"))
+chain_complex(S::AbstractStabilizerCode) = chain_complex(CSSTrait(typeof(S)), S)
+chain_complex(::IsCSS, S::AbstractStabilizerCode) = chain_complex([transpose(S.Z_stabs), S.X_stabs])
+chain_complex(::IsNotCSS, S::AbstractStabilizerCode) = throw(ArgumentError("This is only defined for CSS codes"))
 
 """
-    ChainComplex(C::AbstractLinearCode)
+    chain_complex(C::AbstractLinearCode)
 
 Return the 2-term chain complex associated with the parity-check matrix of `C`.
 """
-ChainComplex(C::AbstractLinearCode) = ChainComplex([parity_check_matrix(C)])
+chain_complex(C::AbstractLinearCode) = chain_complex([parity_check_matrix(C)])
 
 #############################
       # getter functions
 #############################
 
 """
-    field(chain::ChainComplex)
+    field(chain::CTChainComplex)
 
 Return the base ring of the boundary maps of the chain complex.
 """
-field(chain::ChainComplex) = chain.F
+field(chain::CTChainComplex) = base_ring(chain[1])
 
 """
-    length(chain::ChainComplex)
+    length(chain::CTChainComplex)
 
 Return the number of spaces in the chain complex.
 
 * Note
 - This is the number of boundary maps plus one.
 """
-length(chain::ChainComplex) = chain.length
+length(chain::CTChainComplex) = length(chain.maps) + 1
 
 """
-    boundaries(chain::ChainComplex)
+    boundaries(chain::CTChainComplex)
 
 Return the boundary maps of the chain complex.
 
 * Note
 - boundaries(chain)[i] is the map \$\\partial_i: C_i \\to C_{i - 1}\$.
+- The underlying chain complexes are built around right multiplication; this casts
+  the results back to the cmmonly assumed left multiplication maps.
 """
-boundaries(chain::ChainComplex) = chain.boundaries
+boundaries(chain::CTChainComplex) = map(transpose, chain.maps)
+
+"""
+    type(chain::CTChainComplex)
+
+Return `:chain` if `chain` is a chain complex or `:cochain` if it is a cochain complex.
+"""
+type(chain::CTChainComplex) = chain.typ
 
 #############################
       # setter functions
@@ -101,6 +91,7 @@ boundaries(chain::ChainComplex) = chain.boundaries
      # general functions
 #############################
 
+# TODO: redo
 """
     cochain(chain::ChainComplex)
 
@@ -114,57 +105,27 @@ cochain(chain::ChainComplex) = ChainComplex([transpose(∂) for ∂ in reverse(c
 
 Return the total complex of the tensor product of the two chains.
 """
-function ⊗(chain_A::ChainComplex{T}, chain_B::ChainComplex{T}) where T <: CTMatrixTypes
-    chain_A.F == chain_B.F || throw(ArgumentError("Both chains must be over the same base ring"))
+⊗(chain_A::CTChainComplex, chain_B::CTChainComplex) = tensor_product(chain_A, chain_B)
+double_complex(chain_A::CTChainComplex, chain_B::CTChainComplex) = chain_A ⊗ chain_B
+bicomplex(chain_A::CTChainComplex, chain_B::CTChainComplex) = chain_A ⊗ chain_B
 
-    identity_maps_A = [[identity_matrix(chain_A.F, nrows(mat)) for mat in chain_A.boundaries]; identity_matrix(chain_A.F, ncols(chain_A.boundaries[end]))]
-    identity_maps_B = [[identity_matrix(chain_A.F, nrows(mat)) for mat in chain_B.boundaries]; identity_matrix(chain_A.F, ncols(chain_B.boundaries[end]))]
-    boundaries = Vector{T}()
-    n_max = chain_A.length + chain_B.length - 2
 
-    ns = [[(i, n - 1 - i) for i in 0:chain_A.length - 1 if n - 1 - i in 0:chain_B.length - 1] for n in 1:chain_A.length + chain_B.length - 2]
-    for (n, indices) in reverse(collect(enumerate(ns)))
-        num_cols = n == n_max ? ncols(chain_A.boundaries[end]) * ncols(chain_B.boundaries[end]) : nrows(boundaries[1])
-        ∂ = zero_matrix(chain_A.F, 0, num_cols)
-        for (i, j) in indices
-            temp = if i == chain_A.length - 1
-                temp2 = (-1)^i * identity_maps_A[i + 1] ⊗ chain_B.boundaries[j + 1]
-                hcat(zero_matrix(chain_A.F, nrows(temp2), num_cols - ncols(temp2)), temp2)
-            elseif j == chain_B.length - 1
-                temp2 = chain_A.boundaries[i + 1] ⊗ identity_maps_B[j + 1]
-                hcat(temp2, zero_matrix(chain_A.F, nrows(temp2), num_cols - ncols(temp2)))
-            else
-                temp2 = chain_A.boundaries[i + 1] ⊗ identity_maps_B[j + 1]
-                temp3 = (-1)^i * identity_maps_A[i + 1] ⊗ chain_B.boundaries[j + 1]
-                num_cols1 = 0
-                for l in j + 2:chain_B.length - 1
-                    k = n - l + 1
-                    if k in eachindex(chain_A.boundaries)
-                        num_cols1 += nrows(chain_A.boundaries[k]) * ncols(chain_B.boundaries[l])
-                    end
-                end
-                num_cols2 = num_cols - num_cols1 - ncols(temp2) - ncols(temp3)
-                hcat(zero_matrix(chain_A.F, nrows(temp2), num_cols1), temp3, temp2, zero_matrix(chain_A.F, nrows(temp2), num_cols2))
-            end
-            ∂ = vcat(∂, temp)
-        end
-        pushfirst!(boundaries, ∂)
-    end
+double_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) = chain_complex(C1) ⊗ chain_complex(C2)
+double_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) = chain_complex(S) ⊗ chain_complex(C)
+double_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) = chain_complex(S1) ⊗ chain_complex(S2)
 
-    return ChainComplex(boundaries)
-end
-tensor_product(chain_A::ChainComplex, chain_B::ChainComplex) = ⊗(chain_A, chain_B)
+total_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) = total_complex(double_complex(C1, C2))
+total_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) = total_complex(double_complex(S, C))
+total_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) = total_complex(double_complex(S1, S2))
 
-# TODO: this isn't a reliable way to detect CSS codes, but I don't believe this is
-# defined for subsystem CSS codes or graph states?
 """
     distance_balancing(S::StabilizerCodeCSS, C::AbstractLinearCode)
 
-Return the distance balanced code of `S` and `C`.
+Return the distance-balanced code of `S` and `C`.
 """
 function distance_balancing(S::StabilizerCodeCSS, C::AbstractLinearCode)
     is_overcomplete(C, :H) && throw(ArgumentError("Parity-check matrix is overcomplete"))
-    chain = tensor_product(ChainComplex(S), cochain(ChainComplex(C)))
-    ∂ = boundaries(chain)
-    return CSSCode(∂[1], transpose(∂[2]))
+
+    ∂ = boundaries(tensor_product(S, C))
+    return CSSCode(transpose(∂[1]), ∂[2])
 end
