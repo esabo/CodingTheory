@@ -17,7 +17,8 @@ Documenter.makedocs(
 		"Tutorials" => [
 			"Tutorials/Linear Codes.md",
 			"Tutorials/Cyclic Codes.md",
-			"Tutorials/Quantum Codes.md"
+			"Tutorials/Quantum Codes.md",
+			"Tutorials/Weight Reduction.md"
     	],
 		"Examples" => [
 			"Examples/The Vardy-Be’ery Decomposition.md",
