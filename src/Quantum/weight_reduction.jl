@@ -425,13 +425,13 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
 end
 
 """
-    coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in
 `whichZ` and using the optional arguments `l` and `target_q_X` for an optional round of
 thickening and choosing heights.
 """
-function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
     
     F = base_ring(H_X)
     n_X, n = size(H_X)
@@ -573,16 +573,16 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}, l::Int = 0, target_
 end
 
 """
-    coning(S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `S` by reducing the `Z` stabilizers in `whichZ` and using the
 optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::T, whichZ::AbstractVector{Int}, l::Int, target_q_X::Int = 3) where {T <:
-    AbstractStabilizerCode} = coning(CSSTrait(T), S, whichZ, l, target_q_X)
-coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int,
-    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l, target_q_X)...)
-coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::Int,
+coning(S::T, whichZ::AbstractVector{Int}; l::Int, target_q_X::Int = 3) where {T <:
+    AbstractStabilizerCode} = coning(CSSTrait(T), S, whichZ, l = l, target_q_X = target_q_X)
+coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
+    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l = l, target_q_X = target_q_X)...)
+coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
     target_q_X::Int) = error("Only valid for CSS codes.")
 
 """
@@ -591,11 +591,11 @@ coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}, l::In
 
 Return the weight-reduced CSS code of `S`.
 """
-quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}, copying_type::Symbol = :Hastings,
+quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}; copying_type::Symbol = :Hastings,
     copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) where {T <: AbstractStabilizerCode} =
-    quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type, copying_target, l2,
-    target_q_X)
-function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
+    quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type = copying_type,
+        copying_target = copying_target, l2 = l2, target_q_X = target_q_X)
+function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int)
 
     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
@@ -609,13 +609,14 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
     b = nrows(H_Z)
     whichZ = b - a + 1:b
-    H_X, H_Z = coning(H_X, H_Z, whichZ, l2, target_q_X)
+    H_X, H_Z = coning(H_X, H_Z, whichZ, l = l2, target_q_X = target_q_X)
     return CSSCode(H_X, H_Z)
 end
-quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
-    copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int) =
+quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
+    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
     error("Only valid for CSS codes.")
 
-weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int},
+weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
-    quantum_weight_reduction(S, l1, heights, copying_type, copying_target, l2, target_q_X)
+    quantum_weight_reduction(S, l1, heights, copying_type = copying_type,
+        copying_target = copying_target, l2 = l2, target_q_X = target_q_X)
