@@ -10,14 +10,13 @@ src/bounds_copy.jl
 test/testcases.jl
 exportTritrellises.jl
 test.jld2
-test.png
 tricolorcodes*.jl
 bipartite_solutions.txt
-fig.png
+*.png
 learninggit.txt
 .DS_Store
-*.txt
 docs/.DS_Store
+*.txt
 typestest.jl
 
 # profiling output stuff:

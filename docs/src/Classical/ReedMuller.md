@@ -16,7 +16,7 @@ order
 ```
 
 ```@docs
-numberofvariables
+number_of_variables
 ```
 
 ## Methods

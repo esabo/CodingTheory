@@ -20,24 +20,24 @@ concatenate
 
 ## Attributes
 ```@docs
-innercode
+inner_code
 ```
 
 ```@docs
-outercode
+outer_code
 ```
 
 The concatenation type is `:expanded`, `:same`, or `:generalized` depending on which of the three methods above is used. 
 ```@docs
-concatenationtype
+concatenation_type
 ```
 If the concatenation required expansion, the basis and dual basis used for the expansion are returned via the following commands; otherwise, these are `missing`.
 ```@docs
-expansionbasis
+expansion_basis
 ```
 
 ```@docs
-expansiondualbasis
+expansion_dual_basis
 ```
 
 ## Methods

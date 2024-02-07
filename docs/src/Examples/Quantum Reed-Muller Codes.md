@@ -14,29 +14,29 @@ QRM3 = CSSCode(RM13s)
 ```
 We can check that $\overline{\mathcal{RM}}(1, 3)$ satisfies the requirements of the single-code CSS construction
 ```
-isselforthogonal(RM13s)
+is_self_orthogonal(RM13s)
 ```
 Theory tells us that the shortened codes are given by deleting the first row and column of the $(u \mid u + v)$ form of the generator matrix of the Reed-Muller codes. Unfortunately, the `shorten` function obscures this fact when it computes a kernel, but we can test whether or not this is true.
 ```
-RM13salt = LinearCode(generatormatrix(RM13)[2:end, 2:end])
-areequivalent(RM13s, RM13salt)
+RM13_salt = LinearCode(generator_matrix(RM13)[2:end, 2:end])
+are_equivalent(RM13s, RM13s_alt)
 ```
-We want the stabilizers of our code in this alternate form, so we can either remake `QRM3` using `RM13salt`, use the other `CSSCode` constructor where we explicitly pass in the $X$ and $Z$ stabilizer matrices, or replace the stabilizers of the already constructed object `QRM3`. This last option automatically checks that the old stabilizers and the new stabilizers have equivalent row spaces and errors if they don't.
+We want the stabilizers of our code in this alternate form, so we can either remake `QRM3` using `RM13s_alt`, use the other `CSSCode` constructor where we explicitly pass in the $X$ and $Z$ stabilizer matrices, or replace the stabilizers of the already constructed object `QRM3`. This last option automatically checks that the old stabilizers and the new stabilizers have equivalent row spaces and errors if they don't.
 ```
-setXstabilizers!(QRM3, generatormatrix(RM13salt))
-setZstabilizers!(QRM3, generatormatrix(RM13salt))
+set_X_stabilizers!(QRM3, generator_matrix(RM13salt))
+set_Z_stabilizers!(QRM3, generator_matrix(RM13salt))
 ```
 
 Similarly, we know the logicals of this code is the all-ones vector and can use this form if desired.
 ```
 logicals(QRM3)
 F = field(QRM3)
-newlogs = zero_matrix(F, 2, 2 * length(QRM3))
+new_logs = zero_matrix(F, 2, 2 * length(QRM3))
 for i in 1:length(QRM3)
-    newlogs[1, i] = F(1)
-    newlogs[2, i + length(QRM3)] = F(1)
+    new_logs[1, i] = F(1)
+    new_logs[2, i + length(QRM3)] = F(1)
 end
-setlogicals!(QRM3, newlogs)
+set_logicals!(QRM3, new_logs)
 ```
 As before, this will automatically check if the input is equivalent to the automatically computed logicals up to stabilizers.
 
@@ -47,15 +47,15 @@ RM14 = ReedMullerCode(2, 1, m)
 RM24 = ReedMullerCode(2, m - 2, m)
 RM14s = shorten(RM14, 1)
 RM24s = shorten(RM24, 1)
-RM14salt = LinearCode(generatormatrix(RM14)[2:end, 2:end])
-RM24salt = LinearCode(generatormatrix(RM24)[2:end, 2:end])
-areequivalent(RM14s, RM14salt)
-areequivalent(RM24s, RM24salt)
+RM14s_alt = LinearCode(generator_matrix(RM14)[2:end, 2:end])
+RM24s_alt = LinearCode(generator_matrix(RM24)[2:end, 2:end])
+are_equivalent(RM14s, RM14s_alt)
+are_equivalent(RM24s, RM24s_alt)
 ```
 
 In this library, we choose the convention that `C2 ⊆ C1` for the `CSSCode(C1, C2)`. Thus, to make our code, we actually require `CSSCode(dual(RM24s), RM14s)`, and we can check that `RM14 ⊆ dual(RM24)`. We can do this instead with the alternative form of the generator matrix or repeat what we did above, but instead let's use the other constructor
 ```
-QRM4 = CSSCode(generatormatrix(RM14salt), generatormatrix(RM24salt))
+QRM4 = CSSCode(generator_matrix(RM14s_alt), generator_matrix(RM24s_alt))
 ```
 One may compare these stabilizers to the built-in commands `SteaneCode()` and `Q15RM()` and also against the explicit set of stabilizers listed in [2].
 
@@ -113,19 +113,19 @@ $$\overline{G}(1, 4) = \begin{pmatrix}
 
 Notice that the first three rows of $\overline{G}(1, 4)$ are of the form $(\overline{G}(1, 3) \mid 0 \mid \overline{G}(1, 3))$, where the notation $( \, \mid \, )$ denotes horizontal concatenation. In this sense we see that the 15-qubit Reed-Muller code really contains *two* copies of the Steane code. We can see this in the $X$ stabilizers of `QRM4`,
 ```
-Xstabilizers(QRM4)[1:3, :] == hcat(generatormatrix(RM13salt), zero_matrix(F, 3, 1), generatormatrix(RM13salt))
+X_stabilizers(QRM4)[1:3, :] == hcat(generator_matrix(RM13s_alt), zero_matrix(F, 3, 1), generator_matrix(RM13s_alt))
 ```
 It's less clear that the $Z$ stabilizers also contain the two copies of the Steane code in this sense. To see this, let's first define a new stabilizer code whose $X$ and $Z$ stabilizers are of this form.
 ```
-test = CSSCode(Xstabilizers(QRM4)[1:3, :], Xstabilizers(QRM4)[1:3, :])
+test = CSSCode(X_stabilizers(QRM4)[1:3, :], X_stabilizers(QRM4)[1:3, :])
 ```
 Now we can remove these stabilizers from `QRM4`,
 ```
-quo1 = CodingTheory._quotientspace(stabilizers(QRM4), stabilizers(test))
+quo1 = CodingTheory._quotient_space(stabilizers(QRM4), stabilizers(test))
 ```
 Let's set the stabilizers of `QRM4` to make this more explicit.
 ```
-setstabilizers!(QRM4, vcat(stabilizers(test), quo1))
+set_stabilizers!(QRM4, vcat(stabilizers(test), quo1))
 ```
 
 
@@ -134,9 +134,9 @@ In order for the information to not be disturbed...
 
 ```
 
-L = vcat(hcat(logicalsmatrix(QRM3)[1, :], zero_matrix(F, 1, length(QRM4) + 1)),
-	hcat(zero_matrix(F, 1, length(QRM4)), logicalsmatrix(QRM3)[1, :], zero_matrix(F, 1, 1)))
-CodingTheory._quotientspace(logicalsmatrix(test), L)
+L = vcat(hcat(logicals_matrix(QRM3)[1, :], zero_matrix(F, 1, length(QRM4) + 1)),
+	hcat(zero_matrix(F, 1, length(QRM4)), logicals_matrix(QRM3)[1, :], zero_matrix(F, 1, 1)))
+CodingTheory._quotient_space(logicals_matrix(test), L)
 ```
 
 
@@ -199,11 +199,11 @@ Generator matrix: 6 × 16
 We also know that the Steane code may be constructed via the [7, 4, 3] Hamming code. In the C \subseteq C^\perp versus C^\perp \subseteq C convention used in the library, the Steane code may be derived from the dual of this code, which is called the simplex code.
 ```
 D = dual(HammingCode(2, 3))
-SteaneHamming = CSSCode(D)
+Steane_Hamming = CSSCode(D)
 ```
 The command `SimplexCode(2, 3)` also would have worked.
 
-Upon immediate inspection, `QRM3` and `SteaneHamming` are not equivalent. In fact, neither are equivalent to the built-in `SteaneCode()`. Let us show that these are all equivalent up to permutation of the qubits.
+Upon immediate inspection, `QRM3` and `Steane_Hamming` are not equivalent. In fact, neither are equivalent to the built-in `SteaneCode()`. Let us show that these are all equivalent up to permutation of the qubits.
     (implement permutation on the quantum side and demo here)
 
 
@@ -222,7 +222,7 @@ a = Vector{Int}()
 for i in 1:15
     sum(digits(i, base=2)) <= 2 && push!(a, i)
 end
-b = sort(cyclotomiccoset(1, 2, 15) ∪ cyclotomiccoset(3, 2, 15) ∪ cyclotomiccoset(5, 2, 15))
+b = sort(cyclotomic_coset(1, 2, 15) ∪ cyclotomic_coset(3, 2, 15) ∪ cyclotomic_coset(5, 2, 15))
 a == b
 ```
 \begin{equation*}

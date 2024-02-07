@@ -24,21 +24,27 @@ Documenter.makedocs(
 			"Examples/Quantum Reed-Muller Codes.md"
 		],
 		"Classical" => [
-        	"Classical/linearcode.md",
+        	"Classical/linear_code.md",
 			"Classical/concatenation.md",
-        	"Classical/cycliccode.md",
-        	"Classical/quasicyclic.md",
+        	"Classical/cyclic_code.md",
+        	"Classical/quasi-cyclic_code.md",
         	"Classical/GeneralizedReedSolomon.md",
         	"Classical/ReedMuller.md",
-			"Classical/newcodesfromold.md",
-			"Classical/productcodes.md",
-        	"Classical/miscknowncodes.md",
-        	"Classical/LDPC.md"
+			"Classical/new_codes_from_old.md",
+			"Classical/product_codes.md",
+        	"Classical/misc_known_codes.md"
     	],
+		"LDPC" => [
+			"LDPC/codes.md",
+			"LDPC/Tanner_codes.md",
+			"LDPC/analysis.md",
+			"LDPC/channels.md",
+			"LDPC/decoders.md"
+		],
     	"Quantum" => [
-        	"Quantum/quantumcode.md",
-			"Quantum/quantumproductcodes.md",
-        	"Quantum/miscknownquantumcodes.md"
+        	"Quantum/quantum_code.md",
+			"Quantum/product_codes.md",
+        	"Quantum/misc_known_codes.md"
     	],
     	"Misc" => [
         	"tilings.md",
@@ -52,21 +58,6 @@ Documenter.makedocs(
 
     # ],
 	]
-		# "Linear Codes" => "linearcode.md",
-		#      "Cyclic Codes" => "cycliccode.md",
-		# 	 "Generalized Reed-Solomon Codes" => "GeneralizedReedSolomon.md",
-		# 	 "Quasi-Cyclic Codes" => "quasicyclic.md",
-		#      "Reed-Muller Codes" => "ReedMuller.md",
-		#      "Miscellaneous Known Codes" => "miscknowncodes.md",
-		# 	 "LDPC Codes" => "LDPC.md",
-		# 	 "Tilings Of Surfaces" => "tilings.md",
-		#      "Stabilizer Codes" => "quantumcode.md",
-		#      "Miscellaneous Known Stabilizer Codes" => "miscknownquantumcodes.md",
-		# 	 "Product Codes" => "productcodes.md",
-		#      "Trellises" => "trellis.md",
-		#      "Weight Enumerators, Distributions, And Minimum Distances" => "weight_dist.md",
-		#      "Utilies" => "utils.md",
-        #      "Index" => "theindex.md"]
 )
 
 deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "subsystem")
