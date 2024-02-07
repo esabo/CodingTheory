@@ -603,7 +603,7 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     # check coning target
     # check second optional t&ch
     # check everything
-    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, copying_type, copying_target)
+    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = copying_type, target_q_X = copying_target)
     H_X, H_Z = gauging(H_X, H_Z)
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
