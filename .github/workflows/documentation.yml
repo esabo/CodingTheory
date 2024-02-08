@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - subsystem
     tags: '*'
   pull_request:
 
@@ -20,14 +19,20 @@ jobs:
           version: '1.9'
       - uses: julia-actions/cache@v1
         with:
-          cache-name: subsystem-docs
+          cache-name: master-docs
           # WARNING: cache-registries is actually slower for Windows runners
           cache-registries: "true"
           # WARNING: cache-compiled can break with certain choices of OS and architecture.
           # see https://github.com/julia-actions/cache/issues/11
           cache-compiled: "true"
       - name: Install dependencies
-        run: julia --project=docs/ -e 'using Pkg; Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"), PackageSpec(path=pwd())]); Pkg.instantiate()'
+        run: |
+          julia --project=docs/ -e '
+            using Pkg
+            Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"),
+                         PackageSpec(path=pwd())
+                        ])
+            Pkg.instantiate()'
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.Docs }}

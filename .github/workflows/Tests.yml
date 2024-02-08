@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - master
-      - subsystem
     # tags: '*'
 #   pull_request:
 concurrency:
@@ -32,7 +31,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
         with:
-          cache-name: subsystem-tests
+          cache-name: master-tests
           # WARNING: cache-registries is actually slower for Windows runners
           cache-registries: "true"
           # WARNING: cache-compiled can break with certain choices of OS and architecture.
