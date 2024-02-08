@@ -1,4 +1,4 @@
-# tilings
+# Tilings
 
 ```@autodocs
 Modules = [CodingTheory]

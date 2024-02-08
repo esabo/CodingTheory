@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - subsystem
     tags: '*'
   pull_request:
 
@@ -17,9 +16,10 @@ jobs:
       - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@latest
         with:
-          version: '1.7'
+          version: '1.9'
       - uses: julia-actions/cache@v1
         with:
+          cache-name: master-docs
           # WARNING: cache-registries is actually slower for Windows runners
           cache-registries: "true"
           # WARNING: cache-compiled can break with certain choices of OS and architecture.

@@ -1,5 +1,7 @@
 using Documenter, CodingTheory
 
+# change to trigger bot
+
 # root = "../",
 # 	source = "src",
 # 	build = "build",
@@ -11,22 +13,52 @@ Documenter.makedocs(
 	highlightsig = true,
 	sitename = "Coding Theory Documentation",
 	expandfirst = [],
-    pages = ["Table Of Contents" => "index.md",
-		     "Linear Codes" => "linearcode.md",
-		     "Cyclic Codes" => "cycliccode.md",
-			 "Generalized Reed-Solomon Codes" => "GeneralizedReedSolomon.md",
-			 "Quasi-Cyclic Codes" => "quasicyclic.md",
-		     "Reed-Muller Codes" => "ReedMuller.md",
-		     "Miscellaneous Known Codes" => "miscknowncodes.md",
-			 "LDPC Codes" => "LDPC.md",
-			 "Tilings Of Surfaces" => "tilings.md",
-		     "Stabilizer Codes" => "quantumcode.md",
-		     "Miscellaneous Known Stabilizer Codes" => "miscknownquantumcodes.md",
-			 "Product Codes" => "productcodes.md",
-		     "Trellises" => "trellis.md",
-		     "Weight Enumerators, Distributions, And Minimum Distances" => "weight_dist.md",
-		     "Utilies" => "utils.md",
-             "Index" => "theindex.md"]
+    pages = ["Introduction" => "index.md",
+		"Tutorials" => [
+			"Tutorials/Linear Codes.md",
+			"Tutorials/Cyclic Codes.md",
+			"Tutorials/Quantum Codes.md",
+			"Tutorials/Weight Reduction.md"
+    	],
+		"Examples" => [
+			"Examples/The Vardy-Be’ery Decomposition.md",
+			"Examples/Quantum Reed-Muller Codes.md"
+		],
+		"Classical" => [
+        	"Classical/linear_code.md",
+			"Classical/concatenation.md",
+        	"Classical/cyclic_code.md",
+        	"Classical/quasi-cyclic_code.md",
+        	"Classical/GeneralizedReedSolomon.md",
+        	"Classical/ReedMuller.md",
+			"Classical/new_codes_from_old.md",
+			"Classical/product_codes.md",
+        	"Classical/misc_known_codes.md"
+    	],
+		"LDPC" => [
+			"LDPC/codes.md",
+			"LDPC/Tanner_codes.md",
+			"LDPC/analysis.md",
+			"LDPC/channels.md",
+			"LDPC/decoders.md"
+		],
+    	"Quantum" => [
+        	"Quantum/quantum_code.md",
+			"Quantum/product_codes.md",
+        	"Quantum/misc_known_codes.md"
+    	],
+    	"Misc" => [
+        	"tilings.md",
+        	"trellis.md",
+        	"utils.md",
+        	"weight_dist.md"
+    	],
+    	"References" => "references.md",
+    	"Index" => "theindex.md"
+    # "Developer Documentation" => [
+
+    # ],
+	]
 )
 
-deploydocs(repo = "github.com/esabo/CodingTheory.git")
+deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "subsystem")
