@@ -69,7 +69,7 @@ julia&gt; parity_check_matrix(C_wtred)
 [0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1]
 [0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]</code></pre><p>Use the optional arguments <code>rows = false</code> or <code>columns = false</code> to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments <code>row_indices</code> and <code>column_indices</code> to only reduce specific rows or columns, respectively. If the optional arguments <code>row_target</code> or <code>column_target</code> are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting <code>compressed = true</code>. Finally, the optional argument <code>seed</code> sets <code>Random.seed!(seed)</code>, which allows for reproducable permutations.</p><p>Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.</p><pre><code class="nohighlight hljs">julia&gt; H1 = matrix(GF(2), 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
+[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]</code></pre><p>Use the optional arguments <code>rows = false</code> or <code>columns = false</code> to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments <code>row_indices</code> and <code>column_indices</code> to only reduce specific rows or columns, respectively. If the optional arguments <code>row_target</code> or <code>column_target</code> are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting <code>compressed = true</code>. Finally, the optional argument <code>seed</code> sets <code>Random.seed!(seed)</code>, which allows for reproducible permutations.</p><p>Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.</p><pre><code class="nohighlight hljs">julia&gt; H1 = matrix(GF(2), 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
 
 julia&gt; H2 = H1[:, [1, 5, 3, 6, 4, 2 ]];
 
@@ -265,7 +265,71 @@ julia&gt; quantum_weight_reduction(S, l, heights, copying_type = :reduced)
 [[510, 1]]_2 CSS stabilizer code
 
 julia&gt; quantum_weight_reduction(S, l, heights, copying_type = :target, copying_target = 3)
-[[315, 1]]_2 CSS stabilizer code</code></pre><h3 id="Classical-Versus-Quantum-Weight-Reduction"><a class="docs-heading-anchor" href="#Classical-Versus-Quantum-Weight-Reduction">Classical Versus Quantum Weight Reduction</a><a id="Classical-Versus-Quantum-Weight-Reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Classical-Versus-Quantum-Weight-Reduction" title="Permalink"></a></h3><p>Consider the code from the first row of Table 1 in \cite{sabo2024}.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
+[[315, 1]]_2 CSS stabilizer code</code></pre><h2 id="Copying-And-Gauging-As-Coning"><a class="docs-heading-anchor" href="#Copying-And-Gauging-As-Coning">Copying And Gauging As Coning</a><a id="Copying-And-Gauging-As-Coning-1"></a><a class="docs-heading-anchor-permalink" href="#Copying-And-Gauging-As-Coning" title="Permalink"></a></h2><p>It was shown in \cite{sabo2024} that copying and gauging can be thought of as mapping cones.</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2);
+
+julia&gt; H_X = matrix(F, 4, 6, [
+           1 1 1 0 0 0;
+           1 1 0 0 1 1;
+           1 0 1 1 1 0;
+           1 0 0 0 0 1]);
+
+julia&gt; H_Z = matrix(F, 1, 6, [1 0 1 0 0 1]);
+
+julia&gt; tilde_H_X, tilde_H_Z = copying(H_X, H_Z);
+
+julia&gt; tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z);
+
+julia&gt; tilde_H_X == tilde_H_X_cone
+true
+
+julia&gt; tilde_H_Z == tilde_H_Z_cone
+true
+
+julia&gt; tilde_H_X, tilde_H_Z = copying(H_X, H_Z, method = :reduced);
+
+julia&gt; tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z, method = :reduced);
+
+julia&gt; tilde_H_X == tilde_H_X_cone
+true
+
+julia&gt; tilde_H_Z == tilde_H_Z_cone
+true
+
+julia&gt; tilde_H_X, tilde_H_Z = copying(H_X, H_Z, method = :target, target_q_X = 3);
+
+julia&gt; tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z, method = :target, target_q_X = 3);
+
+julia&gt; tilde_H_X == tilde_H_X_cone
+true
+
+julia&gt; tilde_H_Z == tilde_H_Z_cone
+true</code></pre><p>While perhaps more elegant, solving a solution of equations is more time consuming.</p><pre><code class="nohighlight hljs">julia&gt; using BenchmarkTools
+
+julia&gt; @btime copying($H_X, $H_Z);
+  6.675 μs (223 allocations: 17.71 KiB)
+
+julia&gt; @btime copying_as_coning($H_X, $H_Z);
+  83.250 μs (1131 allocations: 132.41 KiB)</code></pre><p>The results are similar for gauging, although now the mapping cone is slightly faster (on this example).</p><pre><code class="nohighlight hljs">julia&gt; S = Q15RM();
+
+julia&gt; H_X = X_stabilizers(S)[[2, 1], :];
+
+julia&gt; H_Z = Z_stabilizers(S)[[4, 3, 2, 1], :];
+
+julia&gt; tilde_H_X, tilde_H_Z = gauging(H_X, H_Z);
+
+julia&gt; tilde_H_X_cone, tilde_H_Z_cone = gauging_as_coning(H_X, H_Z);
+
+julia&gt; tilde_H_X == tilde_H_X_cone
+true
+
+julia&gt; tilde_H_Z == tilde_H_Z_cone
+true
+
+julia&gt; @btime gauging($H_X, $H_Z);
+  45.167 μs (1582 allocations: 128.55 KiB)
+
+julia&gt; @btime gauging_as_coning($H_X, $H_Z);
+  32.084 μs (722 allocations: 66.96 KiB)</code></pre><h3 id="Classical-Versus-Quantum-Weight-Reduction"><a class="docs-heading-anchor" href="#Classical-Versus-Quantum-Weight-Reduction">Classical Versus Quantum Weight Reduction</a><a id="Classical-Versus-Quantum-Weight-Reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Classical-Versus-Quantum-Weight-Reduction" title="Permalink"></a></h3><p>Consider the code from the first row of Table 1 in \cite{sabo2024}.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
 [6, 3, 3]_2 linear code
 Generator matrix: 3 × 6
         1 0 1 0 1 0
@@ -297,7 +361,7 @@ Generator matrix: 3 × 7
         1 0 1 0 1 0 1
 
 julia&gt; HypergraphProductCode(C_wtred_com)
-[[65, 9, 3]]_2 subsystem code</code></pre><h2 id="Copying-And-Gauging-As-Coning"><a class="docs-heading-anchor" href="#Copying-And-Gauging-As-Coning">Copying And Gauging As Coning</a><a id="Copying-And-Gauging-As-Coning-1"></a><a class="docs-heading-anchor-permalink" href="#Copying-And-Gauging-As-Coning" title="Permalink"></a></h2><h2 id="Exploring-The-Cycle-Structure"><a class="docs-heading-anchor" href="#Exploring-The-Cycle-Structure">Exploring The Cycle Structure</a><a id="Exploring-The-Cycle-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-The-Cycle-Structure" title="Permalink"></a></h2><p>Classical weight reduction should not change the cycle structure of the code. We can test this. Recall that a parity-check matrix defines a Tanner graph, and the girth, <span>$g$</span>, of the graph is defined to the length of the shortest cycle. Short cycles are defined to be cycles with length up to <span>$2g - 2$</span>. The total number of short cycles are not preserved by weight reduction since the girth may not increase as much as the length of a cycle, pushing it beyond the <span>$2g - 2$</span> limit. Elementary cycles are cycles which do not pass through the same vertex twice. The total number of elementary cycles is invariant under classical weight reduction.</p><p>We will supress the plots output from the functions below.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
+[[65, 9, 3]]_2 subsystem code</code></pre><h2 id="Exploring-The-Cycle-Structure"><a class="docs-heading-anchor" href="#Exploring-The-Cycle-Structure">Exploring The Cycle Structure</a><a id="Exploring-The-Cycle-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-The-Cycle-Structure" title="Permalink"></a></h2><p>Classical weight reduction should not change the cycle structure of the code. We can test this. Recall that a parity-check matrix defines a Tanner graph, and the girth, <span>$g$</span>, of the graph is defined to the length of the shortest cycle. Short cycles are defined to be cycles with length up to <span>$2g - 2$</span>. The total number of short cycles are not preserved by weight reduction since the girth may not increase as much as the length of a cycle, pushing it beyond the <span>$2g - 2$</span> limit. Elementary cycles are cycles which do not pass through the same vertex twice. The total number of elementary cycles is invariant under classical weight reduction.</p><p>We will supress the plots output from the functions below.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
 [6, 3, 3]_2 linear code
 Generator matrix: 3 × 6
         1 0 1 0 1 0
@@ -354,7 +418,7 @@ julia&gt; count_short_cycles(L_wtred)
 (Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 2, 10 =&gt; 0, 8 =&gt; 4))
 
 julia&gt; count_elementary_cycles(L_wtred)
-(Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 2, 8 =&gt; 4))</code></pre><p>We see that the girth increased, as well as the cycle lengths, but the total number of elementary cycles is still six. The function <code>count_short_cycles</code> preallocates a dictionary with entries from <span>$g$</span> to <span>$2g - 2$</span>, which in this case in ten. Since there are no length ten cycles, this entry still exists but with value zero.</p><p>The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the <span>$X-Z$</span> correlations for the moment, let&#39;s consider the <span>$X$</span> stabilizers of the following codes.</p><pre><code class="nohighlight hljs">julia&gt; S = HypergraphProductCode(C)
+(Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 2, 8 =&gt; 4))</code></pre><p>We see that the girth increased, as well as the cycle lengths, but the total number of elementary cycles is still six. The function <code>count_short_cycles</code> preallocates a dictionary with entries from <span>$g$</span> to <span>$2g - 2$</span>, which in this case in ten. Since there are no length ten cycles, this entry still exists but with value zero.</p><p>The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the <span>$X$</span>-<span>$Z$</span> correlations, let&#39;s consider the <span>$X$</span> stabilizers of the following codes.</p><pre><code class="nohighlight hljs">julia&gt; S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
 
 
@@ -418,4 +482,41 @@ julia&gt; count_short_cycles(L_X_qwtred)
 (Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 170, 6 =&gt; 300))
 
 julia&gt; _, D_qwtred = count_elementary_cycles(L_X_qwtred); print(D_qwtred)
-Dict(78 =&gt; 28, 56 =&gt; 2894, 16 =&gt; 13428, 20 =&gt; 24654, 58 =&gt; 15616, 52 =&gt; 7728, 60 =&gt; 1062, 12 =&gt; 6768, 24 =&gt; 38458, 28 =&gt; 48938, 8 =&gt; 2990, 30 =&gt; 140804, 72 =&gt; 16, 22 =&gt; 86594, 32 =&gt; 52376, 6 =&gt; 300, 36 =&gt; 49460, 44 =&gt; 29098, 68 =&gt; 88, 14 =&gt; 27266, 74 =&gt; 260, 64 =&gt; 400, 46 =&gt; 94434, 66 =&gt; 3418, 76 =&gt; 4, 40 =&gt; 41326, 48 =&gt; 16998, 34 =&gt; 147230, 50 =&gt; 60238, 4 =&gt; 170, 54 =&gt; 32394, 70 =&gt; 1216, 10 =&gt; 8890, 18 =&gt; 53496, 26 =&gt; 118236, 38 =&gt; 142138, 42 =&gt; 125086, 62 =&gt; 7388)</code></pre><h3 id="Lifted-Products"><a class="docs-heading-anchor" href="#Lifted-Products">Lifted Products</a><a id="Lifted-Products-1"></a><a class="docs-heading-anchor-permalink" href="#Lifted-Products" title="Permalink"></a></h3></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 8 February 2024 20:09">Thursday 8 February 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Dict(78 =&gt; 28, 56 =&gt; 2894, 16 =&gt; 13428, 20 =&gt; 24654, 58 =&gt; 15616, 52 =&gt; 7728, 60 =&gt; 1062, 12 =&gt; 6768, 24 =&gt; 38458, 28 =&gt; 48938, 8 =&gt; 2990, 30 =&gt; 140804, 72 =&gt; 16, 22 =&gt; 86594, 32 =&gt; 52376, 6 =&gt; 300, 36 =&gt; 49460, 44 =&gt; 29098, 68 =&gt; 88, 14 =&gt; 27266, 74 =&gt; 260, 64 =&gt; 400, 46 =&gt; 94434, 66 =&gt; 3418, 76 =&gt; 4, 40 =&gt; 41326, 48 =&gt; 16998, 34 =&gt; 147230, 50 =&gt; 60238, 4 =&gt; 170, 54 =&gt; 32394, 70 =&gt; 1216, 10 =&gt; 8890, 18 =&gt; 53496, 26 =&gt; 118236, 38 =&gt; 142138, 42 =&gt; 125086, 62 =&gt; 7388)</code></pre><h3 id="Lifted-Products"><a class="docs-heading-anchor" href="#Lifted-Products">Lifted Products</a><a id="Lifted-Products-1"></a><a class="docs-heading-anchor-permalink" href="#Lifted-Products" title="Permalink"></a></h3><p>Classical weight reduction also applies to other types of inputs, although with the current function, the row and column indices must be specified explicitly either as a vector or a range.</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2);
+
+julia&gt; S, x = PolynomialRing(F, &quot;x&quot;);
+
+julia&gt; l = 63;
+
+julia&gt; R = ResidueRing(S, x^l - 1);
+
+julia&gt; A = matrix(R, 7, 7,
+               [x^27, 0, 0, 1, x^18, x^27, 1,
+                1, x^27, 0, 0, 1, x^18, x^27,
+                x^27, 1, x^27, 0, 0, 1, x^18,
+                x^18, x^27, 1, x^27, 0, 0, 1,
+                1, x^18, x^27, 1, x^27, 0, 0,
+                0, 1, x^18, x^27, 1, x^27, 0,
+                0, 0, 1, x^18, x^27, 1, x^27])
+[x^27      0      0      1   x^18   x^27      1]
+[   1   x^27      0      0      1   x^18   x^27]
+[x^27      1   x^27      0      0      1   x^18]
+[x^18   x^27      1   x^27      0      0      1]
+[   1   x^18   x^27      1   x^27      0      0]
+[   0      1   x^18   x^27      1   x^27      0]
+[   0      0      1   x^18   x^27      1   x^27]
+
+julia&gt; b = R(1 + x + x^6)
+x^6 + x + 1
+
+julia&gt; LiftedProductCode(A, b)
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
+[[882, 48]]_2 CSS stabilizer code
+
+julia&gt; A_wtred = weight_reduction(A, row_indices = 1:4, column_indices = 1:4, permute_rows = false, permute_columns = false);
+
+julia&gt; LiftedProductCode(A_wtred, b)
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
+[[4914, 48]]_2 CSS stabilizer code</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 8 February 2024 21:35">Thursday 8 February 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
