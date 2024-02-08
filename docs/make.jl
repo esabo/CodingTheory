@@ -61,4 +61,4 @@ Documenter.makedocs(
 	]
 )
 
-deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "subsystem")
+deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "master")

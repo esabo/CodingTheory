@@ -285,3 +285,6 @@ Generator matrix: 3 × 6
         0 1 1 0 0 1
         0 0 1 1 1 1
 
+julia> S = HypergraphProductCode(C)
+[[45, 9, 3]]_2 subsystem code
+
