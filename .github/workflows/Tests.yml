@@ -24,6 +24,8 @@ jobs:
         arch:
           - x64
     steps:
+      # This is from the GLMakie github action
+      - run: sudo apt-get update && sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
       - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@latest
         with:
@@ -39,6 +41,10 @@ jobs:
           cache-compiled: "true"
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+        env:
+          DISPLAY: :0
+        with:
+          prefix: xvfb-run
       - uses: julia-actions/julia-processcoverage@latest
       - uses: codecov/codecov-action@v3
         with:

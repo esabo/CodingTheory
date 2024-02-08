@@ -585,42 +585,6 @@ coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
 coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
     target_q_X::Int) = error("Only valid for CSS codes.")
 
-# """
-#     weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
-#     quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3)
-
-# Return the weight-reduced CSS code of `S`.
-# """
-# quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}; copying_type::Symbol = :Hastings,
-#     copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) where {T <: AbstractStabilizerCode} =
-#     quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type = copying_type,
-#         copying_target = copying_target, l2 = l2, target_q_X = target_q_X)
-# function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-#     copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int)
-
-#     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
-#     # check copying target
-#     # check coning target
-#     # check second optional t&ch
-#     # check everything
-#     H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = copying_type, target_q_X = copying_target)
-#     H_X, H_Z = gauging(H_X, H_Z)
-#     a = nrows(H_Z)
-#     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
-#     b = nrows(H_Z)
-#     whichZ = b - a + 1:b
-#     H_X, H_Z = coning(H_X, H_Z, whichZ, l = l2, target_q_X = target_q_X)
-#     return CSSCode(H_X, H_Z)
-# end
-# quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-#     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
-#     error("Only valid for CSS codes.")
-
-# weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-#     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3) =
-#     quantum_weight_reduction(S, l1, heights, copying_type = copying_type,
-#         copying_target = copying_target, l2 = l2, target_q_X = target_q_X)
-
 """
     weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
     quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
