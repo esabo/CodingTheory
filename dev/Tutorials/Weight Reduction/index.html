@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Weight Reduction · Coding Theory Documentation</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Coding Theory Documentation logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Coding Theory Documentation</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Linear Codes/">Linear Codes Over Finite Fields</a></li><li><a class="tocitem" href="../Cyclic Codes/">Cyclic Codes</a></li><li><a class="tocitem" href="../Quantum Codes/">Quantum Codes</a></li><li class="is-active"><a class="tocitem" href>Weight Reduction</a><ul class="internal"><li><a class="tocitem" href="#Classical-Codes"><span>Classical Codes</span></a></li><li><a class="tocitem" href="#Quantum-Codes"><span>Quantum Codes</span></a></li><li class="toplevel"><a class="tocitem" href="#Example-1"><span>Example 1</span></a></li><li class="toplevel"><a class="tocitem" href="#need-a-check-parameters?"><span>need a check parameters?</span></a></li><li class="toplevel"><a class="tocitem" href="#Example-2"><span>Example 2</span></a></li><li class="toplevel"><a class="tocitem" href="#Example-3"><span>Example 3</span></a></li><li class="toplevel"><a class="tocitem" href="#this-comes-out-wrong-here"><span>this comes out wrong here</span></a></li><li class="toplevel"><a class="tocitem" href="#Improved-Copying"><span>Improved Copying</span></a></li><li class="toplevel"><a class="tocitem" href="#note-randomness"><span>note randomness</span></a></li><li class="toplevel"><a class="tocitem" href="#can-we-do-these-as-coning-maps?"><span>can we do these as coning maps?</span></a></li><li class="toplevel"><a class="tocitem" href="#cycle-counting-examples"><span>cycle counting examples</span></a></li><li class="toplevel"><a class="tocitem" href="#Examples-From-Table-1"><span>Examples From Table 1</span></a></li></ul></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition</a></li><li><a class="tocitem" href="../../Examples/Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes</a></li></ul></li><li><span class="tocitem">Classical</span><ul><li><a class="tocitem" href="../../Classical/linear_code/">Linear Codes</a></li><li><a class="tocitem" href="../../Classical/concatenation/">Concatenated Codes</a></li><li><a class="tocitem" href="../../Classical/cyclic_code/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/quasi-cyclic_code/">Quasi-Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/GeneralizedReedSolomon/">Generalized Reed-Solomon Codes</a></li><li><a class="tocitem" href="../../Classical/ReedMuller/">Reed-Muller Codes</a></li><li><a class="tocitem" href="../../Classical/new_codes_from_old/">Modifying Codes</a></li><li><a class="tocitem" href="../../Classical/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Classical/misc_known_codes/">Miscellaneous Known Linear Codes</a></li></ul></li><li><span class="tocitem">LDPC</span><ul><li><a class="tocitem" href="../../LDPC/codes/">LDPC Codes</a></li><li><a class="tocitem" href="../../LDPC/Tanner_codes/">Generalized LDPC/Tanner Codes</a></li><li><a class="tocitem" href="../../LDPC/analysis/">LDPC Ensemble Analysis</a></li><li><a class="tocitem" href="../../LDPC/channels/">LDPC Noise Channels</a></li><li><a class="tocitem" href="../../LDPC/decoders/">Decoding LDPC Codes</a></li></ul></li><li><span class="tocitem">Quantum</span><ul><li><a class="tocitem" href="../../Quantum/quantum_code/">Notes</a></li><li><a class="tocitem" href="../../Quantum/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Quantum/misc_known_codes/">Miscellaneous Known Stabilizer Codes</a></li></ul></li><li><span class="tocitem">Misc</span><ul><li><a class="tocitem" href="../../tilings/">Tilings</a></li><li><a class="tocitem" href="../../trellis/">Trellises</a></li><li><a class="tocitem" href="../../utils/">Utilies</a></li><li><a class="tocitem" href="../../weight_dist/">Weight Enumerators, Distributions, And Minimum Distances</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../theindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Weight Reduction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Weight Reduction</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/esabo/CodingTheory/blob/master/docs/src/Tutorials/Weight Reduction.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Weight-Reduction"><a class="docs-heading-anchor" href="#Weight-Reduction">Weight Reduction</a><a id="Weight-Reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Weight-Reduction" title="Permalink"></a></h1><p>Weight reduction was first introduced for CSS codes in \cite{hastsings2016, hastings2023} and for classical codes in \cite{hastingsfiber}. Here, we follow the finite-size analysis of \cite{sabo2024}. The arguments of the functions below are aligned with the terminology introduced in that paper.</p><h2 id="Classical-Codes"><a class="docs-heading-anchor" href="#Classical-Codes">Classical Codes</a><a id="Classical-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Classical-Codes" title="Permalink"></a></h2><p>Weight reduction applied to classical codes acts on parity-check matrices. To weight reduce a generator matrix instead, apply weight reduction to the dual code.</p><pre><code class="nohighlight hljs">julia&gt; C = ReedMullerCode(1, 3)
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Weight Reduction · Coding Theory Documentation</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Coding Theory Documentation logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Coding Theory Documentation</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../Linear Codes/">Linear Codes Over Finite Fields</a></li><li><a class="tocitem" href="../Cyclic Codes/">Cyclic Codes</a></li><li><a class="tocitem" href="../Quantum Codes/">Quantum Codes</a></li><li class="is-active"><a class="tocitem" href>Weight Reduction</a><ul class="internal"><li><a class="tocitem" href="#Classical-Codes"><span>Classical Codes</span></a></li><li><a class="tocitem" href="#Quantum-Codes"><span>Quantum Codes</span></a></li><li class="toplevel"><a class="tocitem" href="#need-a-check-parameters?"><span>need a check parameters?</span></a></li><li><a class="tocitem" href="#Copying-And-Gauging-As-Coning"><span>Copying And Gauging As Coning</span></a></li><li><a class="tocitem" href="#Exploring-The-Cycle-Structure"><span>Exploring The Cycle Structure</span></a></li></ul></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition</a></li><li><a class="tocitem" href="../../Examples/Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes</a></li></ul></li><li><span class="tocitem">Classical</span><ul><li><a class="tocitem" href="../../Classical/linear_code/">Linear Codes</a></li><li><a class="tocitem" href="../../Classical/concatenation/">Concatenated Codes</a></li><li><a class="tocitem" href="../../Classical/cyclic_code/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/quasi-cyclic_code/">Quasi-Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/GeneralizedReedSolomon/">Generalized Reed-Solomon Codes</a></li><li><a class="tocitem" href="../../Classical/ReedMuller/">Reed-Muller Codes</a></li><li><a class="tocitem" href="../../Classical/new_codes_from_old/">Modifying Codes</a></li><li><a class="tocitem" href="../../Classical/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Classical/misc_known_codes/">Miscellaneous Known Linear Codes</a></li></ul></li><li><span class="tocitem">LDPC</span><ul><li><a class="tocitem" href="../../LDPC/codes/">LDPC Codes</a></li><li><a class="tocitem" href="../../LDPC/Tanner_codes/">Generalized LDPC/Tanner Codes</a></li><li><a class="tocitem" href="../../LDPC/analysis/">LDPC Ensemble Analysis</a></li><li><a class="tocitem" href="../../LDPC/channels/">LDPC Noise Channels</a></li><li><a class="tocitem" href="../../LDPC/decoders/">Decoding LDPC Codes</a></li></ul></li><li><span class="tocitem">Quantum</span><ul><li><a class="tocitem" href="../../Quantum/quantum_code/">Notes</a></li><li><a class="tocitem" href="../../Quantum/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Quantum/misc_known_codes/">Miscellaneous Known Stabilizer Codes</a></li></ul></li><li><span class="tocitem">Misc</span><ul><li><a class="tocitem" href="../../tilings/">Tilings</a></li><li><a class="tocitem" href="../../trellis/">Trellises</a></li><li><a class="tocitem" href="../../utils/">Utilies</a></li><li><a class="tocitem" href="../../weight_dist/">Weight Enumerators, Distributions, And Minimum Distances</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../theindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Weight Reduction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Weight Reduction</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/esabo/CodingTheory/blob/master/docs/src/Tutorials/Weight Reduction.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Weight-Reduction"><a class="docs-heading-anchor" href="#Weight-Reduction">Weight Reduction</a><a id="Weight-Reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Weight-Reduction" title="Permalink"></a></h1><p>Weight reduction was first introduced for CSS codes in \cite{hastsings2016, hastings2023} and for classical codes in \cite{hastingsfiber}. Here, we follow the finite-size analysis of \cite{sabo2024}. The arguments of the functions below are aligned with the terminology introduced in that paper.</p><h2 id="Classical-Codes"><a class="docs-heading-anchor" href="#Classical-Codes">Classical Codes</a><a id="Classical-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Classical-Codes" title="Permalink"></a></h2><p>Weight reduction applied to classical codes acts on parity-check matrices. To weight reduce a generator matrix instead, apply weight reduction to the dual code.</p><pre><code class="nohighlight hljs">julia&gt; C = ReedMullerCode(1, 3)
 [8, 4, 4]_2 Reed-Muller code RM(1, 3)
 Generator matrix: 4 × 8
         1 1 1 1 1 1 1 1
@@ -69,7 +69,7 @@ julia&gt; parity_check_matrix(C_wtred)
 [0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1]
 [0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]</code></pre><p>Use the optional arguments <code>rows = false</code> or <code>columns = false</code> to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments <code>row_indices</code> and <code>column_indices</code> to only reduce specific rows or columns, respectively. If the optional arguments <code>row_target</code> or <code>column_target</code> are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting <code>compressed = true</code>. Finally, the optional argument <code>seed</code> sets <code>Random.seed!(seed)</code>, which allows for reproducable permutations.</p><p>Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.</p><pre><code class="nohighlight hljs">julia&gt; H1 = matrix(F, 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
+[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]</code></pre><p>Use the optional arguments <code>rows = false</code> or <code>columns = false</code> to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments <code>row_indices</code> and <code>column_indices</code> to only reduce specific rows or columns, respectively. If the optional arguments <code>row_target</code> or <code>column_target</code> are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting <code>compressed = true</code>. Finally, the optional argument <code>seed</code> sets <code>Random.seed!(seed)</code>, which allows for reproducable permutations.</p><p>Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.</p><pre><code class="nohighlight hljs">julia&gt; H1 = matrix(GF(2), 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
 
 julia&gt; H2 = H1[:, [1, 5, 3, 6, 4, 2 ]];
 
@@ -109,4 +109,313 @@ Generator matrix: 4 × 12
         1 0 0 0 0 1 1 1 1 0 0 0
         1 1 1 0 0 0 1 0 0 1 0 0
         1 0 1 1 0 0 1 0 0 0 1 0
-        1 0 0 1 1 0 1 1 0 0 0 1</code></pre><h2 id="Quantum-Codes"><a class="docs-heading-anchor" href="#Quantum-Codes">Quantum Codes</a><a id="Quantum-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Codes" title="Permalink"></a></h2><h1 id="Example-1"><a class="docs-heading-anchor" href="#Example-1">Example 1</a><a id="Example-1-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1" title="Permalink"></a></h1><p>julia&gt; F = GF(2);</p><p>julia&gt; H_X = matrix(F, 4, 6, [            1 1 1 0 0 0;            1 1 0 0 1 1;            1 0 1 1 1 0;            1 0 0 0 0 1        ]);</p><p>julia&gt; H_Z = matrix(F, 1, 6, [1 0 1 0 0 1]);</p><p>julia&gt; tilde<em>H</em>X, tilde<em>H</em>Z = copying(H<em>X, H</em>Z);</p><p>julia&gt; tilde<em>H</em>X [1   0   0   0   1   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   1   0   0   0   1   0   0   0   0   0   0   0   0   0   0   1   0   0   0   1   0   0   0] [0   0   1   0   0   0   0   0   0   1   0   0   1   0   0   0   0   1   0   0   0   0   0   0] [0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0] [1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1]</p><p>julia&gt; tilde<em>H</em>Z [1   1   1   1   0   0   0   0   1   1   1   1   0   0   0   0   0   0   0   0   1   1   1   1]</p><h1 id="need-a-check-parameters?"><a class="docs-heading-anchor" href="#need-a-check-parameters?">need a check parameters?</a><a id="need-a-check-parameters?-1"></a><a class="docs-heading-anchor-permalink" href="#need-a-check-parameters?" title="Permalink"></a></h1><p>julia&gt; S = CSSCode(H<em>X, H</em>Z);</p><p>julia&gt; copying(S) [[24, 1]]_2 CSS stabilizer code X-stabilizer matrix: 22 × 24          chi(0) 1 0 0 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0 0          chi(0) 0 0 1 0 0 0 0 0 0 1 0 0 1 0 0 0 0 1 0 0 0 0 0 0          chi(0) 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0          chi(0) 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1  Z-stabilizer matrix: 1 × 24          chi(0) 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 1 1 1 1</p><h1 id="Example-2"><a class="docs-heading-anchor" href="#Example-2">Example 2</a><a id="Example-2-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2" title="Permalink"></a></h1><p>julia&gt; S = Q15RM();</p><p>julia&gt; H<em>X = X</em>stabilizers(S)[[2, 1], :];</p><p>julia&gt; H<em>Z = Z</em>stabilizers(S)[[4, 3, 2, 1], :];</p><p>julia&gt; tilde<em>H</em>X, tilde<em>H</em>Z = gauging(H<em>X, H</em>Z);</p><p>julia&gt; tilde<em>H</em>X [0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0] [0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0] [0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   1   1   0   0   0   0   0] [0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   1   0   0   0   0   0] [1   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0] [0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0] [0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0] [0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0] [0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1] [0   0   0   0   0   0   0   0   0   0   0   0   1   0   1   0   0   0   0   0   0   0   0   0   1]</p><p>julia&gt; tilde<em>H</em>Z [0   0   0   0   0   0   0   1   1   1   1   1   1   1   1   0   0   0   1   0   0   0   0   1   0] [0   0   0   1   1   1   1   0   0   0   0   1   1   1   1   0   1   0   0   0   0   1   0   0   0] [0   1   1   0   0   1   1   0   0   1   1   0   0   1   1   0   1   0   1   0   1   1   0   0   1] [1   0   1   0   1   0   1   0   1   0   1   0   1   0   1   1   1   0   0   1   0   1   0   1   0]</p><h1 id="Example-3"><a class="docs-heading-anchor" href="#Example-3">Example 3</a><a id="Example-3-1"></a><a class="docs-heading-anchor-permalink" href="#Example-3" title="Permalink"></a></h1><h1 id="this-comes-out-wrong-here"><a class="docs-heading-anchor" href="#this-comes-out-wrong-here">this comes out wrong here</a><a id="this-comes-out-wrong-here-1"></a><a class="docs-heading-anchor-permalink" href="#this-comes-out-wrong-here" title="Permalink"></a></h1><p>julia&gt; l = 3; heights = [1, 2];</p><p>julia&gt; H_X = matrix(F, 1, 4, [1 1 1 1]);</p><p>julia&gt; H_Z = matrix(F, 2, 4, [1 1 0 0; 1 0 1 0]);</p><p>julia&gt; tilde<em>H</em>X, tilde<em>H</em>Z  = thickening<em>and</em>choose<em>heights(H</em>X, H_Z, l, heights);</p><p>julia&gt; tilde<em>H</em>X [1   0   1   0   0   1   0   0   1   0   0   1   0   0] [1   1   0   1   0   0   1   0   0   1   0   0   1   0] [0   1   0   0   1   0   0   1   0   0   1   0   0   1]</p><p>julia&gt; tilde<em>H</em>Z [1   0   1   1   0   0   0   0   0   0   0   0   0   0] [0   1   0   1   1   0   0   0   0   0   0   0   0   0] [1   0   0   0   0   1   1   0   0   0   0   0   0   0] [0   1   0   0   0   0   1   1   0   0   0   0   0   0] [1   0   0   0   0   0   0   0   1   1   0   0   0   0] [0   1   0   0   0   0   0   0   0   1   1   0   0   0] [1   0   0   0   0   0   0   0   0   0   0   1   1   0] [0   1   0   0   0   0   0   0   0   0   0   0   1   1] [0   0   1   0   0   1   0   0   0   0   0   0   0   0] [0   0   0   1   0   0   0   0   0   1   0   0   0   0]</p><h1 id="Improved-Copying"><a class="docs-heading-anchor" href="#Improved-Copying">Improved Copying</a><a id="Improved-Copying-1"></a><a class="docs-heading-anchor-permalink" href="#Improved-Copying" title="Permalink"></a></h1><p>julia&gt; S = Q15RM();</p><p>julia&gt; quantum<em>weight</em>reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1]) [[722, 1]]_2 CSS stabilizer code</p><p>julia&gt; quantum<em>weight</em>reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1]) [[721, 1]]_2 CSS stabilizer code</p><h1 id="note-randomness"><a class="docs-heading-anchor" href="#note-randomness">note randomness</a><a id="note-randomness-1"></a><a class="docs-heading-anchor-permalink" href="#note-randomness" title="Permalink"></a></h1><p>julia&gt; quantum<em>weight</em>reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying<em>type = :reduced) [[514, 1]]</em>2 CSS stabilizer code</p><p>julia&gt; quantum<em>weight</em>reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying<em>type = :reduced) [[510, 1]]</em>2 CSS stabilizer code</p><p>julia&gt; quantum<em>weight</em>reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying<em>type = :target, target</em>q<em>X = 3) [[315, 1]]</em>2 CSS stabilizer code</p><h1 id="can-we-do-these-as-coning-maps?"><a class="docs-heading-anchor" href="#can-we-do-these-as-coning-maps?">can we do these as coning maps?</a><a id="can-we-do-these-as-coning-maps?-1"></a><a class="docs-heading-anchor-permalink" href="#can-we-do-these-as-coning-maps?" title="Permalink"></a></h1><h1 id="cycle-counting-examples"><a class="docs-heading-anchor" href="#cycle-counting-examples">cycle counting examples</a><a id="cycle-counting-examples-1"></a><a class="docs-heading-anchor-permalink" href="#cycle-counting-examples" title="Permalink"></a></h1><h1 id="Examples-From-Table-1"><a class="docs-heading-anchor" href="#Examples-From-Table-1">Examples From Table 1</a><a id="Examples-From-Table-1-1"></a><a class="docs-heading-anchor-permalink" href="#Examples-From-Table-1" title="Permalink"></a></h1><p>julia&gt; C = best<em>known</em>linear<em>code(6, 3) [6, 3, 3]</em>2 linear code Generator matrix: 3 × 6         1 0 1 0 1 0         0 1 1 0 0 1         0 0 1 1 1 1</p><p>julia&gt; S = HypergraphProductCode(C) [[45, 9, 3]]_2 subsystem code</p><p>julia&gt; l = 6; </p><p>julia&gt; quantum<em>weight</em>reduction(S, l, rand(1:l, nrows(S.Z<em>stabs)), seed = 123) [[3365, 9]]</em>2 CSS stabilizer code</p><p>julia&gt; quantum<em>weight</em>reduction(S, l, rand(1:l, nrows(S.Z<em>stabs)), seed = 197) [[3358, 9]]</em>2 CSS stabilizer code</p><p>julia&gt; C<em>wtred = weight</em>reduction(C) [9, 3, 4]_2 linear code Generator matrix: 3 × 9         1 0 1 0 1 0 1 0 0         0 1 1 0 0 1 0 1 0         0 1 0 1 1 0 0 0 1</p><p>julia&gt; HypergraphProductCode(C<em>wtred) [[117, 9, 4]]</em>2 subsystem code</p><p>julia&gt; C<em>wtred</em>com = weight<em>reduction(C, compressed = true) [7, 3, 3]</em>2 linear code Generator matrix: 3 × 7         1 1 1 1 0 0 0         0 1 1 0 0 1 0         1 0 1 0 1 0 1</p><p>julia&gt; HypergraphProductCode(C<em>wtred</em>com) [[65, 9, 3]]_2 subsystem code</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 8 February 2024 19:01">Thursday 8 February 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+        1 0 0 1 1 0 1 1 0 0 0 1</code></pre><h2 id="Quantum-Codes"><a class="docs-heading-anchor" href="#Quantum-Codes">Quantum Codes</a><a id="Quantum-Codes-1"></a><a class="docs-heading-anchor-permalink" href="#Quantum-Codes" title="Permalink"></a></h2><p>Quantum weight reduction consists of four steps: copying, gauging, thickening and choosing heights, and coning. In addition to running the entire process on a pair of stabilizer matrices or code object, each step may be run individually.</p><h3 id="Coning"><a class="docs-heading-anchor" href="#Coning">Coning</a><a id="Coning-1"></a><a class="docs-heading-anchor-permalink" href="#Coning" title="Permalink"></a></h3><p>Example 1 of \cite{sabo2024}</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2);
+
+julia&gt; H_X = matrix(F, 4, 6, [
+           1 1 1 0 0 0;
+           1 1 0 0 1 1;
+           1 0 1 1 1 0;
+           1 0 0 0 0 1]);
+
+julia&gt; H_Z = matrix(F, 1, 6, [1 0 1 0 0 1]);
+
+julia&gt; tilde_H_X, tilde_H_Z = copying(H_X, H_Z);
+
+julia&gt; tilde_H_X
+[1   0   0   0   1   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   1   0   0   0   0   0   0   0   0   0   0   1   0   0   0   1   0   0   0]
+[0   0   1   0   0   0   0   0   0   1   0   0   1   0   0   0   0   1   0   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0]
+[1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1]
+
+julia&gt; tilde_H_Z
+[1   1   1   1   0   0   0   0   1   1   1   1   0   0   0   0   0   0   0   0   1   1   1   1]</code></pre><h1 id="need-a-check-parameters?"><a class="docs-heading-anchor" href="#need-a-check-parameters?">need a check parameters?</a><a id="need-a-check-parameters?-1"></a><a class="docs-heading-anchor-permalink" href="#need-a-check-parameters?" title="Permalink"></a></h1><p>All of the examples in this section will also work using a code object.</p><pre><code class="nohighlight hljs">julia&gt; S = CSSCode(H_X, H_Z);
+
+julia&gt; copying(S)
+[[24, 1]]_2 CSS stabilizer code
+X-stabilizer matrix: 22 × 24
+         chi(0) 1 0 0 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0 0
+         chi(0) 0 0 1 0 0 0 0 0 0 1 0 0 1 0 0 0 0 1 0 0 0 0 0 0
+         chi(0) 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
+         chi(0) 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 0
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
+Z-stabilizer matrix: 1 × 24
+         chi(0) 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 1 1 1 1</code></pre><h3 id="Gauging"><a class="docs-heading-anchor" href="#Gauging">Gauging</a><a id="Gauging-1"></a><a class="docs-heading-anchor-permalink" href="#Gauging" title="Permalink"></a></h3><p>Example 2 of \cite{sabo2024}</p><pre><code class="nohighlight hljs">julia&gt; S = Q15RM();
+
+julia&gt; H_X = X_stabilizers(S)[[2, 1], :];
+
+julia&gt; H_Z = Z_stabilizers(S)[[4, 3, 2, 1], :];
+
+julia&gt; tilde_H_X, tilde_H_Z = gauging(H_X, H_Z);
+
+julia&gt; tilde_H_X
+[0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   1   1   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   1   0   0   0   0   0]
+[1   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0]
+[0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0]
+[0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0]
+[0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1]
+[0   0   0   0   0   0   0   0   0   0   0   0   1   0   1   0   0   0   0   0   0   0   0   0   1]
+
+julia&gt; tilde_H_Z
+[0   0   0   0   0   0   0   1   1   1   1   1   1   1   1   0   0   0   1   0   0   0   0   1   0]
+[0   0   0   1   1   1   1   0   0   0   0   1   1   1   1   0   1   0   0   0   0   1   0   0   0]
+[0   1   1   0   0   1   1   0   0   1   1   0   0   1   1   0   1   0   1   0   1   1   0   0   1]
+[1   0   1   0   1   0   1   0   1   0   1   0   1   0   1   1   1   0   0   1   0   1   0   1   0]</code></pre><h3 id="Thickening-And-Choosing-Heights"><a class="docs-heading-anchor" href="#Thickening-And-Choosing-Heights">Thickening And Choosing Heights</a><a id="Thickening-And-Choosing-Heights-1"></a><a class="docs-heading-anchor-permalink" href="#Thickening-And-Choosing-Heights" title="Permalink"></a></h3><p>For thickening and choosing heights, one must specify the thickening parameter <code>l</code> and <code>heights</code>. This is Example 3 of \cite{sabo2024}, although... NEED TO FINISH HERE</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2);
+
+julia&gt; l = 3; heights = [1, 2];
+
+julia&gt; H_X = matrix(F, 1, 4, [1 1 1 1]);
+
+julia&gt; H_Z = matrix(F, 2, 4, [1 1 0 0; 1 0 1 0]);
+
+julia&gt; tilde_H_X, tilde_H_Z  = thickening_and_choose_heights(H_X, H_Z, l, heights);
+
+julia&gt; tilde_H_X
+[1   0   1   0   0   1   0   0   1   0   0   1   0   0]
+[1   1   0   1   0   0   1   0   0   1   0   0   1   0]
+[0   1   0   0   1   0   0   1   0   0   1   0   0   1]
+
+julia&gt; tilde_H_Z
+[1   0   1   1   0   0   0   0   0   0   0   0   0   0]
+[0   1   0   1   1   0   0   0   0   0   0   0   0   0]
+[1   0   0   0   0   1   1   0   0   0   0   0   0   0]
+[0   1   0   0   0   0   1   1   0   0   0   0   0   0]
+[1   0   0   0   0   0   0   0   1   1   0   0   0   0]
+[0   1   0   0   0   0   0   0   0   1   1   0   0   0]
+[1   0   0   0   0   0   0   0   0   0   0   1   1   0]
+[0   1   0   0   0   0   0   0   0   0   0   0   1   1]
+[0   0   1   0   0   1   0   0   0   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   1   0   0   0   0]</code></pre><h3 id="Coning-2"><a class="docs-heading-anchor" href="#Coning-2">Coning</a><a class="docs-heading-anchor-permalink" href="#Coning-2" title="Permalink"></a></h3><p>This implementation uses the Decongestion Lemma \cite{} to find a cycle basis (see \cite{sabo2024}). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional <code>seed</code> argument is provided to control this.</p><p>NEED EXAMPLE HERE</p><h3 id="Improved-Copying"><a class="docs-heading-anchor" href="#Improved-Copying">Improved Copying</a><a id="Improved-Copying-1"></a><a class="docs-heading-anchor-permalink" href="#Improved-Copying" title="Permalink"></a></h3><p>The copying variants introduced in \cite{sabo2024} are available via an optional argument to <code>copying</code>.</p><pre><code class="nohighlight hljs">julia&gt; S = Q15RM();
+
+julia&gt; copying(S)
+[[60, 1]]_2 CSS stabilizer code
+
+julia&gt; copying(S, method = :reduced)
+[[32, 1]]_2 CSS stabilizer code
+
+julia&gt; copying(S, method = :target, target_q_X = 3)
+[[16, 1]]_2 CSS stabilizer code
+X-stabilizer matrix: 5 × 16
+         chi(0) 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0
+         chi(0) 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0
+         chi(0) 0 0 0 1 1 1 1 0 0 0 0 1 1 1 0 1
+         chi(0) 0 0 0 0 0 0 0 1 1 1 1 1 1 1 0 1
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
+Z-stabilizer matrix: 10 × 16
+         chi(0) 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1
+         chi(0) 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 1
+         chi(0) 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 1
+         chi(0) 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+         chi(0) 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 1
+         chi(0) 0 0 0 0 1 0 1 0 0 0 0 0 1 0 1 1
+         chi(0) 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 1 0 1 0 1 0 1 1</code></pre><h3 id="Altogether"><a class="docs-heading-anchor" href="#Altogether">Altogether</a><a id="Altogether-1"></a><a class="docs-heading-anchor-permalink" href="#Altogether" title="Permalink"></a></h3><p>The functions <code>weight_reduction</code> and <code>quantum_weight_reduction</code> provide a wrapper for automatically running the entire quantum weight reduction process in order. The arguments provided to each step individually are be passed into these functions with the exception that copying&#39;s optional argument <code>method</code> is now <code>copying_type</code> and <code>target_q_X</code> is now <code>copying_target</code>. The optional parameter <code>target_q_X</code> now triggers a second round of thickening and choosing heights in coning. The first, manadatory round of thickening and choosing heights is controlled via <code>l1</code> and <code>heights</code>. The second, optional round is controlled via <code>l2</code> and <code>target_q_X</code>, where the second set of heights are determined by the target.</p><p>Note the randomness of the output induced by coning.</p><pre><code class="nohighlight hljs">julia&gt; S = Q15RM();
+
+julia&gt; l = 3; heights = [2, 1, 2, 1, 2, 3, 1, 3, 3, 1];
+
+julia&gt; quantum_weight_reduction(S, l, heights)
+[[722, 1]]_2 CSS stabilizer code
+
+julia&gt; quantum_weight_reduction(S, l, heights)
+[[721, 1]]_2 CSS stabilizer code
+
+julia&gt; quantum_weight_reduction(S, l, heights, copying_type = :reduced)
+[[510, 1]]_2 CSS stabilizer code
+
+julia&gt; quantum_weight_reduction(S, l, heights, copying_type = :target, copying_target = 3)
+[[315, 1]]_2 CSS stabilizer code</code></pre><h3 id="Classical-Versus-Quantum-Weight-Reduction"><a class="docs-heading-anchor" href="#Classical-Versus-Quantum-Weight-Reduction">Classical Versus Quantum Weight Reduction</a><a id="Classical-Versus-Quantum-Weight-Reduction-1"></a><a class="docs-heading-anchor-permalink" href="#Classical-Versus-Quantum-Weight-Reduction" title="Permalink"></a></h3><p>Consider the code from the first row of Table 1 in \cite{sabo2024}.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
+[6, 3, 3]_2 linear code
+Generator matrix: 3 × 6
+        1 0 1 0 1 0
+        0 1 1 0 0 1
+        0 0 1 1 1 1
+
+julia&gt; S = HypergraphProductCode(C)
+[[45, 9, 3]]_2 subsystem code</code></pre><p>Fixing a random choice of <code>l</code>, we can see the effect of the optional parameter <code>seed</code>.</p><pre><code class="nohighlight hljs">julia&gt; l = 6;
+
+julia&gt; quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 123)
+[[3365, 9]]_2 CSS stabilizer code
+
+julia&gt; quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 197)
+[[3358, 9]]_2 CSS stabilizer code</code></pre><p>Weight reducing the classical codes before passing to the hypergraph product gives.</p><pre><code class="nohighlight hljs">julia&gt; C_wtred = weight_reduction(C)
+[9, 3, 4]_2 linear code
+Generator matrix: 3 × 9
+        1 0 1 0 1 0 1 0 0
+        0 1 1 0 0 1 0 1 0
+        0 1 0 1 1 0 0 0 1
+
+julia&gt; HypergraphProductCode(C_wtred)
+[[117, 9, 4]]_2 subsystem code
+
+julia&gt; C_wtred_com = weight_reduction(C, compressed = true)
+[7, 3, 3]_2 linear code
+Generator matrix: 3 × 7
+        1 1 1 1 0 0 0
+        0 1 1 0 0 1 0
+        1 0 1 0 1 0 1
+
+julia&gt; HypergraphProductCode(C_wtred_com)
+[[65, 9, 3]]_2 subsystem code</code></pre><h2 id="Copying-And-Gauging-As-Coning"><a class="docs-heading-anchor" href="#Copying-And-Gauging-As-Coning">Copying And Gauging As Coning</a><a id="Copying-And-Gauging-As-Coning-1"></a><a class="docs-heading-anchor-permalink" href="#Copying-And-Gauging-As-Coning" title="Permalink"></a></h2><h2 id="Exploring-The-Cycle-Structure"><a class="docs-heading-anchor" href="#Exploring-The-Cycle-Structure">Exploring The Cycle Structure</a><a id="Exploring-The-Cycle-Structure-1"></a><a class="docs-heading-anchor-permalink" href="#Exploring-The-Cycle-Structure" title="Permalink"></a></h2><p>Classical weight reduction should not change the cycle structure of the code. We can test this. Recall that a parity-check matrix defines a Tanner graph, and the girth, <span>$g$</span>, of the graph is defined to the length of the shortest cycle. Short cycles are defined to be cycles with length up to <span>$2g - 2$</span>. The total number of short cycles are not preserved by weight reduction since the girth may not increase as much as the length of a cycle, pushing it beyond the <span>$2g - 2$</span> limit. Elementary cycles are cycles which do not pass through the same vertex twice. The total number of elementary cycles is invariant under classical weight reduction.</p><p>We will supress the plots output from the functions below.</p><pre><code class="nohighlight hljs">julia&gt; C = best_known_linear_code(6, 3)
+[6, 3, 3]_2 linear code
+Generator matrix: 3 × 6
+        1 0 1 0 1 0
+        0 1 1 0 0 1
+        0 0 1 1 1 1
+
+julia&gt; L = LDPCCode(C)
+[6, 3, 3]_2 irregular 4-limited LDPC code with density 0.5555555555555556.
+
+Variable degree polynomial:
+        3//10*x^2 + 2//5*x + 3//10
+Check degree polynomial:
+        2//5*x^3 + 3//5*x^2
+Parity-check matrix: 3 × 6
+        1 1 1 1 0 0
+        0 1 1 0 1 0
+        1 0 1 0 0 1
+
+julia&gt; girth(L)
+4
+
+julia&gt; count_short_cycles(L)
+(Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 4, 6 =&gt; 2))
+
+julia&gt; count_elementary_cycles(L)
+(Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 4, 6 =&gt; 2))
+
+julia&gt; C_wtred = weight_reduction(C, permute_rows = false, permute_columns = false)
+[9, 3, 4]_2 linear code
+Generator matrix: 3 × 9
+        1 1 0 0 1 1 1 0 0
+        0 1 1 0 0 1 0 1 0
+        0 0 1 1 1 1 0 0 1
+
+julia&gt; L_wtred = LDPCCode(C_wtred)
+[9, 3, 4]_2 irregular 3-limited LDPC code with density 0.2962962962962963.
+
+Variable degree polynomial:
+        3//16*x^2 + 5//8*x + 3//16
+Check degree polynomial:
+        3//4*x^2 + 1//4*x
+Parity-check matrix: 6 × 9
+        1 0 0 0 0 0 1 0 0
+        0 1 0 0 0 0 1 1 0
+        0 0 1 0 0 0 0 1 1
+        0 0 0 1 0 0 0 0 1
+        0 1 1 0 1 0 0 0 0
+        1 0 1 0 0 1 0 0 0
+
+julia&gt; girth(L_wtred)
+6
+
+julia&gt; count_short_cycles(L_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 2, 10 =&gt; 0, 8 =&gt; 4))
+
+julia&gt; count_elementary_cycles(L_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 2, 8 =&gt; 4))</code></pre><p>We see that the girth increased, as well as the cycle lengths, but the total number of elementary cycles is still six. The function <code>count_short_cycles</code> preallocates a dictionary with entries from <span>$g$</span> to <span>$2g - 2$</span>, which in this case in ten. Since there are no length ten cycles, this entry still exists but with value zero.</p><p>The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the <span>$X-Z$</span> correlations for the moment, let&#39;s consider the <span>$X$</span> stabilizers of the following codes.</p><pre><code class="nohighlight hljs">julia&gt; S = HypergraphProductCode(C)
+[[45, 9, 3]]_2 subsystem code
+
+
+julia&gt; S_wtred = HypergraphProductCode(C_wtred)
+[[117, 9, 4]]_2 subsystem code
+
+julia&gt; L_X = LDPCCode(X_stabilizers(S))
+[45, 27]_2 irregular 7-limited LDPC code with density 0.1111111111111111.
+
+Variable degree polynomial:
+        2//15*x^3 + 2//5*x^2 + 4//15*x + 1//5
+Check degree polynomial:
+        7//90*x^6 + 4//15*x^5 + 7//18*x^4 + 4//15*x^3
+
+
+julia&gt; girth(L_X)
+4
+
+julia&gt; L_X_wtred = LDPCCode(X_stabilizers(S_wtred))
+[117, 63]_2 irregular 6-limited LDPC code with density 0.03798670465337132.
+
+Variable degree polynomial:
+        33//80*x^2 + 19//40*x + 9//80
+Check degree polynomial:
+        1//10*x^5 + 11//24*x^4 + 11//30*x^3 + 3//40*x^2
+
+
+julia&gt; girth(L_X_wtred)
+6
+
+julia&gt; _, D = count_elementary_cycles(L_X)
+(Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 36, 6 =&gt; 92, 10 =&gt; 176, 12 =&gt; 104, 8 =&gt; 280, 14 =&gt; 68))
+
+julia&gt; _, D_wtred = count_elementary_cycles(L_X_wtred); print(ans[2])
+Dict(16 =&gt; 356, 20 =&gt; 108, 12 =&gt; 544, 24 =&gt; 18, 28 =&gt; 2, 8 =&gt; 352, 22 =&gt; 196, 6 =&gt; 30, 14 =&gt; 1326, 10 =&gt; 960, 18 =&gt; 748, 26 =&gt; 22)
+
+julia&gt; sum(values(D))
+756
+
+julia&gt; sum(values(D_wtred))
+4662</code></pre><p>Even though the weight-reduced code produced more cycles after the hypergraph product, the number of shorter cycles has decreased.</p><pre><code class="nohighlight hljs">julia&gt; count_short_cycles(L_X)
+(Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 36, 6 =&gt; 92))
+
+julia&gt; count_short_cycles(L_X_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 =&gt; 30, 10 =&gt; 960, 8 =&gt; 352))</code></pre><p>The cycle structure is not preserved by quantum weight reduction \cite{sabo2024}.</p><pre><code class="nohighlight hljs">julia&gt; S_qwtred = weight_reduction(S, 4, rand(1:4, nrows(S.Z_stabs)))
+[[2170, 9]]_2 CSS stabilizer code
+
+julia&gt; L_X_qwtred = LDPCCode(X_stabilizers(S_qwtred))
+[2170, 1197]_2 irregular 9-limited LDPC code with density 0.002024658584234584.
+
+Variable degree polynomial:
+        7//1444*x^6 + 7//722*x^5 + 15//1444*x^4 + 34//1083*x^3 + 65//361*x^2 + 1451//2166*x + 203//2166
+Check degree polynomial:
+        9//722*x^8 + 2//57*x^7 + 259//4332*x^6 + 85//722*x^5 + 445//2166*x^4 + 484//1083*x^3 + 177//1444*x^2
+
+
+julia&gt; girth(L_X_qwtred)
+4
+
+julia&gt; count_short_cycles(L_X_qwtred)
+(Plot{Plots.GRBackend() n=1}, Dict(4 =&gt; 170, 6 =&gt; 300))
+
+julia&gt; _, D_qwtred = count_elementary_cycles(L_X_qwtred); print(D_qwtred)
+Dict(78 =&gt; 28, 56 =&gt; 2894, 16 =&gt; 13428, 20 =&gt; 24654, 58 =&gt; 15616, 52 =&gt; 7728, 60 =&gt; 1062, 12 =&gt; 6768, 24 =&gt; 38458, 28 =&gt; 48938, 8 =&gt; 2990, 30 =&gt; 140804, 72 =&gt; 16, 22 =&gt; 86594, 32 =&gt; 52376, 6 =&gt; 300, 36 =&gt; 49460, 44 =&gt; 29098, 68 =&gt; 88, 14 =&gt; 27266, 74 =&gt; 260, 64 =&gt; 400, 46 =&gt; 94434, 66 =&gt; 3418, 76 =&gt; 4, 40 =&gt; 41326, 48 =&gt; 16998, 34 =&gt; 147230, 50 =&gt; 60238, 4 =&gt; 170, 54 =&gt; 32394, 70 =&gt; 1216, 10 =&gt; 8890, 18 =&gt; 53496, 26 =&gt; 118236, 38 =&gt; 142138, 42 =&gt; 125086, 62 =&gt; 7388)</code></pre><h3 id="Lifted-Products"><a class="docs-heading-anchor" href="#Lifted-Products">Lifted Products</a><a id="Lifted-Products-1"></a><a class="docs-heading-anchor-permalink" href="#Lifted-Products" title="Permalink"></a></h3></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Quantum Codes/">« Quantum Codes</a><a class="docs-footer-nextpage" href="../../Examples/The Vardy-Be’ery Decomposition/">The Vardy-Be’ery Decomposition »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 8 February 2024 20:09">Thursday 8 February 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
