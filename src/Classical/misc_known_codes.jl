@@ -272,7 +272,7 @@ function GolayCode(p::Int)
 end
 
 #############################
-        # Hadamard
+         # Hadamard
 #############################
 
 # """
@@ -306,3 +306,18 @@ end
 # end
 # WalshHadamardCode(m) = HadamardCode(m)
 # WalshCode(m) = HadamardCode(m)
+
+#############################
+  # Best Known Linear Codes
+#############################
+
+function best_known_linear_code(n::Int, k::Int)
+    C_GAP = GAP.Globals.BestKnownLinearCode(n, k, GAP.Globals.GF(2))
+    G = GAP.Globals.GeneratorMat(C_GAP)
+    dims = GAP.Globals.DimensionsMat(G)
+    g = matrix(GF(2), [GAP.Globals.Int(G[i, j]) for i in 1:dims[1], j in 1:dims[2]])
+    H = GAP.Globals.CheckMat(C_GAP)
+    dims = GAP.Globals.DimensionsMat(H)
+    h = matrix(GF(2), [GAP.Globals.Int(H[i, j]) for i in 1:dims[1], j in 1:dims[2]])
+    return LinearCode(g, h)
+end

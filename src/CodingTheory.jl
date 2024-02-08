@@ -202,7 +202,8 @@ export weight_matrix, base_matrix, protograph_matrix, QuasiCyclicCode, index,
 
 include("Classical/misc_known_codes.jl")
 export ZeroCode, IdentityCode, RepetitionCode, SingleParityCheckCode, SPCCode,
-    Hexacode, HammingCode, TetraCode, SimplexCode, GolayCode, ExtendedGolayCode
+    Hexacode, HammingCode, TetraCode, SimplexCode, GolayCode, ExtendedGolayCode,
+    best_known_linear_code
 
 #############################
 # Classical/GeneralizedReedSolomon.jl
