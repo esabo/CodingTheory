@@ -1,9 +1,9 @@
 # Weight Reduction
+Weight reduction was first introduced for CSS codes in \cite{hastsings2016, hastings2023} and for classical codes in \cite{hastingsfiber}. Here, we follow the finite-size analysis of \cite{sabo2024}. The arguments of the functions below are aligned with the terminology introduced in that paper.
 
 ## Classical Codes
-
-Weight reduction for classical codes refers to techniques used to reduce the row and column weights of parity-check matrices. Since there are many methods to create high quality LDPC codes already, the purpose of this is not to create good linear codes in their own right, but instead for use in quantum product codes as seen in OUR PAPER HERE.
-
+Weight reduction applied to classical codes acts on parity-check matrices. To weight reduce a generator matrix instead, apply weight reduction to the dual code.
+```
 julia> C = ReedMullerCode(1, 3)
 [8, 4, 4]_2 Reed-Muller code RM(1, 3)
 Generator matrix: 4 × 8
@@ -18,32 +18,6 @@ julia> parity_check_matrix(C)
 [0   0   1   1   0   0   1   1]
 [0   0   0   0   1   1   1   1]
 
-julia> parity_check_matrix(C_wtred)
-[1   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0]
-[0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0]
-[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0]
-[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0]
-[0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0]
-[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0]
-[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0]
-[0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0]
-[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0]
-[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1]
-[0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1]
-[0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
-
-# by default permutes and does both permutations on rows and columns
 julia> C_wtred = weight_reduction(C)
 [27, 4, 9]_2 linear code
 Generator matrix: 4 × 27
@@ -76,7 +50,40 @@ julia> parity_check_matrix(C_wtred)
 [0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+```
+As described in \cite{sabo2024}, this function applies independent row and column permutations by default. These may be independently turned off using the optional arguments `permute_rows` and `permute_columns`, respectively.
+```
+julia> C_wtred = weight_reduction(C, permute_rows = false, permute_columns = false);
 
+julia> parity_check_matrix(C_wtred)
+[1   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0]
+[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0]
+[0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0]
+[0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0]
+[0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0]
+[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1   1]
+[0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   1]
+[0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
+```
+Use the optional arguments `rows = false` or `columns = false` to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments `row_indices` and `column_indices` to only reduce specific rows or columns, respectively. If the optional arguments `row_target` or `column_target` are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting `compressed = true`. Finally, the optional argument `seed` sets `Random.seed!(seed)`, which allows for reproducable permutations.
+
+Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.
+```
 julia> H1 = matrix(F, 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
 
 julia> H2 = H1[:, [1, 5, 3, 6, 4, 2 ]];
@@ -100,7 +107,10 @@ julia> weight_reduction(H2, permute_rows = false, permute_columns = false)
 [0   0   1   0   0   0   0   0   0   1   1   0]
 [0   0   0   1   0   0   0   0   0   0   1   1]
 [0   0   0   0   1   0   0   0   0   0   0   1]
+```
 
+The easiest way to see the effect of the permutation `H2` of `H1` is to create code objects for the matrices. Since we have already applied the desired permutation, we will turn further permutations off. Since these codes are small, the `LinearCode` constructor will automatically compute their minimum distance. (This is Example 10 of \cite{sabo2024}.)
+```
 julia> C1 = LinearCode(H1, true);
 
 julia> weight_reduction(C1, permute_rows = false, permute_columns = false)
@@ -120,6 +130,7 @@ Generator matrix: 4 × 12
         1 1 1 0 0 0 1 0 0 1 0 0
         1 0 1 1 0 0 1 0 0 0 1 0
         1 0 0 1 1 0 1 1 0 0 0 1
+```
 
 ## Quantum Codes
 
@@ -288,3 +299,30 @@ Generator matrix: 3 × 6
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
 
+julia> l = 6; 
+
+julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 123)
+[[3365, 9]]_2 CSS stabilizer code
+
+julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 197)
+[[3358, 9]]_2 CSS stabilizer code
+
+julia> C_wtred = weight_reduction(C)
+[9, 3, 4]_2 linear code
+Generator matrix: 3 × 9
+        1 0 1 0 1 0 1 0 0
+        0 1 1 0 0 1 0 1 0
+        0 1 0 1 1 0 0 0 1
+
+julia> HypergraphProductCode(C_wtred)
+[[117, 9, 4]]_2 subsystem code
+
+julia> C_wtred_com = weight_reduction(C, compressed = true)
+[7, 3, 3]_2 linear code
+Generator matrix: 3 × 7
+        1 1 1 1 0 0 0
+        0 1 1 0 0 1 0
+        1 0 1 0 1 0 1
+
+julia> HypergraphProductCode(C_wtred_com)
+[[65, 9, 3]]_2 subsystem code
