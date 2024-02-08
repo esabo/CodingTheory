@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>The Vardy-Be’ery Decomposition · Coding Theory Documentation</title><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.png" alt="Coding Theory Documentation logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Coding Theory Documentation</a></span></div><form class="docs-search" action="../../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../../Tutorials/Linear Codes/">Linear Codes Over Finite Fields</a></li><li><a class="tocitem" href="../../Tutorials/Cyclic Codes/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Tutorials/Quantum Codes/">Quantum Codes</a></li><li><a class="tocitem" href="../../Tutorials/Weight Reduction/">Weight Reduction</a></li></ul></li><li><span class="tocitem">Examples</span><ul><li class="is-active"><a class="tocitem" href>The Vardy-Be’ery Decomposition</a><ul class="internal"><li><a class="tocitem" href="#Background"><span>Background</span></a></li><li><a class="tocitem" href="#The-Almost-Block-Diagonal-Form"><span>The Almost-Block-Diagonal Form</span></a></li><li><a class="tocitem" href="#Explicit-Example"><span>Explicit Example</span></a></li></ul></li><li><a class="tocitem" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes</a></li></ul></li><li><span class="tocitem">Classical</span><ul><li><a class="tocitem" href="../../Classical/linear_code/">Linear Codes</a></li><li><a class="tocitem" href="../../Classical/concatenation/">Concatenated Codes</a></li><li><a class="tocitem" href="../../Classical/cyclic_code/">Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/quasi-cyclic_code/">Quasi-Cyclic Codes</a></li><li><a class="tocitem" href="../../Classical/GeneralizedReedSolomon/">Generalized Reed-Solomon Codes</a></li><li><a class="tocitem" href="../../Classical/ReedMuller/">Reed-Muller Codes</a></li><li><a class="tocitem" href="../../Classical/new_codes_from_old/">Modifying Codes</a></li><li><a class="tocitem" href="../../Classical/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Classical/misc_known_codes/">Miscellaneous Known Linear Codes</a></li></ul></li><li><span class="tocitem">LDPC</span><ul><li><a class="tocitem" href="../../LDPC/codes/">LDPC Codes</a></li><li><a class="tocitem" href="../../LDPC/Tanner_codes/">Generalized LDPC/Tanner Codes</a></li><li><a class="tocitem" href="../../LDPC/analysis/">LDPC Ensemble Analysis</a></li><li><a class="tocitem" href="../../LDPC/channels/">LDPC Noise Channels</a></li><li><a class="tocitem" href="../../LDPC/decoders/">Decoding LDPC Codes</a></li></ul></li><li><span class="tocitem">Quantum</span><ul><li><a class="tocitem" href="../../Quantum/quantum_code/">Notes</a></li><li><a class="tocitem" href="../../Quantum/product_codes/">Product Codes</a></li><li><a class="tocitem" href="../../Quantum/misc_known_codes/">Miscellaneous Known Stabilizer Codes</a></li></ul></li><li><span class="tocitem">Misc</span><ul><li><a class="tocitem" href="../../tilings/">Tilings</a></li><li><a class="tocitem" href="../../trellis/">Trellises</a></li><li><a class="tocitem" href="../../utils/">Utilies</a></li><li><a class="tocitem" href="../../weight_dist/">Weight Enumerators, Distributions, And Minimum Distances</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li><li><a class="tocitem" href="../../theindex/">Index</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>The Vardy-Be’ery Decomposition</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>The Vardy-Be’ery Decomposition</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/esabo/CodingTheory/blob/master/docs/src/Examples/The Vardy-Be’ery Decomposition.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="The-Vardy-Be’ery-Decomposition"><a class="docs-heading-anchor" href="#The-Vardy-Be’ery-Decomposition">The Vardy-Be’ery Decomposition</a><a id="The-Vardy-Be’ery-Decomposition-1"></a><a class="docs-heading-anchor-permalink" href="#The-Vardy-Be’ery-Decomposition" title="Permalink"></a></h1><h2 id="Background"><a class="docs-heading-anchor" href="#Background">Background</a><a id="Background-1"></a><a class="docs-heading-anchor-permalink" href="#Background" title="Permalink"></a></h2><p>This example draws from and uses the notation from the background sections in the <a href="Examples/link">linear codes</a> and <a href="Examples/link">cyclic codes</a> tutorials.</p><h2 id="The-Almost-Block-Diagonal-Form"><a class="docs-heading-anchor" href="#The-Almost-Block-Diagonal-Form">The Almost-Block-Diagonal Form</a><a id="The-Almost-Block-Diagonal-Form-1"></a><a class="docs-heading-anchor-permalink" href="#The-Almost-Block-Diagonal-Form" title="Permalink"></a></h2><p>Vardy and Be&#39;ery showed that expanded (cyclic) Reed-Solomon codes may be seen as interleaved BCH codes plus some extra &quot;glue&quot;.</p><div class="admonition is-info"><header class="admonition-header">The Vardy-Be’ery Decomposition</header><div class="admonition-body"><p>Let <span>$\mathcal{C}$</span> be a cyclic Reed-Solomon code over <span>$\mathbb{F}_{p^m}$</span> for <span>$p, m \geq 2$</span>. Using column permutations, the expanded generator matrix can be put into the form of Figure \ref{fig:blockstruct}, where <span>$B$</span> is the generator matrix of the corresponding BCH subfield subcode <span>$\mathcal{B}$</span>.</p></div></div><p>The proof of this is easy. Instead of expanding <span>$\mathcal{C}$</span> in its entirety, first perform the expansion on <span>$\mathcal{B} \subset \mathcal{C}$</span> only. As a subfield subcode, the codewords of <span>$\mathcal{B}$</span> are closed in <span>$\mathcal{C}$</span> under scalar multiplication in <span>$\mathbb{F}_{p^m}$</span>. Choose a basis, <span>$\beta$</span>, of <span>$\mathbb{F}_{p^m}/\mathbb{F}_p$</span> and let <span>$\mathcal{B}_i = \{ \beta_i b \, : \, b \in \mathcal{B} \}$</span>. Clearly the <span>$\mathcal{B}_i$</span> are disjoint subcodes of <span>$\mathcal{C}$</span>. For <span>$b = (b_1, \dots, b_n)$</span>, a row of the generator matrix of <span>$\mathcal{B}$</span>, the expansion of <span>$\beta_i b$</span> gives <span>$m$</span> rows of the form</p><p class="math-container">\[\begin{aligned}
+	&amp;(b_1, 0, \dots, 0, b_2, 0, \dots, 0, b_n, 0, \dots, 0),\\
+	&amp;(0, b_1, 0, \dots, 0, b_2, 0, \dots, 0, b_n, 0, \dots, 0),\\
+	&amp;(0, 0, b_1, 0, \dots, 0, b_2, 0, \dots, 0, b_n, 0, \dots, 0),
+\end{aligned}\]</p><p>where we have used the fact that <span>$\mathrm{Tr}_{\mathbb{F}_{p^m}/\mathbb{F}_p}$</span> is <span>$\mathbb{F}_p$</span>-linear and <span>$\mathrm{Tr}_{\mathbb{F}_{p^m}/\mathbb{F}_p}(b_\ell \beta_i \beta_j^\perp) = b_\ell \delta_{ij}$</span>. There are <span>$m - 1$</span> zeros (cyclically) between each non-zero element. Permuting columns put these into the form</p><p class="math-container">\[\begin{aligned}
+	&amp;(b_1, \dots, b_n, 0, \dots, 0, 0, \dots 0),\\
+	&amp;(0, \dots, 0, b_1, \dots, b_n, 0, \dots 0),\\
+	&amp;(0, \dots, 0, 0, \dots 0, b_1, \dots, b_n).
+\end{aligned}\]</p><p>Repeating this for all of the rows of the generator matrix of <span>$\mathcal{B}$</span> then permuting rows completes the <span>$m$</span> factors of <span>$B \oplus \dots \oplus B$</span>.</p><p>If <span>$\mathcal{C}$</span> has dimension <span>$k$</span> and <span>$\mathcal{B}$</span>, <span>$k^\prime$</span>, then <span>$m(k - k^\prime)$</span> more &quot;glue vectors&quot; are required to span the expanded code, <span>$\phi_\beta (\mathcal{C})$</span>. These must be inside of <span>$\phi_\beta (\mathcal{C})$</span> but with a nonzero component outside out <span>$\mathcal{B}_i$</span> if we want the generator matrix to be full rank. The remaining vectors are therefore a basis of the row space of <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span>. The literature often describes the glue vectors as sums of minimum-weight coset leaders of <span>$\mathcal{B}$</span> considered as polynomials also satisfying the zeros of <span>$\mathcal{C}$</span> \cite{halford2005soft}; however, the standard coset leaders algorithm makes this difficult to use for even small codes. Instead, these may be computed, even for large codes, using elementary linear algebra using the same algorithm one would for computing the quotient space of two modules. If being used to, for example, connect different hardware modules (corresponding to each <span>$\mathcal{B}$</span>) on a quantum computer, it may be experimentally advantageous to further enforce that the glue vectors be of specific weight or as low-weight as possible. This can be done by selecting appropriate elements from <span>$\phi_\beta(\mathcal{C}) / \left(\oplus_{i = 1}^m B_i\right)$</span> using <code>minimum_words</code> that together have full rank.</p><p>This method is highly constrained as the resulting code always has length <span>$m(p^m - 1)$</span>. In a separate 1994 paper \cite{vardy1994maximum}, Vardy and Be&#39;ery showed that binary, primitive BCH codes and binary BCH codes of composite block length may also be put into the form above. We will also refer to this as a Vardy-Be’ery decomposition since the proper technique should be clear from context. For primitive BCH codes, they extended the code and then split the zeros into partitions satisfying certain properties. The direct-sum subcodes are then obtained by puncturing on the set complement of the indices corresponding to the defining sets of each partition. This applies directly to Reed-Muller codes. We will not use this approach here but instead consider BCH codes of composite block length. The two approaches are almost identical except that in the latter case the partitions are immediate from the structure of the code. The following applies to cyclic codes in general.</p><p>Let <span>$\mathcal{C}$</span> be a BCH code over <span>$\mathbb{F}_2$</span> of composite length <span>$n = n_h n_q$</span> with defining set <span>$C^n_b \cup \dots \cup C^n_{b + \delta - 2}$</span>. Consider the sets <span>$\mathcal{I}_i = \{1 + j + i \cdot n_h\}$</span> where <span>$0 \leq j \leq n_h - 1$</span> for fixed <span>$0 \leq i \leq n_q - 1$</span>.</p><div class="admonition is-info"><header class="admonition-header">Lemma</header><div class="admonition-body"><p>The code obtained from <span>$\mathcal{C}$</span> punctured on the complement, <span>$\mathcal{I}_i^c$</span>, is a BCH code of length <span>$n_q$</span> with defining set <span>$C^{n_q}_b \cup \dots \cup C^{n_q}_{b + \delta - 2}$</span>.</p></div></div><p>While the second paper does not cite the first paper, the first result may seen as a special case of the second, where the sets <span>$\mathcal{I}_i$</span> are the non-zero locations of the matrices above.</p><h2 id="Explicit-Example"><a class="docs-heading-anchor" href="#Explicit-Example">Explicit Example</a><a id="Explicit-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Explicit-Example" title="Permalink"></a></h2><h3 id="Example-1:-First-Result"><a class="docs-heading-anchor" href="#Example-1:-First-Result">Example 1: First Result</a><a id="Example-1:-First-Result-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-First-Result" title="Permalink"></a></h3><p>For an example of the first result, consider the <span>$[7, 4, 4; 0]_8$</span> Reed-Solomon code.</p><pre><code class="nohighlight hljs">julia&gt; C = ReedSolomonCode(8, 4, 0)
+[7, 4, 4; 0]_8 Reed-Solomon code
+8-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_2
+Generator polynomial:
+        x^3 + (α^2 + α + 1)*x^2 + (α^2 + 1)*x + α + 1
+Generator matrix: 4 × 7
+        α + 1 α^2 + 1 α^2 + α + 1 1 0 0 0
+        0 α + 1 α^2 + 1 α^2 + α + 1 1 0 0
+        0 0 α + 1 α^2 + 1 α^2 + α + 1 1 0
+        0 0 0 α + 1 α^2 + 1 α^2 + α + 1 1</code></pre><p>To expand</p><pre><code class="nohighlight hljs">julia&gt; F = GF(2)
+Galois field with characteristic 2
+
+julia&gt; primitive_basis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia&gt; β, λ = primitive_basis(field(C), F)
+(fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
+
+julia&gt; C_exp = expanded_code(C, F, β)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 0
+        0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0 0 0 0
+        0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0 0 0 0
+        0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0 0 0 0
+        0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0 0 0 0
+        0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1 0 0 0
+        0 0 0 0 0 0 0 0 0 1 1 0 1 0 1 1 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 1 0 1 0
+        0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0 0 0 0 1
+
+julia&gt; function permutation_matrix(F::CodingTheory.CTFieldTypes, n1::Int, n2::Int)
+                  # usage: P = permutation_matrix(GF(2), 15, 3) for 3 modules of size 15 each
+                  arr = [1 + j + i * n2 for j in 0:(n2 - 1) for i in 0:(n1 - 1)]
+                  P = zero_matrix(F, n1 * n2, n1 * n2)
+                  F_one = F(1)
+                  for i in 1:(n1 * n2)
+                      P[arr[i], i] = F_one
+                  end
+                  return P
+              end
+permutation_matrix (generic function with 3 methods)
+
+julia&gt; P = permutation_matrix(field(C_exp), 7, 3);
+
+julia&gt; C_exp_P = LinearCode(generator_matrix(C_exp) * P)
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0 0
+        0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0 0
+        1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0 0
+        0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0 0
+        0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0 0
+        0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0 0
+        0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0 0
+        0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0 0
+        0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1 0
+        0 0 0 1 1 1 1 0 0 0 1 0 1 0 0 0 0 0 1 1 0
+        0 0 0 0 1 1 0 0 0 0 1 0 0 1 0 0 0 1 0 1 0
+        0 0 0 1 0 1 0 0 0 0 1 1 0 0 0 0 0 1 0 0 1
+
+julia&gt; B = subfield_subcode(C, F, β)
+[7, 3]_2 linear code
+Generator matrix: 3 × 7
+        1 0 1 1 1 0 0
+        1 1 1 0 0 1 0
+        0 1 1 1 0 0 1
+
+julia&gt; B_block = LinearCode(generator_matrix(B) ⊕ generator_matrix(B) ⊕ generator_matrix(B))
+[21, 9]_2 linear code
+Generator matrix: 9 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+
+julia&gt; Quo = C_exp_P / B_block
+[21, 3]_2 linear code
+Generator matrix: 3 × 21
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia&gt; C_full = augment(B_block, generator_matrix(Quo))
+[21, 12]_2 linear code
+Generator matrix: 12 × 21
+        1 0 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 1 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 1 1 1 0 0 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 0 1
+        0 1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 1 1 0 0
+        1 1 0 0 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1 1 1
+        1 1 1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 1
+
+julia&gt; are_equivalent(C_exp_P, C_full)
+true</code></pre><h3 id="Example-2:-Second-Result"><a class="docs-heading-anchor" href="#Example-2:-Second-Result">Example 2: Second Result</a><a id="Example-2:-Second-Result-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Second-Result" title="Permalink"></a></h3><p>For an example of the second result, consider the BCH code with <span>$b = 0$</span> and <span>$\delta = 5$</span> with <span>$n_h = 3$</span> and <span>$n_q = 15$</span>. The 2-cosets modulo 45 are</p><pre><code class="nohighlight hljs">julia&gt; q = 2; nh = 3; nq = 15; n = nh * nq; b = 0; δ = 5;
+
+julia&gt; all_cyclotomic_cosets(q, n)
+8-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+ [5, 10, 20, 25, 35, 40]
+ [7, 11, 13, 14, 22, 26, 28, 29, 37, 41, 43, 44]
+ [9, 18, 27, 36]
+ [15, 30]
+ [21, 33, 39, 42]
+
+julia&gt; cosets = defining_set([i for i = b:(b + δ - 2)], q, n, false)
+3-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8, 16, 17, 19, 23, 31, 32, 34, 38]
+ [3, 6, 12, 24]
+
+julia&gt; C_big = CyclicCode(q, n, cosets)
+[45, 28; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^17 + x^16 + x^14 + x^12 + x^8 + x^7 + x^4 + x^3 + x^2 + 1</code></pre><p>Alternatively, we could have called <span>$BCHCode(q, n, δ, b)$</span> directly. Then</p><p class="math-container">\[\mathcal{I}_1 = \{ 1, 4, 7, \dots, 43\} \quad , \quad \mathcal{I}_2 = \{ 2, 5, 8, \dots, 44\} \quad , \quad \mathcal{I}_3 = \{3, 6, 9, \dots, 45\}.\]</p><p>The BCH subcode has the defining set <span>$C^{15}_0 \cup \dots \cup C^{15}_3$</span>. The 2-cosets modulo 15 are</p><pre><code class="nohighlight hljs">julia&gt; all_cyclotomic_cosets(q, nq)
+5-element Vector{Vector{Int64}}:
+ [0]
+ [1, 2, 4, 8]
+ [3, 6, 9, 12]
+ [5, 10]
+ [7, 11, 13, 14]</code></pre><p>so this will be a <span>$[15, 6]$</span> code.</p><pre><code class="nohighlight hljs">julia&gt; C_small = BCHCode(q, nq, δ, b)
+[15, 6; 0]_2 BCH code
+2-Cyclotomic cosets: 
+        C_0 ∪ C_1 ∪ C_3
+Generator polynomial:
+        x^9 + x^6 + x^5 + x^4 + x + 1
+Generator matrix: 6 × 15
+        1 1 0 0 1 1 1 0 0 1 0 0 0 0 0
+        0 1 1 0 0 1 1 1 0 0 1 0 0 0 0
+        0 0 1 1 0 0 1 1 1 0 0 1 0 0 0
+        0 0 0 1 1 0 0 1 1 1 0 0 1 0 0
+        0 0 0 0 1 1 0 0 1 1 1 0 0 1 0
+        0 0 0 0 0 1 1 0 0 1 1 1 0 0 1</code></pre><p>Both codes happen to have minimum distance <span>$6 &gt; \delta$</span>.</p><pre><code class="nohighlight hljs">julia&gt; minimum_distance(C_big)
+6
+
+julia&gt; minimum_distance(C_small)
+6</code></pre><p>Permuting the indices of <span>$\mathcal{I}_1$</span> to indices 1 - 15, <span>$\mathcal{I}_2$</span> to 16 - 30, and <span>$\mathcal{I}_3$</span> to 31 - 45 completes the direct-sum subcode.</p><pre><code class="nohighlight hljs">julia&gt; P = permutation_matrix(field(C_big), nq, nh);
+
+julia&gt; C_big_P = LinearCode(generator_matrix(C_big) * P);
+
+julia&gt; C_block = LinearCode(generator_matrix(C_small) ⊕ generator_matrix(C_small) ⊕ generator_matrix(C_small));
+
+julia&gt; QC = C_big_P / C_block;
+
+julia&gt; C_P_full = augment(C_block, generator_matrix(QC));
+
+julia&gt; are_equivalent(C_P_full, C_big_P)
+true</code></pre><p>It is also possible to work these theorems backwards by choosing a desired subcode then seeing if a supercode can be built to contain it.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../Tutorials/Weight Reduction/">« Weight Reduction</a><a class="docs-footer-nextpage" href="../Quantum Reed-Muller Codes/">Quantum Reed-Muller Codes »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.24 on <span class="colophon-date" title="Thursday 8 February 2024 05:38">Thursday 8 February 2024</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
