@@ -312,7 +312,7 @@ Z-stabilizer matrix: 10 × 16
          chi(0) 0 0 0 0 0 0 0 0 1 0 1 0 1 0 1 1
 ```
 
-### Altogether
+### All Together
 The functions `weight_reduction` and `quantum_weight_reduction` provide a wrapper for automatically running the entire quantum weight reduction process in order. The arguments provided to each step individually are be passed into these functions with the exception that copying's optional argument `method` is now `copying_type` and `target_q_X` is now `copying_target`. The optional parameter `target_q_X` now triggers a second round of thickening and choosing heights in coning. The first, manadatory round of thickening and choosing heights is controlled via `l1` and `heights`. The second, optional round is controlled via `l2` and `target_q_X`, where the second set of heights are determined by the target.
 
 Note the randomness of the output induced by coning.
@@ -334,7 +334,7 @@ julia> quantum_weight_reduction(S, l, heights, copying_type = :target, copying_t
 [[315, 1]]_2 CSS stabilizer code
 ```
 
-## Copying And Gauging As Coning
+### Copying And Gauging As Coning
 It was shown in \cite{sabo2024} that copying and gauging can be thought of as mapping cones.
 ```
 julia> F = GF(2);
@@ -413,7 +413,7 @@ julia> @btime gauging_as_coning($H_X, $H_Z);
   32.084 μs (722 allocations: 66.96 KiB)
 ```
 
-### Classical Versus Quantum Weight Reduction
+## Classical Versus Quantum Weight Reduction
 Consider the code from the first row of Table 1 in \cite{sabo2024}.
 ```
 julia> C = best_known_linear_code(6, 3)
@@ -603,7 +603,7 @@ julia> _, D_qwtred = count_elementary_cycles(L_X_qwtred); print(D_qwtred)
 Dict(78 => 28, 56 => 2894, 16 => 13428, 20 => 24654, 58 => 15616, 52 => 7728, 60 => 1062, 12 => 6768, 24 => 38458, 28 => 48938, 8 => 2990, 30 => 140804, 72 => 16, 22 => 86594, 32 => 52376, 6 => 300, 36 => 49460, 44 => 29098, 68 => 88, 14 => 27266, 74 => 260, 64 => 400, 46 => 94434, 66 => 3418, 76 => 4, 40 => 41326, 48 => 16998, 34 => 147230, 50 => 60238, 4 => 170, 54 => 32394, 70 => 1216, 10 => 8890, 18 => 53496, 26 => 118236, 38 => 142138, 42 => 125086, 62 => 7388)
 ```
 
-### Lifted Products
+## Lifted Products
 Classical weight reduction also applies to other types of inputs, although with the current function, the row and column indices must be specified explicitly either as a vector or a range.
 ```
 julia> F = GF(2);
