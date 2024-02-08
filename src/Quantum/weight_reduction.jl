@@ -4,6 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+#############################
+         # Copying
+#############################
+
 function _copying_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
     nr, n = size(H_X)
 
@@ -193,6 +197,140 @@ end
 copying(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
     error("Only valid for CSS codes.")
 
+function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false)
+    q_X = maximum(count(!iszero, H_X[:, j]) for j in 1:ncols(H_X))
+    q_X == 1 && return H_X, H_Z
+    n_X = nrows(H_X)
+    F = base_ring(H_X)
+    for i in 1:ncols(H_X)
+        H = matrix(F, diagm(q_X - 1, q_X, 0 => ones(Int, q_X - 1), 1 => ones(Int, q_X - 1)))
+        f_1 = zero_matrix(F, q_X, nrows(H_X))
+        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+            if H_X[j, 1] == 1
+                f_1[count(!iszero, f_1) + 1, j] = 1
+            end
+        end
+        H_X = H_X[:, 2:end]
+        H_Z = H_Z[:, 2:end]
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X),
+            zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        flag || error("there was no solution for f_2")
+        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible f_2, column $i"
+        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
+        H_Z = hcat(H_Z, f_2)
+    end
+    return H_X, H_Z
+end
+
+function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false)
+    F = base_ring(H_X)
+    n_X = nrows(H_X)
+    for i in 1:ncols(H_X)
+        q = count(!iszero, H_X[:, 1])
+        if q <= 1
+            H_X = hcat(H_X[:, 2:end], H_X[:, 1:1])
+            H_Z = hcat(H_Z[:, 2:end], H_Z[:, 1:1])
+            continue
+        end
+        H = matrix(F, diagm(q - 1, q, 0 => ones(Int, q - 1), 1 => ones(Int, q - 1)))
+        f_1 = zero_matrix(F, q, nrows(H_X))
+        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+            if H_X[j, 1] == 1
+                f_1[count(!iszero, f_1) + 1, j] = 1
+            end
+        end
+        H_X = H_X[:, 2:end]
+        H_Z = H_Z[:, 2:end]
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X),
+            zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        flag || error("there was no solution for f_2")
+        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible f_2"
+        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
+        H_Z = hcat(H_Z, f_2)
+    end
+    return H_X, H_Z
+end
+
+function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3;
+    permute = false)
+
+    target_q_X < 3 && throw(DomainError(target_q_X, "Must be at least 3"))
+    F = base_ring(H_X)
+    n_X = nrows(H_X)
+    for i in 1:ncols(H_X)
+        q = count(!iszero, H_X[:, 1])
+        if q <= target_q_X
+            H_X = hcat(H_X[:, 2:end], H_X[:, 1:1])
+            H_Z = hcat(H_Z[:, 2:end], H_Z[:, 1:1])
+            continue
+        end
+        H = matrix(F, diagm(q - target_q_X, q - target_q_X + 1, 0 => ones(Int, q - target_q_X),
+            1 => ones(Int, q - target_q_X)))
+        f_1 = zero_matrix(F, q - target_q_X + 1, nrows(H_X))
+        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+            if H_X[j, 1] == 1
+                k = 1
+                while count(!iszero, f_1[k, :]) == target_q_X - 2 + isone(k) + (k == ncols(H))
+                    k += 1
+                end
+                f_1[k, j] = 1
+            end
+        end
+        H_X = H_X[:, 2:end]
+        H_Z = H_Z[:, 2:end]
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X), zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        flag || error("there was no solution for f_2")
+        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible solution for f_2"
+        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
+        H_Z = hcat(H_Z, f_2)
+    end
+    return H_X, H_Z
+end
+
+"""
+    copying_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings, target_q_X::Int = 3)
+
+Return the result of copying on `H_X` and `H_Z` using either the Hastings, reduced, or targeted
+methods by using the mapping cone.
+"""
+function copying_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings,
+    target_q_X::Int = 3)
+
+    method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
+    target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
+    # should we check these commute or trust the user?
+
+    if method == :Hastings
+       return _copying_as_coning_Hastings(H_X, H_Z)
+    elseif method == :reduced
+        return _copying_as_coning_reduced(H_X, H_Z)
+    else
+        return _copying_as_coning_target(H_X, H_Z, target_q_X)
+    end
+end
+
+"""
+    copying_as_coning(S::AbstractStabilizerCode, method::Symbol = :Hastings, target_q_X::Int = 3)
+
+Return the result of copying on `S` using either the Hastings, reduced, or targeted methods
+by using the mapping cone.
+"""
+copying_as_coning(S::T; method::Symbol = :Hastings, target_q_X::Int = 3) where
+    {T <: AbstractStabilizerCode} = copying_as_coning(CSSTrait(T), S, method, target_q_X)
+function copying_as_coning(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int)
+    method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
+    target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
+
+    H_X, H_Z = copying_as_coning(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X)
+    return CSSCode(H_X, H_Z)
+end
+copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
+    error("Only valid for CSS codes.")
+
+#############################
+         # Gauging
+#############################
+
 """
     gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 
@@ -274,6 +412,59 @@ Return the result of gauging on `S`.
 gauging(S::T) where {T <: AbstractStabilizerCode} = gauging(CSSTrait(T), S)
 gauging(::IsCSS, S::AbstractStabilizerCode) = CSSCode(gauging(S.X_stabs, S.Z_stabs)...)
 gauging(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes.")
+
+# have not yet introduced the generalization for these other parameters here
+"""
+    gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
+
+Return the result of gauging on `H_X` and `H_Z` by using the mapping cone.
+"""
+function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3,
+    permute = false)
+
+    target_w_X < 3 && throw(DomainError(target_w_X, "Must be at least 3"))
+    F = base_ring(H_X)
+    n = ncols(H_X)
+    for i in 1:nrows(H_X)
+        w = count(!iszero, H_X[1, :])
+        if w <= target_w_X
+            H_X = vcat(H_X[2:end, :], H_X[1:1, :])
+            continue
+        end
+        H = matrix(F, diagm(w - target_w_X, w - target_w_X + 1, 0 => ones(Int, w - target_w_X),
+            1 => ones(Int, w - target_w_X)))
+        f_1 = zero_matrix(F, w - target_w_X + 1, ncols(H_X))
+        for j in (permute ? shuffle(1:n) : 1:n)
+            if isone(H_X[1, j])
+                k = 1
+                while count(!iszero, f_1[k, :]) == target_w_X - 2 + isone(k) + (k == ncols(H))
+                    k += 1
+                end
+                f_1[k, j] = 1
+            end
+        end
+        flag, f_2 = can_solve_with_solution(transpose(H), f_1 * transpose(H_Z))
+        flag || error("there was no solution for f_2")
+        H_X = vcat(hcat(H_X[2:end, :], zero_matrix(F, nrows(H_X) - 1, nrows(H))),
+            hcat(f_1, transpose(H)))
+        H_Z = hcat(H_Z, transpose(f_2))
+    end
+    return H_X, H_Z
+end
+
+"""
+    gauging_as_coning(S::AbstractStabilizerCode)
+
+Return the result of gauging on `S` by using the mapping cone.
+"""
+gauging_as_coning(S::T) where {T <: AbstractStabilizerCode} = gauging_as_coning(CSSTrait(T), S)
+gauging_as_coning(::IsCSS, S::AbstractStabilizerCode) = CSSCode(gauging_as_coning(S.X_stabs,
+    S.Z_stabs)...)
+gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes.")
+
+#############################
+# Thickening And Choosing Heights
+#############################
 
 # should just call distance balancing and keep with that function
 # # this is thickening on its own
@@ -423,6 +614,10 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     iter == max_iter && @warn "reached maximum iterations, probably not a full cycle basis"
     return cycles
 end
+
+#############################
+          # Coning
+#############################
 
 """
     coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
@@ -584,6 +779,11 @@ coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
     target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l = l, target_q_X = target_q_X)...)
 coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
     target_q_X::Int) = error("Only valid for CSS codes.")
+
+
+#############################
+            # All
+#############################
 
 """
     weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, target_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)

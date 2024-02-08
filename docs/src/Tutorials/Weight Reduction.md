@@ -80,7 +80,7 @@ julia> parity_check_matrix(C_wtred)
 [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 ```
-Use the optional arguments `rows = false` or `columns = false` to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments `row_indices` and `column_indices` to only reduce specific rows or columns, respectively. If the optional arguments `row_target` or `column_target` are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting `compressed = true`. Finally, the optional argument `seed` sets `Random.seed!(seed)`, which allows for reproducable permutations.
+Use the optional arguments `rows = false` or `columns = false` to reduce only the columns or rows, respectively. Provide a vector of row or column indices to the optional arguments `row_indices` and `column_indices` to only reduce specific rows or columns, respectively. If the optional arguments `row_target` or `column_target` are set, then all rows and columns with weights greater than these values are weight reduced. Compressed weight reduction is available by setting `compressed = true`. Finally, the optional argument `seed` sets `Random.seed!(seed)`, which allows for reproducible permutations.
 
 Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.
 ```
@@ -334,6 +334,85 @@ julia> quantum_weight_reduction(S, l, heights, copying_type = :target, copying_t
 [[315, 1]]_2 CSS stabilizer code
 ```
 
+## Copying And Gauging As Coning
+It was shown in \cite{sabo2024} that copying and gauging can be thought of as mapping cones.
+```
+julia> F = GF(2);
+
+julia> H_X = matrix(F, 4, 6, [
+           1 1 1 0 0 0;
+           1 1 0 0 1 1;
+           1 0 1 1 1 0;
+           1 0 0 0 0 1]);
+
+julia> H_Z = matrix(F, 1, 6, [1 0 1 0 0 1]);
+
+julia> tilde_H_X, tilde_H_Z = copying(H_X, H_Z);
+
+julia> tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z);
+
+julia> tilde_H_X == tilde_H_X_cone
+true
+
+julia> tilde_H_Z == tilde_H_Z_cone
+true
+
+julia> tilde_H_X, tilde_H_Z = copying(H_X, H_Z, method = :reduced);
+
+julia> tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z, method = :reduced);
+
+julia> tilde_H_X == tilde_H_X_cone
+true
+
+julia> tilde_H_Z == tilde_H_Z_cone
+true
+
+julia> tilde_H_X, tilde_H_Z = copying(H_X, H_Z, method = :target, target_q_X = 3);
+
+julia> tilde_H_X_cone, tilde_H_Z_cone = copying_as_coning(H_X, H_Z, method = :target, target_q_X = 3);
+
+julia> tilde_H_X == tilde_H_X_cone
+true
+
+julia> tilde_H_Z == tilde_H_Z_cone
+true
+```
+While perhaps more elegant, solving a solution of equations is more time consuming.
+```
+julia> using BenchmarkTools
+
+julia> @btime copying($H_X, $H_Z);
+  6.675 μs (223 allocations: 17.71 KiB)
+
+julia> @btime copying_as_coning($H_X, $H_Z);
+  83.250 μs (1131 allocations: 132.41 KiB)
+```
+
+The results are similar for gauging, although now the mapping cone is slightly faster (on this example).
+```
+julia> S = Q15RM();
+
+julia> H_X = X_stabilizers(S)[[2, 1], :];
+
+julia> H_Z = Z_stabilizers(S)[[4, 3, 2, 1], :];
+
+julia> tilde_H_X, tilde_H_Z = gauging(H_X, H_Z);
+
+julia> tilde_H_X_cone, tilde_H_Z_cone = gauging_as_coning(H_X, H_Z);
+
+julia> tilde_H_X == tilde_H_X_cone
+true
+
+julia> tilde_H_Z == tilde_H_Z_cone
+true
+
+julia> @btime gauging($H_X, $H_Z);
+  45.167 μs (1582 allocations: 128.55 KiB)
+
+julia> @btime gauging_as_coning($H_X, $H_Z);
+  32.084 μs (722 allocations: 66.96 KiB)
+```
+
 ### Classical Versus Quantum Weight Reduction
 Consider the code from the first row of Table 1 in \cite{sabo2024}.
 ```
@@ -379,9 +458,6 @@ Generator matrix: 3 × 7
 julia> HypergraphProductCode(C_wtred_com)
 [[65, 9, 3]]_2 subsystem code
 ```
-
-## Copying And Gauging As Coning
-
 
 ## Exploring The Cycle Structure
 Classical weight reduction should not change the cycle structure of the code. We can test this. Recall that a parity-check matrix defines a Tanner graph, and the girth, ``g``, of the graph is defined to the length of the shortest cycle. Short cycles are defined to be cycles with length up to ``2g - 2``. The total number of short cycles are not preserved by weight reduction since the girth may not increase as much as the length of a cycle, pushing it beyond the ``2g - 2`` limit. Elementary cycles are cycles which do not pass through the same vertex twice. The total number of elementary cycles is invariant under classical weight reduction.
@@ -449,7 +525,7 @@ julia> count_elementary_cycles(L_wtred)
 ```
 We see that the girth increased, as well as the cycle lengths, but the total number of elementary cycles is still six. The function `count_short_cycles` preallocates a dictionary with entries from ``g`` to ``2g - 2``, which in this case in ten. Since there are no length ten cycles, this entry still exists but with value zero.
 
-The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the ``X-Z`` correlations for the moment, let's consider the ``X`` stabilizers of the following codes.
+The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the ``X``-``Z`` correlations, let's consider the ``X`` stabilizers of the following codes.
 ```
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
@@ -528,3 +604,44 @@ Dict(78 => 28, 56 => 2894, 16 => 13428, 20 => 24654, 58 => 15616, 52 => 7728, 60
 ```
 
 ### Lifted Products
+Classical weight reduction also applies to other types of inputs, although with the current function, the row and column indices must be specified explicitly either as a vector or a range.
+```
+julia> F = GF(2);
+
+julia> S, x = PolynomialRing(F, "x");
+
+julia> l = 63;
+
+julia> R = ResidueRing(S, x^l - 1);
+
+julia> A = matrix(R, 7, 7,
+               [x^27, 0, 0, 1, x^18, x^27, 1,
+                1, x^27, 0, 0, 1, x^18, x^27,
+                x^27, 1, x^27, 0, 0, 1, x^18,
+                x^18, x^27, 1, x^27, 0, 0, 1,
+                1, x^18, x^27, 1, x^27, 0, 0,
+                0, 1, x^18, x^27, 1, x^27, 0,
+                0, 0, 1, x^18, x^27, 1, x^27])
+[x^27      0      0      1   x^18   x^27      1]
+[   1   x^27      0      0      1   x^18   x^27]
+[x^27      1   x^27      0      0      1   x^18]
+[x^18   x^27      1   x^27      0      0      1]
+[   1   x^18   x^27      1   x^27      0      0]
+[   0      1   x^18   x^27      1   x^27      0]
+[   0      0      1   x^18   x^27      1   x^27]
+
+julia> b = R(1 + x + x^6)
+x^6 + x + 1
+
+julia> LiftedProductCode(A, b)
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
+[[882, 48]]_2 CSS stabilizer code
+
+julia> A_wtred = weight_reduction(A, row_indices = 1:4, column_indices = 1:4, permute_rows = false, permute_columns = false);
+
+julia> LiftedProductCode(A_wtred, b)
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
+[[4914, 48]]_2 CSS stabilizer code
+```

@@ -344,6 +344,7 @@ export weight_reduction
 #############################
 
 include("Quantum/weight_reduction.jl")
-export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_reduction
+export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_reduction,
+    copying_as_coning, gauging_as_coning
 
 end
