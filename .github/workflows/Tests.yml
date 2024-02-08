@@ -40,11 +40,11 @@ jobs:
           # see https://github.com/julia-actions/cache/issues/11
           cache-compiled: "true"
       - uses: julia-actions/julia-buildpkg@latest
-        with:
-          prefix: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24'
       - uses: julia-actions/julia-runtest@latest
+        env:
+          DISPLAY: :0
         with:
-          prefix: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24'
+          prefix: xvfb-run
       - uses: julia-actions/julia-processcoverage@latest
       - uses: codecov/codecov-action@v3
         with:
