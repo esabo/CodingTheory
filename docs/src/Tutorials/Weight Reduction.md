@@ -84,7 +84,7 @@ Use the optional arguments `rows = false` or `columns = false` to reduce only th
 
 Weight reduction may also be applied to matrices directly without having to construct a code object. This may be used to reduce a generator matrix, if desired.
 ```
-julia> H1 = matrix(F, 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
+julia> H1 = matrix(GF(2), 2, 6, [1 1 1 1 0 0; 0 0 1 1 1 1]);
 
 julia> H2 = H1[:, [1, 5, 3, 6, 4, 2 ]];
 
@@ -133,16 +133,18 @@ Generator matrix: 4 × 12
 ```
 
 ## Quantum Codes
+Quantum weight reduction consists of four steps: copying, gauging, thickening and choosing heights, and coning. In addition to running the entire process on a pair of stabilizer matrices or code object, each step may be run individually.
 
-# Example 1
+### Coning
+Example 1 of \cite{sabo2024}
+```
 julia> F = GF(2);
 
 julia> H_X = matrix(F, 4, 6, [
            1 1 1 0 0 0;
            1 1 0 0 1 1;
            1 0 1 1 1 0;
-           1 0 0 0 0 1
-       ]);
+           1 0 0 0 0 1]);
 
 julia> H_Z = matrix(F, 1, 6, [1 0 1 0 0 1]);
 
@@ -174,9 +176,11 @@ julia> tilde_H_X
 
 julia> tilde_H_Z
 [1   1   1   1   0   0   0   0   1   1   1   1   0   0   0   0   0   0   0   0   1   1   1   1]
-
+```
 # need a check parameters?
 
+All of the examples in this section will also work using a code object.
+```
 julia> S = CSSCode(H_X, H_Z);
 
 julia> copying(S)
@@ -206,9 +210,11 @@ X-stabilizer matrix: 22 × 24
          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
 Z-stabilizer matrix: 1 × 24
          chi(0) 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 1 1 1 1
+```
 
-
-# Example 2
+### Gauging
+Example 2 of \cite{sabo2024}
+```
 julia> S = Q15RM();
 
 julia> H_X = X_stabilizers(S)[[2, 1], :];
@@ -236,9 +242,13 @@ julia> tilde_H_Z
 [0   0   0   1   1   1   1   0   0   0   0   1   1   1   1   0   1   0   0   0   0   1   0   0   0]
 [0   1   1   0   0   1   1   0   0   1   1   0   0   1   1   0   1   0   1   0   1   1   0   0   1]
 [1   0   1   0   1   0   1   0   1   0   1   0   1   0   1   1   1   0   0   1   0   1   0   1   0]
+```
 
-# Example 3
-# this comes out wrong here
+### Thickening And Choosing Heights
+For thickening and choosing heights, one must specify the thickening parameter `l` and `heights`. This is Example 3 of \cite{sabo2024}, although... NEED TO FINISH HERE
+```
+julia> F = GF(2);
+
 julia> l = 3; heights = [1, 2];
 
 julia> H_X = matrix(F, 1, 4, [1 1 1 1]);
@@ -263,32 +273,70 @@ julia> tilde_H_Z
 [0   1   0   0   0   0   0   0   0   0   0   0   1   1]
 [0   0   1   0   0   1   0   0   0   0   0   0   0   0]
 [0   0   0   1   0   0   0   0   0   1   0   0   0   0]
+```
 
-# Improved Copying
+### Coning
+This implementation uses the Decongestion Lemma \cite{} to find a cycle basis (see \cite{sabo2024}). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional `seed` argument is provided to control this.
+
+NEED EXAMPLE HERE
+
+### Improved Copying
+The copying variants introduced in \cite{sabo2024} are available via an optional argument to `copying`.
+```
 julia> S = Q15RM();
 
-julia> quantum_weight_reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1])
+julia> copying(S)
+[[60, 1]]_2 CSS stabilizer code
+
+julia> copying(S, method = :reduced)
+[[32, 1]]_2 CSS stabilizer code
+
+julia> copying(S, method = :target, target_q_X = 3)
+[[16, 1]]_2 CSS stabilizer code
+X-stabilizer matrix: 5 × 16
+         chi(0) 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 0
+         chi(0) 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 0
+         chi(0) 0 0 0 1 1 1 1 0 0 0 0 1 1 1 0 1
+         chi(0) 0 0 0 0 0 0 0 1 1 1 1 1 1 1 0 1
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
+Z-stabilizer matrix: 10 × 16
+         chi(0) 1 0 1 0 1 0 1 0 1 0 1 0 1 0 1 1
+         chi(0) 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1 1
+         chi(0) 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1 1
+         chi(0) 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+         chi(0) 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 1
+         chi(0) 0 0 0 0 1 0 1 0 0 0 0 0 1 0 1 1
+         chi(0) 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1
+         chi(0) 0 0 0 0 0 0 0 0 1 0 1 0 1 0 1 1
+```
+
+### Altogether
+The functions `weight_reduction` and `quantum_weight_reduction` provide a wrapper for automatically running the entire quantum weight reduction process in order. The arguments provided to each step individually are be passed into these functions with the exception that copying's optional argument `method` is now `copying_type` and `target_q_X` is now `copying_target`. The optional parameter `target_q_X` now triggers a second round of thickening and choosing heights in coning. The first, manadatory round of thickening and choosing heights is controlled via `l1` and `heights`. The second, optional round is controlled via `l2` and `target_q_X`, where the second set of heights are determined by the target.
+
+Note the randomness of the output induced by coning.
+```
+julia> S = Q15RM();
+
+julia> l = 3; heights = [2, 1, 2, 1, 2, 3, 1, 3, 3, 1];
+
+julia> quantum_weight_reduction(S, l, heights)
 [[722, 1]]_2 CSS stabilizer code
 
-julia> quantum_weight_reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1])
+julia> quantum_weight_reduction(S, l, heights)
 [[721, 1]]_2 CSS stabilizer code
 
-# note randomness
-
-julia> quantum_weight_reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying_type = :reduced)
-[[514, 1]]_2 CSS stabilizer code
-
-julia> quantum_weight_reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying_type = :reduced)
+julia> quantum_weight_reduction(S, l, heights, copying_type = :reduced)
 [[510, 1]]_2 CSS stabilizer code
 
-julia> quantum_weight_reduction(S, 3, [2, 1, 2, 1, 2, 3, 1, 3, 3, 1], copying_type = :target, target_q_X = 3)
+julia> quantum_weight_reduction(S, l, heights, copying_type = :target, copying_target = 3)
 [[315, 1]]_2 CSS stabilizer code
+```
 
-# can we do these as coning maps?
-
-# cycle counting examples
-
-# Examples From Table 1
+### Classical Versus Quantum Weight Reduction
+Consider the code from the first row of Table 1 in \cite{sabo2024}.
+```
 julia> C = best_known_linear_code(6, 3)
 [6, 3, 3]_2 linear code
 Generator matrix: 3 × 6
@@ -298,15 +346,19 @@ Generator matrix: 3 × 6
 
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
-
-julia> l = 6; 
+```
+Fixing a random choice of `l`, we can see the effect of the optional parameter `seed`.
+```
+julia> l = 6;
 
 julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 123)
 [[3365, 9]]_2 CSS stabilizer code
 
 julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 197)
 [[3358, 9]]_2 CSS stabilizer code
-
+```
+Weight reducing the classical codes before passing to the hypergraph product gives.
+```
 julia> C_wtred = weight_reduction(C)
 [9, 3, 4]_2 linear code
 Generator matrix: 3 × 9
@@ -326,3 +378,153 @@ Generator matrix: 3 × 7
 
 julia> HypergraphProductCode(C_wtred_com)
 [[65, 9, 3]]_2 subsystem code
+```
+
+## Copying And Gauging As Coning
+
+
+## Exploring The Cycle Structure
+Classical weight reduction should not change the cycle structure of the code. We can test this. Recall that a parity-check matrix defines a Tanner graph, and the girth, ``g``, of the graph is defined to the length of the shortest cycle. Short cycles are defined to be cycles with length up to ``2g - 2``. The total number of short cycles are not preserved by weight reduction since the girth may not increase as much as the length of a cycle, pushing it beyond the ``2g - 2`` limit. Elementary cycles are cycles which do not pass through the same vertex twice. The total number of elementary cycles is invariant under classical weight reduction.
+
+We will supress the plots output from the functions below.
+```
+julia> C = best_known_linear_code(6, 3)
+[6, 3, 3]_2 linear code
+Generator matrix: 3 × 6
+        1 0 1 0 1 0
+        0 1 1 0 0 1
+        0 0 1 1 1 1
+
+julia> L = LDPCCode(C)
+[6, 3, 3]_2 irregular 4-limited LDPC code with density 0.5555555555555556.
+
+Variable degree polynomial:
+        3//10*x^2 + 2//5*x + 3//10
+Check degree polynomial:
+        2//5*x^3 + 3//5*x^2
+Parity-check matrix: 3 × 6
+        1 1 1 1 0 0
+        0 1 1 0 1 0
+        1 0 1 0 0 1
+
+julia> girth(L)
+4
+
+julia> count_short_cycles(L)
+(Plot{Plots.GRBackend() n=1}, Dict(4 => 4, 6 => 2))
+
+julia> count_elementary_cycles(L)
+(Plot{Plots.GRBackend() n=1}, Dict(4 => 4, 6 => 2))
+
+julia> C_wtred = weight_reduction(C, permute_rows = false, permute_columns = false)
+[9, 3, 4]_2 linear code
+Generator matrix: 3 × 9
+        1 1 0 0 1 1 1 0 0
+        0 1 1 0 0 1 0 1 0
+        0 0 1 1 1 1 0 0 1
+
+julia> L_wtred = LDPCCode(C_wtred)
+[9, 3, 4]_2 irregular 3-limited LDPC code with density 0.2962962962962963.
+
+Variable degree polynomial:
+        3//16*x^2 + 5//8*x + 3//16
+Check degree polynomial:
+        3//4*x^2 + 1//4*x
+Parity-check matrix: 6 × 9
+        1 0 0 0 0 0 1 0 0
+        0 1 0 0 0 0 1 1 0
+        0 0 1 0 0 0 0 1 1
+        0 0 0 1 0 0 0 0 1
+        0 1 1 0 1 0 0 0 0
+        1 0 1 0 0 1 0 0 0
+
+julia> girth(L_wtred)
+6
+
+julia> count_short_cycles(L_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 => 2, 10 => 0, 8 => 4))
+
+julia> count_elementary_cycles(L_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 => 2, 8 => 4))
+```
+We see that the girth increased, as well as the cycle lengths, but the total number of elementary cycles is still six. The function `count_short_cycles` preallocates a dictionary with entries from ``g`` to ``2g - 2``, which in this case in ten. Since there are no length ten cycles, this entry still exists but with value zero.
+
+The hypergraph product does not preserve cycle structure, and the maximum girth of the Tanner graph is now capped at eight. Ignoring the ``X-Z`` correlations for the moment, let's consider the ``X`` stabilizers of the following codes.
+```
+julia> S = HypergraphProductCode(C)
+[[45, 9, 3]]_2 subsystem code
+
+
+julia> S_wtred = HypergraphProductCode(C_wtred)
+[[117, 9, 4]]_2 subsystem code
+
+julia> L_X = LDPCCode(X_stabilizers(S))
+[45, 27]_2 irregular 7-limited LDPC code with density 0.1111111111111111.
+
+Variable degree polynomial:
+        2//15*x^3 + 2//5*x^2 + 4//15*x + 1//5
+Check degree polynomial:
+        7//90*x^6 + 4//15*x^5 + 7//18*x^4 + 4//15*x^3
+
+
+julia> girth(L_X)
+4
+
+julia> L_X_wtred = LDPCCode(X_stabilizers(S_wtred))
+[117, 63]_2 irregular 6-limited LDPC code with density 0.03798670465337132.
+
+Variable degree polynomial:
+        33//80*x^2 + 19//40*x + 9//80
+Check degree polynomial:
+        1//10*x^5 + 11//24*x^4 + 11//30*x^3 + 3//40*x^2
+
+
+julia> girth(L_X_wtred)
+6
+
+julia> _, D = count_elementary_cycles(L_X)
+(Plot{Plots.GRBackend() n=1}, Dict(4 => 36, 6 => 92, 10 => 176, 12 => 104, 8 => 280, 14 => 68))
+
+julia> _, D_wtred = count_elementary_cycles(L_X_wtred); print(ans[2])
+Dict(16 => 356, 20 => 108, 12 => 544, 24 => 18, 28 => 2, 8 => 352, 22 => 196, 6 => 30, 14 => 1326, 10 => 960, 18 => 748, 26 => 22)
+
+julia> sum(values(D))
+756
+
+julia> sum(values(D_wtred))
+4662
+```
+Even though the weight-reduced code produced more cycles after the hypergraph product, the number of shorter cycles has decreased.
+```
+julia> count_short_cycles(L_X)
+(Plot{Plots.GRBackend() n=1}, Dict(4 => 36, 6 => 92))
+
+julia> count_short_cycles(L_X_wtred)
+(Plot{Plots.GRBackend() n=1}, Dict(6 => 30, 10 => 960, 8 => 352))
+```
+
+The cycle structure is not preserved by quantum weight reduction \cite{sabo2024}.
+```
+julia> S_qwtred = weight_reduction(S, 4, rand(1:4, nrows(S.Z_stabs)))
+[[2170, 9]]_2 CSS stabilizer code
+
+julia> L_X_qwtred = LDPCCode(X_stabilizers(S_qwtred))
+[2170, 1197]_2 irregular 9-limited LDPC code with density 0.002024658584234584.
+
+Variable degree polynomial:
+        7//1444*x^6 + 7//722*x^5 + 15//1444*x^4 + 34//1083*x^3 + 65//361*x^2 + 1451//2166*x + 203//2166
+Check degree polynomial:
+        9//722*x^8 + 2//57*x^7 + 259//4332*x^6 + 85//722*x^5 + 445//2166*x^4 + 484//1083*x^3 + 177//1444*x^2
+
+
+julia> girth(L_X_qwtred)
+4
+
+julia> count_short_cycles(L_X_qwtred)
+(Plot{Plots.GRBackend() n=1}, Dict(4 => 170, 6 => 300))
+
+julia> _, D_qwtred = count_elementary_cycles(L_X_qwtred); print(D_qwtred)
+Dict(78 => 28, 56 => 2894, 16 => 13428, 20 => 24654, 58 => 15616, 52 => 7728, 60 => 1062, 12 => 6768, 24 => 38458, 28 => 48938, 8 => 2990, 30 => 140804, 72 => 16, 22 => 86594, 32 => 52376, 6 => 300, 36 => 49460, 44 => 29098, 68 => 88, 14 => 27266, 74 => 260, 64 => 400, 46 => 94434, 66 => 3418, 76 => 4, 40 => 41326, 48 => 16998, 34 => 147230, 50 => 60238, 4 => 170, 54 => 32394, 70 => 1216, 10 => 8890, 18 => 53496, 26 => 118236, 38 => 142138, 42 => 125086, 62 => 7388)
+```
+
+### Lifted Products

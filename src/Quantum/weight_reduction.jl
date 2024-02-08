@@ -586,8 +586,8 @@ coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::In
     target_q_X::Int) = error("Only valid for CSS codes.")
 
 """
-    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
-    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, desired_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
+    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, target_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
+    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, target_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
 
 Return the weight-reduced CSS code of `S`.
 """
@@ -618,11 +618,10 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
 end
 quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
-    seed::Union{Nothing, Int} = nothing) =
-    error("Only valid for CSS codes.")
+    seed::Union{Nothing, Int} = nothing) =  error("Only valid for CSS codes.")
 
 weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
-    seed::Union{Nothing, Int} = nothing) =
-    quantum_weight_reduction(S, l1, heights, copying_type = copying_type,
-        copying_target = copying_target, l2 = l2, target_q_X = target_q_X, seed = seed)
+    seed::Union{Nothing, Int} = nothing) = quantum_weight_reduction(S, l1, heights,
+    copying_type = copying_type, copying_target = copying_target, l2 = l2, target_q_X = target_q_X,
+    seed = seed)
