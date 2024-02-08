@@ -13,5 +13,8 @@ margin-bottom: 0.75em;
 }
 </style>
 ```
+
+# References
+
 ```@bibliography
 ```
