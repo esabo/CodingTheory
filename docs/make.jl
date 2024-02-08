@@ -10,6 +10,7 @@ bib = CitationBibliography(
 # 	source = "src",
 # 	build = "build",
 Documenter.makedocs(
+    bib,
 	clean = true,
 	doctest = false,
 	modules = Module[CodingTheory],
@@ -62,8 +63,7 @@ Documenter.makedocs(
     # "Developer Documentation" => [
 
     # ],
-	         ],
-    plugins = [bib]
+	]
 )
 
 deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "master")
