@@ -47,4 +47,49 @@
     EVI_G, left, right = edge_vertex_incidence_graph(G_test)
     H2 = Tanner_code(EVI_G, left, right, C_loc)
     @test parity_check_matrix(H1) == parity_check_matrix(H2)
+
+    # third test case
+    g = r_s_group(5, 4)
+    test_mat = CodingTheory.CoxeterMatrix(3, [1, 5, 2, 1, 4, 1])
+    @test g.coxmat == test_mat
+    subgroups = normal_subgroups(g, 100)
+    @test length(subgroups) == 7
+    filter!(x -> is_fixed_point_free(x, g), subgroups)
+    @test length(subgroups) == 0
+
+    # fourth test case
+    g = r_s_group(8, 3)
+    test_mat = CodingTheory.CoxeterMatrix(3, [1, 8, 2, 1, 3, 1])
+    @test g.coxmat == test_mat
+    subgroups = normal_subgroups(g, 100)
+    @test length(subgroups) == 10
+    filter!(x -> is_fixed_point_free(x, g), subgroups)
+    @test length(subgroups) == 1
+
+    # fifth test case
+    g = triangle_group(4, 3, 3)
+    test_mat = CodingTheory.CoxeterMatrix(3, [1, 4, 3, 1, 3, 1])
+    @test g.coxmat == test_mat
+    subgroups = normal_subgroups(g, 100)
+    @test length(subgroups) == 6
+    filter!(x -> is_fixed_point_free(x, g), subgroups)
+    @test length(subgroups) == 2
+
+    # sixth test case
+    g = q_r_s_group(4, 3, 5)
+    test_mat = CodingTheory.CoxeterMatrix(4, [1, 4, 2, 2, 1, 3, 2, 1, 5, 1])
+    @test g.coxmat == test_mat
+    subgroups = normal_subgroups(g, 100)
+    @test length(subgroups) == 6
+    filter!(x -> is_fixed_point_free(x, g), subgroups)
+    @test length(subgroups) == 0
+
+    # seventh test case
+    g = star_tetrahedron_group(5, 3, 3)
+    test_mat = CodingTheory.CoxeterMatrix(4, [1, 5, 3, 3, 1, 2, 2, 1, 2, 1])
+    @test g.coxmat == test_mat
+    subgroups = normal_subgroups(g, 100)
+    @test length(subgroups) == 3
+    filter!(x -> is_fixed_point_free(x, g), subgroups)
+    @test length(subgroups) == 0
 end

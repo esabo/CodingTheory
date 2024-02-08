@@ -29,7 +29,7 @@ import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product
+    tensor_product, gens, dim
 import Oscar.Nemo: exponent_vectors
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
