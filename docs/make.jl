@@ -1,6 +1,10 @@
-using Documenter, CodingTheory
+using DocumenterCitations, Documenter, CodingTheory
 
 # change to trigger bot
+
+bib = CitationBibliography(
+    joinpath(@__DIR__, "src", "refs.bib"); # note: this is copied from the docs, I didn't add the use of @__DIR__
+    style = :numeric)
 
 # root = "../",
 # 	source = "src",
@@ -58,7 +62,8 @@ Documenter.makedocs(
     # "Developer Documentation" => [
 
     # ],
-	]
+	         ],
+    plugins = [bib]
 )
 
 deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "master")
