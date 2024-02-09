@@ -1,5 +1,9 @@
 name: Documentation
 
+permissions:
+  actions: write
+  contents: read
+
 on:
   push:
     branches:
@@ -9,8 +13,8 @@ on:
 
 jobs:
   build:
-    permissions:
-      contents: write
+    # permissions:
+    #   contents: write
     runs-on: ubuntu-latest
     steps:
       # This is from the GLMakie github action
