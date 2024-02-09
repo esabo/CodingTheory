@@ -514,6 +514,10 @@ thickening_and_choose_heights(::IsCSS, S::AbstractStabilizerCode, l::Integer,
 thickening_and_choose_heights(::IsNotCSS, S::AbstractStabilizerCode, l::Integer,
     heights::Vector{Int}) = error("Only valid for CSS codes.")
 
+#############################
+          # Coning
+#############################
+
 function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     edges = Vector{T}[[e...] for e in _edges]
     vertices = unique(union(_edges...))
@@ -615,33 +619,29 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
     return cycles
 end
 
-#############################
-          # Coning
-#############################
-
 """
-    coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
 Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in
-`whichZ` and using the optional arguments `l` and `target_q_X` for an optional round of
+`row_indices` and using the optional arguments `l` and `target_q_X` for an optional round of
 thickening and choosing heights.
 """
-function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
     
     F = base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = size(H_Z, 1)
 
-    issubset(whichZ, 1:n_Z) || throw(DomainError(whichZ, "Choice of Z stabilizers is out of bounds."))
+    issubset(row_indices, 1:n_Z) || throw(DomainError(row_indices, "Choice of Z stabilizers is out of bounds."))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Can't target a q_X below 3."))
 
     # Create the spaces (B_i)_1. Each space is the support of a Z stabilizer
-    Bi1 = [getindex.(findall(!iszero, H_Z[i, :]), 2) for i in whichZ]
+    Bi1 = [getindex.(findall(!iszero, H_Z[i, :]), 2) for i in row_indices]
 
     # Create the spaces (B_i)_0
     # TODO: This assumes overlap of Bi1[i] and any X stabilizer is 0 or 2 qubits. This is true in Hastings algorithm but won't be true in general. Need to extend to work in the general case.
     Xsupports = [getindex.(findall(!iszero, H_X[i, :]), 2) for i in 1:n_X]
-    all(all(length(X ∩ Q) < 3 for X in Xsupports) for Q in Bi1) || throw(DomainError(whichZ, "Z stabilizers chosen for reducing must have overlap of at most 2 with all X stabilizers."))
+    all(all(length(X ∩ Q) < 3 for X in Xsupports) for Q in Bi1) || throw(DomainError(row_indices, "Z stabilizers chosen for reducing must have overlap of at most 2 with all X stabilizers."))
     Bi0 = [Tuple{Int, Tuple{Int, Int}}[(i, (sort(X ∩ Q)...,)) for (i, X) in enumerate(Xsupports) if !iszero(length(X ∩ Q))] for Q in Bi1]
 
     # Create the spaces (B_i)_{-1} and append some edges to (B_i)_0
@@ -724,7 +724,7 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_
     ∂0 = reduce(direct_sum, ∂i0)
 
     offset = size(∂1, 1)
-    ∂1 = direct_sum(∂1, transpose(H_Z[setdiff(1:size(H_Z, 1), whichZ), :]))
+    ∂1 = direct_sum(∂1, transpose(H_Z[setdiff(1:size(H_Z, 1), row_indices), :]))
     j = 0
     for Q in Bi1
         for q in Q
@@ -769,16 +769,16 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_
 end
 
 """
-    coning(S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
-Return the result of coning on `S` by reducing the `Z` stabilizers in `whichZ` and using the
+Return the result of coning on `S` by reducing the `Z` stabilizers in `row_indices` and using the
 optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::T, whichZ::AbstractVector{Int}; l::Int, target_q_X::Int = 3) where {T <:
-    AbstractStabilizerCode} = coning(CSSTrait(T), S, whichZ, l = l, target_q_X = target_q_X)
-coning(::IsCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
-    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, whichZ, l = l, target_q_X = target_q_X)...)
-coning(::IsNotCSS, S::AbstractStabilizerCode, whichZ::AbstractVector{Int}; l::Int,
+coning(S::T, row_indices::AbstractVector{Int}; l::Int, target_q_X::Int = 3) where {T <:
+    AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, l = l, target_q_X = target_q_X)
+coning(::IsCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
+    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, l = l, target_q_X = target_q_X)...)
+coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
     target_q_X::Int) = error("Only valid for CSS codes.")
 
 
@@ -812,8 +812,8 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     H_X, H_Z = gauging(H_X, H_Z)
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
-    whichZ = 1:a
-    H_X, H_Z = coning(H_X, H_Z, whichZ, l = l2, target_q_X = target_q_X)
+    row_indices = 1:a
+    H_X, H_Z = coning(H_X, H_Z, row_indices, l = l2, target_q_X = target_q_X)
     return CSSCode(H_X, H_Z)
 end
 quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};

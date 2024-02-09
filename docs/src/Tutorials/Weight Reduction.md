@@ -303,7 +303,9 @@ julia> tilde_H_Z
 ```
 
 ### Coning
-This implementation uses the Decongestion Lemma \cite{} to find a cycle basis (see [sabo2024weight](@cite)). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional `seed` argument is provided to control this.
+This implementation uses the Decongestion Lemma [freedman2021building](@cite) to find a cycle basis (see [sabo2024weight](@cite)). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional `seed` argument is provided to control this.
+
+At the moment, coning is only supported for reasonable codes [hastings2021quantum](@cite) in the case the `X` stabilizers have maximum weight two overlap with the support of the `Z` stabilizer being reduced. In other words, it is designed to be input the output of thickening and choosing heights and not a random code. We may extend this later, if desired.
 
 ```
 julia> H_X = matrix(GF(2), 11, 10, [
