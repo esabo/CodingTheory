@@ -1,5 +1,5 @@
 # Weight Reduction
-Weight reduction was first introduced for CSS codes in \cite{hastsings2016, hastings2023} and for classical codes in \cite{hastingsfiber}. Here, we follow the finite-size analysis of \cite{sabo2024}. The arguments of the functions below are aligned with the terminology introduced in that paper.
+Weight reduction was first introduced for CSS codes in [hastings2016, hastings2021quantum](@cite) and for classical codes in [hastings2021fiber](@cite). Here, we follow the finite-size analysis of [sabo2024weight](@cite). The arguments of the functions below are aligned with the terminology introduced in that paper.
 
 ## Classical Codes
 Weight reduction applied to classical codes acts on parity-check matrices. To weight reduce a generator matrix instead, apply weight reduction to the dual code.
@@ -51,7 +51,7 @@ julia> parity_check_matrix(C_wtred)
 [0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 [0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0]
 ```
-As described in \cite{sabo2024}, this function applies independent row and column permutations by default. These may be independently turned off using the optional arguments `permute_rows` and `permute_columns`, respectively.
+As described in [sabo2024weight](@cite), this function applies independent row and column permutations by default. These may be independently turned off using the optional arguments `permute_rows` and `permute_columns`, respectively.
 ```
 julia> C_wtred = weight_reduction(C, permute_rows = false, permute_columns = false);
 
@@ -109,7 +109,7 @@ julia> weight_reduction(H2, permute_rows = false, permute_columns = false)
 [0   0   0   0   1   0   0   0   0   0   0   1]
 ```
 
-The easiest way to see the effect of the permutation `H2` of `H1` is to create code objects for the matrices. Since we have already applied the desired permutation, we will turn further permutations off. Since these codes are small, the `LinearCode` constructor will automatically compute their minimum distance. (This is Example 10 of \cite{sabo2024}.)
+The easiest way to see the effect of the permutation `H2` of `H1` is to create code objects for the matrices. Since we have already applied the desired permutation, we will turn further permutations off. Since these codes are small, the `LinearCode` constructor will automatically compute their minimum distance. (This is Example 10 of [sabo2024weight](@cite).)
 ```
 julia> C1 = LinearCode(H1, true);
 
@@ -136,7 +136,7 @@ Generator matrix: 4 × 12
 Quantum weight reduction consists of four steps: copying, gauging, thickening and choosing heights, and coning. In addition to running the entire process on a pair of stabilizer matrices or code object, each step may be run individually.
 
 ### Coning
-Example 1 of \cite{sabo2024}
+Example 1 of [sabo2024weight](@cite)
 ```
 julia> F = GF(2);
 
@@ -213,7 +213,7 @@ Z-stabilizer matrix: 1 × 24
 ```
 
 ### Gauging
-Example 2 of \cite{sabo2024}
+Example 2 of [sabo2024weight](@cite)
 ```
 julia> S = Q15RM();
 
@@ -245,7 +245,7 @@ julia> tilde_H_Z
 ```
 
 ### Thickening And Choosing Heights
-For thickening and choosing heights, one must specify the thickening parameter `l` and `heights`. This is Example 3 of \cite{sabo2024}, although... NEED TO FINISH HERE
+For thickening and choosing heights, one must specify the thickening parameter `l` and `heights`. This is Example 3 of [sabo2024weight](@cite), although... NEED TO FINISH HERE
 ```
 julia> F = GF(2);
 
@@ -276,12 +276,61 @@ julia> tilde_H_Z
 ```
 
 ### Coning
-This implementation uses the Decongestion Lemma \cite{} to find a cycle basis (see \cite{sabo2024}). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional `seed` argument is provided to control this.
+This implementation uses the Decongestion Lemma \cite{} to find a cycle basis (see [sabo2024weight](@cite)). This iteratively reduces the size of the graph, and any time the graph has no cycles of length one or two, a new edge is picked at random. Different cycle bases lead to different cellulations, which leads to different stabilizers. In this way, randomness is introduced into an any prodecure which uses coning as a subroutine. As with the classical case above, an optional `seed` argument is provided to control this.
 
-NEED EXAMPLE HERE
+```
+julia> H_X = matrix(GF(2), 11, 10, [
+           1 1 0 0 0 0 0 0 0 0;
+           0 1 1 0 0 0 0 0 0 0;
+           0 0 1 1 0 0 0 0 0 0;
+           0 0 0 1 1 0 0 0 0 0;
+           0 0 0 0 1 1 0 0 0 0;
+           0 0 0 0 0 1 1 0 0 0;
+           1 0 0 0 0 0 1 0 0 0;
+           0 0 0 1 0 0 0 1 0 0;
+           0 0 0 0 0 0 0 1 1 0;
+           0 0 0 0 0 0 0 0 1 1;
+           0 0 0 0 0 0 0 1 0 1
+           ]);
+
+julia> H_Z = matrix(GF(2), 1, 10, [1 1 1 1 1 1 1 1 1 1 ]);
+```
+To cone, we must specify which ``Z`` stabilizers to reduce.
+```
+julia> tilde_H_X, tilde_H_Z = coning(H_X, H_Z, [1]);
+
+julia> tilde_H_X
+[0   0   1   1   1   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   1   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0]
+[1   0   0   0   0   0   1   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   1   1   0   0   0   0   0   0   0   0   0   0   0   0]
+[1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0]
+[0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
+[0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0]
+[0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0]
+[0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0]
+[0   0   0   0   0   0   1   0   0   0   0   0   0   1   0   0   0   0   0   1   0   0   0]
+[0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   1   0   0   0   1   0   0]
+[0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   1   1   0]
+[0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0   1   1]
+[0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   1   0   1]
+
+julia> tilde_H_Z
+[1   0   0   0   0   0   1   0   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0]
+[1   1   0   0   0   0   0   0   0   0   0   0   1   0   1   0   0   0   0   0   0   0   0]
+[0   1   1   0   0   0   0   0   0   0   0   1   0   0   0   1   0   0   0   0   0   0   0]
+[0   0   1   1   0   0   0   1   0   0   0   0   0   0   0   0   1   0   0   0   0   0   0]
+[0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0]
+[0   0   0   0   1   1   0   0   0   0   0   1   0   0   0   0   0   0   1   0   0   0   0]
+[0   0   0   0   0   1   1   0   0   0   0   0   1   0   0   0   0   0   0   1   0   0   0]
+[0   0   0   0   0   0   0   1   1   0   1   0   0   0   0   0   0   0   0   0   1   0   0]
+[0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   1   0]
+[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0   0   0   0   0   1]
+```
 
 ### Improved Copying
-The copying variants introduced in \cite{sabo2024} are available via an optional argument to `copying`.
+The copying variants introduced in [sabo2024weight](@cite) are available via an optional argument to `copying`.
 ```
 julia> S = Q15RM();
 
@@ -335,7 +384,7 @@ julia> quantum_weight_reduction(S, l, heights, copying_type = :target, copying_t
 ```
 
 ### Copying And Gauging As Coning
-It was shown in \cite{sabo2024} that copying and gauging can be thought of as mapping cones.
+It was shown in [sabo2024weight](@cite) that copying and gauging can be thought of as mapping cones.
 ```
 julia> F = GF(2);
 
@@ -414,7 +463,7 @@ julia> @btime gauging_as_coning($H_X, $H_Z);
 ```
 
 ## Classical Versus Quantum Weight Reduction
-Consider the code from the first row of Table 1 in \cite{sabo2024}.
+Consider the code from the first row of Table 1 in [sabo2024weight](@cite).
 ```
 julia> C = best_known_linear_code(6, 3)
 [6, 3, 3]_2 linear code
@@ -425,17 +474,11 @@ Generator matrix: 3 × 6
 
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
-```
-Fixing a random choice of `l`, we can see the effect of the optional parameter `seed`.
-```
-julia> l = 6;
 
-julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 123)
-[[3365, 9]]_2 CSS stabilizer code
-
-julia> quantum_weight_reduction(S, l, rand(1:l, nrows(S.Z_stabs)), seed = 197)
-[[3358, 9]]_2 CSS stabilizer code
+julia> quantum_weight_reduction(S, num_Z_stabs(S), collect(1:l), seed = 5849772946347113199, copying_type = :target, copying_target = 3)
+[[2892, 9]]_2 CSS stabilizer code
 ```
+
 Weight reducing the classical codes before passing to the hypergraph product gives.
 ```
 julia> C_wtred = weight_reduction(C)
@@ -579,7 +622,7 @@ julia> count_short_cycles(L_X_wtred)
 (Plot{Plots.GRBackend() n=1}, Dict(6 => 30, 10 => 960, 8 => 352))
 ```
 
-The cycle structure is not preserved by quantum weight reduction \cite{sabo2024}.
+The cycle structure is not preserved by quantum weight reduction [sabo2024weight](@cite).
 ```
 julia> S_qwtred = weight_reduction(S, 4, rand(1:4, nrows(S.Z_stabs)))
 [[2170, 9]]_2 CSS stabilizer code
