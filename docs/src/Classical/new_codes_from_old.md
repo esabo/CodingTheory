@@ -119,3 +119,11 @@ even_subcode
 ```@docs
 doubly_even_subcode
 ```
+
+## Weight reduction
+
+See the weight reduction tutorial for a more detailed explanation of this function.
+
+```@docs
+weight_reduction
+```

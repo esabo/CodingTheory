@@ -123,13 +123,26 @@ Generator matrix: 4 × 12
 
 julia> C2 = LinearCode(H2, true);
 
-julia> weight_reduction(C2, permute_rows = false, permute_columns = false)
+julia> C2_wtred = weight_reduction(C2, permute_rows = false, permute_columns = false)
 [12, 4, 4]_2 linear code
 Generator matrix: 4 × 12
         1 0 0 0 0 1 1 1 1 0 0 0
         1 1 1 0 0 0 1 0 0 1 0 0
         1 0 1 1 0 0 1 0 0 0 1 0
         1 0 0 1 1 0 1 1 0 0 0 1
+```
+
+We can check the parameters with a function like
+```
+function check_weights(C)
+    w = maximum(count(!iszero, parity_check_matrix(C)[i, :]) for i in 1:nrows(parity_check_matrix(C)))
+    q = maximum(count(!iszero, parity_check_matrix(C)[:, i]) for i in 1:ncols(parity_check_matrix(C)))
+    @show (w, q)
+    return nothing
+end
+
+julia> check_weights(C2_wtred)
+(w, q) = (3, 2)
 ```
 
 ## Quantum Codes
@@ -177,13 +190,12 @@ julia> tilde_H_X
 julia> tilde_H_Z
 [1   1   1   1   0   0   0   0   1   1   1   1   0   0   0   0   0   0   0   0   1   1   1   1]
 ```
-# need a check parameters?
 
 All of the examples in this section will also work using a code object.
 ```
 julia> S = CSSCode(H_X, H_Z);
 
-julia> copying(S)
+julia> S_copy = copying(S)
 [[24, 1]]_2 CSS stabilizer code
 X-stabilizer matrix: 22 × 24
          chi(0) 1 0 0 0 1 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -210,6 +222,21 @@ X-stabilizer matrix: 22 × 24
          chi(0) 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 
 Z-stabilizer matrix: 1 × 24
          chi(0) 1 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 1 1 1 1
+```
+
+We can check the parameters with a function like
+```
+function check_weights(S)
+    w_X = maximum(count(!iszero, X_stabilizers(S)[i, :]) for i in 1:nrows(X_stabilizers(S)))
+    q_X = maximum(count(!iszero, X_stabilizers(S)[:, i]) for i in 1:ncols(X_stabilizers(S)))
+    w_Z = maximum(count(!iszero, Z_stabilizers(S)[i, :]) for i in 1:nrows(Z_stabilizers(S)))
+    q_Z = maximum(count(!iszero, Z_stabilizers(S)[:, i]) for i in 1:ncols(Z_stabilizers(S)))
+    @show (w_X, q_X, w_Z, q_Z)
+    return nothing
+end
+
+julia> check_weights(S_copy)
+(w_X, q_X, w_Z, q_Z) = (4, 3, 12, 1)
 ```
 
 ### Gauging
@@ -245,7 +272,7 @@ julia> tilde_H_Z
 ```
 
 ### Thickening And Choosing Heights
-For thickening and choosing heights, one must specify the thickening parameter `l` and `heights`. This is Example 3 of [sabo2024weight](@cite), although... NEED TO FINISH HERE
+For thickening and choosing heights, one must specify the thickening parameter `l` and `heights`. This is Example 3 of [sabo2024weight](@cite).
 ```
 julia> F = GF(2);
 
@@ -258,21 +285,21 @@ julia> H_Z = matrix(F, 2, 4, [1 1 0 0; 1 0 1 0]);
 julia> tilde_H_X, tilde_H_Z  = thickening_and_choose_heights(H_X, H_Z, l, heights);
 
 julia> tilde_H_X
-[1   0   1   0   0   1   0   0   1   0   0   1   0   0]
-[1   1   0   1   0   0   1   0   0   1   0   0   1   0]
-[0   1   0   0   1   0   0   1   0   0   1   0   0   1]
+[1   0   0   1   0   0   1   0   0   1   0   0   1   0]
+[0   1   0   0   1   0   0   1   0   0   1   0   1   1]
+[0   0   1   0   0   1   0   0   1   0   0   1   0   1]
 
 julia> tilde_H_Z
-[1   0   1   1   0   0   0   0   0   0   0   0   0   0]
-[0   1   0   1   1   0   0   0   0   0   0   0   0   0]
-[1   0   0   0   0   1   1   0   0   0   0   0   0   0]
-[0   1   0   0   0   0   1   1   0   0   0   0   0   0]
-[1   0   0   0   0   0   0   0   1   1   0   0   0   0]
-[0   1   0   0   0   0   0   0   0   1   1   0   0   0]
-[1   0   0   0   0   0   0   0   0   0   0   1   1   0]
-[0   1   0   0   0   0   0   0   0   0   0   0   1   1]
-[0   0   1   0   0   1   0   0   0   0   0   0   0   0]
-[0   0   0   1   0   0   0   0   0   1   0   0   0   0]
+[1   0   0   1   0   0   0   0   0   0   0   0   0   0]
+[0   1   0   0   0   0   0   1   0   0   0   0   0   0]
+[1   1   0   0   0   0   0   0   0   0   0   0   1   0]
+[0   1   1   0   0   0   0   0   0   0   0   0   0   1]
+[0   0   0   1   1   0   0   0   0   0   0   0   1   0]
+[0   0   0   0   1   1   0   0   0   0   0   0   0   1]
+[0   0   0   0   0   0   1   1   0   0   0   0   1   0]
+[0   0   0   0   0   0   0   1   1   0   0   0   0   1]
+[0   0   0   0   0   0   0   0   0   1   1   0   1   0]
+[0   0   0   0   0   0   0   0   0   0   1   1   0   1]
 ```
 
 ### Coning
