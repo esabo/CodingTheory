@@ -641,6 +641,7 @@ function coning(H_X::T, H_Z::T, whichZ::AbstractVector{Int}; l::Int = 0, target_
     # Create the spaces (B_i)_0
     # TODO: This assumes overlap of Bi1[i] and any X stabilizer is 0 or 2 qubits. This is true in Hastings algorithm but won't be true in general. Need to extend to work in the general case.
     Xsupports = [getindex.(findall(!iszero, H_X[i, :]), 2) for i in 1:n_X]
+    all(all(length(X ∩ Q) < 3 for X in Xsupports) for Q in Bi1) || throw(DomainError(whichZ, "Z stabilizers chosen for reducing must have overlap of at most 2 with all X stabilizers."))
     Bi0 = [Tuple{Int, Tuple{Int, Int}}[(i, (sort(X ∩ Q)...,)) for (i, X) in enumerate(Xsupports) if !iszero(length(X ∩ Q))] for Q in Bi1]
 
     # Create the spaces (B_i)_{-1} and append some edges to (B_i)_0
