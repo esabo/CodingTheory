@@ -5,8 +5,8 @@
     # [[9, 1, 4, 3]] gauged Shor code
     S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
     # these are the {X, Z} pairings
-     G_ops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
-    G = S ∪  G_ops
+    G_ops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+    G = S ∪ G_ops
     L = ["ZZZZZZZZZ", "XXXXXXXXX"]
     Q = SubsystemCode(G)
     @test length(Q) == 9
