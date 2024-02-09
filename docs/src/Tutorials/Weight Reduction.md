@@ -1,5 +1,5 @@
 # Weight Reduction
-Weight reduction was first introduced for CSS codes in [hastings2016, hastings2021quantum](@cite) and for classical codes in [hastings2021fiber](@cite). Here, we follow the finite-size analysis of [sabo2024weight](@cite). The arguments of the functions below are aligned with the terminology introduced in that paper.
+Weight reduction was first introduced for CSS codes in [hastings2016](@cite), [hastings2021quantum](@cite) and for classical codes in [hastings2021fiber](@cite). Here, we follow the finite-size analysis of [sabo2024weight](@cite). The arguments of the functions below are aligned with the terminology introduced in that paper.
 
 ## Classical Codes
 Weight reduction applied to classical codes acts on parity-check matrices. To weight reduce a generator matrix instead, apply weight reduction to the dual code.
