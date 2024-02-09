@@ -2,7 +2,7 @@
 
 julia_version = "1.9.3"
 manifest_format = "2.0"
-project_hash = "172eadc79cf9f6d828cad2771d194b2ad5d5864e"
+project_hash = "5ccd8a29a079a26b33415f52777ac314632e99fb"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1682,14 +1682,6 @@ version = "2.9.1"
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
-
-[[deps.RamanujanGraphs]]
-deps = ["Graphs", "LinearAlgebra", "Primes"]
-git-tree-sha1 = "f258c1b01a624a062110d0c3e97960f1f9facee9"
-repo-rev = "master"
-repo-url = "https://github.com/esabo/RamanujanGraphs.jl"
-uuid = "e7bd6bc6-b6b8-11e9-1ec2-2f89442c0d6c"
-version = "0.5.0"
 
 [[deps.Random]]
 deps = ["SHA", "Serialization"]
