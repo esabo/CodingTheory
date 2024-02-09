@@ -35,11 +35,12 @@ jobs:
           # WARNING: cache-compiled can break with certain choices of OS and architecture.
           # see https://github.com/julia-actions/cache/issues/11
           cache-compiled: "true"
+      # the following line goes below after using Pkg 
+      # Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"), PackageSpec(path=pwd())])
       - name: Install dependencies
         run: |
           DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ -e '
             using Pkg
-            # Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"), PackageSpec(path=pwd())])
             Pkg.instantiate()'
       - name: Build and deploy
         env:
