@@ -28,7 +28,7 @@ jobs:
           version: '1.9'
       - uses: julia-actions/cache@v1
         with:
-          cache-name: master-docs
+          # cache-name: master-docs
           # WARNING: cache-registries is actually slower for Windows runners
           cache-registries: "true"
           # WARNING: cache-compiled can break with certain choices of OS and architecture.
