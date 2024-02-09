@@ -39,9 +39,7 @@ jobs:
         run: |
           DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ -e '
             using Pkg
-            # Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"),
-                         PackageSpec(path=pwd())
-                        ])
+            # Pkg.develop([PackageSpec(url="https://github.com/esabo/RamanujanGraphs.jl"), PackageSpec(path=pwd())])
             Pkg.instantiate()'
       - name: Build and deploy
         env:
