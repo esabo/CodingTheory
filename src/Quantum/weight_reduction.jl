@@ -494,11 +494,11 @@ function thickening_and_choose_heights(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, l
     @assert length(heights) == n_Z
     @assert all(1 <= x <= l for x in heights)
     H = matrix(F, diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
-    X = hcat(identity_matrix(F, n_X) ⊗ transpose(H), H_X ⊗ identity_matrix(F, l))
-    Z1 = hcat(transpose(H_X) ⊗ identity_matrix(F, l - 1), identity_matrix(F, n) ⊗ H)
-    Z2 = hcat(zero_matrix(F, l * n_Z, (l - 1) * n_X), H_Z ⊗ identity_matrix(F, l))
+    X = hcat(H_X ⊗ identity_matrix(F, l), identity_matrix(F, n_X) ⊗ transpose(H))
+    Z1 = hcat(identity_matrix(F, n) ⊗ H, transpose(H_X) ⊗ identity_matrix(F, l - 1))
+    Z2 = hcat(H_Z ⊗ identity_matrix(F, l), zero_matrix(F, l * n_Z, (l - 1) * n_X))
     Z3 = Z2[[h + l * (i - 1) for (i, h) in enumerate(heights)], :]
-    return X, vcat(Z1, Z3)
+    return X, vcat(Z3, Z1)
 end
 
 """
@@ -811,8 +811,7 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     H_X, H_Z = gauging(H_X, H_Z)
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
-    b = nrows(H_Z)
-    whichZ = b - a + 1:b
+    whichZ = 1:a
     H_X, H_Z = coning(H_X, H_Z, whichZ, l = l2, target_q_X = target_q_X)
     return CSSCode(H_X, H_Z)
 end
