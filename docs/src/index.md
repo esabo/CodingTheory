@@ -21,6 +21,8 @@ const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
+const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
+const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}}
 ```
 A code is defined by matrices of type `CTMatrixTypes`, which include `fpMatrix` and `fqPolyRepMatrix`. The former have base ring `GF(p)` and the latter `GF(p, l, :α)`. Due to the way finite fields are typically represented in a computer, matrices over `GF(p, l, :α)` are *considerably* larger and slower than those over `GF(p)`. This in turn *considerably* limits the length of the codes able to be handled by the library when using this type. Therefore, it is *strongly* encouraged to utilize the field constructor `GF(p)` instead of `GF(p, 1)` when building codes over $$\mathbb{F}_p$$.
 

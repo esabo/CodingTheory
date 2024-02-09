@@ -1,4 +1,4 @@
-# Weight reduction
+# Weight Reduction
 
 See the weight reduction tutorial for a more detailed explanation of this function.
 
