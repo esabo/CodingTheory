@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021, 2022, 2023, 2024 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -12,10 +12,9 @@ import Graphs as Grphs
 using Plots
 # import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
-using JLD2
+# using JLD2
 using Combinatorics
 using .Threads
-using GAP
 using LinearAlgebra
 using SparseArrays
 using Random
@@ -31,6 +30,7 @@ import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic
 import Oscar.Nemo: exponent_vectors
+import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
 import Combinatorics: powerset
