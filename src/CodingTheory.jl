@@ -13,13 +13,12 @@ import Graphs as Grphs
 using Plots
 # import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
-# using JLD2
 using Combinatorics
 using .Threads
 using LinearAlgebra
 using SparseArrays
 using Random
-using JuMP, GLPK
+# using JuMP, GLPK
 using DataStructures
 using StatsBase
 
@@ -140,9 +139,9 @@ include("LDPC/algorithms.jl")
      # LDPC/decoders.jl
 #############################
 
-# include("LDPC/decoders.jl")
+include("LDPC/decoders.jl")
 export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, min_sum,
-    find_MP_schedule, MPNoiseModel, decoder_simulation
+    find_MP_schedule, MPNoiseModel, decoder_simulation, LP_decoder_LDPC
 
 #############################
      # LDPC/channels.jl

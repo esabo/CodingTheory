@@ -1,3 +1,13 @@
+# Copyright (c) 2023 - 2024 Eric Sabo, Benjamin Ide
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+#############################
+        # MP Decoders
+#############################
+
 # Example of using Gallager A and B (out should end up [1 1 1 0 0 0 0]
 # H = matrix(GF(2), [1 1 0 1 1 0 0; 1 0 1 1 0 1 0; 0 1 1 1 0 0 1]);
 # v = matrix(GF(2), 7, 1, [1, 1, 0, 0, 0, 0, 0]);
@@ -247,7 +257,6 @@ _GallagerBchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckm
 
 # Mansour, Shanbhag, "Turbo Decoder Architectures for Low-Density Parity-Check Codes" (2002)
 
-
 function findMPschedule(H::CodingTheory.CTMatrixTypes)
     numcheck, numvar = size(H)
     numcheck > 0 && numvar > 0 || throw(ArgumentError("Input matrix of improper dimension"))
@@ -276,6 +285,30 @@ function findMPschedule(H::CodingTheory.CTMatrixTypes)
     return schedlist
 end
 
+#############################
+        # LP Decoders
+#############################
+
+# function _init_LP_decoder_LDPC end
+
+# function _LP_decoder_LDPC end
+
+# TODO: docstring and in extension
+"""
+    LP_decoder_LDPC(H::Union{CTMatrixTypes, AbstractMatrix{<:Number}}, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::BinarySymmetricChannel)
+    LP_decoder_LDPC(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::BinarySymmetricChannel)
+
+Return
+
+# Note
+- Run `using JuMP, GLPK` to activate this extension.
+"""
+function LP_decoder_LDPC end
+
+#############################
+          # Methods
+#############################
+
 function _channeltoSNR(chn::MPNoiseModel)
     if cnh.type == :BAWGNC
         -10 * log10(chn.sigma^2)
@@ -292,69 +325,9 @@ function _channeltoSNR(type::Symbol, sigma::Real)
     end
 end
 
-function _initLPdecoderLDPC(H::Union{CTMatrixTypes, AbstractMatrix{<:Number}})
-    checkadlist, _ = CodingTheory._nodeadjacencies(H)
-    subsets = Vector{Vector{Vector{Int}}}()
-    nr, nc = size(H)
-    hasi = [[Vector{Int}() for _ in 1:nc] for _ in 1:nr]
-    wmap = zeros(Int, nr)
-    curr = 1
-    for (j, cn) in enumerate(checkadlist)
-        wmap[j] = curr
-        innersubsets = Vector{Vector{Int}}()
-        for S in powerset(cn)
-            if iseven(length(S)) # && !isempty(S)
-                push!(innersubsets, S)
-                for i in S
-                    push!(hasi[j][i], curr)
-                end
-                curr += 1
-            end
-        end
-        push!(subsets, innersubsets)
-    end
-
-    model = Model(GLPK.Optimizer)
-    @variable(model, 0 <= f[1:nc] <= 1)
-    @variable(model, 0 <= w[1:curr - 1] <= 1)
-    for i in 1:nr
-        if i != nr
-            @constraint(model, sum(w[wmap[i]:wmap[i + 1] - 1]) == 1)
-        else
-            @constraint(model, sum(w[wmap[i]:end]) == 1)
-        end
-    end
-    for j in 1:nr
-        for i in 1:nc
-            if !isempty(hasi[j][i])
-                @constraint(model, f[i] == sum(w[hasi[j][i]]))
-            end
-        end
-    end
-    @objective(model, Min, sum(0 * f[i] for i in 1:nc))
-    return model
-end
-_initLPdecoderLDPC(C::AbstractLinearCode) = _initLPdecoderLDPC(paritycheckmatrix(C))
-
-function _LPdecoderLDPC(model::JuMP.Model, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::CodingTheory.BinarySymmetricChannel)
-    γ = CodingTheory._channelinitBSC(isa(v, Vector) ? v : Int.(data.(v))[:], Ch.param)
-    @objective(model, Min, dot(γ, model[:f]))
-    optimize!(model)
-    termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
-    @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
-    w = value.(model[:f])
-    # all(isinteger(x) for x in w) || @warn "Solution is not integral"
-    return w
-end
-
-function LPdecoderLDPC(H::Union{CTMatrixTypes, AbstractMatrix{<:Number}},
-                       v::Union{CTMatrixTypes, Vector{<:Integer}},
-                       Ch::BinarySymmetricChannel)
-    model = _initLPdecoderLDPC(H)
-    return _LPdecoderLDPC(model, v, Ch)
-end
-LPdecoderLDPC(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{<:Integer}}, Ch::CodingTheory.BinarySymmetricChannel) = LPdecoderLDPC(paritycheckmatrix(C), v, Ch)
-
+#############################
+        # Simulations
+#############################
 
 # function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
 #                            noise::Union{Vector{<:Real}, AbstractRange{<:Real}},
