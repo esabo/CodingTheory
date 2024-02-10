@@ -591,15 +591,15 @@ Wrapper for the QDistRnd function DistRandCSS.
 function QDistRndCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int, min_dist::Int,
     debug::Int=0, field::GapObj=GAP.Globals.GF(2), max_av=missing)
 
-    GAP.Packages.load("QDistRnd");
+    Packages.load("QDistRnd");
     # Convert input matrices to GAP matrices over the given field
-    e = GAP.Globals.One(field)
+    e = Globals.One(field)
     H_X_GAP = GapObj(H_X) * e
     H_Z_GAP = GapObj(H_Z) * e
     if ismissing(max_av)
-        dist = GAP.Globals.DistRandCSS(H_X_GAP, H_Z_GAP, num, min_dist, debug, field)
+        dist = Globals.DistRandCSS(H_X_GAP, H_Z_GAP, num, min_dist, debug, field)
     else
-        dist = GAP.Globals.DistRandCSS(H_X_GAP, H_Z_GAP, num, min_dist, debug, field, max_av)
+        dist = Globals.DistRandCSS(H_X_GAP, H_Z_GAP, num, min_dist, debug, field, max_av)
     end
     return dist
 end
