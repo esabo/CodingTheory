@@ -32,7 +32,7 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 
 [extensions]
 JLD2Ext = "JLD2"
-JuMPExt = "JuMP"
+JuMPExt = ["JuMP", "GLPK"]
 
 [compat]
 julia = "1"

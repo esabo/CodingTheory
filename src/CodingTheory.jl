@@ -18,7 +18,6 @@ using .Threads
 using LinearAlgebra
 using SparseArrays
 using Random
-# using JuMP, GLPK
 using DataStructures
 using StatsBase
 
