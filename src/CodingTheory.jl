@@ -58,6 +58,7 @@ include("LDPC/types.jl")
 export AbstractLDPCCode, AbstractNoiseChannel, AbstractClassicalNoiseChannel,
     AbstractBinaryErasureChannel, AbstractBinarySymmetricChannel, AbstractBAWGNChannel,
     LDPCEnsemble
+    # this needs an abstract type
 
 include("Quantum/types.jl")
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,

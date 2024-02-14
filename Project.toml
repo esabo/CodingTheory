@@ -26,9 +26,9 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [weakdeps]
-GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 
 [extensions]
 JLD2Ext = "JLD2"
@@ -41,4 +41,4 @@ julia = "1"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "JLD2"]
