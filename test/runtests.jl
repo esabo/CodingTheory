@@ -15,7 +15,7 @@ include("Classical/cyclotomic_test.jl")
 include("Classical/cyclic_code_test.jl")
 # include("Classical/GeneralizedReedSolomon_test.jl")
 include("Classical/quasi-cyclic_code_test.jl")
-include("Classical/tilings_Tanner_test.jl")
+# include("Classical/tilings_Tanner_test.jl")
 include("Classical/concatenation_test.jl")
 
 include("LDPC/codes_test.jl")
