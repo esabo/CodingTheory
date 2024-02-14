@@ -1030,8 +1030,8 @@ is_logical(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_logic
 function is_logical(::HasLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes)
     nc = ncols(S.logs_mat)
     are_symplectic_orthogonal(S.stabs, v) || return false
-    size(v) == (1, nc) && (return !iszero(S.logs_mat * transpose(v));)
-    size(v) == (nc, 1) && (return !iszero(S.logs_mat * v);)
+    size(v) == (1, nc) && (return !are_symplectic_orthogonal(S.logs_mat, v);)
+    size(v) == (nc, 1) && (return !are_symplectic_orthogonal(S.logs_mat, transpose(v));)
     throw(ArgumentError("Vector to be tested is of incorrect dimension."))
 end
 is_logical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
