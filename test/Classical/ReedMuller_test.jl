@@ -1,5 +1,5 @@
 @testset "Classical/ReedMuller.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     F = GF(2)
     # Huffman, Pless, p. 34

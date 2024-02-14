@@ -1,5 +1,5 @@
 @testset "Classical/concatenation.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     # same field examples come from https://benjamin-hackl.at/downloads/BA-Thesis_Hackl.pdf
     # "Concatenated Error Correcting Codes: Galois and Binary Concatenation"

@@ -68,7 +68,7 @@ and row degree `r`.
 If a seed is given, i.e. `regulardLDPCCode(4, 1200, 3, 6, seed=123)`, the
 results are reproducible.
 """
-function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int}=nothing)
+function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
     Random.seed!(seed)
     m = divexact(n * l, r)
     F = if isprime(q)
@@ -80,7 +80,7 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
         GF(p, t, :α)
     end
     elems = collect(F)[2:end]
-    H = zero_matrix(F, m, n);
+    H = zero_matrix(F, m, n)
     col_sums = zeros(Int, n)
     for i in axes(H, 1)
         ind = reduce(vcat, shuffle(filter(k -> col_sums[k] == s, 1:n)) for s in 0:l - 1)[1:r]
@@ -97,11 +97,10 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
     return LDPCCode(C.F, C.n, C.k, C.d, C.l_bound, C.u_bound, H, n * l, l * ones(Int, n),
         r * ones(Int, m), l, r, max(l, r), r / n, true, missing, (1 // l) * x^l,
         (1 // r) * x^r, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Int}() for _ in 1:C.n],
-        [Vector{Tuple{Int, Int}}() for _ in 1:C.n],
-        Dict{Int, Int}(), Dict{Int, Int}())
+        [Vector{Tuple{Int, Int}}() for _ in 1:C.n], Dict{Int, Int}(), Dict{Int, Int}())
 end
-regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int}=nothing) = regular_LDPC_code(2, n,
-    l, r, seed=seed)
+regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) =
+    regular_LDPC_code(2, n, l, r, seed = seed)
 
 #############################
       # getter functions
@@ -233,7 +232,7 @@ function show(io::IO, C::AbstractLDPCCode)
         end
     else
         if C.is_reg
-            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.col_bound), $(C.rowbound))-LDPC code with density $(C.density).")
+            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).")
         else
             println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
         end

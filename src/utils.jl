@@ -8,6 +8,25 @@
   # Generic Helper Functions
 #############################
 
+"""
+    copy(C::T) where T <: AbstractCode
+
+Returns a copy of the code `C`.
+"""
+function copy(C::T) where T <: AbstractCode
+    C2 = deepcopy(C)
+    hasfield(T, :F) && (C2.F = C.F;)
+    hasfield(T, :E) && (C2.E = C.E;)
+    hasfield(T, :R) && (C2.R = C.R;)
+    hasfield(T, :C) && (C2.C = copy(C.C);)
+    if hasfield(T, :Cvec)
+        for i in eachindex(C.Cvec)
+            C2.C[i] = copy(C.C[i])
+        end
+    end
+    return C2
+end
+
 _has_equivalent_row_spaces(A::CTMatrixTypes, B::CTMatrixTypes) =
     return _remove_empty(rref(deepcopy(A))[2], :rows) == _remove_empty(rref(deepcopy(B))[2], :rows)
 

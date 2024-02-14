@@ -1,5 +1,5 @@
 @testset "Classical/cyclic_code.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     # examples: Huffman & Pless
     cosets = defining_set([1, 2, 3, 4, 5, 6], 2, 7, false)

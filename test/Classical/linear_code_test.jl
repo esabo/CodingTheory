@@ -1,5 +1,5 @@
 @testset "Classical/linear_code.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     F = GF(2)
     G = matrix(F, [1 0 0 0 0 1 1;

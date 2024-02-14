@@ -1,5 +1,4 @@
 # Copyright (c) 2021, 2022, 2023, 2024 Eric Sabo, Benjamin Ide
-# Copyright (c) 2021, 2022, 2023, 2024 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -21,7 +20,6 @@ using Random
 using DataStructures
 using StatsBase
 
-# TODO: no need to import things I switched to snake_case
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
     isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement,
@@ -29,7 +27,6 @@ import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic
 import Oscar.Nemo: exponent_vectors
-import Oscar.GAP: GapObj, Globals, Packages
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import CairoMakie: save
@@ -43,13 +40,26 @@ import DataStructures: capacity
          # types.jl
 #############################
 
-include("types.jl")
-# classical types
+const CTFieldTypes = FinField
+const CTFieldElem = FinFieldElem
+const CTMatrixTypes = MatElem{<:CTFieldElem}
+const CTPolyRing = PolyRing{<:CTFieldElem}
+const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
+const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
+const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
+
+include("Classical/types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
     AbstractLinearCode, AbstractLDPCCode, AbstractMatrixProductCode, AbstractReedMullerCode,
     AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode, AbstractQuasiCyclicCode,
     AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode, WeightEnumerator
-# quantum types
+
+include("LDPC/types.jl")
+export AbstractLDPCCode, AbstractNoiseChannel, AbstractClassicalNoiseChannel,
+    AbstractBinaryErasureChannel, AbstractBinarySymmetricChannel, AbstractBAWGNChannel,
+    LDPCEnsemble
+
+include("Quantum/types.jl")
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
@@ -328,6 +338,13 @@ export Tanner_graph_plot, Tanner_graph, Tanner_code
 #############################
        # chaincomplex.jl
 #############################
+
+# put into Oscar v14
+# struct ChainComplex{T <: CTMatrixTypes}
+#     F::CTFieldTypes
+#     length::UInt8
+#     boundaries::Vector{T}
+# end
 
 # include("chaincomplex.jl")
 # export boundaries, cochain, distance_balancing

@@ -1,5 +1,5 @@
 @testset "Classical/misc_known_codes.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     # Right now these are hardcoded in the function Hexacode(), but
     # testing in case we move to having some of it done automatically

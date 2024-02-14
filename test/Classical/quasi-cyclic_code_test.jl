@@ -1,5 +1,5 @@
 @testset "Classical/quasi-cyclic_code.jl" begin
-    using Oscar, CodingTheory
+    # using Oscar, CodingTheory
 
     F = GF(2)
     v = matrix(F, 1, 8, [1, 0, 1, 1, 1, 0, 0, 0])
