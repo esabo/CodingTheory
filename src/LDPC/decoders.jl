@@ -11,14 +11,14 @@
 # Example of using Gallager A and B (out should end up [1 1 1 0 0 0 0]
 # H = matrix(GF(2), [1 1 0 1 1 0 0; 1 0 1 1 0 1 0; 0 1 1 1 0 0 1]);
 # v = matrix(GF(2), 7, 1, [1, 1, 0, 0, 0, 0, 0]);
-# flag, out, iter, vtoc, ctov = GallagerA(H, v, 100);
-# flag, out, iter, vtoc, ctov = GallagerB(H, v, 100);
+# flag, out, iter, vtoc, ctov = Gallager_A(H, v, 100);
+# flag, out, iter, vtoc, ctov = Gallager_B(H, v, 100);
 # nm = MPNoiseModel(:BSC, 1/7)
-# flag, out, iter, vtoc, ctov = sumproduct(H, v, nm, 100);
+# flag, out, iter, vtoc, ctov = sum_product(H, v, nm, 100);
 
 struct MPNoiseModel
     type::Symbol
-    crossoverprob::Union{Float64, Missing}
+    cross_over_prob::Union{Float64, Missing}
     sigma::Union{Float64, Missing}
 end
 
@@ -32,149 +32,174 @@ function MPNoiseModel(type::Symbol, x::Float64)
     end
 end
 
-function GallagerA(H::T, v::T, maxiter::Int=100) where T <: CTMatrixTypes
-    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, missing, maxiter, :A, 2)
-    return _messagepassing(HInt, w, missing, _GallagerAchecknodemessage, varadlist, checkadlist, maxiter, :A)
+function Gallager_A(H::T, v::T, max_iter::Int = 100) where T <: CTMatrixTypes
+    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, missing, max_iter, :A, 2)
+    return _message_passing(H_Int, w, missing, _Gallager_A_check_node_message, var_adj_list,
+        check_adj_list, max_iter, :A)
 end
 
-function GallagerB(H::T, v::T, maxiter::Int=100, threshold::Int=2) where T <: CTMatrixTypes
-    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, missing, maxiter, :B, threshold)
-    return _messagepassing(HInt, w, missing, _GallagerBchecknodemessage, varadlist, checkadlist, maxiter, :B, threshold)
+function Gallager_B(H::T, v::T, max_iter::Int = 100, threshold::Int=2) where T <: CTMatrixTypes
+    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, missing, max_iter, :B,
+        threshold)
+    return _message_passing(H_Int, w, missing, _Gallager_B_check_node_message, var_adj_list,
+        check_adj_list, max_iter, :B, threshold)
 end
 
-function sumproduct(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
-    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :SP, 2)
-    return _messagepassing(HInt, w, chn, _SPchecknodemessage, varadlist, checkadlist, maxiter, :SP)
+function sum_product(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100) where {S <: CTMatrixTypes,
+    T <: Union{Vector{<:Real}, CTMatrixTypes}}
+
+    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :SP, 2)
+    return _message_passing(H_Int, w, chn, _SP_check_node_message, var_adj_list, check_adj_list,
+        max_iter, :SP)
 end
 
-function sumproductboxplus(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
-    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :SP, 2)
-    return _messagepassing(HInt, w, chn, _SPchecknodemessageboxplus, varadlist, checkadlist, maxiter, :SP)
+function sum_product_box_plus(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100) where {S <:
+    CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+
+    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :SP, 2)
+    return _message_passing(H_Int, w, chn, _SP_check_node_message_box_plus, var_adj_list,
+        check_adj_list, max_iter, :SP)
 end
 
-function minsum(H::S, v::T, chn::MPNoiseModel, maxiter::Int=100, attenuation::Float64 = 0.5) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
-    HInt, w, varadlist, checkadlist = _messagepassinginit(H, v, chn, maxiter, :MS, 2)
-    return _messagepassing(HInt, w, chn, _MSchecknodemessage, varadlist, checkadlist, maxiter, :MS, attenuation)
+function min_sum(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100, attenuation::Float64 =
+    0.5) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
+
+    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :MS, 2)
+    return _message_passing(H_Int, w, chn, _MS_check_node_message, var_adj_list, check_adj_list,
+        max_iter, :MS, attenuation)
 end
 
-function _messagepassinginit(H::S, v::T, chn::Union{Missing, MPNoiseModel}, maxiter::Int, kind::Symbol, Bt::Int) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+function _message_passing_init(H::S, v::T, chn::Union{Missing, MPNoiseModel}, max_iter::Int,
+    kind::Symbol, Bt::Int) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+
     kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
     kind ∈ (:SP, :MS) && ismissing(chn) && throw(ArgumentError(":SP and :MS require a noise model"))
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    numcheck, numvar = size(H)
-    numcheck > 0 && numvar > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    length(v) == numvar || throw(ArgumentError("Vector has incorrect dimension"))
-    (kind == :B && !(1 <= Bt <= numcheck)) && throw(DomainError("Improper threshold for Gallager B"))
-    2 <= maxiter || throw(DomainError("Number of maximum iterations must be at least two"))
-    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) && throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) && throw(DomainError("Received message should be a vector of Ints for BSC."))
+    Int(order(base_ring(H))) == 2 ||
+        throw(ArgumentError("Currently only implemented for binary codes"))
+    num_check, num_var = size(H)
+    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
+    length(v) == num_var || throw(ArgumentError("Vector has incorrect dimension"))
+    (kind == :B && !(1 <= Bt <= num_check)) &&
+        throw(DomainError("Improper threshold for Gallager B"))
+    2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
+    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) &&
+        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
+    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
+        throw(DomainError("Received message should be a vector of Ints for BSC."))
     
-    HInt = FpmattoJulia(H)
+    H_Int = FpmattoJulia(H)
     w = if T <: CTMatrixTypes
         Int.(data.(v)[:])
     else
         copy(v)
     end
-    checkadlist = [[] for _ in 1:numcheck]
-    varadlist = [[] for _ in 1:numvar]
+    check_adj_list = [[] for _ in 1:num_check]
+    var_adj_list = [[] for _ in 1:num_var]
 
-    for r in 1:numcheck
-        for c in 1:numvar
-            if !iszero(HInt[r, c])
-                push!(checkadlist[r], c)
-                push!(varadlist[c], r)
+    for r in 1:num_check
+        for c in 1:num_var
+            if !iszero(H_Int[r, c])
+                push!(check_adj_list[r], c)
+                push!(var_adj_list[c], r)
             end
         end
     end
 
     # R = kind ∈ (:A, :B) ? Int : Float64
-    # checktovarmessages = zeros(R, numcheck, numvar, maxiter)
-    # vartocheckmessages = zeros(R, numvar, numcheck, maxiter)
+    # check_to_var_messages = zeros(R, num_check, num_var, max_iter)
+    # var_to_check_messages = zeros(R, num_var, num_check, max_iter)
 
-    return HInt, w, varadlist, checkadlist#, checktovarmessages, vartocheckmessages
+    return H_Int, w, var_adj_list, check_adj_list#, check_to_var_messages, var_to_check_messages
 end
 
 # TODO: scheduling
-function _messagepassing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MPNoiseModel},
-    ctovmess::Function, varadlist::Vector{Vector{Any}}, checkadlist::Vector{Vector{Any}},
-    maxiter::Int, kind::Symbol, Bt::Int=2, attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
+function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MPNoiseModel},
+    c_to_v_mess::Function, var_adj_list::Vector{Vector{Any}}, check_adj_list::Vector{Vector{Any}},
+    max_iter::Int, kind::Symbol, Bt::Int = 2, attenuation::Float64 = 0.5) where T <: Union{Int,
+    AbstractFloat}
 
-    numcheck, numvar = size(H)
+    num_check, num_var = size(H)
     S = kind ∈ (:A, :B) ? Int : Float64
-    curr = zeros(Int, numvar)
+    curr = zeros(Int, num_var)
     if kind in (:SP, :MS)
-        totals = zeros(S, 1, numvar)
+        totals = zeros(S, 1, num_var)
     end
-    syn = zeros(Int, numcheck)
-    maxiter += 1 # probably should copy this
-    checktovarmessages = zeros(S, numcheck, numvar, maxiter)
-    vartocheckmessages = zeros(S, numvar, numcheck, maxiter)
+    syn = zeros(Int, num_check)
+    max_iter += 1 # probably should copy this
+    check_to_var_messages = zeros(S, num_check, num_var, max_iter)
+    var_to_check_messages = zeros(S, num_var, num_check, max_iter)
     
     iter = 1
     if kind in (:SP, :MS)
-        chninits = if chn.type == :BSC
-            _channelinitBSC(w, chn.crossoverprob)
+        chn_inits = if chn.type == :BSC
+            _channel_init_BSC(w, chn.cross_over_prob)
         elseif chn.type == :BAWGNC && kind == :SP
-            _channelinitBAWGNCSP(w, chn.sigma)
+            _channel_init_BAWGNC_SP(w, chn.sigma)
         elseif chn.type == :BAWGNC && kind == :MS
-            _channelinitBAWGNCMS(w)
+            _channel_init_BAWGNC_MS(w)
         end
-        for vn in 1:numvar
-            vartocheckmessages[vn, varadlist[vn], 1] .= chninits[vn]
+        for vn in 1:num_var
+            var_to_check_messages[vn, var_adj_list[vn], 1] .= chn_inits[vn]
         end
     elseif kind in (:A, :B)
-        for vn in 1:numvar
-            vartocheckmessages[vn, varadlist[vn], :] .= w[vn]
+        for vn in 1:num_var
+            var_to_check_messages[vn, var_adj_list[vn], :] .= w[vn]
         end
     end
 
-    while iter < maxiter
-        for cn in 1:numcheck
-            for v1 in checkadlist[cn]
-                checktovarmessages[cn, v1, iter] = ctovmess(cn, v1, iter, checkadlist, vartocheckmessages, attenuation)
+    while iter < max_iter
+        for cn in 1:num_check
+            for v1 in check_adj_list[cn]
+                check_to_var_messages[cn, v1, iter] = c_to_v_mess(cn, v1, iter, check_adj_list,
+                    var_to_check_messages, attenuation)
             end
         end
 
         if kind in (:SP, :MS)
-            for vn in 1:numvar
-                totals[vn] = chninits[vn]
-                for c in varadlist[vn]
-                    totals[vn] += checktovarmessages[c, vn, iter]
+            for vn in 1:num_var
+                totals[vn] = chn_inits[vn]
+                for c in var_adj_list[vn]
+                    totals[vn] += check_to_var_messages[c, vn, iter]
                 end
             end
         end
 
         if kind in (:SP, :MS)
-            @simd for i in 1:numvar
+            @simd for i in 1:num_var
                 curr[i] = totals[i] >= 0 ? 0 : 1
             end
         elseif kind in (:A, :B)
-            @simd for i in 1:numvar
-                len = length(varadlist[i])
-                onecount = count(isone, view(checktovarmessages, varadlist[i], i, iter))
+            @simd for i in 1:num_var
+                len = length(var_adj_list[i])
+                one_count = count(isone, view(check_to_var_messages, var_adj_list[i], i, iter))
                 d = fld(len, 2)
-                curr[i] = onecount + (isone(w[i]) && iseven(len)) > d
+                curr[i] = one_count + (isone(w[i]) && iseven(len)) > d
             end
         end
 
         LinearAlgebra.mul!(syn, H, curr)
         # @show curr
         # @show syn .% 2
-        iszero(syn .% 2) && return true, curr, iter, vartocheckmessages, checktovarmessages # others if necessary
+        iszero(syn .% 2) && return true, curr, iter, var_to_check_messages, check_to_var_messages
         iter += 1
 
-        if iter <= maxiter
-            for vn in 1:numvar
-                for c1 in varadlist[vn]
+        if iter <= max_iter
+            for vn in 1:num_var
+                for c1 in var_adj_list[vn]
                     if kind in (:SP, :MS)
-                        vartocheckmessages[vn, c1, iter] = totals[vn] - checktovarmessages[c1, vn, iter - 1]
-                    elseif kind == :A && length(varadlist[vn]) > 1
-                        if all(!Base.isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2)
-                            vartocheckmessages[vn, c1, iter] ⊻= 1 
+                        var_to_check_messages[vn, c1, iter] = totals[vn] -
+                            check_to_var_messages[c1, vn, iter - 1]
+                    elseif kind == :A && length(var_adj_list[vn]) > 1
+                        if all(!Base.isequal(w[vn]), check_to_var_messages[c2, vn, iter - 1] for c2 
+                            in var_adj_list[vn] if c1 != c2)
+
+                            var_to_check_messages[vn, c1, iter] ⊻= 1 
                         end
-                    elseif kind == :B && length(varadlist[vn]) >= Bt
-                        if count(!Base.isequal(w[vn]), checktovarmessages[c2, vn, iter - 1] for c2 in varadlist[vn] if c1 != c2) >= Bt
-                            vartocheckmessages[vn, c1, iter] ⊻= 1 
+                    elseif kind == :B && length(var_adj_list[vn]) >= Bt
+                        if count(!Base.isequal(w[vn]), check_to_var_messages[c2, vn, iter - 1] for 
+                            c2 in var_adj_list[vn] if c1 != c2) >= Bt
+
+                            var_to_check_messages[vn, c1, iter] ⊻= 1 
                         end
                     end
                 end
@@ -182,36 +207,38 @@ function _messagepassing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MP
         end
     end
 
-    return false, curr, iter, vartocheckmessages, checktovarmessages
+    return false, curr, iter, var_to_check_messages, check_to_var_messages
 end
 
-function _channelinitBSC(v::Vector{T}, p::Float64) where T <: Integer
+function _channel_init_BSC(v::Vector{T}, p::Float64) where T <: Integer
     temp = log((1 - p) / p)
-    chninit = zeros(Float64, length(v))
+    chn_init = zeros(Float64, length(v))
     for i in eachindex(v)
-        chninit[i] = (-1)^v[i] * temp
+        chn_init[i] = (-1)^v[i] * temp
     end
-    return chninit
+    return chn_init
 end
 
-function _channelinitBAWGNCSP(v::Vector{T}, σ::Float64) where T <: AbstractFloat
+function _channel_init_BAWGNC_SP(v::Vector{T}, σ::Float64) where T <: AbstractFloat
     temp = 2 / σ^2
-    chninit = zeros(Float64, length(v))
+    chn_init = zeros(Float64, length(v))
     for i in eachindex(v)
-        chninit[i] = temp * v[i]
+        chn_init[i] = temp * v[i]
     end
-    return chninit
+    return chn_init
 end
 
-_channelinitBAWGNCMS(v::Vector{T}) where T <: AbstractFloat = v
+_channel_init_BAWGNC_MS(v::Vector{T}) where T <: AbstractFloat = v
 
-function _SPchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten = missing)
+function _SP_check_node_message(cn::Int, v1::Int, iter, check_adj_list, var_to_check_messages,
+    atten = missing)
+
     phi(x) = -log(tanh(0.5 * x))
     temp = 0.0
     s = 1
-    for v2 in checkadlist[cn]
+    for v2 in check_adj_list[cn]
         if v2 != v1
-            x = vartocheckmessages[v2, cn, iter]
+            x = var_to_check_messages[v2, cn, iter]
             # Note that x should never be 0 unless there is an erasure.
             # For now, this is coded as if there will never be an erasure.
             # This will simply error if x == 0.
@@ -228,16 +255,20 @@ end
 
 ⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
 ⊞(a...) = reduce(⊞, a...)
-function _SPchecknodemessageboxplus(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, atten = missing)
-    ⊞(vartocheckmessages[v2, cn, iter] for v2 in checkadlist[cn] if v2 != v1)
+function _SP_check_node_message_box_plus(cn::Int, v1::Int, iter, check_adj_list,
+    var_to_check_messages, atten = missing)
+
+    ⊞(var_to_check_messages[v2, cn, iter] for v2 in check_adj_list[cn] if v2 != v1)
 end
 
-function _MSchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmessages, attenuation::Float64=0.5)
-    temp = vartocheckmessages[checkadlist[cn][1], cn, iter]
+function _MS_check_node_message(cn::Int, v1::Int, iter, check_adj_list, var_to_check_messages,
+    attenuation::Float64 = 0.5)
+
+    temp = var_to_check_messages[check_adj_list[cn][1], cn, iter]
     s = 1
-    for v2 in checkadlist[cn]
+    for v2 in check_adj_list[cn]
         if v2 != v1
-            x = vartocheckmessages[v2, cn, iter]
+            x = var_to_check_messages[v2, cn, iter]
             # Note that x should never be 0
             if x > 0
                 temp > x && (temp = x;)
@@ -250,39 +281,43 @@ function _MSchecknodemessage(cn::Int, v1::Int, iter, checkadlist, vartocheckmess
     return s * attenuation * temp
 end
 
-function _GallagerAchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten = missing)
-    reduce(⊻, vartocheckmessages[v, cn, iter] for v in checkadlist[cn] if v != v1)
+function _Gallager_A_check_node_message(cn::Int, v1::Int, iter::Int, check_adj_list,
+    var_to_check_messages, atten = missing)
+
+    reduce(⊻, var_to_check_messages[v, cn, iter] for v in check_adj_list[cn] if v != v1)
 end
-_GallagerBchecknodemessage(cn::Int, v1::Int, iter::Int, checkadlist, vartocheckmessages, atten = missing) = _GallagerAchecknodemessage(cn, v1, iter, checkadlist, vartocheckmessages, atten)
+_Gallager_B_check_node_message(cn::Int, v1::Int, iter::Int, check_adj_list, var_to_check_messages,
+    atten = missing) = _Gallager_A_check_node_message(cn, v1, iter, check_adj_list,
+    var_to_check_messages, atten)
 
 # Mansour, Shanbhag, "Turbo Decoder Architectures for Low-Density Parity-Check Codes" (2002)
 
-function findMPschedule(H::CodingTheory.CTMatrixTypes)
-    numcheck, numvar = size(H)
-    numcheck > 0 && numvar > 0 || throw(ArgumentError("Input matrix of improper dimension"))
+function find_MP_schedule(H::CodingTheory.CTMatrixTypes)
+    num_check, num_var = size(H)
+    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
 
-    checkadlist = [[] for _ in 1:numcheck]
-    for r in 1:numcheck
-        for c in 1:numvar
-            iszero(H[r, c]) || push!(checkadlist[r], c)
+    check_adj_list = [[] for _ in 1:num_check]
+    for r in 1:num_check
+        for c in 1:num_var
+            iszero(H[r, c]) || push!(check_adj_list[r], c)
         end
     end
 
-    schedlist = [[1]]
-    for cn in 2:numcheck
+    sched_list = [[1]]
+    for cn in 2:num_check
         found = false
-        for sched in schedlist
-            if !any(x ∈ checkadlist[y] for y in sched for x ∈ checkadlist[cn])
+        for sched in sched_list
+            if !any(x ∈ check_adj_list[y] for y in sched for x ∈ check_adj_list[cn])
                 push!(sched, cn)
-                sort!(schedlist, lt=(x, y) -> length(x) < length(y))
+                sort!(sched_list, lt=(x, y) -> length(x) < length(y))
                 found = true
                 break
             end
         end
-        !found && push!(schedlist, [cn])
+        !found && push!(sched_list, [cn])
     end
     
-    return schedlist
+    return sched_list
 end
 
 #############################
@@ -309,7 +344,7 @@ function LP_decoder_LDPC end
           # Methods
 #############################
 
-function _channeltoSNR(chn::MPNoiseModel)
+function _channel_to_SNR(chn::MPNoiseModel)
     if cnh.type == :BAWGNC
         -10 * log10(chn.sigma^2)
     else
@@ -317,7 +352,7 @@ function _channeltoSNR(chn::MPNoiseModel)
     end
 end
 
-function _channeltoSNR(type::Symbol, sigma::Real)
+function _channel_to_SNR(type::Symbol, sigma::Real)
     if type == :BAWGNC
         -10 * log10(sigma^2)
     else
@@ -331,16 +366,16 @@ end
 
 # function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
 #                            noise::Union{Vector{<:Real}, AbstractRange{<:Real}},
-#                            maxiter::Int=100, numruns::Int=100000, seed::Union{Int, Nothing} = nothing,
+#                            max_iter::Int = 100, numruns::Int = 100000, seed::Union{Int, Nothing} = nothing,
 #                            attenuation::Float64 = 0.5)
 
-#     decodersimulation(H, decoder, noisetype, noise, maxiter,
+#     decodersimulation(H, decoder, noisetype, noise, max_iter,
 #                       [numruns for n in noise], seed, attenuation)
 # end
 
 # function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
 #                            noise::Union{Vector{<:Real}, AbstractRange{<:Real}},
-#                            maxiter::Int=100, numruns::Vector{Int} = [100000 for n in noise],
+#                            max_iter::Int = 100, numruns::Vector{Int} = [100000 for n in noise],
 #                            seed::Union{Int, Nothing} = nothing, attenuation::Float64 = 0.5)
 
 #     decoder in (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
@@ -356,25 +391,25 @@ end
 #     FER = zeros(length(noise))
 #     BER = zeros(length(noise))
 #     n = ncols(H)
-#     cnmsg = decoder == :SP ? _SPchecknodemessage : _MSchecknodemessage
+#     cnmsg = decoder == :SP ? _SP_check_node_message : _MS_check_node_message
 
 #     for k in eachindex(noise)
 #         chn = MPNoiseModel(noisetype, noise[k])
 #         w = noisetype == :BSC ? zeros(Int, n) : ones(n)
-#         HInt, _, varadlist, checkadlist = _messagepassinginit(H, w, chn, maxiter, decoder, 2)
+#         H_Int, _, var_adj_list, check_adj_list = _message_passing_init(H, w, chn, max_iter, decoder, 2)
 #         FEtotal = 0 # number of frame errors
 #         BEtotal = 0 # number of bit errors
 #         @threads for i in 1:numruns[k]
 #         # for i in 1:numruns
 #             for j in 1:n
 #                 if noisetype == :BSC
-#                     w[j] = Int(rand(rng) < chn.crossoverprob)
+#                     w[j] = Int(rand(rng) < chn.cross_over_prob)
 #                 else # BAWGNC
 #                     w[j] = 1.0 + randn(rng, Float64) * chn.sigma
 #                 end
 #             end
 #             iszero(w) && continue
-#             flag, curr, _, _, _ = _messagepassing(HInt, w, chn, cnmsg, varadlist, checkadlist, maxiter, decoder, 2, attenuation)
+#             flag, curr, _, _, _ = _message_passing(H_Int, w, chn, cnmsg, var_adj_list, check_adj_list, max_iter, decoder, 2, attenuation)
 #             if !(flag && iszero(curr))
 #                 FEtotal += 1
 #                 BEtotal += count(!iszero, curr)
@@ -386,132 +421,132 @@ end
 #     return FER, BER
 # end
 
-function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
-                           noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
-                           maxiter::Int=100, numruns::Int = 1000,
-                           seed::Union{Int, Nothing} = nothing, attenuation::Float64 = 1.0)
+# function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,
+#                            noise::Union{Vector{T}, AbstractRange{T}} where T<:Real,
+#                            max_iter::Int = 100, numruns::Int = 1000,
+#                            seed::Union{Int, Nothing} = nothing, attenuation::Float64 = 1.0)
 
-    decoder in (:A, :B, :SP, :MS, :LP) || throw(ArgumentError("Unsupported decoder"))
-    noisetype == :BSC || throw(ArgumentError("Only supports BSC"))
-    0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
-    maximum(noise) > 1 && noisetype == :BSC && throw(ArgumentError("Crossover probability must be in the range [0,1]"))
+#     decoder in (:A, :B, :SP, :MS, :LP) || throw(ArgumentError("Unsupported decoder"))
+#     noisetype == :BSC || throw(ArgumentError("Only supports BSC"))
+#     0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
+#     maximum(noise) > 1 && noisetype == :BSC && throw(ArgumentError("Crossover probability must be in the range [0,1]"))
 
-    # we'll use an explicit pseudoRNG with the given seed. Note that Xoshiro is default in Julia.
-    # `seed == nothing` just gives a random choice, i.e., the default is not reproducible.
-    rng = Xoshiro(seed)
+#     # we'll use an explicit pseudoRNG with the given seed. Note that Xoshiro is default in Julia.
+#     # `seed == nothing` just gives a random choice, i.e., the default is not reproducible.
+#     rng = Xoshiro(seed)
 
-    FER = zeros(length(noise))
-    BER = zeros(length(noise))
-    ε = zeros(length(noise))
-    n = ncols(H)
-    cnmsg = decoder == :SP ? _SPchecknodemessage : _MSchecknodemessage
+#     FER = zeros(length(noise))
+#     BER = zeros(length(noise))
+#     ε = zeros(length(noise))
+#     n = ncols(H)
+#     cnmsg = decoder == :SP ? _SP_check_node_message : _MS_check_node_message
 
-    model = decoder == :LP ? _initLPdecoderLDPC(H) : nothing
+#     model = decoder == :LP ? _initLPdecoderLDPC(H) : nothing
 
-    for k in eachindex(noise)
+#     for k in eachindex(noise)
 
-        # p[i] is the probability of having i - 1 bit errors
-        temp = BigFloat(noise[k])
-        p = BigFloat[temp^i * (1 - temp)^(n - i) * binomial(big(n), big(i)) /
-                     sum(temp^j * (1 - temp)^(n - j) * binomial(big(n), big(j))
-                         for j in 0:n) for i in 0:n]
-        p_partialsum = [sum(p[j] for j in 1:i) for i in 1:length(p)]
-        maxnerr = max(findfirst(p_partialsum .>= 1 - BigFloat("1e-9")) - 1, 6)
-        # @show maxnerr
-        ε[k] = 1 - p_partialsum[maxnerr + 1]
+#         # p[i] is the probability of having i - 1 bit errors
+#         temp = BigFloat(noise[k])
+#         p = BigFloat[temp^i * (1 - temp)^(n - i) * binomial(big(n), big(i)) /
+#                      sum(temp^j * (1 - temp)^(n - j) * binomial(big(n), big(j))
+#                          for j in 0:n) for i in 0:n]
+#         p_partialsum = [sum(p[j] for j in 1:i) for i in 1:length(p)]
+#         maxnerr = max(findfirst(p_partialsum .>= 1 - BigFloat("1e-9")) - 1, 6)
+#         # @show maxnerr
+#         ε[k] = 1 - p_partialsum[maxnerr + 1]
 
-        chn = MPNoiseModel(noisetype, noise[k])
-        w = noisetype == :BSC ? zeros(Int, n) : ones(n)
-        if decoder == :LP
-            noisemodel = BSC(noise[k])
-        else
-            HInt, _, varadlist, checkadlist = _messagepassinginit(H, w, chn, maxiter, decoder, 2)
-        end
+#         chn = MPNoiseModel(noisetype, noise[k])
+#         w = noisetype == :BSC ? zeros(Int, n) : ones(n)
+#         if decoder == :LP
+#             noisemodel = BSC(noise[k])
+#         else
+#             H_Int, _, var_adj_list, check_adj_list = _message_passing_init(H, w, chn, max_iter, decoder, 2)
+#         end
 
-        FEtotal = zeros(Int, maxnerr)
-        BEtotal = zeros(Int, maxnerr)
-        FER[k] = p[1]
-        BER[k] = p[1]
+#         FEtotal = zeros(Int, maxnerr)
+#         BEtotal = zeros(Int, maxnerr)
+#         FER[k] = p[1]
+#         BER[k] = p[1]
 
-        for e in 1:maxnerr
+#         for e in 1:maxnerr
 
-            # importance sampling:
-            numruns_for_e = Int(cld(numruns * p[e+1], sum(p[i] for i in 2:maxnerr+1)))
+#             # importance sampling:
+#             numruns_for_e = Int(cld(numruns * p[e+1], sum(p[i] for i in 2:maxnerr+1)))
 
-            # naive sampling, still quite good:
-            # numruns_for_e = Int(cld(numruns, maxnerr))
+#             # naive sampling, still quite good:
+#             # numruns_for_e = Int(cld(numruns, maxnerr))
 
-            for i in 1:numruns_for_e
-                w = zeros(Int, n)
-                w[shuffle(rng, 1:n)[1:e]] .= 1
-                if decoder == :LP
-                    curr = _LPdecoderLDPC(model, w, noisemodel)
-                    flag = all(isinteger(x) for x in curr)
-                else
-                    flag, curr, _, _, _ = _messagepassing(HInt, w, chn, cnmsg, varadlist, checkadlist, maxiter, decoder, 2, attenuation)
-                end
-                if !(flag && iszero(curr))
-                    FEtotal[e] += 1
-                    BEtotal[e] += count(!iszero, curr)
-                end
-            end
-            FER[k] += p[e+1] * (numruns_for_e - FEtotal[e]) / numruns_for_e
-            BER[k] += p[e+1] * (numruns_for_e * n - BEtotal[e]) / (numruns_for_e * n)
-        end
-        FER[k] = 1 - FER[k]
-        BER[k] = 1 - BER[k]
-    end
-    return FER, BER, ε
-end
+#             for i in 1:numruns_for_e
+#                 w = zeros(Int, n)
+#                 w[shuffle(rng, 1:n)[1:e]] .= 1
+#                 if decoder == :LP
+#                     curr = _LPdecoderLDPC(model, w, noisemodel)
+#                     flag = all(isinteger(x) for x in curr)
+#                 else
+#                     flag, curr, _, _, _ = _message_passing(H_Int, w, chn, cnmsg, var_adj_list, check_adj_list, max_iter, decoder, 2, attenuation)
+#                 end
+#                 if !(flag && iszero(curr))
+#                     FEtotal[e] += 1
+#                     BEtotal[e] += count(!iszero, curr)
+#                 end
+#             end
+#             FER[k] += p[e+1] * (numruns_for_e - FEtotal[e]) / numruns_for_e
+#             BER[k] += p[e+1] * (numruns_for_e * n - BEtotal[e]) / (numruns_for_e * n)
+#         end
+#         FER[k] = 1 - FER[k]
+#         BER[k] = 1 - BER[k]
+#     end
+#     return FER, BER, ε
+# end
 
-using Plots: plot, savefig, xticks, yticks, xticks!, yticks!
-function testsimulation(figfilename = "test.png")
-    # H = paritycheckmatrix(regularLDPCCode(500, 6, 3));
-    H = matrix(GF(2), 10, 20, [1 0 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0;
-                               0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0 0;
-                               0 0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0;
-                               1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0 0;
-                               0 1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0;
-                               1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0 0;
-                               0 1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0;
-                               0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0 0;
-                               0 0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0;
-                               1 0 0 0 1 1 0 1 0 0 0 0 0 0 0 0 0 0 0 1]);
+# using Plots: plot, savefig, xticks, yticks, xticks!, yticks!
+# function testsimulation(figfilename = "test.png")
+#     # H = paritycheckmatrix(regularLDPCCode(500, 6, 3));
+#     H = matrix(GF(2), 10, 20, [1 0 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 0 0;
+#                                0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0 0;
+#                                0 0 1 0 1 0 1 1 0 0 0 0 1 0 0 0 0 0 0 0;
+#                                1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0 0;
+#                                0 1 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0 0 0;
+#                                1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0 0;
+#                                0 1 1 0 0 0 0 1 0 1 0 0 0 0 0 0 1 0 0 0;
+#                                0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0 0;
+#                                0 0 0 1 1 0 1 0 0 1 0 0 0 0 0 0 0 0 1 0;
+#                                1 0 0 0 1 1 0 1 0 0 0 0 0 0 0 0 0 0 0 1]);
 
-    p = 10 .^ collect(-4:.2:-0.8);
-    @time F1, B1, e1 = CodingTheory.decodersimulation(H, :SP, :BSC, p, 10, 5000, 1, 1.0);
-    @time F2, B2, e2 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 1.0);
-    @time F3, B3, e3 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.5);
-    @time F4, B4, e4 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.1);
-    @time F5, B5, e5 = CodingTheory.decodersimulation(H, :LP, :BSC, p, 10, 5000, 1);
+#     p = 10 .^ collect(-4:.2:-0.8);
+#     @time F1, B1, e1 = CodingTheory.decodersimulation(H, :SP, :BSC, p, 10, 5000, 1, 1.0);
+#     @time F2, B2, e2 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 1.0);
+#     @time F3, B3, e3 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.5);
+#     @time F4, B4, e4 = CodingTheory.decodersimulation(H, :MS, :BSC, p, 10, 5000, 1, 0.1);
+#     @time F5, B5, e5 = CodingTheory.decodersimulation(H, :LP, :BSC, p, 10, 5000, 1);
 
-    plt = plot(log10.(p), log10.([F1 F2 F3 F4 F5]),
-               label = ["FER, SP" "FER, MS atten=1.0" "FER, MS atten=0.5" "FER, MS atten=0.1" "FER, LP"],
-               xlabel = "Crossover probability",
-               ylabel = "Error rate",
-               title = "BSC with a [20,10,5] code",
-               # xlims = (0, maximum(p) * 1.02),
-               # ylims = (0, max(maximum(FER), maximum(BER)) * 1.02),
-               # xticks = (-4:-1, ["1e-4", "1e-3", "1e-2", "1e-1"]),
-               # yticks = (-6:0, ["1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0"]),
-               # yscale = :log,
-               marker = :dot);
-    xticks!(plt, (xticks(plt)[1][1], "1e" .* xticks(plt)[1][2]));
-    yticks!(plt, (yticks(plt)[1][1], "1e" .* yticks(plt)[1][2]));
-
-
-    # σ = 0.1:0.1:1
-    # FER, BER = decodersimulation(H, :SP, :BAWGNC, p, 100, 100, 123);
-    # SNR = CodingTheory._channeltoSNR.(:BAWGNC, σ)
-    # plt = plot(SNR, [FER BER],
-    #            label = ["FER" "BER"],
-    #            xlabel = "Noise (dB)",
-    #            ylabel = "Error rate",
-    #            marker = :dot);
+#     plt = plot(log10.(p), log10.([F1 F2 F3 F4 F5]),
+#                label = ["FER, SP" "FER, MS atten=1.0" "FER, MS atten=0.5" "FER, MS atten=0.1" "FER, LP"],
+#                xlabel = "Crossover probability",
+#                ylabel = "Error rate",
+#                title = "BSC with a [20,10,5] code",
+#                # xlims = (0, maximum(p) * 1.02),
+#                # ylims = (0, max(maximum(FER), maximum(BER)) * 1.02),
+#                # xticks = (-4:-1, ["1e-4", "1e-3", "1e-2", "1e-1"]),
+#                # yticks = (-6:0, ["1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0"]),
+#                # yscale = :log,
+#                marker = :dot);
+#     xticks!(plt, (xticks(plt)[1][1], "1e" .* xticks(plt)[1][2]));
+#     yticks!(plt, (yticks(plt)[1][1], "1e" .* yticks(plt)[1][2]));
 
 
-    savefig(plt, figfilename);
-end
+#     # σ = 0.1:0.1:1
+#     # FER, BER = decodersimulation(H, :SP, :BAWGNC, p, 100, 100, 123);
+#     # SNR = CodingTheory._channel_to_SNR.(:BAWGNC, σ)
+#     # plt = plot(SNR, [FER BER],
+#     #            label = ["FER" "BER"],
+#     #            xlabel = "Noise (dB)",
+#     #            ylabel = "Error rate",
+#     #            marker = :dot);
+
+
+#     savefig(plt, figfilename);
+# end
 
 
 # function profiletest()
@@ -520,7 +555,7 @@ end
 #     chn = MPNoiseModel(:BSC, 0.01);
 #     v = zero_matrix(C.F, 1, 103);
 #     v[1,1] = 1;
-#     sumproduct(H, v, chn);
+#     sum_product(H, v, chn);
 #     Profile.clear()
-#     @profile sumproduct(H, v, chn)
+#     @profile sum_product(H, v, chn)
 # end
