@@ -310,7 +310,7 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     # return X_gauges, Z_gauges
-    S = SubsystemCode(X_gauges ⊕ Z_gauges, missing, :VS)
+    S = SubsystemCode(X_gauges ⊕ Z_gauges, logs_alg = :VS)
     # min_row_wt = minimum(row_wts)
     # min_col_wt = minimum(col_wts)
     # set_minimum_distance!(S, minimum([min_row_wt, min_col_wt]))
@@ -368,7 +368,7 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
         end
     end
 
-    S = SubsystemCode(gauges, missing, :VS)
+    S = SubsystemCode(gauges, logs_alg = :VS)
     S.d_x = k
     S.d_z = m * n
     S.d = minimum([k, m * n])
@@ -433,7 +433,7 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
         end
     end
 
-    return SubsystemCode(gauges, missing, :VS)
+    return SubsystemCode(gauges, logs_alg = :VS)
 end
 
 # Bravyi et al, "Subsystem surface codes with three-qubit check operators", (2013)
@@ -565,7 +565,7 @@ function SubsystemToricCode(m::Int, n::Int)
         logs[3, top_left + 2 * n] = F_one
     end
     
-    S = SubsystemCode(gauges, missing, :VS)
+    S = SubsystemCode(gauges, logs_alg = :VS)
     S.k == 2 || error("Got wrong dimension for periodic case.")
     set_stabilizers!(S, stabs)
     set_logicals!(S, logs)
@@ -709,7 +709,7 @@ function SubsystemSurfaceCode(m::Int, n::Int)
     end
     logs[2, 2 * len -  2 * n] = F_one
     
-    S = SubsystemCode(gauges, missing, :VS)
+    S = SubsystemCode(gauges, logs_alg = :VS)
     S.k == 1 || error("Got wrong dimension for non-periodic case.")
     set_stabilizers!(S, stabs)
     set_logicals!(S, logs)
@@ -1291,23 +1291,24 @@ function ToricCode(d::Int)
         end
     end
     S = CSSCode(A, B)
-    X1 = zero_matrix(S.F, 1, 4 * d^2)
-    for c in 1:d
-        X1[1, c + d] = F_one
-    end
+
     Z1 = zero_matrix(S.F, 1, 4 * d^2)
-    for r in 1:2:2 * d
-        Z1[1, r * d + 1 + S.n] = F_one
+    for c in 1:d
+        Z1[1, c + d + S.n] = F_one
     end
-    X2 = zero_matrix(S.F, 1, 4 * d^2)
+    X1 = zero_matrix(S.F, 1, 4 * d^2)
     for r in 1:2:2 * d
-        X2[1, (r - 1) * d + 1] = F_one
+        X1[1, r * d + 1] = F_one
     end
     Z2 = zero_matrix(S.F, 1, 4 * d^2)
-    for c in 1:d
-        Z2[1, c + S.n] = F_one
+    for r in 1:2:2 * d
+        Z2[1, (r - 1) * d + 1 + S.n] = F_one
     end
-    S.logicals = [(X1, Z1), (X2, Z2)]
+    X2 = zero_matrix(S.F, 1, 4 * d^2)
+    for c in 1:d
+        X2[1, c] = F_one
+    end
+    set_logicals!(S, vcat(X1, Z1, X2, Z2))
     S.d_x = d
     S.d_z = d
     S.d = d
@@ -1368,8 +1369,8 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
         end
         qubit += d_x - 1
     end
-
     S = CSSCode(A, B)
+
     X1 = zero_matrix(S.F, 1, 2 * S.n)
     for r in 1:2:d_x
         X1[1, d_z * (r - 1) + (d_z - 1) * (r - 1) + 1] = F_one
@@ -1378,7 +1379,7 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
     for c in 1:d_z
         Z1[1, c + S.n] = F_one
     end
-    S.logicals = [(X1, Z1)]
+    set_logicals!(S, vcat(X1, Z1))
     S.d_x = d_x
     S.d_z = d_z
     S.d = minimum([d_x, d_z])
@@ -1454,7 +1455,7 @@ function XYSurfaceCode(d_x::Int, d_y::Int)
     # for c in 1:d_z
     #     Z1[1, c] = ω
     # end
-    # S.logicals = [(X1, Z1)]
+    # set_logicals!(S, vcat(X1, Z1))
     # S.d_x = d_x
     # S.d_z = d_z
     # S.d = minimum([d_x, d_z])

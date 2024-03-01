@@ -21,7 +21,7 @@ include("Classical/concatenation_test.jl")
 include("LDPC/codes_test.jl")
 
 include("Quantum/stabilizer_code_test.jl")
-# # include("Quantum/quantum_MC_ids_test.jl")
+# include("Quantum/quantum_MC_ids_test.jl")
 include("Quantum/misc_known_codes_test.jl")
 include("Quantum/product_codes_test.jl")
 include("Quantum/subsystem_code_test.jl")
