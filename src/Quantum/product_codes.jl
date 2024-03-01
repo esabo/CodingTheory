@@ -9,12 +9,12 @@
 #############################
 
 """
-    HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+    HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing}= missing, logs_alg::Symbol = :stnd_frm)
 
-Return the hypergraph product code of matrices `A` and `B` whose signs are determined by `char_vec`.
+Return the hypergraph product code of matrices `A` and `B`.
 """
-function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes, char_vec::Union{Vector{nmod},
-        Missing}=missing, logs_alg::Symbol=:stnd_frm)
+function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{nmod},
+    Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
@@ -76,14 +76,14 @@ function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes, char_vec::Uni
 end
 
 """
-    HypergraphProductCode(C::AbstractLinearCode, char_vec::Union{Vector{nmod}, Missing}=missing)
+    HypergraphProductCode(C::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the (symmetric) hypergraph product code of `C` whose signs are determined by `char_vec`.
+Return the (symmetric) hypergraph product code of `C`.
 """
-function HypergraphProductCode(C::AbstractLinearCode, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm)
+function HypergraphProductCode(C::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} =
+    missing, logs_alg::Symbol = :stnd_frm)
 
-    S = HypergraphProductCode(parity_check_matrix(C), parity_check_matrix(C), char_vec, logs_alg)
+    S = HypergraphProductCode(parity_check_matrix(C), parity_check_matrix(C), char_vec = char_vec, logs_alg = logs_alg)
     S.C1 = C
     S.C2 = C
     S.d = C.d
@@ -91,14 +91,15 @@ function HypergraphProductCode(C::AbstractLinearCode, char_vec::Union{Vector{nmo
 end
 
 """
-    HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode, char_vec::Union{Vector{nmod}, Missing}=missing)
+    HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the hypergraph product code of `C1` and `C2` whose signs are determined by `char_vec`.
+Return the hypergraph product code of `C1` and `C2`.
 """
-function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
+    char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-    S = HypergraphProductCode(parity_check_matrix(C1), parity_check_matrix(C2), char_vec, logs_alg)
+    S = HypergraphProductCode(parity_check_matrix(C1), parity_check_matrix(C2), char_vec =
+        char_vec, logs_alg = logs_alg)
     S.C1 = C1
     S.C2 = C2
     (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
@@ -107,13 +108,13 @@ end
 
 # unable to yield quantum LDPC code families with non constant minimum distance
 """
-    GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
-    BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+    GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+    BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2` whose signs are determined by `char_vec`.
+Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2`.
 """
-function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
+    char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     Int(order(C1.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
@@ -123,18 +124,18 @@ function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode,
     # H_X stays sparse if H1 is but H_Z does not if C1.d is large
     H_X = parity_check_matrix(C1) ⊗ identity_matrix(C2.F, C2.n)
     H_Z = generator_matrix(C1) ⊗ parity_check_matrix(C2)
-    S = CSSCode(H_X, H_Z, char_vec, logs_alg)
+    S = CSSCode(H_X, H_Z, char_vec = char_vec, logs_alg = logs_alg)
     (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
     return S
 end
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) =
-    GeneralizedShorCode(C1, C2, char_vec, logs_alg)
+    char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) =
+    GeneralizedShorCode(C1, C2, char_vec = char_vec, logs_alg = logs_alg)
 
 """
-    HyperBicycleCodeCSS(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+    HyperBicycleCodeCSS(a::Vector{CTMatrixTypes}, b::Vector{CTMatrixTypes}, χ::Int; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are determined by `char_vec`.
+Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
 # Arguments
 - a: A vector of length `c` of binary matrices of the same dimensions.
@@ -142,8 +143,8 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are deter
   potentially different from those of `a`.
 - χ: A strictly positive integer coprime with `c`.
 """
-function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTMatrixTypes
+function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int; char_vec::Union{Vector{nmod},
+    Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
@@ -202,15 +203,15 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int,
 
     GX = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
     GZ = hcat(HT2 ⊗ En1, En2 ⊗ HT1)
-    return CSSCode(GX, GZ, char_vec, logs_alg)
+    return CSSCode(GX, GZ, char_vec = char_vec, logs_alg = logs_alg)
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
     # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
-    HyperBicycleCode(a::Vector{fq_nmod_mat}, b::Vector{fq_nmod_mat}, χ::Int, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+    HyperBicycleCode(a::Vector{CTMatrixTypes}, b::Vector{CTMatrixTypes}, χ::Int; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are determined by `char_vec`.
+Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
 # Arguments
 - a: A vector of length `c` of binary matrices of the same dimensions.
@@ -218,8 +219,8 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ` whose signs are deter
   potentially different from those of `a`.
 - χ: A strictly positive integer coprime with `c`.
 """
-function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTMatrixTypes
+function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int, char_vec::Union{Vector{nmod},
+    Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
     logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
@@ -263,18 +264,18 @@ function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int,
     Ek1 = identity_matrix(F, k1)
     Ek2 = identity_matrix(F, k2)
     stabs = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
-    return StabilizerCode(stabs, char_vec, logs_alg)
+    return StabilizerCode(stabs, char_vec = char_vec, logs_alg = logs_alg)
     # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
     # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
-    GeneralizedBicycleCode(A::fq_nmod_mat, B::fq_nmod_mat, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm)
+    GeneralizedBicycleCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the generealized bicycle code given by `A` and `B` whose signs are determined by `char_vec`.
+Return the generealized bicycle code given by `A` and `B`.
 """
-function GeneralizedBicycleCode(A::T, B::T,
-    char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTMatrixTypes
+function GeneralizedBicycleCode(A::T, B::T; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
@@ -286,44 +287,44 @@ function GeneralizedBicycleCode(A::T, B::T,
     H_X = hcat(A, B)
     # branch for speedup
     H_Z = Int(order(F)) == 2 ? hcat(transpose(B), transpose(A)) : hcat(transpose(B), -transpose(A))
-    return CSSCode(H_X, H_Z, char_vec, logs_alg)
+    return CSSCode(H_X, H_Z, char_vec = char_vec, logs_alg = logs_alg)
 end
 
 """
-    GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: ResElem
+    GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: ResElem
 
-Return the generealized bicycle code determined by `a` and `b` whose signs are determined by `char_vec`.
+Return the generealized bicycle code determined by `a` and `b`.
 
 # Notes
 - `l x l` circulant matrices are constructed using the coefficients of the polynomials
   `a` and `b` in `F_q[x]/(x^l - 1)` (`gcd(q, l) = 1`) as the first column
 """
-function GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: ResElem
+function GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :stnd_frm) where T <: ResElem
 
     logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
 
     return GeneralizedBicycleCode(residue_polynomial_to_circulant_matrix(a),
-        residue_polynomial_to_circulant_matrix(b), char_vec, logs_alg)
+        residue_polynomial_to_circulant_matrix(b), char_vec = char_vec, logs_alg = logs_alg)
 end
 
 """
-    GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: CTGroupAlgebra
+    GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTGroupAlgebra
 
-Return the generealized bicycle code determined by `a` and `b` whose signs are determined by `char_vec`.
+Return the generealized bicycle code determined by `a` and `b`.
 
 # Notes
 - `|G| x |G|` circulant matrices are constructed using the coefficients of the elements in the group algebra `FG` as` the first column
 """
-function GeneralizedBicycleCode(a::T, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: CTGroupAlgebra
+function GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :stnd_frm) where T <: CTGroupAlgebra
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
 
     return GeneralizedBicycleCode(group_algebra_element_to_circulant_matrix(a),
-        group_algebra_element_to_circulant_matrix(b), char_vec, logs_alg)
+        group_algebra_element_to_circulant_matrix(b), char_vec = char_vec, logs_alg = logs_alg)
 end
 
 # function BicycleCode(A::fq_nmot_mat)
@@ -430,9 +431,9 @@ lifted_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra =
     generalized_hypergraph_product_matrices(A, b)
 
 """
-    GeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
-    LiftedProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-        logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+    GeneralizedHypergraphProductCode(A::MatElem{T}, b::T; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+    LiftedProductCode(A::MatElem{T}, b::T; char_vec::Union{Vector{nmod}, Missing} = missing,
+        logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
 Return the lifted (generalized hypergraph) product code of `A` and `b`.
 
@@ -440,15 +441,15 @@ Return the lifted (generalized hypergraph) product code of `A` and `b`.
 - `A` - either an `m x n` matrix with elements in `F_2[x]/(x^m - 1)` or a group algebra
 - `b` - a polynomial over the same residue ring or group algebra
 """
-function GeneralizedHypergraphProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+function GeneralizedHypergraphProductCode(A::MatElem{T}, b::T; char_vec::Union{Vector{nmod},
+    Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
     H_X, H_Z = generalized_hypergraph_product_matrices(A, b)
-    return CSSCode(lift(H_X), lift(H_Z), char_vec, logs_alg)
+    return CSSCode(lift(H_X), lift(H_Z), char_vec = char_vec, logs_alg = logs_alg)
 end
-LiftedProductCode(A::MatElem{T}, b::T, char_vec::Union{Vector{nmod}, Missing}=missing,
-logs_alg::Symbol=:stnd_frm) where T <: ResElem =
-    GeneralizedHypergraphProductCode(A, b, char_vec, logs_alg)
+LiftedProductCode(A::MatElem{T}, b::T; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :stnd_frm) where T <: ResElem =
+    GeneralizedHypergraphProductCode(A, b, char_vec = char_vec, logs_alg = logs_alg)
 
 """
     lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
@@ -520,15 +521,15 @@ function lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGrou
 end
 
 """
-    LiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+    LiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
-Return the lifted product code given by the matrices `A` and `B` and whose signs are determined by `char_vec`.
+Return the lifted product code given by the matrices `A` and `B`.
 """
-function LiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+function LiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{nmod}, Missing} =
+    missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
     H_X, H_Z = lifted_product_matrices(A, B)
-    return CSSCode(lift(H_X), lift(H_Z), char_vec, logs_alg)
+    return CSSCode(lift(H_X), lift(H_Z), char_vec = char_vec, logs_alg = logs_alg)
 end
 
 """
@@ -606,19 +607,19 @@ function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) whe
 end
 
 """
-    BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing, logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+    BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
-Return the bias-tailored lifted product code of `A` and `B` whose signs are given by `char_vec`.
+Return the bias-tailored lifted product code of `A` and `B`.
 
 # Arguments
 - `A` - either an `m x n` matrix with elements in `F_2[x]/(x^m - 1)` or a group algebra
 - `B` - an `m x n2` matrix with elements in the same parent as `A`
 """
-function BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
+function BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{nmod},
+    Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
     stabs = bias_tailored_lifted_product_matrices(A, B)
-    return StabilizerCode(lift(stabs), char_vec, logs_alg)
+    return StabilizerCode(lift(stabs), char_vec = char_vec, logs_alg = logs_alg)
 end
 
 """
@@ -725,14 +726,16 @@ Return the asymmetric 2-fold product quantum CSS code of the CSS codes `S1` and 
 # Note
 - This is defined in https://arxiv.org/abs/2209.13474
 """
-asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode} = asymmetric_product(CSSTrait(T), S1, S2)
+asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode} = asymmetric_product(
+    CSSTrait(T), S1, S2)
 function asymmetric_product(::IsCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemCode)
     # TODO: check fields are the same or convertable
     H_X = vcat(S1.X_stabs ⊗ identity_matrix(S1.F, S2.n), identity_matrix(S1.F, S1.n) ⊗ S2.X_stabs)
     H_Z = S1.Z_stabs ⊗ S2.Z_stabs
     return CSSCode(H_X, H_Z)
 end
-asymmetric_product(::IsNotCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemCode) = error("Only valid for CSS codes.")
+asymmetric_product(::IsNotCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemCode) =
+    error("Only valid for CSS codes.")
 
 """
     symmetric_product(vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
@@ -815,27 +818,24 @@ function symmetric_product(::IsCSS, vec_S::Vector{T}) where {T <: AbstractSubsys
     
     return CSSCode(H_X, H_Z)
 end
-symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode} = error("Only valid for CSS codes.")
+symmetric_product(::IsNotCSS, vec_S::Vector{T}) where {T <: AbstractSubsystemCode} =
+    error("Only valid for CSS codes.")
 
 # has this been extended to subsystem codes?
 """
-    homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
-        U::CTMatrixTypes = identity_matrix(S1.F, S1.n),
-        V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
+    homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U::CTMatrixTypes = identity_matrix(S1.F, S1.n), V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
     ⊠(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode) = homological_product(S1, S2)
 
 # Note
 - This is the single-sector homological product. Use ⊗ for the more general product.
 """
 function homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
-    U::CTMatrixTypes = identity_matrix(S1.F, S1.n),
-    V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
+    U::CTMatrixTypes = identity_matrix(S1.F, S1.n), V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
 
     return homological_product(CSSTrait(typeof(S1)), CSSTrait(typeof(S2)), S1, S2, U, V)
 end
 
-function homological_product(::IsCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
-    U::CTMatrixTypes, V::CTMatrixTypes)
+function homological_product(::IsCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U::CTMatrixTypes, V::CTMatrixTypes)
 
     num_stabs1 = num_X_stabs(S1)
     num_stabs1 == num_Z_stabs(S1) || throw(ArgumentError("The first code didn't have the same number of X and Z stabilizers"))
@@ -870,11 +870,12 @@ function homological_product(::IsCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::A
 
     return CSSCode(∂, transpose(∂))
 end
-
-homological_product(::IsNotCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
-homological_product(::IsNotCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
-homological_product(::IsCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U, V) = throw(ArgumentError("This is only defined for CSS codes"))
-
+homological_product(::IsNotCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode,
+    U, V) = throw(ArgumentError("This is only defined for CSS codes"))
+homological_product(::IsNotCSS, ::IsCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U,
+    V) = throw(ArgumentError("This is only defined for CSS codes"))
+homological_product(::IsCSS, ::IsNotCSS, S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U,
+    V) = throw(ArgumentError("This is only defined for CSS codes"))
 @doc (@doc homological_product)
 ⊠(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode) = homological_product(S1, S2)
 
@@ -891,7 +892,7 @@ end
 
 Return a random homological product code.
 
-* Note
+# Note
 - This implements the construction in https://arxiv.org/abs/1311.0885.
 """
 function random_homological_product_code(n1::Int, k1::Int, n2::Int, k2::Int)

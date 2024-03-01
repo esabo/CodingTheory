@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Eric Sabo, Benjamin Ide
+# Copyright (c) 2023 - 2024 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -9,12 +9,12 @@
 #############################
 
 """
-    SubsystemCode(G::fq_nmod_mat, char_vec::Union{Vector{nmod}, Missing}=missing)
+    SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :sys_eqs)
 
-Return the subsystem code whose gauge group is determined by `G` and signs by `char_vec`.
+Return the subsystem code whose gauge group is determined by `G`.
 """
-function SubsystemCode(G::CTMatrixTypes, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:sys_eqs)
+function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :sys_eqs)
 
     logs_alg ∈ (:sys_eqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     iszero(G) && throw(ArgumentError("The gauge matrix is empty."))
@@ -67,7 +67,7 @@ function SubsystemCode(G::CTMatrixTypes, char_vec::Union{Vector{nmod}, Missing}=
         println("Stabilizer code detected.")
         # this is duplicating some of the initial work done in this function,
         # but it seems appropriate not to paste the rest of that constructor here
-        return StabilizerCode(stabs, char_vec)
+        return StabilizerCode(stabs, char_vec = char_vec)
     end
     stabs_stand, P_stand, stand_r, stand_k, _ = _standard_form_stabilizer(stabs)
 
@@ -127,33 +127,32 @@ function SubsystemCode(G::CTMatrixTypes, char_vec::Union{Vector{nmod}, Missing}=
 end
 
 """
-    SubsystemCode(GPauli::Vector{T}, char_vec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+    SubsystemCode(G_Pauli::Vector{T}; char_vec::Union{Vector{nmod}, Missing} = missing, logs_alg::Symbol = :sys_eqs) where T <: Union{String, Vector{Char}}
 
-Return the subsystem code whose gauge group is determined by the vector of Pauli strings `GPauli`
-and signs by `char_vec`.
+Return the subsystem code whose gauge group is determined by the vector of Pauli strings `G_Pauli`.
 
 # Notes
 * Any +/- 1 characters in front of each stabilizer are stripped. No check is done
   to make sure these signs agree with the ones computed using the character vector.
 """
-function SubsystemCode(GPauli::Vector{T}, char_vec::Union{Vector{nmod}, Missing}=missing,
-    logs_alg::Symbol=:sys_eqs) where T <: Union{String, Vector{Char}}
+function SubsystemCode(G_Pauli::Vector{T}; char_vec::Union{Vector{nmod}, Missing} = missing,
+    logs_alg::Symbol = :sys_eqs) where T <: Union{String, Vector{Char}}
 
     logs_alg ∈ (:sys_eqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
-    G_Pauli_stripped = _process_strings(GPauli)
+    G_Pauli_stripped = _process_strings(G_Pauli)
     G = _Pauli_string_to_symplectic(G_Pauli_stripped)
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
-    return SubsystemCode(G, char_vec, logs_alg)
+    return SubsystemCode(G, char_vec = char_vec, logs_alg = logs_alg)
 end
 
 """
-    SubsystemCode(S::fq_nmod_mat, L::CTMatrixTypes, G::CTMatrixTypes, char_vec::Union{Vector{nmod}, Missing}=missing)
+    SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} = missing)
 
 Return the subsystem code whose stabilizers are given by `S`, (bare) logical operators
-by `L`, gauge operators (not including stabilizers) by `G`, and signs by `char_vec`.
+by `L`, gauge operators (not including stabilizers) by `G`.
 """
-function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes,
-    char_vec::Union{Vector{nmod}, Missing}=missing)
+function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
+    char_vec::Union{Vector{nmod}, Missing} = missing)
 
     iszero(S) && error("The stabilizer matrix is empty.")
     S = _remove_empty(S, :rows)
@@ -226,21 +225,21 @@ end
 
 # if people want to make a graph code go through the other constructor
 """
-    SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T}, char_vec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+    SubsystemCode(S_Pauli::Vector{T}, L_Pauli::Vector{T}, G_Pauli::Vector{T}; char_vec::Union{Vector{nmod}, Missing} = missing) where T <: Union{String, Vector{Char}}
 
-Return the subsystem code whose stabilizers are given by the vectors of Pauli strings `SPauli`, (bare)
-logical operators by `LPauli`, gauge operators (not including stabilizers) by `GPauli`, and signs by `char_vec`.    
+Return the subsystem code whose stabilizers are given by the vectors of Pauli strings `S_Pauli`,
+(bare) logical operators by `L_Pauli`, gauge operators (not including stabilizers) by `G_Pauli`.    
 """
-function SubsystemCode(SPauli::Vector{T}, LPauli::Vector{T}, GPauli::Vector{T},
-    char_vec::Union{Vector{nmod}, Missing}=missing) where T <: Union{String, Vector{Char}}
+function SubsystemCode(S_Pauli::Vector{T}, L_Pauli::Vector{T}, G_Pauli::Vector{T};
+    char_vec::Union{Vector{nmod}, Missing} = missing) where T <: Union{String, Vector{Char}}
 
-    S = _Pauli_string_to_symplectic(_process_strings(SPauli))
+    S = _Pauli_string_to_symplectic(_process_strings(S_Pauli))
     iszero(S) && error("The processed Pauli strings returned a set of empty stabilizer generators.")
-    L = _Pauli_string_to_symplectic(_process_strings(LPauli))
+    L = _Pauli_string_to_symplectic(_process_strings(L_Pauli))
     iszero(L) && error("The processed Pauli strings returned a set of empty logical generators.")
-    G = _Pauli_string_to_symplectic(_process_strings(GPauli))
+    G = _Pauli_string_to_symplectic(_process_strings(G_Pauli))
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
-    return SubsystemCode(S, L, G, char_vec)
+    return SubsystemCode(S, L, G, char_vec = char_vec)
 end
 
 # CSS construction, Euclidean and Hermitian
@@ -313,7 +312,7 @@ Z_signs(::IsCSS, S::AbstractSubsystemCode) = S.Z_signs
 Z_signs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    stabilizers(S::AbstractSubsystemCode, standform::Bool=false)
+    stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
 
 Return the stabilizer matrix of the code.
 
@@ -321,7 +320,8 @@ Return the stabilizer matrix of the code.
 - If the optional parameter `standform` is set to `true`, the standard form of the
   stabilizer matrix is returned instead.
 """
-stabilizers(S::AbstractSubsystemCode, standform::Bool=false) = standform ? (return S.stabs_stand) : (return S.stabs)
+stabilizers(S::AbstractSubsystemCode; standform::Bool = false) = standform ?
+    (return S.stabs_stand) : (return S.stabs)
 
 """
     standard_form_permutation(S::AbstractSubsystemCode)
@@ -343,7 +343,8 @@ standard_form_A(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.stand_r
     
 Return the named matrix `A1` from the standard form of the stabilizer matrix.
 """
-standard_form_A1(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.stand_r + 1:S.n - S.stand_k]
+standard_form_A1(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.stand_r + 1:S.n -
+    S.stand_k]
 
 """
     standard_form_A2(S::AbstractSubsystemCode)
@@ -364,28 +365,32 @@ standard_form_B(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.n + 1:S
     
 Return the named matrix `C1` from the standard form of the stabilizer matrix.
 """
-standard_form_C1(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.n + S.stand_r + 1:2 * S.n - S.stand_k]
+standard_form_C1(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, S.n + S.stand_r + 1:2 *
+    S.n - S.stand_k]
 
 """
     standard_form_C2(S::AbstractSubsystemCode)
     
 Return the named matrix `C2` from the standard form of the stabilizer matrix.
 """
-standard_form_C2(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, 2 * S.n - S.stand_k + 1:2 * S.n]
+standard_form_C2(S::AbstractSubsystemCode) = S.stabs_stand[1:S.stand_r, 2 * S.n - S.stand_k + 1:2 *
+    S.n]
 
 """
     standard_form_D(S::AbstractSubsystemCode)
     
 Return the named matrix `D` from the standard form of the stabilizer matrix.
 """
-standard_form_D(S::AbstractSubsystemCode) = S.stabs_stand[S.stand_r + 1:S.n - S.stand_k, S.n + 1:S.n + S.stand_r]
+standard_form_D(S::AbstractSubsystemCode) = S.stabs_stand[S.stand_r + 1:S.n - S.stand_k, S.n +
+    1:S.n + S.stand_r]
 
 """
     standard_form_E(S::AbstractSubsystemCode)
     
 Return the named matrix `E` from the standard form of the stabilizer matrix.
 """
-standard_form_E(S::AbstractSubsystemCode) = S.stabs_stand[S.stand_r + 1:S.n - S.stand_k, 2 * S.n - S.stand_k + 1:2 * S.n]
+standard_form_E(S::AbstractSubsystemCode) = S.stabs_stand[S.stand_r + 1:S.n - S.stand_k, 2 * S.n -
+    S.stand_k + 1:2 * S.n]
 
 """
     X_stabilizers(S::AbstractSubsystemCode)
@@ -437,6 +442,7 @@ Return `true` if `S` has an overcomplete set of stabilizers.
 """
 is_overcomplete(S::AbstractSubsystemCode) = S.overcomplete
 
+# TODO: redo here
 """
     is_CSS(S::AbstractSubsystemCode)
 
@@ -577,12 +583,12 @@ function set_signs!(S::AbstractSubsystemCode, char_vec::Vector{nmod})
     S.signs = _get_signs(S.stabilizers, char_vec)
     S.char_vec = char_vec
 end
-
-set_signs(S::AbstractSubsystemCode, char_vec::Vector{nmod}) = (S_new = deepcopy(S); return setsign!s(S_new, char_vec))
+set_signs(S::AbstractSubsystemCode, char_vec::Vector{nmod}) = (S_new = deepcopy(S);
+    return setsign!s(S_new, char_vec))
 
 """
-    set_stabilizers(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
-    set_stabilizers!(S::AbstractSubsystemCode, stabs::fq_nmod_mat)
+    set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
+    set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
 
 Set the stabilizers of `S` to `stabs`.
 
@@ -613,12 +619,12 @@ function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     end
     return nothing
 end
-
-set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepcopy(S); return set_stabilizers!(S_new, stabs))
+set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepcopy(S);
+    return set_stabilizers!(S_new, stabs))
 
 """
-    set_X_stabilizers(S::AbstractSubsystemCode, X_stabs::fq_nmod_mat, trimmed::Bool=true)
-    set_X_stabilizers!(S::AbstractSubsystemCode, X_stabs::fq_nmod_mat, trimmed::Bool=true)
+    set_X_stabilizers(S::AbstractSubsystemCode, X_stabs::CTMatrixTypes; trimmed::Bool = true)
+    set_X_stabilizers!(S::AbstractSubsystemCode, X_stabs::CTMatrixTypes; trimmed::Bool = true)
 
 Set the `X` stabilizers of `S` to `X_stabs`. If `trimmed` is `true`, `X_stabs` are assumed
 to have `length(S)` columns; otherwise, they are assumed to be in symplectic form with
@@ -627,8 +633,11 @@ to have `length(S)` columns; otherwise, they are assumed to be in symplectic for
 # Notes
 * A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
-set_X_stabilizers!(S::T, X_stabs::CTMatrixTypes, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = set_X_stabilizers!(CSSTrait(T), S, X_stabs, trimmed)
-function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool=true)
+set_X_stabilizers!(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
+    AbstractSubsystemCode} = set_X_stabilizers!(CSSTrait(T), S, X_stabs, trimmed)
+function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes,
+    trimmed::Bool)
+
     iszero(X_stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
     order(S.F) == order(base_ring(X_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     if trimmed
@@ -660,15 +669,18 @@ function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrix
     S.signs = S.X_signs ∪ S.Z_signs
     return nothing
 end
-set_X_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool=true) = error("X stabilizers are only defined for CSS codes")
-
-set_X_stabilizers(S::T, X_stabs::CTMatrixTypes, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = set_X_stabilizers!(CSSTrait(T), S, X_stabs, trimmed)
-set_X_stabilizers(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool=true) = (S_new = deepcopy(S); return set_X_stabilizers!(S_new, X_stabs, trimmed))
-set_X_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool=true) = error("X stabilizers are only defined for CSS codes")
+set_X_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) =
+    error("X stabilizers are only defined for CSS codes")
+set_X_stabilizers(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
+    AbstractSubsystemCode} = set_X_stabilizers(CSSTrait(T), S, X_stabs, trimmed)
+set_X_stabilizers(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) =
+    (S_new = deepcopy(S); return set_X_stabilizers!(IsCSS(), S_new, X_stabs,  trimmed))
+set_X_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) =
+    error("X stabilizers are only defined for CSS codes")
 
 """
-    set_Z_stabilizers(S::AbstractSubsystemCode, Z_stabs::fq_nmod_mat, trimmed::Bool=true)
-    set_Z_stabilizers!(S::AbstractSubsystemCode, Z_stabs::fq_nmod_mat, trimmed::Bool=true)
+    set_Z_stabilizers(S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes; trimmed::Bool = true)
+    set_Z_stabilizers!(S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes; trimmed::Bool = true)
 
 Set the `Z` stabilizers of `S` to `Z_stabs`. If `trimmed` is `true`, `Z_stabs` are assumed
 to have `length(S)` columns; otherwise, they are assumed to be in symplectic form with
@@ -677,8 +689,11 @@ to have `length(S)` columns; otherwise, they are assumed to be in symplectic for
 # Notes
 * A check is done to make sure `stabs` are equivalent to the current set of stabilizers.
 """
-set_Z_stabilizers!(S::T, Z_stabs::CTMatrixTypes, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = set_Z_stabilizers!(CSSTrait(T), S, Z_stabs, trimmed)
-function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool=true)
+set_Z_stabilizers!(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
+    AbstractSubsystemCode} = set_Z_stabilizers!(CSSTrait(T), S, Z_stabs, trimmed)
+function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes,
+    trimmed::Bool)
+
     iszero(Z_stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
     order(S.F) == order(base_ring(Z_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     if trimmed
@@ -705,23 +720,26 @@ function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrix
     S.signs = S.X_signs ∪ S.Z_signs
     return nothing
 end
-set_Z_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes) = error("Z stabilizers are only defined for CSS codes")
-
-set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes, trimmed::Bool=true) where {T <: AbstractSubsystemCode} = set_Z_stabilizers!(CSSTrait(T), S, Z_stabs, trimmed)
-set_Z_stabilizers(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool=true) = (S_new = deepcopy(S); return set_Z_stabilizers!(S_new, Z_stabs, trimmed))
-set_Z_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool=true) = error("Z stabilizers are only defined for CSS codes")
+set_Z_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) =
+    error("Z stabilizers are only defined for CSS codes")
+set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
+    AbstractSubsystemCode} = set_Z_stabilizers(CSSTrait(T), S, Z_stabs, trimmed)
+set_Z_stabilizers(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) = (S_new = deepcopy(S); return set_Z_stabilizers!(IsCSS(), S_new, Z_stabs, trimmed))
+set_Z_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) =
+    error("Z stabilizers are only defined for CSS codes")
 
 """
-    set_logicals(S::AbstractSubsystemCode, L::fq_nmod_mat)
-    set_logicals!(S::AbstractSubsystemCode, L::fq_nmod_mat)
+    set_logicals(S::AbstractSubsystemCode, L::CTMatrixTypes)
+    set_logicals!(S::AbstractSubsystemCode, L::CTMatrixTypes)
 
 Set the logical operators of `S` to `L`.
 
 # Notes
 * A check is done to make sure `L` are eqivalent to the current set of logicals (up to stabilizers).
 """
-set_logicals!(S::T, L::W) where {T <: AbstractSubsystemCode, W <: CTMatrixTypes} = set_logicals!(LogicalTrait(T), S, L)
-function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where W <: CTMatrixTypes
+set_logicals!(S::T, L::W) where {T <: AbstractSubsystemCode, W <: CTMatrixTypes} =
+    set_logicals!(LogicalTrait(T), S, L)
+function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <: CTMatrixTypes}
     size(L) == (2 * S.k, 2 * S.n) || throw(ArgumentError("Provided matrix is of incorrect size for the logical space."))
     iseven(ncols(L)) || throw(ArgumentError("Expected a symplectic input but the input matrix has an odd number of columns."))
     S.F == base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
@@ -769,11 +787,14 @@ function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where W <:
     S.logicals = logs
     S.logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
 end
-set_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
-
-set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} = set_logicals(LogicalTrait(T), S, L)
-set_logicals(::HasLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) = (S_new = deepcopy(S); return set_logicals!(S_new, L))
-set_logicals(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
+set_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
+    error("Type $(typeof(S)) has no logicals.")
+set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} =
+    set_logicals(LogicalTrait(T), S, L)
+set_logicals(::HasLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
+    (S_new = deepcopy(S); return set_logicals!(S_new, L))
+set_logicals(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
+    error("Type $(typeof(S)) has no logicals.")
 
 """
     set_minimum_distance!(S::AbstractSubsystemCode, d::Int)
@@ -784,7 +805,7 @@ Set the minimum distance of the code to `d`.
 """
 function set_minimum_distance!(S::AbstractSubsystemCode, d::Int)
     # TODO: should check bounds like Singleton for possibilities
-    d > 0 && d <= S.n || throw(ArgumentError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    d > 0 && d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
     S.d = d
 end
 
@@ -855,7 +876,7 @@ function _get_signs(A::CTMatrixTypes, char_vec::Vector{nmod})
     return signs
 end
 
-function _splitstabilizers(S::T, signs::Vector{nmod}) where T <: CTMatrixTypes
+function _split_vectors_CSS(S::T, signs::Vector{nmod}) where {T <: CTMatrixTypes}
     X_stabs = Vector{T}()
     X_signs = Vector{nmod}()
     Z_stabs = Vector{T}()
@@ -904,18 +925,19 @@ end
 # stabilizers and their signs, and the remaining stabilizers and their signs.
 
 # # Notes
-# * This function returns six objects of alternating types `fq_nmod_mat` and
+# * This function returns six objects of alternating types `CTMatrixTypes` and
 # `Vector{Int}` for the three sets of stabilizers and signs, respectively.
-# An empty set of stabilizers is returned as type `Vector{fq_nmod_mat}`.
+# An empty set of stabilizers is returned as type `Vector{CTMatrixTypes}`.
 # """
-# splitstabilizers(S::AbstractSubsystemCode) = _splitstabilizers(S.stabs, S.signs)
+# splitstabilizers(S::AbstractSubsystemCode) = _split_vectors_CSS(S.stabs, S.signs)
 
 # TODO: rethink how I'm returning all of this and the bottom trim stuff
 # probably need to simply redo the above to simply start with zero matrix
 # and then either set first or add to it (return matrix[2:end, L])
 # TODO: need more robust CSS detection, what if I add and X and Z stabilizer and use it implace of the Z
+# TODO: what's going on here
 function _is_CSS_symplectic(stabs::T, signs::Vector{nmod}, trim::Bool=true) where T <: CTMatrixTypes
-    X_stabs, X_signs, Z_stabs, Z_signs, mixed_stabs, mixed_signs = _splitstabilizers(stabs, signs)
+    X_stabs, X_signs, Z_stabs, Z_signs, mixed_stabs, mixed_signs = _split_vectors_CSS(stabs, signs)
     if typeof(mixed_stabs) <: Vector{T}
         if trim
             half = div(ncols(stabs), 2)
@@ -1013,7 +1035,8 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
     return logs
 end
 
-_test_logicals_relationships(S::T) where {T <: AbstractSubsystemCode} = _test_logicals_relationships(LogicalTrait(T), S)
+_test_logicals_relationships(S::T) where {T <: AbstractSubsystemCode} =
+    _test_logicals_relationships(LogicalTrait(T), S)
 function _test_logicals_relationships(::HasLogicals, S::AbstractSubsystemCode)
     prod = hcat(S.logs_mat[:, S.n + 1:end], -S.logs_mat[:, 1:S.n]) * transpose(S.logs_mat)
     display(prod)
@@ -1022,11 +1045,12 @@ end
 _test_logicals_relationships(::HasNoLogicals, S) = error("Type $(typeof(S)) has no logicals.")
 
 """
-    is_logical(S::AbstractSubsystemCode, v::fq_nmod_mat)
+    is_logical(S::AbstractSubsystemCode, v::CTMatrixTypes)
 
 Return `true` if the vector `v` is a logical operator for `S`.
 """
-is_logical(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_logical(LogicalTrait(T), S, v)
+is_logical(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_logical(LogicalTrait(T),
+    S, v)
 function is_logical(::HasLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes)
     nc = ncols(S.logs_mat)
     are_symplectic_orthogonal(S.stabs, v) || return false
@@ -1034,10 +1058,11 @@ function is_logical(::HasLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes)
     size(v) == (nc, 1) && (return !are_symplectic_orthogonal(S.logs_mat, transpose(v));)
     throw(ArgumentError("Vector to be tested is of incorrect dimension."))
 end
-is_logical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
+is_logical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    error("Type $(typeof(S)) has no logicals.")
 
 """
-    is_gauge(S::AbstractSubsystemCode, v::fq_nmod_mat)
+    is_gauge(S::AbstractSubsystemCode, v::CTMatrixTypes)
 
 Return `true` if the vector `v` is a gauge operator for `S`.
 """
@@ -1053,7 +1078,7 @@ is_gauge(::HasNoGauges, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Typ
 
 # TODO: make uniform with approach in function above and linear code
 """
-    syndrome(S::AbstractSubsystemCode, v::fq_nmod_mat)
+    syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
 
 Return the syndrome of the vector `v` with respect to the stabilizers of `S`.
 """
@@ -1067,12 +1092,13 @@ function syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
 end
 
 """
-    X_syndrome(S::AbstractSubsystemCode, v::fq_nmod_mat)
+    X_syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
 
 Return the syndrome of the vector `v` with respect to the `X` stabilizers of the
 CSS code.
 """
-X_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = X_syndrome(CSSTrait(T), S, v)
+X_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = X_syndrome(CSSTrait(T),
+    S, v)
 function X_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
     length(v) == 2 * S.n && (v = v[S.n + 1:end];)
     (size(v) != (S.n, 1) && size(v) != (1, S.n)) &&
@@ -1082,15 +1108,17 @@ function X_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
     nrows(v) != 1 || return S.X_stabs * transpose(v)
     return S.X_stabs * v
 end
-X_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
+X_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    error("Only valid for CSS codes.")
 
 """
-    Z_syndrome(S::AbstractSubsystemCode, v::fq_nmod_mat)
+    Z_syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
 
 Return the syndrome of the vector `v` with respect to the `Z` stabilizers of the
 CSS code.
 """
-Z_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = Z_syndrome(CSSTrait(T), S, v)
+Z_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = Z_syndrome(CSSTrait(T),
+    S, v)
 function Z_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
     length(v) == 2 * S.n && (v = v[1:S.n];)
     (size(v) != (n, 1) && size(v) != (1, n)) &&
@@ -1100,7 +1128,8 @@ function Z_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
     nrows(v) != 1 || return S.Z_stabs * transpose(v)
     return S.Z_stabs * v
 end
-Z_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
+Z_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    error("Only valid for CSS codes.")
 
 """
     promote_logicals_to_gauge(S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -1108,7 +1137,8 @@ Z_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only
 
 Add the logical pairs in `pairs` to the gauge operators.
 """
-promote_logicals_to_gauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_logicals_to_gauges!(LogicalTrait(T), S, pairs)
+promote_logicals_to_gauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    promote_logicals_to_gauges!(LogicalTrait(T), S, pairs)
 function promote_logicals_to_gauge!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
     # will let this error naturally if pairs contains invalid elements
@@ -1126,12 +1156,16 @@ function promote_logicals_to_gauge!(::HasLogicals, S::AbstractSubsystemCode, pai
     end
     return nothing
 end
-promote_logicals_to_gauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+promote_logicals_to_gauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no logicals.")
 # TODO: this can drop to a graph state, which is why I did what I did before
 
-promote_logicals_to_gauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_logicals_to_gauges(LogicalTrait(T), S, pairs)
-promote_logicals_to_gauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = (S_new = deepcopy(S); return promote_logicals_to_gauge!(HasLogicals(), S_new, pairs);)
-promote_logicals_to_gauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+promote_logicals_to_gauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    promote_logicals_to_gauges(LogicalTrait(T), S, pairs)
+promote_logicals_to_gauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    (S_new = deepcopy(S); return promote_logicals_to_gauge!(HasLogicals(), S_new, pairs);)
+promote_logicals_to_gauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no logicals.")
 
 """
     promote_gauges_to_logical(S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -1139,7 +1173,8 @@ promote_logicals_to_gauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vect
 
 Add the gauge pairs in `pairs` to the logical operators.
 """
-promote_gauges_to_logical!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_gauges_to_logical!(LogicalTrait(T), S, pairs)
+promote_gauges_to_logical!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    promote_gauges_to_logical!(LogicalTrait(T), S, pairs)
 function promote_gauges_to_logical!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
     # will let this error naturally if pairs contains invalid elements
@@ -1157,19 +1192,24 @@ function promote_gauges_to_logical!(::HasLogicals, S::AbstractSubsystemCode, pai
     end
     return nothing
 end
-promote_gauges_to_logical!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+promote_gauges_to_logical!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no logicals.")
 # TODO: this can drop to a graph state, which is why I did what I did before
 
-promote_gauges_to_logical(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_gauges_to_logical(LogicalTrait(T), S, pairs)
-promote_gauges_to_logical(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = (S_new = deepcopy(S); return promote_gauges_to_logical!(HasLogicals(), S_new, pairs))
-promote_gauges_to_logical(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+promote_gauges_to_logical(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    promote_gauges_to_logical(LogicalTrait(T), S, pairs)
+promote_gauges_to_logical(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    (S_new = deepcopy(S); return promote_gauges_to_logical!(HasLogicals(), S_new, pairs))
+promote_gauges_to_logical(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no logicals.")
 
 """
     swap_X_Z_logicals!(S::AbstractSubsystemCode, pairs::Vector{Int})
 
 Swap the `X` and `Z` logicals specified by `pairs`.    
 """
-swap_X_Z_logicals!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = swap_X_Z_logicals!(LogicalTrait(T), S, pairs)
+swap_X_Z_logicals!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    swap_X_Z_logicals!(LogicalTrait(T), S, pairs)
 function swap_X_Z_logicals!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     # let indexing check for inbounds naturally
     pairs = sort!(unique!(pairs))
@@ -1182,14 +1222,16 @@ function swap_X_Z_logicals!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vect
     S.logs_mat = reduce(vcat, [reduce(vcat, S.logicals[i]) for i in 1:length(S.logicals)])
     return nothing
 end
-swap_X_Z_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
+swap_X_Z_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no logicals.")
 
 """
     swap_X_Z_gauge_operators!(S::AbstractSubsystemCode, pairs::Vector{Int})
 
 Swap the `X` and `Z` gauge operators specified by `pairs`.
 """
-swap_X_Z_gauge_operators!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = swap_X_Z_gauge_operators!(GaugeTrait(T), S, pairs)
+swap_X_Z_gauge_operators!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
+    swap_X_Z_gauge_operators!(GaugeTrait(T), S, pairs)
 function swap_X_Z_gauge_operators!(::HasGauges, S::AbstractSubsystemCode, pairs::Vector{Int})
     # let indexing check for inbounds naturally
     pairs = sort!(unique!(pairs))
@@ -1202,7 +1244,8 @@ function swap_X_Z_gauge_operators!(::HasGauges, S::AbstractSubsystemCode, pairs:
     S.g_ops_mat = reduce(vcat, [reduce(vcat, S.gauge_ops[i]) for i in 1:length(S.gauge_ops)])
     return nothing
 end
-swap_X_Z_gauge_operators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no gauges.")
+swap_X_Z_gauge_operators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int}) =
+    error("Type $(typeof(S)) has no gauges.")
 
 """
     are_equivalent(S1::T, S2::T) where T <: AbstractSubsystemCode
@@ -1212,7 +1255,7 @@ Return `true` if the codes are equivalent as symplectic vector spaces.
 # Note
 * This is not intended to detect if `S1` and `S2` are permutation equivalent.
 """
-function are_equivalent(S1::T, S2::T) where T <: AbstractSubsystemCode
+function are_equivalent(S1::T, S2::T) where {T <: AbstractSubsystemCode}
     (S1.n == S2.n && S1.k == S2.k) || return false
     # can't compare fields directly because they are compared based on ptr addresses
     Int(order(S1.F)) == Int(order(S2.F)) || return false
@@ -1242,17 +1285,19 @@ end
 Return the code induced by adding either the first of `gauge_operators(S)[pair]` to the stabilizers
 if `which = :X` or the second if `which = :Z`.
 """
-fix_gauge(S::T, pair::Int, which::Symbol) where {T <: AbstractSubsystemCode} = fix_gauge(GaugeTrait(T), S, pair, which)
+fix_gauge(S::T, pair::Int, which::Symbol) where {T <: AbstractSubsystemCode} =
+    fix_gauge(GaugeTrait(T), S, pair, which)
 function fix_gauge(::HasGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol)
     if which == :X
-        return augment(S, S.gauge_ops[pair][1], false)
+        return augment(S, S.gauge_ops[pair][1], verbose = false)
     elseif which == :Z
-        return augment(S, S.gauge_ops[pair][2], false)
+        return augment(S, S.gauge_ops[pair][2], verbose = false)
     else
         throw(ArgumentError("Unknown type $which"))
     end
 end
-fix_gauge(::HasNoGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol) = error("Type $(typeof(S)) has no gauges.")
+fix_gauge(::HasNoGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol) =
+    error("Type $(typeof(S)) has no gauges.")
 
 function show(io::IO, S::AbstractSubsystemCode)
     if isa(S.k, Integer)
@@ -1328,19 +1373,22 @@ function show(io::IO, S::AbstractSubsystemCode)
         else
             num_stabs = nrows(S.stabs)
             if S.overcomplete
-                println(io, "Stabilizer matrix (overcomplete): $num_stabs × $(S.n)")
+                println(io, "Stabilizer matrix (overcomplete): $num_stabs × $(2 * S.n)")
             else
-                println(io, "Stabilizer matrix: $num_stabs × $(S.n)")
+                println(io, "Stabilizer matrix: $num_stabs × $(2 * S.n)")
             end
             for r in 1:num_stabs
                 print(io, "\t chi($(S.signs[r])) ")
-                for c in 1:S.n
-                    if c != S.n
+                for c in 1:2 * S.n
+                    if c != 2 * S.n
                         print(io, "$(S.stabs[r, c]) ")
-                    elseif c == S.n && r != num_stabs
+                    elseif c == 2 * S.n && r != num_stabs
                         println(io, "$(S.stabs[r, c])")
                     else
                         print(io, "$(S.stabs[r, c])")
+                    end
+                    if c == S.n
+                        print(io, "| ")
                     end
                 end
             end
@@ -1351,11 +1399,13 @@ end
 # TODO: should probably split these in two for type stability
 # TODO: iterate over this faster
 # TODO: remove quadratic
-function _all_stabilizers(S::AbstractStabilizerCode, only_print::Bool=false)
+function _all_stabilizers(S::AbstractStabilizerCode, only_print::Bool = false)
     E = quadraticfield(S)
     all = Vector{typeof(S.stabs)}()
     stabs = S.stabs
-    for iter in Base.Iterators.product([0:(Int64(characteristic(S.F)) - 1) for _ in 1:nrows(stabs)]...)
+    for iter in Base.Iterators.product([0:(Int64(characteristic(S.F)) - 1)
+        for _ in 1:nrows(stabs)]...)
+
         stab = E(iter[1]) * stabs[1, :]
         for r in 2:nrows(stabs)
             if !iszero(iter[r])
@@ -1401,12 +1451,13 @@ print_all_elements(S::AbstractSubsystemCode) = print_all_stabilizers(S)
 # end
 
 """
+    permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
     permute_code!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
 
-Permute the code S by `σ`.
+Return the code permuted by `σ`.
 
 # Notes
-* If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
+* If `σ` is a vector, it is interpreted as the desired column order for the stabilizers of `S`.
 """
 function permute_code!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
     perm1 = transpose(permutation_matrix(S.F, typeof(σ) <: Perm ? σ.d : σ))
@@ -1417,7 +1468,7 @@ function permute_code!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{I
     S.P_stand = ismissing(S.P_stand) ? perm : S.P_stand * perm
 
     W = typeof(S)
-    if CSSTrait(W) == is_CSS()
+    if CSSTrait(W) == IsCSS()
         S.X_stabs = S.X_stabs * perm1
         S.Z_stabs = S.Z_stabs * perm1
     end
@@ -1437,28 +1488,20 @@ function permute_code!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{I
     end
     return nothing
 end
+permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}}) =
+    (S_new = copy(S); permute_code!(S_new, σ); return S_new)
 
 """
-    permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
-
-Return the code permuted by `σ`.
-
-# Notes
-* If `σ` is a vector, it is interpreted as the desired column order for the generator matrix of `C`.
-"""
-permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}}) = (S_new = copy(S); permute_code!(S_new, σ); return S_new)
-
-"""
-    augment(S::AbstractSubsystemCode, row::fq_nmod_mat, verbose::Bool=true)
+    augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true, logs_alg::Symbol = :sys_eqs)
 
 Return the code created by added `row` to the stabilizers of `S`.
 
 # Notes
 * The goal of this function is to track how the logical operators update given the new stabilizer.
   The unaffected logical operators are kept during the update and only those which don't commute
-  with the new stabilizer are recomputed. Use `verbose` to better 
+  with the new stabilizer are recomputed.
 """
-function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=true, logs_alg::Symbol=:sys_eqs)
+function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true, logs_alg::Symbol = :sys_eqs)
 
     logs_alg ∈ (:sys_eqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     typeof(S.stabs) == typeof(row) || throw(ArgumentError("Vector of different (Julia) type than stabilizers"))
@@ -1589,7 +1632,7 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes, verbose::Bool=tru
 end
 
 """
-    expurgate(S::AbstractStabilizerCode, rows::Vector{Int}, verbose::Bool=true)
+    expurgate(S::AbstractStabilizerCode, rows::Vector{Int}; verbose::Bool = true, logs_alg::Symbol = :sys_eqs)
 
 Return the code created by removing the stabilizers indexed by `rows`.
 
@@ -1597,7 +1640,7 @@ Return the code created by removing the stabilizers indexed by `rows`.
 * The goal of this function is to track how the logical operators update through this process.
   Here, the original logical pairs are kept and an appropriate number of new pairs are added.
 """
-function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=true, logs_alg::Symbol=:sys_eqs)
+function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = true, logs_alg::Symbol = :sys_eqs)
 
     logs_alg ∈ (:sys_eqs, :VS) || throw(ArgumentError("Unrecognized logicals algorithm"))
     num_stabs = nrows(S.stabs)
@@ -1641,7 +1684,7 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}, verbose::Bool=tr
         if GaugeTrait(typeof(S)) == HasGauges()
             return SubsystemCode(new_stabs, vcat(S.logs_mat, reduce(vcat, reduce(vcat, new_log_pairs))), S.g_ops_mat, S.char_vec)
         else
-            S_new = StabilizerCode(new_stabs, S.char_vec)
+            S_new = StabilizerCode(new_stabs, char_vec = S.char_vec)
             set_logicals!(S_new, vcat(S.logs_mat, reduce(vcat, reduce(vcat, new_log_pairs))))
             return S_new
         end
@@ -1679,7 +1722,9 @@ function _standard_form_stabilizer(M::CTMatrixTypes)
     return stabs, P, r, k, n - k
 end
 
-function _logicals_standard_form(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::Union{Missing, CTMatrixTypes})
+function _logicals_standard_form(stabs::CTMatrixTypes, n::Int, k::Int, r::Int, P::Union{Missing,
+    CTMatrixTypes})
+
     F = base_ring(stabs)
     F_one = F(1)
     logs = zero_matrix(F, 2k, 2n)

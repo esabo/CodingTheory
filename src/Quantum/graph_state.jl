@@ -27,7 +27,7 @@ function GraphState(G::SimpleGraph{Int64})
         end
     end
     # this should automatically compute everything for the GraphState constructor
-    return StabilizerCode(sym_stabs, missing)
+    return StabilizerCode(sym_stabs)
 end
 
 """
@@ -53,5 +53,5 @@ function ClusterState(w::Int, h::Int)
             curr += 1
         end
     end
-    return StabilizerCode(A, missing)
+    return StabilizerCode(A)
 end
