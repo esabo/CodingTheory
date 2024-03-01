@@ -72,7 +72,7 @@ function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Uni
 
     return HypergraphProductCode(F, n, k, missing, missing, missing, stabs, H_X, H_Z, missing,
         missing, signs, X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r,
-        stand_k, P_stand, missing, missing)
+        stand_k, P_stand, missing, missing, missing, missing)
 end
 
 """

@@ -34,6 +34,7 @@ abstract type AbstractQuantumNoiseChannel <: AbstractNoiseChannel end
       # subsystemcode.jl
 #############################
 
+# TODO: make sure these have the same info and are in the same order
 mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
       F::CTFieldTypes
       n::Int
@@ -58,6 +59,8 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      X_metacheck::Union{CTMatrixTypes, Missing}
+      Z_metacheck::Union{CTMatrixTypes, Missing}
 end
 
 mutable struct SubsystemCode <: AbstractSubsystemCode
@@ -78,6 +81,7 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      metacheck::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -111,6 +115,8 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      X_metacheck::Union{CTMatrixTypes, Missing}
+      Z_metacheck::Union{CTMatrixTypes, Missing}
 end
 
 mutable struct StabilizerCode <: AbstractStabilizerCode
@@ -132,6 +138,7 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      metacheck::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -155,6 +162,7 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      metacheck::Union{CTMatrixTypes, Missing}
 end
 
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
@@ -182,6 +190,8 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      X_metacheck::Union{CTMatrixTypes, Missing}
+      Z_metacheck::Union{CTMatrixTypes, Missing}
 end
 
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
@@ -198,6 +208,7 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      metacheck::Union{CTMatrixTypes, Missing}
 end
 
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
@@ -222,6 +233,8 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
       stand_r::Int
       stand_k::Int
       P_stand::Union{CTMatrixTypes, Missing}
+      X_metacheck::Union{CTMatrixTypes, Missing}
+      Z_metacheck::Union{CTMatrixTypes, Missing}
 end
 
 #############################
@@ -255,6 +268,8 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
       P_stand::Union{CTMatrixTypes, Missing}
       sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
       sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
+      X_metacheck::Union{CTMatrixTypes, Missing}
+      Z_metacheck::Union{CTMatrixTypes, Missing}
 end
 
 #############################

@@ -52,10 +52,11 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
 
         return StabilizerCodeCSS(C1.F, C1.n, dim_code, missing, missing, missing, stabs, D2.H, C1.H,
             C2, C1, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing,
-            false, missing, stabs_stand, stand_r, stand_k, P_stand)
+            false, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, stabs, D2.H, C1.H, C2, C1,
-            signs, X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k, P_stand)
+        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, stabs, D2.H, C1.H, C2,
+            C1, signs, X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k,
+            P_stand, missing, missing)
     end
 end
 CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing}
@@ -108,10 +109,11 @@ function StabilizerCodeCSS(C::LinearCode; char_vec::Union{Vector{nmod}, Missing}
 
         return StabilizerCodeCSS(D.F, D.n, dim_code, missing, missing, missing, stabs, D.H, D.H, C,
             D, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing, false,
-            missing, stabs_stand, stand_r, stand_k, P_stand)
+            missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
         return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, stabs, D.H, D.H, C, D, signs,
-            X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k, P_stand)
+            X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k, P_stand,
+            missing, missing)
     end
 end
 CSSCode(C::AbstractLinearCode; char_vec::Union{Vector{nmod}, Missing} = missing,
@@ -179,11 +181,11 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{nmod
 
         return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, X_matrix, Z_matrix,
             missing, missing, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing,
-            missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand)
+            missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, X_matrix, Z_matrix,
-            missing, missing, signs, X_signs, Z_signs, char_vec, missing, over_comp, stabs_stand, stand_r,
-            stand_k, P_stand)
+        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, X_matrix,
+            Z_matrix, missing, missing, signs, X_signs, Z_signs, char_vec, missing, over_comp,
+            stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     end
 end
 CSSCode(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{nmod}, Missing} = missing,
@@ -254,11 +256,12 @@ function StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{nmod}, Mis
 
             return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logs_mat, char_vec,
-                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand)
+                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
+                P_stand, missing, missing)
         else
             return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp, stabs_stand,
-                stand_r, stand_k, P_stand)
+                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp,
+                stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         end
     else
         error("Provided Pauli strings are not CSS.")
@@ -375,19 +378,21 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{nmod}, Miss
         if !iszero(stand_k)
             return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, args[2],
                 args[4], missing, missing, signs, args[3], args[5], logs, logs_mat, char_vec,
-                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand)
+                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
+                P_stand, missing, missing)
         else
             return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp, stabs_stand,
-                stand_r, stand_k, P_stand)
+                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp,
+                stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         end
     else
         if !iszero(stand_k)
-            return StabilizerCode(F, n, dim_code, missing, stabs, logs, logs_mat, char_vec, signs, missing,
-                missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand)
+            return StabilizerCode(F, n, dim_code, missing, stabs, logs, logs_mat, char_vec, signs,
+                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
+                P_stand, missing)
         else
-            return GraphStateStabilizer(F, n, 0, missing, stabs, char_vec, signs, missing, over_comp, stabs_stand,
-                stand_r, stand_k, P_stand)
+            return GraphStateStabilizer(F, n, 0, missing, stabs, char_vec, signs, missing,
+                over_comp, stabs_stand, stand_r, stand_k, P_stand, missing)
         end
     end
 end

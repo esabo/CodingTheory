@@ -109,20 +109,20 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} 
     args = _is_CSS_symplectic(stabs, signs, true)
     if args[1]
         if graph_state
-            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, stabs, args[2], args[4],
-                missing, missing, signs, args[3], args[4], char_vec, missing, false, gauge_ops, gauge_ops_mat,
-                stabs_stand, stand_r, stand_k, P_stand)
+            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, stabs, args[2],
+                args[4], missing, missing, signs, args[3], args[4], char_vec, missing, false,
+                gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         end
-        return SubsystemCodeCSS(F, n, k, r, missing, stabs, args[2], args[4], missing, missing, signs,
-            args[3], args[5], bare_logs, bare_logs_mat, char_vec, gauge_ops, gauge_ops_mat, false, stabs_stand,
-            stand_r, stand_k, P_stand)
+        return SubsystemCodeCSS(F, n, k, r, missing, stabs, args[2], args[4], missing, missing,
+            signs, args[3], args[5], bare_logs, bare_logs_mat, char_vec, gauge_ops, gauge_ops_mat,
+            false, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
         if graph_state
-            return GraphStateSubsystem(F, n, 0, r, missing, stabs, char_vec, signs, missing, false, gauge_ops,
-                gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand)
+            return GraphStateSubsystem(F, n, 0, r, missing, stabs, char_vec, signs, missing, false,
+                gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing)
         end
-        return SubsystemCode(F, n, k, r, missing, stabs, signs, bare_logs, bare_logs_mat, char_vec, gauge_ops,
-            gauge_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand)
+        return SubsystemCode(F, n, k, r, missing, stabs, signs, bare_logs, bare_logs_mat, char_vec,
+            gauge_ops, gauge_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand, missing)
     end
 end
 
@@ -215,11 +215,11 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     args = _is_CSS_symplectic(S, signs, true)
     if args[1]
         return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
-            args[3], args[5], log_pairs, logs_mat, char_vec, g_ops_pairs, g_ops_mat, false, stabs_stand,
-            stand_r, stand_k, P_stand)
+            args[3], args[5], log_pairs, logs_mat, char_vec, g_ops_pairs, g_ops_mat, false,
+            stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return SubsystemCode(F, n, k, r, missing, S, signs, log_pairs, logs_mat, char_vec, g_ops_pairs,
-            g_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand)
+        return SubsystemCode(F, n, k, r, missing, S, signs, log_pairs, logs_mat, char_vec,
+            g_ops_pairs, g_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand, missing)
     end
 end
 
@@ -409,6 +409,34 @@ Return the `Z`-stabilizer matrix of the CSS code.
 Z_stabilizers(S::T) where {T <: AbstractSubsystemCode} = Z_stabilizers(CSSTrait(T), S)
 Z_stabilizers(::IsCSS, S::AbstractSubsystemCode) = S.Z_stabs
 Z_stabilizers(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
+
+"""
+    metacheck(S::AbstractSubsystemCode)
+
+Return the metacheck matrix of the code, if it has been set; otherwise returns missing.
+"""
+metacheck(S::T) where {T <: AbstractSubsystemCode} = metacheck(CSSTrait(T), S)
+metacheck(::IsCSS, S::AbstractSubsystemCode) =
+    error("Use `X_metacheck` or `Z_metacheck` for CSS codes.")
+metacheck(::IsNotCSS, S::AbstractSubsystemCode) = S.metacheck
+
+"""
+    X_metacheck(S::AbstractSubsystemCode)
+
+Return the `X`-metacheck matrix of the CSS code, if it has been set; otherwise returns missing.
+"""
+X_metacheck(S::T) where {T <: AbstractSubsystemCode} = X_metacheck(CSSTrait(T), S)
+X_metacheck(::IsCSS, S::AbstractSubsystemCode) = S.X_metacheck
+X_metacheck(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
+
+"""
+    Z_metacheck(S::AbstractSubsystemCode)
+
+Return the `Z`-metacheck matrix of the CSS code, if it has been set; otherwise returns missing.
+"""
+Z_metacheck(S::T) where {T <: AbstractSubsystemCode} = Z_metacheck(CSSTrait(T), S)
+Z_metacheck(::IsCSS, S::AbstractSubsystemCode) = S.Z_metacheck
+Z_metacheck(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
     num_X_stabs(S::AbstractSubsystemCode)
@@ -795,6 +823,69 @@ set_logicals(::HasLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
     (S_new = deepcopy(S); return set_logicals!(S_new, L))
 set_logicals(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
     error("Type $(typeof(S)) has no logicals.")
+
+"""
+    set_metacheck(S::AbstractSubsystemCode, M::CTMatrixTypes)
+    set_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+
+Set the metacheck matrix of `S` to `M`.
+"""
+set_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_metacheck!(CSSTrait(T), S, M)
+set_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    error("Use `set_X_metacheck` and `set_Z_metacheck` for CSS codes.")
+function set_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
+    iszero(M * S.stabs) ? (S.metacheck = M;) : error("Invalid metacheck for code")
+    return nothing
+end
+set_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_metacheck(CSSTrait(T), S, M)
+set_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    error("Use `set_X_metacheck` and `set_Z_metacheck` for CSS codes.")
+set_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    (S_new = deepcopy(S); return set_metacheck!(IsNotCSS(), S_new, M);)
+
+"""
+    set_X_metacheck(S::AbstractSubsystemCode, M::CTMatrixTypes)
+    set_X_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+
+Set the `X`-metacheck matrix of `S` to `M`.
+"""
+set_X_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_X_metacheck!(CSSTrait(T), S, M)
+function set_X_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
+    iszero(M * S.X_stabs) ? (S.X_metacheck = M;) : error("Invalid metacheck for code")
+    return nothing
+end
+set_X_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) = 
+    error("Only valid for CSS codes.")
+set_X_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_X_metacheck(CSSTrait(T), S, M)
+set_X_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    (S_new = deepcopy(S); return set_X_metacheck!(IsNotCSS(), S_new, M);)
+set_X_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    error("Only valid for CSS codes.")
+
+"""
+    set_Z_metacheck(S::AbstractSubsystemCode, M::CTMatrixTypes)
+    set_Z_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+
+Set the `Z`-metacheck matrix of `S` to `M`.
+"""
+set_Z_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_Z_metacheck!(CSSTrait(T), S, M)
+function set_Z_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
+    iszero(M * S.Z_stabs) ? (S.Z_metacheck = M;) : error("Invalid metacheck for code")
+    return nothing
+end
+set_Z_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) = 
+    error("Only valid for CSS codes.")
+set_Z_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
+    set_Z_metacheck(CSSTrait(T), S, M)
+set_Z_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    (S_new = deepcopy(S); return set_Z_metacheck!(IsNotCSS(), S_new, M);)
+set_Z_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
+    error("Only valid for CSS codes.")
 
 """
     set_minimum_distance!(S::AbstractSubsystemCode, d::Int)
