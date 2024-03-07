@@ -40,8 +40,8 @@ function Gallager_A(H::T, v::T; max_iter::Int = 100, chn_inits::Union{Missing, V
     H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, missing,
         max_iter, :A, 2, chn_inits)
     if schedule == :flooding
-        return _message_passing_flooding(H_Int, w, missing, chn_inits,
-            _Gallager_A_check_node_message, var_adj_list, check_adj_list, max_iter, :A)
+        return _message_passing_flooding(H_Int, w, chn_inits, _Gallager_A_check_node_message,
+            var_adj_list, check_adj_list, max_iter, :A)
     end
 end
 
@@ -51,8 +51,8 @@ function Gallager_B(H::T, v::T; max_iter::Int = 100, threshold::Int = 2, chn_ini
     H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, missing,
         max_iter, :B, threshold, chn_inits)
     if schedule == :flooding
-        return _message_passing_flooding(H_Int, w, missing, chn_inits,
-            _Gallager_B_check_node_message, var_adj_list, check_adj_list, max_iter, :B, threshold)
+        return _message_passing_flooding(H_Int, w, chn_inits, _Gallager_B_check_node_message,
+            var_adj_list, check_adj_list, max_iter, :B, threshold)
     end
 end
 
@@ -63,11 +63,30 @@ function sum_product(H::S, v::T, chn::MPNoiseModel; max_iter::Int = 100, chn_ini
     H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, chn, max_iter,
         :SP, 2, chn_inits)
     if schedule == :flooding
-        return _message_passing_flooding(H_Int, w, chn, chn_inits, _SP_check_node_message,
+        return _message_passing_flooding(H_Int, w, chn_inits, _SP_check_node_message,
             var_adj_list, check_adj_list, max_iter, :SP)
     elseif schedule == :serial
-        return _message_passing_serial(H_Int, w, chn, chn_inits, _SP_check_node_message,
+        return _message_passing_serial(H_Int, w, chn_inits, _SP_check_node_message,
             var_adj_list, check_adj_list, max_iter, :SP)
+    end
+end
+
+# believe this can be merged into an optional argument of the above but keep for now so as not to break working code
+function sum_product_decimation(H::S, v::T, chn::MPNoiseModel, decimated_bits::Vector{Tuple{Int, 
+    Int}}; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, 
+    schedule::Symbol = :flooding) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real},
+    CTMatrixTypes}}
+
+    # what do I want out of this?
+    # do I want to completely delete the columns in the decimated_bits?
+    H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, chn,
+        max_iter, :SP, 2, chn_inits)
+    if schedule == :flooding
+        return _message_passing_flooding_decimation(H_Int, w, decimated_bits, chn_inits,
+            _SP_check_node_message, var_adj_list, check_adj_list, max_iter, :SP)
+    elseif schedule == :serial
+        return _message_passing_serial_decimation(H_Int, w, decimated_bits, chn_inits,
+            _SP_check_node_message, var_adj_list, check_adj_list, max_iter, :SP)
     end
 end
 
@@ -81,7 +100,7 @@ function sum_product_syndrome(H::S, syndrome::T, chn::MPNoiseModel; max_iter::In
         return _message_passing_flooding_syndrome(H_Int, syn, chn_inits, _SP_check_node_message,
             var_adj_list, check_adj_list, max_iter)
     elseif schedule == :serial
-        return _message_passing_serial(H_Int, w, chn, chn_inits, _SP_check_node_message,
+        return _message_passing_serial(H_Int, w, chn_inits, _SP_check_node_message,
             var_adj_list, check_adj_list, max_iter, :SP)
     end
 end
@@ -93,7 +112,7 @@ function sum_product_box_plus(H::S, v::T, chn::MPNoiseModel; max_iter::Int = 100
     H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, chn, max_iter,
         :SP, 2, chn_inits)
     if schedule == :flooding
-        return _message_passing_flooding(H_Int, w, chn, chn_inits, _SP_check_node_message_box_plus,
+        return _message_passing_flooding(H_Int, w, chn_inits, _SP_check_node_message_box_plus,
             var_adj_list, check_adj_list, max_iter, :SP)
     end
 end
@@ -106,7 +125,7 @@ function min_sum(H::S, v::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation
     H_Int, w, var_adj_list, check_adj_list, chn_inits = _message_passing_init(H, v, chn, max_iter,
         :MS, 2, chn_inits)
     if schedule == :flooding
-        return _message_passing_flooding(H_Int, w, chn, chn_inits, _MS_check_node_message,
+        return _message_passing_flooding(H_Int, w, chn_inits, _MS_check_node_message,
             var_adj_list, check_adj_list, max_iter, :MS, attenuation)
     end
 end
@@ -214,15 +233,16 @@ function _message_passing_init_syndrome(H::S, syndrome::T, chn::Union{Missing, M
     return H_Int, syn, var_adj_list, check_adj_list, chn_inits#, check_to_var_messages, var_to_check_messages
 end
 
-function _message_passing_flooding(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing,
-    MPNoiseModel}, chn_inits::Union{Missing, Vector{Float64}}, c_to_v_mess::Function,
-    var_adj_list::Vector{Vector{Any}}, check_adj_list::Vector{Vector{Any}}, max_iter::Int,
-    kind::Symbol, Bt::Int = 2, attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
+function _message_passing_flooding(H::Matrix{UInt64}, w::Vector{T}, chn_inits::Union{Missing,
+    Vector{Float64}}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Any}},
+    check_adj_list::Vector{Vector{Any}}, max_iter::Int, kind::Symbol, Bt::Int = 2,
+    attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
 
     # the inclusion of the kind statements add less than a microsecond
     num_check, num_var = size(H)
+    # could reduce this stuff to UInt8 if needed
     S = kind ∈ (:A, :B) ? Int : Float64
-    curr = zeros(Int, num_var)
+    current_bits = zeros(Int, num_var)
     if kind in (:SP, :MS)
         totals = zeros(S, 1, num_var)
     end
@@ -262,19 +282,20 @@ function _message_passing_flooding(H::Matrix{UInt64}, w::Vector{T}, chn::Union{M
                 for c in var_adj_list[vn]
                     totals[vn] += check_to_var_messages[c, vn, curr_iter]
                 end
-                curr[vn] = totals[vn] >= 0 ? 0 : 1
+                current_bits[vn] = totals[vn] >= 0 ? 0 : 1
             end
         elseif kind ∈ (:A, :B)
             @simd for i in 1:num_var
                 len = length(var_adj_list[i])
                 one_count = count(isone, view(check_to_var_messages, var_adj_list[i], i, curr_iter))
                 d = fld(len, 2)
-                curr[i] = one_count + (isone(w[i]) && iseven(len)) > d
+                current_bits[i] = one_count + (isone(w[i]) && iseven(len)) > d
             end
         end
 
-        LinearAlgebra.mul!(syn, H, curr)
-        iszero(syn .% 2) && return true, curr, iter, var_to_check_messages, check_to_var_messages
+        LinearAlgebra.mul!(syn, H, current_bits)
+        iszero(syn .% 2) && return true, current_bits, iter, var_to_check_messages,
+            check_to_var_messages
         iter += 1
         temp = curr_iter
         curr_iter = prev_iter
@@ -307,14 +328,14 @@ function _message_passing_flooding(H::Matrix{UInt64}, w::Vector{T}, chn::Union{M
     return false, curr, iter, var_to_check_messages, check_to_var_messages
 end
 
-function _message_passing_serial(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing,
-    MPNoiseModel}, chn_inits::Union{Missing, Vector{Float64}}, c_to_v_mess::Function,
-    var_adj_list::Vector{Vector{Any}}, check_adj_list::Vector{Vector{Any}}, max_iter::Int,
-    kind::Symbol, Bt::Int = 2, attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
+function _message_passing_serial(H::Matrix{UInt64}, w::Vector{T}, chn_inits::Union{Missing,
+    Vector{Float64}}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Any}},
+    check_adj_list::Vector{Vector{Any}}, max_iter::Int, kind::Symbol, Bt::Int = 2,
+    attenuation::Float64 = 0.5) where T <: Union{Int, AbstractFloat}
 
     # the inclusion of the kind statements add less than a microsecond
     num_check, num_var = size(H)
-    curr = zeros(Int, num_var)
+    current_bits = zeros(Int, num_var)
     totals = zeros(Float64, 1, num_var)
     syn = zeros(Int, num_check)
     # max_iter += 1 # probably should copy this
@@ -400,7 +421,7 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
 
     # the inclusion of the kind statements add less than a microsecond
     num_check, num_var = size(H)
-    curr = zeros(Int, num_var)
+    current_bits = zeros(Int, num_var)
     totals = zeros(Float64, 1, num_var)
     syn = zeros(Int, num_check)
     # max_iter += 1 # probably should copy this
@@ -410,7 +431,11 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
     # remove and accept as input
     @inbounds for vn in 1:num_var
         var_to_check_messages[vn, var_adj_list[vn], 1] .= chn_inits[vn]
+        if chn_inits[vn] > 0
+            current_bits[vn] = 1
+        end
     end
+    # display(var_to_check_messages
 
     iter = 1
     curr_iter = 1
@@ -420,30 +445,13 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
     while iter ≤ max_iter
         # variable node is already done for first iteration, so start with check nodes
         for cn in 1:num_check
-            count = 0
-            # since all the variables are initialized the same, I'm just doing this for index 1
-            # temp = [chn_inits[1] for _ in 1:length(check_adj_list[cn])]
-            for v in check_adj_list[cn]
-                # since all the variables are initialized the same, I'm just doing this for index 1
-                if chn_inits[1] + check_to_var_messages[cn, v, prev_iter] >= 0
-                    count += 1
-                end
-            end
-            # for (i, v1) in enumerate(check_adj_list[cn])
-            #     # threshold all current value of bits
-            #     temp[i] += check_to_var_messages[cn, v1, prev_iter]
-            #     # var_to_check_messages[v1, cn, prev_iter] > 0 && (count += 1;)
-            #     if temp[i] >= 0
-            #         count += 1
-            #     end
-            # end
-            # println(count)
+            count = sum(current_bits[check_adj_list[cn]])
             for v1 in check_adj_list[cn]
+                check_to_var_messages[cn, v1, curr_iter] = 0.0
                 # here I want to loop through all possible options of errors
                 for e in 0:1
                     # check if this e with the other values gives the correct syndrome bit
                     if (count + e) % 2 == syndrome[cn]
-                        # the problem is here - should have an equal sign but then total
                         check_to_var_messages[cn, v1, curr_iter] += c_to_v_mess(cn, v1, prev_iter,
                             check_adj_list, var_to_check_messages, attenuation)
                     end
@@ -457,11 +465,11 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
             for c in var_adj_list[vn]
                 totals[vn] += check_to_var_messages[c, vn, curr_iter]
             end
-            curr[vn] = totals[vn] >= 0 ? 0 : 1
+            current_bits[vn] = totals[vn] >= 0 ? 0 : 1
         end
 
-        LinearAlgebra.mul!(syn, H, curr)
-        syn .% 2 == syndrome && return true, curr, iter, var_to_check_messages, check_to_var_messages
+        LinearAlgebra.mul!(syn, H, current_bits)
+        syn .% 2 == syndrome && return true, current_bits, iter, var_to_check_messages, check_to_var_messages
         iter += 1
         temp = curr_iter
         curr_iter = prev_iter
@@ -477,7 +485,7 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
         end
     end
 
-    return false, curr, iter, var_to_check_messages, check_to_var_messages
+    return false, current_bits, iter, var_to_check_messages, check_to_var_messages
 end
 
 # this is the working version from master to benchmark against

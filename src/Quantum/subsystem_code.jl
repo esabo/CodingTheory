@@ -92,7 +92,9 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} 
     # verify
     gauge_ops_mat = reduce(vcat, [reduce(vcat, gauge_ops[i]) for i in 1:length(gauge_ops)])
     are_symplectic_orthogonal(stabs, gauge_ops_mat) || error("Computed gauge operators do not commute with the codespace.")
-    are_symplectic_orthogonal(bare_logs_mat, gauge_ops_mat) || error("Computed gauge operators do not commute with the computed logicals.")
+    if !graph_state
+        are_symplectic_orthogonal(bare_logs_mat, gauge_ops_mat) || error("Computed gauge operators do not commute with the computed logicals.")
+    end
     prod = hcat(gauge_ops_mat[:, n + 1:end], -gauge_ops_mat[:, 1:n]) * transpose(gauge_ops_mat)
     sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed gauge operators do not have the right commutation relations.")
 
@@ -110,7 +112,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} 
     if args[1]
         if graph_state
             return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[4], char_vec, missing, false,
+                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, false,
                 gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         end
         return SubsystemCodeCSS(F, n, k, r, missing, stabs, args[2], args[4], missing, missing,
@@ -648,7 +650,7 @@ function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     return nothing
 end
 set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepcopy(S);
-    return set_stabilizers!(S_new, stabs))
+    set_stabilizers!(S_new, stabs); return S_new)
 
 """
     set_X_stabilizers(S::AbstractSubsystemCode, X_stabs::CTMatrixTypes; trimmed::Bool = true)
@@ -702,7 +704,7 @@ set_X_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes,
 set_X_stabilizers(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
     AbstractSubsystemCode} = set_X_stabilizers(CSSTrait(T), S, X_stabs, trimmed)
 set_X_stabilizers(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) =
-    (S_new = deepcopy(S); return set_X_stabilizers!(IsCSS(), S_new, X_stabs,  trimmed))
+    (S_new = deepcopy(S); set_X_stabilizers!(IsCSS(), S_new, X_stabs,  trimmed); return S_new)
 set_X_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) =
     error("X stabilizers are only defined for CSS codes")
 
@@ -752,7 +754,7 @@ set_Z_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes,
     error("Z stabilizers are only defined for CSS codes")
 set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <:
     AbstractSubsystemCode} = set_Z_stabilizers(CSSTrait(T), S, Z_stabs, trimmed)
-set_Z_stabilizers(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) = (S_new = deepcopy(S); return set_Z_stabilizers!(IsCSS(), S_new, Z_stabs, trimmed))
+set_Z_stabilizers(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) = (S_new = deepcopy(S); set_Z_stabilizers!(IsCSS(), S_new, Z_stabs, trimmed); return S_new)
 set_Z_stabilizers(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) =
     error("Z stabilizers are only defined for CSS codes")
 
@@ -820,7 +822,7 @@ set_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
 set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} =
     set_logicals(LogicalTrait(T), S, L)
 set_logicals(::HasLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
-    (S_new = deepcopy(S); return set_logicals!(S_new, L))
+    (S_new = deepcopy(S); set_logicals!(S_new, L); return S_new)
 set_logicals(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) =
     error("Type $(typeof(S)) has no logicals.")
 
@@ -843,7 +845,7 @@ set_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes}
 set_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
     error("Use `set_X_metacheck` and `set_Z_metacheck` for CSS codes.")
 set_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
-    (S_new = deepcopy(S); return set_metacheck!(IsNotCSS(), S_new, M);)
+    (S_new = deepcopy(S); set_metacheck!(IsNotCSS(), S_new, M); return S_new)
 
 """
     set_X_metacheck(S::AbstractSubsystemCode, M::CTMatrixTypes)
@@ -862,7 +864,7 @@ set_X_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
 set_X_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
     set_X_metacheck(CSSTrait(T), S, M)
 set_X_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
-    (S_new = deepcopy(S); return set_X_metacheck!(IsNotCSS(), S_new, M);)
+    (S_new = deepcopy(S); set_X_metacheck!(IsNotCSS(), S_new, M); return S_new)
 set_X_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
     error("Only valid for CSS codes.")
 
@@ -883,7 +885,7 @@ set_Z_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
 set_Z_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} =
     set_Z_metacheck(CSSTrait(T), S, M)
 set_Z_metacheck(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
-    (S_new = deepcopy(S); return set_Z_metacheck!(IsNotCSS(), S_new, M);)
+    (S_new = deepcopy(S); set_Z_metacheck!(IsNotCSS(), S_new, M); return S_new)
 set_Z_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
     error("Only valid for CSS codes.")
 
@@ -1229,14 +1231,14 @@ Z_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) =
 Add the logical pairs in `pairs` to the gauge operators.
 """
 promote_logicals_to_gauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
-    promote_logicals_to_gauges!(LogicalTrait(T), S, pairs)
+    promote_logicals_to_gauge!(LogicalTrait(T), S, pairs)
 function promote_logicals_to_gauge!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
     # will let this error naturally if pairs contains invalid elements
-    S.gauge_ops = S.gauge_ops ∪ S.logs[pairs]
+    S.gauge_ops = S.gauge_ops ∪ S.logicals[pairs]
     S.g_ops_mat = reduce(vcat, [reduce(vcat, S.gauge_ops[i]) for i in 1:length(S.gauge_ops)])
-    S.logs = S.logs[setdiff![1:length(S.logs), pairs]]
-    S.logs_mat = reduce(vcat, [reduce(vcat, S.logs[i]) for i in 1:length(S.logs)])
+    S.logicals = S.logicals[setdiff!(append!(collect(1:length(S.logicals)), pairs))]
+    S.logs_mat = reduce(vcat, [reduce(vcat, S.logicals[i]) for i in 1:length(S.logicals)])
     S.r = S.r + length(pairs)
 
     if isinteger(S.k)
@@ -1252,9 +1254,9 @@ promote_logicals_to_gauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vec
 # TODO: this can drop to a graph state, which is why I did what I did before
 
 promote_logicals_to_gauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
-    promote_logicals_to_gauges(LogicalTrait(T), S, pairs)
+    promote_logicals_to_gauge(LogicalTrait(T), S, pairs)
 promote_logicals_to_gauge(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
-    (S_new = deepcopy(S); return promote_logicals_to_gauge!(HasLogicals(), S_new, pairs);)
+    (S_new = deepcopy(S); promote_logicals_to_gauge!(HasLogicals(), S_new, pairs); return S_new)
 promote_logicals_to_gauge(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
     error("Type $(typeof(S)) has no logicals.")
 
@@ -1269,9 +1271,9 @@ promote_gauges_to_logical!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsyst
 function promote_gauges_to_logical!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
     pairs = sort!(unique!(pairs))
     # will let this error naturally if pairs contains invalid elements
-    S.logs = S.logs ∪ S.gauge_ops[pairs]
-    S.logs_mat = reduce(vcat, [reduce(vcat, S.logs[i]) for i in 1:length(S.logs)])
-    S.gauge_ops = S.gauge_ops[setdiff![1:length(S.gauge_ops), pairs]]
+    S.logicals = S.logicals ∪ S.gauge_ops[pairs]
+    S.logs_mat = reduce(vcat, [reduce(vcat, S.logicals[i]) for i in 1:length(S.logicals)])
+    S.gauge_ops = S.gauge_ops[setdiff!(append!(collect(1:length(S.gauge_ops)), pairs))]
     S.g_ops_mat = reduce(vcat, [reduce(vcat, S.gauge_ops[i]) for i in 1:length(S.gauge_ops)])
     S.r = S.r - length(pairs)
 
@@ -1290,7 +1292,7 @@ promote_gauges_to_logical!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vec
 promote_gauges_to_logical(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} =
     promote_gauges_to_logical(LogicalTrait(T), S, pairs)
 promote_gauges_to_logical(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
-    (S_new = deepcopy(S); return promote_gauges_to_logical!(HasLogicals(), S_new, pairs))
+    (S_new = deepcopy(S); promote_gauges_to_logical!(HasLogicals(), S_new, pairs); return S_new)
 promote_gauges_to_logical(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) =
     error("Type $(typeof(S)) has no logicals.")
 
