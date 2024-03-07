@@ -270,6 +270,7 @@ function _message_passing_flooding(H::Matrix{UInt64}, w::Vector{T}, chn_inits::U
         # variable node is already done for first iteration, so start with check nodes
         @simd for cn in 1:num_check
             for v1 in check_adj_list[cn]
+                # BUG? iter here should break things?
                 check_to_var_messages[cn, v1, curr_iter] = c_to_v_mess(cn, v1, iter, check_adj_list,
                     var_to_check_messages, attenuation)
             end
@@ -429,10 +430,10 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
     var_to_check_messages = zeros(Float64, num_var, num_check, 2)
     
     # remove and accept as input
-    @inbounds for vn in 1:num_var
-        var_to_check_messages[vn, var_adj_list[vn], 1] .= chn_inits[vn]
-        if chn_inits[vn] > 0
-            current_bits[vn] = 1
+    @inbounds for v in 1:num_var
+        var_to_check_messages[v, var_adj_list[v], 1] .= chn_inits[v]
+        if chn_inits[v] > 0
+            current_bits[v] = 1
         end
     end
     # display(var_to_check_messages
@@ -444,15 +445,19 @@ function _message_passing_flooding_syndrome(H::Matrix{UInt64}, syndrome::Vector{
     # @inbounds 
     while iter ≤ max_iter
         # variable node is already done for first iteration, so start with check nodes
-        for cn in 1:num_check
-            count = sum(current_bits[check_adj_list[cn]])
-            for v1 in check_adj_list[cn]
-                check_to_var_messages[cn, v1, curr_iter] = 0.0
+        for c in 1:num_check
+            count = sum(current_bits[check_adj_list[c]])
+            for v in check_adj_list[c]
+                check_to_var_messages[c, v, curr_iter] = 0.0
+                count_v = count - current_bits[v]
                 # here I want to loop through all possible options of errors
                 for e in 0:1
-                    # check if this e with the other values gives the correct syndrome bit
-                    if (count + e) % 2 == syndrome[cn]
-                        check_to_var_messages[cn, v1, curr_iter] += c_to_v_mess(cn, v1, prev_iter,
+                    # check if combination of v = e with the other bits on this check gives the
+                    # correct syndrome bit
+                    if (count_v + e) % 2 == syndrome[c]
+                        # if it produces the syndrome bit, it contributes to Pr(e | s);
+                        # otherwise, Pr(e | s) = 0
+                        check_to_var_messages[c, v, curr_iter] += (-1)^e * c_to_v_mess(c, v, curr_iter,
                             check_adj_list, var_to_check_messages, attenuation)
                     end
                 end

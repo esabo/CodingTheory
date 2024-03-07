@@ -633,7 +633,11 @@ function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     stabs = change_base_ring(S.F, stabs)
     if _has_equivalent_row_spaces(S.stabs, stabs)
         S.stabs = stabs
-        nrows(stabs) != S.k && (S.overcomplete = true;)
+        if GaugeTrait(typeof(S)) == HasNoGauges()
+            nrows(stabs) != (S.n - S.k) && (S.overcomplete = true;)
+        else
+            nrows(stabs) != (S.n - S.k - S.r) && (S.overcomplete = true;)
+        end
     else
         error("The current stabilizers are not equivalent to the input.")
     end
@@ -681,6 +685,7 @@ function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrix
 
     X_trimmed = _remove_empty(X_trimmed, :rows)
     X_trimmed = change_base_ring(S.F, X_trimmed)
+    # TODO: does this need fixing to include gauges like the above?
     if _has_equivalent_row_spaces(S.X_stabs, X_trimmed)
         S.X_stabs = X_trimmed
         nrows(X_trimmed) != rank(X_trimmed) && (S.overcomplete = true;)

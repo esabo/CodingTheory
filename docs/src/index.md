@@ -34,8 +34,4 @@ It is often desirable to build a code with a specific matrix representation. Whi
 
 ## Suppressing The Oscar Banner
 
-The Oscar banner will display be default when calling `using ErrorCorrection`. This can be suppressed by running Julia with the `-q` flag: `julia -q`. Note that this also suppressed the Julia banner.
-
-## TEST, DELETE THIS
-
-[hastings2016](@cite)
+The Oscar banner will display be default when calling `using ErrorCorrection`. This can be suppressed by running Julia with the `-q` flag: `julia -q`. Note that this will also suppress the Julia banner.
