@@ -1426,9 +1426,9 @@ function show(io::IO, S::AbstractSubsystemCode)
     end
     
     if get(io, :compact, true) && S.n <= 30
-        if isa(S, SubsystemCodeCSS) || isa(S, StabilizerCodeCSS) || isa(S, GraphStateStabilizerCSS)
-            || isa(S, GraphStateSubsystemCSS)
-            
+        if isa(S, SubsystemCodeCSS) || isa(S, StabilizerCodeCSS) ||
+            isa(S, GraphStateStabilizerCSS) || isa(S, GraphStateSubsystemCSS)
+
             num_X = num_X_stabs(S)
             if S.overcomplete
                 println(io, "X-stabilizer matrix (overcomplete): $num_X × $(S.n)")
