@@ -1406,7 +1406,9 @@ function show(io::IO, S::AbstractSubsystemCode)
         print(io, "))_$(order(S.F))")
     end
     if iszero(S.k)
-        if isa(S, GraphStateStabilizerCSS)
+        if isa(S, GraphStateSubsystemCSS)
+            println(io, " CSS subsystem graph state")
+        elseif isa(S, GraphStateStabilizerCSS)
             println(io, " CSS graph state")
         else
             println(io, " graph state")
@@ -1425,6 +1427,8 @@ function show(io::IO, S::AbstractSubsystemCode)
     
     if get(io, :compact, true) && S.n <= 30
         if isa(S, SubsystemCodeCSS) || isa(S, StabilizerCodeCSS) || isa(S, GraphStateStabilizerCSS)
+            || isa(S, GraphStateSubsystemCSS)
+            
             num_X = num_X_stabs(S)
             if S.overcomplete
                 println(io, "X-stabilizer matrix (overcomplete): $num_X × $(S.n)")

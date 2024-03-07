@@ -56,7 +56,7 @@ To create a cyclic code, one may either specify the cyclotomic cosets or the gen
 ```
 julia> q = 2; n = 15; b = 3; δ = 4;
 
-julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false)
+julia> cosets = defining_set([i for i = b:(b + δ - 2)], q, n, false)
 3-element Vector{Vector{Int64}}:
  [3, 6, 9, 12]
  [1, 2, 4, 8]
@@ -95,7 +95,7 @@ The same is true for Reed-Solomon codes.
 ```
 julia> q = 16; n = 15; b = 3; δ = 4;
 
-julia> cosets = definingset([i for i = b:(b + δ - 2)], q, n, false);
+julia> cosets = defining_set([i for i = b:(b + δ - 2)], q, n, false);
 
 julia> CyclicCode(q, n, cosets)
 [15, 12, 4; 3]_16 Reed-Solomon code
@@ -159,7 +159,7 @@ Generator matrix: 12 × 15
 ```
 As expected, all $q$-cosets have size one.
 ```
-julia> allcyclotomiccosets(q, n, true, true);
+julia> all_cyclotomic_cosets(q, n, true, true);
 C_0 = {0}
 C_1 = {1}
 C_2 = {2}
@@ -180,7 +180,7 @@ Here we have used the last optional parameter to pretty print the cosets to the 
 
 In the most general case, we can build an arbitrary cyclic code by individually specifying the cosets to use
 ```
-julia> C = CyclicCode(q, n, [cyclotomiccoset(3, q, n), cyclotomiccoset(7, q, n)])
+julia> C = CyclicCode(q, n, [cyclotomic_coset(3, q, n), cyclotomic_coset(7, q, n)])
 [15, 13]_16 cyclic code
 16-Cyclotomic cosets: 
         C_3 ∪ C_7
@@ -204,7 +204,7 @@ Generator matrix: 13 × 15
 
 To build a cyclic code using a given generator polynomial
 ```
-julia> g = generatorpolynomial(C)
+julia> g = generator_polynomial(C)
 x^2 + (α + 1)*x + α^2 + α + 1
 
 julia> CyclicCode(n, g)
@@ -265,12 +265,12 @@ Generator matrix: 13 × 15
 ```
 Note that cyclic codes use a specific primitive root of the extension field, which is sometimes not that returned by the field constructor. One can check this with
 ```
-julia> primitiveroot(C) == α
+julia> primitive_root(C) == α
 true
 ```
 or by checking the factorization of the generator polynomial using Oscar
 ```
-julia> factor(generatorpolynomial(C))
+julia> factor(generator_polynomial(C))
 1 * (x + α^3 + α + 1) * (x + α^3)
 
 julia> α^7
@@ -288,7 +288,7 @@ Generic cyclic codes return in the specified field using the constructor ``GF(p,
 
 To check if a `LinearCode` is cyclic,
 ```
-julia> C2 = LinearCode(generatormatrix(C))
+julia> C2 = LinearCode(generator_matrix(C))
 [15, 13]_16 linear code
 Generator matrix: 13 × 15
         α^2 + α + 1 α + 1 1 0 0 0 0 0 0 0 0 0 0 0 0
@@ -305,7 +305,7 @@ Generator matrix: 13 × 15
         0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1 0
         0 0 0 0 0 0 0 0 0 0 0 0 α^2 + α + 1 α + 1 1
 
-julia> flag, C3 = CodingTheory.iscyclic(C2);
+julia> flag, C3 = is_cyclic(C2);
 
 julia> flag
 true

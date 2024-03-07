@@ -35,9 +35,9 @@ Stabilizer matrix: 6 × 8
          chi(0) 0 0 1 1 1 0 1 0
          chi(0) 0 0 0 0 0 0 1 1
 ```
-Matrices are required to be written in symplectic form. (A pervious version of this library supported stabilizer codes in quadratic form but the use of extension fields severely limited the practical size of the codes able to be represented.) Errors are thrown for inputs which are not in a possible symplectic form. The inputs must also be symplectic orthogonal. One can use ``symplecticinnerproduct`` to check two vectors but ``aresymplecticorthogonal`` is a more efficient implementation for checking collections of vectors.
+Matrices are required to be written in symplectic form. (A pervious version of this library supported stabilizer codes in quadratic form but the use of extension fields severely limited the practical size of the codes able to be represented.) Errors are thrown for inputs which are not in a possible symplectic form. The inputs must also be symplectic orthogonal. One can use ``symplectic_inner_product`` to check two vectors but ``are_symplectic_orthogonal`` is a more efficient implementation for checking collections of vectors.
 ```
-julia> aresymplecticorthogonal(stabs, stabs)
+julia> are_symplectic_orthogonal(stabs, stabs)
 true
 ```
 As with classical codes, the ``GF(p)`` constructor is strongly preferred over ``GF(p, 1, :α)``. Over complete matrices are allowed and the code parameters will be correctly computed.
@@ -51,19 +51,19 @@ julia> logicals(S)
 ```
 Here, the logicals are stored in $X-Z$ anti-commuting pairs; each pair commuting with the stabilizers and all other logical pairs. These are also available in matrix format with rows stacked in the order $X$ then $Z$ (left to right) from top to bottom.
 ```
-julia> L = logicalsmatrix(S)
+julia> L = logicals_matrix(S)
 [0   0   0   0   1   1   0   0   0   1   0   1   0   0   0   0]
 [0   0   0   0   0   0   0   0   1   1   1   0   1   0   0   0]
 [0   0   0   0   0   1   1   0   0   1   1   1   0   0   0   1]
 [0   0   0   0   0   0   0   0   0   1   1   0   0   0   1   1]
 
-julia> aresymplecticorthogonal(stabs, L)
+julia> are_symplectic_orthogonal(stabs, L)
 true
 
-julia> aresymplecticorthogonal(L, L)
+julia> are_symplectic_orthogonal(L, L)
 false
 ```
-Several library functions assume this ordering, so these properties should never be accessed directly. If one would like to work with a specific, known form of the logical operators, one may set them using `setlogicals`. This errors if the automatically computed set of logicals are not equivalent to the function input up to multiplication by stabilizers. One may similiarly `setstabilizers`.
+Several library functions assume this ordering, so these properties should never be accessed directly. If one would like to work with a specific, known form of the logical operators, one may set them using `set_logicals!`. This errors if the automatically computed set of logicals are not equivalent to the function input up to multiplication by stabilizers. One may similiarly `set_stabilizers!`.
 
 As with linear codes, permutations may be required to compute the standard form. If this is the case, the column permutation matrix $P$ such that $\mathrm{rowspace}(stabilizers(S)) = \mathrm{rowspace}(stabilizers(S, true) * standardformpermutation(S))$ may be accessed using the following function. If no column permutations are required, this returns `missing`. The logicals derived from the standard form are always returned in the original qudit ordering of the stabilizer matrix.
 
@@ -80,20 +80,20 @@ Given two linear codes $\mathcal{C}_1$ and $\mathcal{C}_2$ with $\mathcal{C}_2 �
 ```
 One may also explicitly specify the $X$ and $Z$ stabilizers directly.
 ```
-example for CSSCode(Xmatrix, Zmatrix)
+example for CSSCode(X_matrix, Z_matrix)
 
-example using Xstabilizers, Zstabilizers
+example using X_stabilizers, Z_stabilizers
 ```
 Contrary to the above, it is assumed that these matrices are of length $n$ instead of $2n$ with $n$ columns of zeros. No check is done to determine if a code *can* be made CSS, only that the passed in representation *is* CSS. All constructors will automatically return a CSS code if detected. To reliably check whether a code is CSS use `isCSS`.
 
-Stabilizer signs are automatically determined in a consistent manner by a length $2n$ character vector whose first $n$ elements specify the $X$ phase and second $n$ elements the $Z$ phase. This may be passed into any constructor and a missing argument is automatically set to the all-no-phase vector. The signs may be changed after a code has been constructed using ``setsigns``. Signs for codes over a finite field with characteristic $p$ are $2p$-th roots of unity if $p = 2$ or $p$-th roots of unity otherwise. Since it is more difficult to represent these exactly, signs are stored by keeping track of the exponents.
+Stabilizer signs are automatically determined in a consistent manner by a length $2n$ character vector whose first $n$ elements specify the $X$ phase and second $n$ elements the $Z$ phase. This may be passed into any constructor and a missing argument is automatically set to the all-no-phase vector. The signs may be changed after a code has been constructed using ``set_signs!``. Signs for codes over a finite field with characteristic $p$ are $2p$-th roots of unity if $p = 2$ or $p$-th roots of unity otherwise. Since it is more difficult to represent these exactly, signs are stored by keeping track of the exponents.
 ```
 example using the following idea
 R = residue_ring(Nemo.ZZ, 4)
-charvec = [R(0) for _ in 1:n]
+char_vec = [R(0) for _ in 1:n]
 
 
-charactervector(S)
+character_vector(S)
 ```
 
 ## Miscellaneous Known Stabilizer Codes

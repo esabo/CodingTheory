@@ -113,10 +113,10 @@ true
 ```
 Since the minimum distance of this code is known (since it was small enough to determine in the constructor), we can also get some more information.
 ```
-julia> minimumdistance(C)
+julia> minimum_distance(C)
 3
 
-julia> relativedistance(C)
+julia> relative_distance(C)
 0.42857142857142855
 
 julia> CodingTheory.genus(C)
@@ -125,10 +125,10 @@ julia> CodingTheory.genus(C)
 julia> isMDS(C)
 true
 
-julia> numbercorrectableerrors(C)
+julia> number_correctable_errors(C)
 1
 ```
-We can also manually set the minimum distance using `setminimumdistance!(C, 3)`.
+We can also manually set the minimum distance using `set_minimum_distance!(C, 3)`.
 
 From the output, we see that this is a $[n, k, d] = [7, 4, 3]$ linear code over $\mathbb{F}_2$. The parameters are correctly computed regardless of the input.
 ```
@@ -158,7 +158,7 @@ Generator matrix: 4 × 7
         0 1 0 0 1 0 1
         1 0 0 0 0 1 1
 
-julia> paritycheckmatrix(C3)
+julia> parity_check_matrix(C3)
 [0   0   0   1   1   1   1]
 [0   1   1   0   0   1   1]
 [1   0   1   0   1   0   1]
@@ -166,13 +166,13 @@ julia> paritycheckmatrix(C3)
 
 The standard form generator and parity-check matrices are also accessible by passing the optional parameter `true` to each method.
 ```
-julia> generatormatrix(C)
+julia> generator_matrix(C)
 [1   0   0   0   0   1   1]
 [0   1   0   0   1   0   1]
 [0   0   1   0   1   1   0]
 [0   0   0   1   1   1   1]
 
-julia> generatormatrix(C2)
+julia> generator_matrix(C2)
 [1   0   0   0   0   1   1]
 [0   1   0   0   1   0   1]
 [0   0   1   0   1   1   0]
@@ -182,25 +182,25 @@ julia> generatormatrix(C2)
 [0   0   1   0   1   1   0]
 [0   0   0   1   1   1   1]
 
-julia> generatormatrix(C2, true)
+julia> generator_matrix(C2, true)
 [1   0   0   0   0   1   1]
 [0   1   0   0   1   0   1]
 [0   0   1   0   1   1   0]
 [0   0   0   1   1   1   1]
 
-julia> paritycheckmatrix(C3, true)
+julia> parity_check_matrix(C3, true)
 [1   0   0   1   1   0   1]
 [0   1   0   1   1   1   0]
 [0   0   1   0   1   1   1]
 ```
-Recall that column permutations may be required to make the standard form. If this is true, the permutation matrix can be accessed via `standardformpermutation(C)` with the convention that `generatormatrix(C)` and `generatormatrix(C, true) * standardformpermutation(C)` have equivalent row spaces. If no permutation is required, this will return `missing` instead of storing a potentially large identity matrix.
+Recall that column permutations may be required to make the standard form. If this is true, the permutation matrix can be accessed via `standard_form_permutation(C)` with the convention that `generator_matrix(C)` and `generator_matrix(C, true) * standard_form_permutation(C)` have equivalent row spaces. If no permutation is required, this will return `missing` instead of storing a potentially large identity matrix.
 
 As expected the basic relationship between the matrices holds.
 ```
-julia> iszero(generatormatrix(C) * transpose(paritycheckmatrix(C)))
+julia> iszero(generator_matrix(C) * transpose(parity_check_matrix(C)))
 true
 
-julia> iszero(paritycheckmatrix(C) * transpose(generatormatrix(C)))
+julia> iszero(parity_check_matrix(C) * transpose(generator_matrix(C)))
 true
 ```
 
@@ -214,10 +214,10 @@ Generator matrix: 4 × 7
         0 1 0 0 1 0 1
         1 0 0 0 0 1 1
 
-julia> areequivalent(C3, C4)
+julia> are_equivalent(C3, C4)
 true
 ```
-The function `areequivalent` does *not* test if two codes are equivalent up to column permutations.
+The function `are_equivalent` does *not* test if two codes are equivalent up to column permutations.
 ```
 julia> S7 = SymmetricGroup(7)
 Sym( [ 1 .. 7 ] )
@@ -225,7 +225,7 @@ Sym( [ 1 .. 7 ] )
 julia> σ = S7([3, 2, 1, 4, 5, 6, 7])
 (1,3)
 
-julia> C3perm = permutecode(C3, σ)
+julia> C3_perm = permute_code(C3, σ)
 [7, 4]_2 linear code
 Generator matrix: 4 × 7
         1 1 1 0 0 0 0
@@ -233,7 +233,7 @@ Generator matrix: 4 × 7
         0 1 0 0 1 0 1
         0 0 1 0 0 1 1
 
-julia> areequivalent(C3perm, C4)
+julia> are_equivalent(C3_perm, C4)
 false
 ```
 
@@ -246,13 +246,13 @@ Generator matrix: 3 × 7
         0 1 1 0 0 1 1
         1 0 1 0 1 0 1
 
-julia> areequivalent(C4, dual(C5))
+julia> are_equivalent(C4, dual(C5))
 true
 ```
 
 A vector $v$ is in the code $C$ if it has zero syndrome.
 ```
-julia> iszero(syndrome(C, generatormatrix(C)[1, :]))
+julia> iszero(syndrome(C, generator_matrix(C)[1, :]))
 true
 ```
 Similary, we can encode a vector into the codespace.
@@ -274,10 +274,10 @@ false
 ```
 Two codes $C_1$ and $C_2$ are equivalent if $C_1 \subseteq C_2$ and $C_2 \subseteq C_1$. A code is self dual if it is equivalent to its dual and self orthogonal if it is a subcode of its dual.
 ```
-julia> isselfdual(C)
+julia> is_self_dual(C)
 false
 
-julia> isselforthogonal(C)
+julia> is_self_orthogonal(C)
 false
 ```
 These are taken with respect to the Euclidean dual/metric/inner product. Similar functions exist for the Hermitian case.
@@ -289,7 +289,7 @@ Generator matrix: 3 × 6
         0 1 0 ω 1 ω
         0 0 1 ω ω 1
 
-julia> isHermitianselfdual(C6)
+julia> is_Hermitian_self_dual(C6)
 true
 ```
 
@@ -323,7 +323,7 @@ Generator matrix: 5 × 7
 ```
 As is apparent from the generator matrix, this code is actually cyclic.
 ```
-julia> CodingTheory.iscyclic(C5, false)
+julia> is_cyclic(C5, false)
 true
 ```
 
@@ -348,10 +348,10 @@ Generator matrix: 4 × 8
         0 0 1 1 0 0 1 1
         0 0 0 0 1 1 1 1
 
-julia> areequivalent(C7, C8)
+julia> are_equivalent(C7, C8)
 true
 
-julia> isselfdual(C7)
+julia> is_self_dual(C7)
 true
 ```
 
@@ -369,15 +369,15 @@ Galois field with characteristic 2
 julia> E = GF(2, 3, :α)
 Finite field of degree 3 over F_2
 
-julia> isextension(E, F)
+julia> is_extension(E, F)
 (true, 3)
 ```
 The most two common types of bases for $E/F$ can be computed via
 ```
-julia> primitivebasis(E, F)
+julia> primitive_basis(E, F)
 (fqPolyRepFieldElem[1, α, α^2], fqPolyRepFieldElem[1, α^2, α])
 
-julia> normalbasis(E, F)
+julia> normal_basis(E, F)
 (fqPolyRepFieldElem[α + 1, α^2 + 1, α^2 + α + 1], fqPolyRepFieldElem[α + 1, α^2 + 1, α^2 + α + 1])
 ```
 which return both the basis and its dual (complementary) basis. Alternatively, one specify a basis manually and check its properties.
@@ -391,25 +391,25 @@ julia> β = [α^3, α^5, α^6]
  α^2 + α + 1
  α^2 + 1
 
-julia> isbasis(E, F, β)
+julia> is_basis(E, F, β)
 (true, fqPolyRepFieldElem[α + 1, α^2 + α + 1, α^2 + 1])
 
-julia> isselfdualbasis(E, F, β)
+julia> is_self_dual_basis(E, F, β)
 true
 
-julia> isprimitivebasis(E, F, β)
+julia> is_primitive_basis(E, F, β)
 false
 
-julia> isnormalbasis(E, F, β)
+julia> is_normal_basis(E, F, β)
 true
 
-julia> λ = dualbasis(E, F, β)
+julia> λ = dual_basis(E, F, β)
 3-element Vector{fqPolyRepFieldElem}:
  α + 1
  α^2 + α + 1
  α^2 + 1
 
-julia> verifydualbasis(E, F, β, λ)
+julia> verify_dual_basis(E, F, β, λ)
 true
 
 julia> β2 = α .* β
@@ -418,7 +418,7 @@ julia> β2 = α .* β
  α^2 + 1
  1
 
-julia> areequivalentbasis(β, β2)
+julia> are_equivalent_basis(β, β2)
 true
 ```
 
@@ -449,7 +449,7 @@ julia> β = [field(C9)(1), α, α^6]
  α
  α^2 + 1
 
-julia> C10 = expandedcode(C9, F, β)
+julia> C10 = expanded_code(C9, F, β)
 [21, 15]_2 linear code
 Generator matrix: 15 × 21
         1 1 1 1 0 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -494,7 +494,7 @@ Generator matrix: 15 × 21
         0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1 0
         0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 0 1 0 1
 
-julia> areequivalent(C10, C11)
+julia> are_equivalent(C10, C11)
 true
 ```
 
