@@ -146,12 +146,26 @@ export variable_degree_distribution, check_degree_distribution,
 include("LDPC/algorithms.jl")
 
 #############################
-     # LDPC/decoders.jl
+    # LDPC/MP_decoders.jl
 #############################
 
-include("LDPC/decoders.jl")
-export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, min_sum,
-    find_MP_schedule, MPNoiseModel, decoder_simulation, LP_decoder_LDPC
+include("LDPC/MP_decoders.jl")
+export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, sum_product_syndrome,
+    min_sum, min_sum_syndrome, find_MP_schedule
+   
+#############################
+    # LDPC/LP_decoders.jl
+#############################
+
+include("LDPC/LP_decoders.jl")
+export LP_decoder_LDPC
+    
+#############################
+    # LDPC/simulations.jl
+#############################
+
+include("LDPC/simulations.jl")
+export MPNoiseModel
 
 #############################
      # LDPC/channels.jl
