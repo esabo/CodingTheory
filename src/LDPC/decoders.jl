@@ -61,12 +61,12 @@ function sum_product_box_plus(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100
         check_adj_list, max_iter, :SP)
 end
 
-function min_sum(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100, attenuation::Float64 =
-    0.5) where {S <: CTMatrixTypes, T <: Vector{<:AbstractFloat}}
+function min_sum(H::T, v::T, chn::MPNoiseModel, max_iter::Int = 100, attenuation::Float64 =
+    0.5) where T <: CTMatrixTypes
 
     H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :MS, 2)
     return _message_passing(H_Int, w, chn, _MS_check_node_message, var_adj_list, check_adj_list,
-        max_iter, :MS, attenuation)
+        max_iter, :MS, 0, attenuation)
 end
 
 function _message_passing_init(H::S, v::T, chn::Union{Missing, MPNoiseModel}, max_iter::Int,
