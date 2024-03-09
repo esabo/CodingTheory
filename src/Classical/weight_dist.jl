@@ -488,7 +488,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
     else
         gen_mats = _get_information_sets(G, "Zimmermann")
     end
-    gen_mats_Julia = [deepcopy(FpmattoJulia(x[2])') for x in gen_mats]
+    gen_mats_Julia = [deepcopy(_Flint_matrix_to_Julia_int_matrix(x[2])') for x in gen_mats]
     h = length(gen_mats_Julia)
     rank_defs = zeros(Int, h)
     if verbose
@@ -656,7 +656,7 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verb
     else
         gen_mats = _get_information_sets(G, "Zimmermann")
     end
-    gen_mats_Julia = [FpmattoJulia(x[2])' for x in gen_mats]
+    gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
     rank_defs = zeros(Int, h)
     if verbose
@@ -759,7 +759,7 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     else
         gen_mats = _get_information_sets(G, "Zimmermann")
     end
-    gen_mats_Julia = [FpmattoJulia(x[2])' for x in gen_mats]
+    gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
     rank_defs = zeros(Int, h)
     if verbose
@@ -902,8 +902,8 @@ function minimum_words(C::AbstractLinearCode)
     else
         gen_mats = _get_information_sets(G, "Zimmermann")
     end
-    gen_mats_Julia = [FpmattoJulia(x[2])' for x in gen_mats] # deepcopy doesn't save anythign here
-    # gen_mats_Julia = [FpmattoJulia(x[2]) for x in gen_mats]
+    gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats] # deepcopy doesn't save anythign here
+    # gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2]) for x in gen_mats]
     h = length(gen_mats_Julia)
     rank_defs = zeros(Int, h)
     if verbose

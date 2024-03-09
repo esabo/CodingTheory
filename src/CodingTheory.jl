@@ -75,7 +75,7 @@ export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGau
 include("utils.jl")
 export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance,
     dist, tr, expand_matrix, symplectic_inner_product, are_symplectic_orthogonal,
-    Hermitian_inner_product, Hermitian_conjugate_matrix, FpmattoJulia, is_triorthogonal,
+    Hermitian_inner_product, Hermitian_conjugate_matrix, is_triorthogonal,
     print_string_array, print_char_array, print_symplectic_array, pseudoinverse,
     quadratic_to_symplectic, symplectic_to_quadratic, _remove_empty, quadratic_residues,
     digits_to_int, is_basis, primitive_basis, #polynomial_basis, monomial_basis,
@@ -146,6 +146,13 @@ export variable_degree_distribution, check_degree_distribution,
 include("LDPC/algorithms.jl")
 
 #############################
+    # LDPC/simulations.jl
+#############################
+
+include("LDPC/simulations.jl")
+export MPNoiseModel
+
+#############################
     # LDPC/MP_decoders.jl
 #############################
 
@@ -159,13 +166,6 @@ export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, sum_product_sy
 
 include("LDPC/LP_decoders.jl")
 export LP_decoder_LDPC
-    
-#############################
-    # LDPC/simulations.jl
-#############################
-
-include("LDPC/simulations.jl")
-export MPNoiseModel
 
 #############################
      # LDPC/channels.jl

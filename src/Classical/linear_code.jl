@@ -113,7 +113,7 @@ end
 
 function LinearCode(Gs::Vector{<:CTMatrixTypes})
     s = size(Gs[1])
-    all(s == size(Gs[i]) for i = 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
+    all(s == size(Gs[i]) for i in 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
 
     G = reduce(vcat, Gs)
     rref!(G)
@@ -122,7 +122,7 @@ end
 
 function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool=false)
     s = size(Gs[1])
-    all(s == size(Gs[i]) for i = 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
+    all(s == size(Gs[i]) for i in 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
 
     return LinearCode(reduce(vcat, Gs), q, parity)
 end
@@ -820,7 +820,7 @@ function is_triply_even(C::AbstractLinearCode)
     Int(order(C.F)) == 2 || throw(ArgumentError("Even-ness is only defined for binary codes."))
 
     # following Ward's divisibility theorem
-    G = FpmattoJulia(generator_matrix(C))
+    G = _Flint_matrix_to_Julia_int_matrix(generator_matrix(C))
     nr, _ = size(G)
     all(wt(view(G, r:r, :)) % 8 == 0
         for r in 1:nr) || (return false;)

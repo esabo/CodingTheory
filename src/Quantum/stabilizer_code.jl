@@ -432,7 +432,7 @@ function _logicals(stabs::T, dual_gens::T, logs_alg::Symbol = :sys_eqs) where {T
     logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
     are_symplectic_orthogonal(stabs, logs_mat) || error("Computed logicals do not commute with the codespace.")
     prod = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(logs_mat)
-    sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
+    sum(_Flint_matrix_to_Julia_int_matrix(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
     return logs, logs_mat
 end
@@ -478,7 +478,7 @@ function is_CSS_T_code(::IsCSS, S::AbstractStabilizerCode; verbose::Bool = false
     n = S.n
     k = C_X.k
     z = zeros(Int, n)
-    G = FpmattoJulia(transpose(C_X.G))
+    G = _Flint_matrix_to_Julia_int_matrix(transpose(C_X.G))
     for r in 1:k
         verbose && println("r: $r")
         flag = Threads.Atomic{Bool}(true)

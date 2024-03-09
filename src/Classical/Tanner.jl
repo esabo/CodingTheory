@@ -11,7 +11,7 @@ Return the Tanner graph of the matrix `H` as a `Figure` object.
 """
 function Tanner_graph_plot(H::Union{T, Matrix{Int}}) where T <: CTMatrixTypes
     # convert H to A
-    M = FpmattoJulia(H)
+    M = _Flint_matrix_to_Julia_int_matrix(H)
     nr, nc = size(M)
     A = zeros(Int, nr + nc, nr + nc)
     # bottom left corner
@@ -70,7 +70,7 @@ matrix `H` along with the indices of the left and right vertices representing
 the bits and parity checks, respectively.
 """
 function Tanner_graph(H::Union{fq_nmod_mat, Matrix{Int}})
-    typeof(H) <: fq_nmod_mat ? (I = FpmattoJulia(H);) : (I = H;)
+    typeof(H) <: fq_nmod_mat ? (I = _Flint_matrix_to_Julia_int_matrix(H);) : (I = H;)
     I_tr = transpose(I)
     # TODO: fix B - no zeros for this type
     B = vcat(hcat(zeros(Int, size(I_tr)), I), hcat(I_tr, zeros(Int, size(I))))
@@ -128,7 +128,7 @@ function Tanner_code(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
     
     # pre-store all the information about H_loc
     # this could be a bit redundant if H_loc is sparse
-    # H_loc = FpmattoJulia(parity_check_matrix(C))
+    # H_loc = _Flint_matrix_to_Julia_int_matrix(parity_check_matrix(C))
     H_loc = parity_check_matrix(C)
     nr_H_loc, nc_H_loc = size(H_loc)
     H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]), Int}}}()

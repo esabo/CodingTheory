@@ -80,7 +80,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} 
         bare_logs_mat = reduce(vcat, [reduce(vcat, bare_logs[i]) for i in 1:length(bare_logs)])
         are_symplectic_orthogonal(stabs, bare_logs_mat) || error("Computed logicals do not commute with the codespace.")
         prod = hcat(bare_logs_mat[:, n + 1:end], -bare_logs_mat[:, 1:n]) * transpose(bare_logs_mat)
-        sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
+        sum(_Flint_matrix_to_Julia_int_matrix(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed logicals do not have the right commutation relations.")
     else
         graph_state = true
     end
@@ -96,7 +96,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{nmod}, Missing} 
         are_symplectic_orthogonal(bare_logs_mat, gauge_ops_mat) || error("Computed gauge operators do not commute with the computed logicals.")
     end
     prod = hcat(gauge_ops_mat[:, n + 1:end], -gauge_ops_mat[:, 1:n]) * transpose(gauge_ops_mat)
-    sum(FpmattoJulia(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed gauge operators do not have the right commutation relations.")
+    sum(_Flint_matrix_to_Julia_int_matrix(prod), dims=1) == ones(Int, 1, size(prod, 1)) || error("Computed gauge operators do not have the right commutation relations.")
 
     # since S is computed, it automatically has full rank and is not overcomplete
     # q^n / p^k but rows is n - k
@@ -174,7 +174,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     # check L is properly in pairs
     nc_pr = ncols(prod)
     # need an integer sum and this is cheaper than Nemo.ZZ
-    prod_Jul = FpmattoJulia(prod)
+    prod_Jul = _Flint_matrix_to_Julia_int_matrix(prod)
     cols = [sum(prod_Jul[:, i]) for i in 1:nc_pr]
     sum(cols) == nc_pr || println("Detected logicals not in anticommuting pairs.")
     log_pairs = _make_pairs(L)
@@ -193,7 +193,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     # check G is properly in pairs
     nc_pr = ncols(prod)
     # need an integer sum and this is cheaper than Nemo.ZZ
-    prod_Jul = FpmattoJulia(prod)
+    prod_Jul = _Flint_matrix_to_Julia_int_matrix(prod)
     cols = [sum(prod_Jul[:, i]) for i in 1:nc_pr]
     sum(cols) == nc_pr || println("Detected gauges not in anticommuting pairs.")
     # display(prod)
@@ -790,7 +790,7 @@ function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <
     iszero(prod) && throw(ArgumentError("Provided logicals should not be symplectic self-orthogonal."))
     nc_pr = ncols(prod)
     # need an integer sum and this is cheaper than Nemo.ZZ
-    prod_Jul = FpmattoJulia(prod)
+    prod_Jul = _Flint_matrix_to_Julia_int_matrix(prod)
     cols = [sum(prod_Jul[:, i]) for i in 1:nc_pr]
     sum(cols) == nc_pr || throw(ArgumentError("Incorrect commutation relationships between provided logicals."))
 

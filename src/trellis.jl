@@ -1000,10 +1000,10 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
     end
 
     if typeof(C) <: AbstractLinearCode
-        H = FpmattoJulia(wrt_V)
+        H = _Flint_matrix_to_Julia_int_matrix(wrt_V)
     else
         sym_wrt_V = quadratic_to_symplectic(wrt_V)
-        H = FpmattoJulia(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
+        H = _Flint_matrix_to_Julia_int_matrix(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
     end
     # Threads.@threads 
     for i in length(bds) - 1:-1:1
@@ -1371,7 +1371,7 @@ end
 #     end
 #
 #     sym_wrt_V = quadratic_to_symplectic(wrt_V)
-#     G = FpmattoJulia(hcat(sym_wrt_V[:, symsize + 1:end], -sym_wrt_V[:, 1:symsize]))
+#     G = _Flint_matrix_to_Julia_int_matrix(hcat(sym_wrt_V[:, symsize + 1:end], -sym_wrt_V[:, 1:symsize]))
 #     Threads.@threads for i = n:-1:1
 #         verbose && println("Starting E[$i]")
 #         seclen = bds[i + 1] - bds[i]
@@ -2104,10 +2104,10 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
     # println("par: $parallel")
 
     if typeof(C) <: AbstractLinearCode
-        H = FpmattoJulia(wrt_V)
+        H = _Flint_matrix_to_Julia_int_matrix(wrt_V)
     else
         sym_wrt_V = quadratic_to_symplectic(wrt_V)
-        H = FpmattoJulia(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
+        H = _Flint_matrix_to_Julia_int_matrix(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
     end
     
     # Threads.@threads 
