@@ -19,6 +19,7 @@ using SparseArrays
 using Random
 using DataStructures
 using StatsBase
+using Distributions
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
