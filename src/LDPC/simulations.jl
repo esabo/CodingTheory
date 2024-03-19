@@ -288,11 +288,11 @@ end
 
 function single_decoder_test(H::CTMatrixTypes)
     # initial parameters
-    noise = [0.02]
-    # noise = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
+    # noise = [0.02]
+    noise = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
     len_noise = length(noise)
     noise_model = :BSC
-    num_runs = 5000
+    num_runs = 10000
     nr, n = size(H)
     # it suffices to decode the zero codeword
     v = zero_matrix(base_ring(H), 1, n)
@@ -309,7 +309,7 @@ function single_decoder_test(H::CTMatrixTypes)
 
     FER = zeros(Float64, len_noise)
     for (i, p) in enumerate(noise)
-        # println("Starting p = $p")
+        println("Starting p = $p")
         # initialize everything for p
         chn = MPNoiseModel(noise_model, p)
         init_0 = log((1 - p) / p)
@@ -327,16 +327,12 @@ function single_decoder_test(H::CTMatrixTypes)
         count = 0
         for _ in 1:num_runs
             # sample
-            # err_wt = 0
             # @inbounds for j in 1:n
             #     rand(dist) ≤ p ? (err[j] = 1; chn_inits[j] = init_1;) : (err[j] = 0; chn_inits[j] = init_0;)
             # end
             @inbounds for j in 1:n
                 rand(dist) ≤ p ? (err[j] = 1;) : (err[j] = 0;)
             end
-            # w = v_Int .+ err
-            # print("$err_wt, ")
-            # syn_Int = (H_Int * err) .% 2
             LinearAlgebra.mul!(syn_Int, H_Int, err)
             @inbounds @simd for i in 1:nr
                 syn_Int[i] %= 2
@@ -348,19 +344,19 @@ function single_decoder_test(H::CTMatrixTypes)
             # decimated_values = [err[bit]]
 
             # SP
-            # flag, out, iter, _, _ = _message_passing(H_Int, err, chn_inits, _SP_check_node_message_box_plus,
-            #     var_adj_list, check_adj_list, max_iter, :SP, schedule, current_bits, totals, syn,
-            #     check_to_var_messages, var_to_check_messages, 0, 0.0)
+            # flag, out, _ = _message_passing(H_Int, missing, chn_inits, _SP_check_node_message_box_plus,
+            #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+            #     check_to_var_messages, var_to_check_messages, 0.0)
             # (!flag || !iszero(out)) && (count += 1;)
             # MS
-            # flag, out, iter, _, _ = _message_passing(H_Int, err, chn_inits, _MS_check_node_message,
-            #     var_adj_list, check_adj_list, max_iter, :MS, schedule, current_bits, totals, syn,
-            #     check_to_var_messages, var_to_check_messages, 0, 0.0)
+            # flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_check_node_message_box_plus,
+            #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+            #     check_to_var_messages, var_to_check_messages, attenuation)
             # (!flag || !iszero(out)) && (count += 1;)
             # SP syn
-            flag, out, _, = _message_passing_syndrome(H_Int, syn_Int, chn_inits_syn,
-                _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, :SP, schedule,
-                current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0)
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+                _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, schedule,
+                current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0.0)
             (!flag || out ≠ err) && (count += 1;)
             # !flag && println("err = $err, out = $out, - $flag")
             # print("$iter, ")
@@ -377,10 +373,10 @@ function single_decoder_test(H::CTMatrixTypes)
             #     var_to_check_messages, 0, attenuation, algorithm, guided_rounds)
             # (!flag || !iszero(out)) && (count += 1;)
             # run syndrome-based MS
-            # flag, out, _, _, _ = _message_passing_syndrome(H_Int, syn_Int, chn_inits_syn, 
-            #     _MS_check_node_message, var_adj_list, check_adj_list, max_iter, :MS, schedule, 
-            #     current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 
-            #     attenuation)
+            flag, out, _, _, _ = _message_passing(H_Int, syn_Int, chn_inits_syn, 
+                _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule, 
+                current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 
+                attenuation)
             # (!flag && out ≠ err) && (count += 1;)
 
             # reset inputs for next run, but don't re-allocate new memory
@@ -392,8 +388,8 @@ function single_decoder_test(H::CTMatrixTypes)
 
         end
         @inbounds FER[i] = count / num_runs
-        # println("FER = $(FER[i])")
-        # println("Finished p = $p")
+        println("FER = $(FER[i])")
+        println("Finished p = $p")
     end
     return FER
 end
