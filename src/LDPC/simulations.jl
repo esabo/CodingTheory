@@ -26,6 +26,47 @@ function MPNoiseModel(type::Symbol, x::Float64)
 end
 
 #############################
+    # Importance Sampling
+#############################
+
+subset_probability(n::Int, wt::Int, p::Float64) = Float64(binomial(BigInt(n), BigInt(wt)) *
+    (BigFloat(p)^wt) * ((1 - BigFloat(p))^(n - wt)))
+
+function find_subsets(n::Int, p::Float64, tol::Float64)
+    subsets = Vector{Tuple{Int, Float64}}()
+    for i in 0:n
+        prob = subset_probability(n, i, p)
+        if prob > tol
+            push!(subsets, (i, prob))
+        else
+            return subsets
+        end
+    end
+    return subsets
+end
+
+function min_max_subsets(n::Int, p_arr::Vector{Float64}, tol::Float64)
+    min_subset = 100.0
+    max_subset = 0.0
+    for p in p_arr
+        subsets = find_subsets(n, p, tol)
+        if isempty(subsets)
+            return -1, -1
+        else
+            if subsets[1][1] < min_subset
+                min_subset = subsets[1][1]
+            end
+            if subsets[end][1] > max_subset
+                max_subset = subsets[end][1]
+            end
+        end
+        # println("p = ", p)
+        # println("subsets: ", subsets)
+    end
+    return min_subset, max_subset
+end
+
+#############################
           # Methods
 #############################
 
@@ -56,28 +97,25 @@ end
     # maximum(noise) > 1 && noise_type == :BSC && throw(ArgumentError("Crossover probability must be in the range [0, 1]"))
 
 function decoders_test(H::CTMatrixTypes)
-    # initial parameters
+   # initial parameters
     noise = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
     len_noise = length(noise)
     noise_model = :BSC
-    num_runs = 10000
-    seed = nothing
-    # We use an explicit pseudoRNG with the given seed. (if `nothing`, it's just random)
-    # Note that Xoshiro is default in Julia. Threading breaks reproducibility.
-    rng = Xoshiro(seed)
-    n = ncols(H)
+    num_runs = 15000
+    nr, n = size(H)
     # it suffices to decode the zero codeword
     v = zero_matrix(base_ring(H), 1, n)
-    max_iter = 10
-    schedule = :flooding
+    syn_Int = zeros(Int, nr)
+    max_iter = 50
     erasures = Int[]
-    chn_inits = missing
+    chn_inits = zeros(Float64, n)
     dist = Uniform(0.0, 1.0)
     err = zeros(Int, n)
     algorithm = :manual
     guided_rounds = 10
-    attenuation = 1.0
+    attenuation = 0.5
 
+    # flooding
     # SP
     FER_SP = zeros(Float64, len_noise)
     # BER_SP = zeros(Float64, len_noise)
@@ -105,6 +143,35 @@ function decoders_test(H::CTMatrixTypes)
     # MS with correction and decimation
     FER_MS_C_dec = zeros(Float64, len_noise)
     # BER_MS_C_dec = zeros(Float64, len_noise)
+
+    # serial
+    # SP
+    FER_SP_s = zeros(Float64, len_noise)
+    # BER_SP = zeros(Float64, len_noise)
+    # syndrome-based SP
+    FER_SP_syn_s = zeros(Float64, len_noise)
+    # BER_SP_syn = zeros(Float64, len_noise)
+    # SP with decimation
+    FER_SP_dec_s = zeros(Float64, len_noise)
+    # BER_SP_dec = zeros(Float64, len_noise)
+    # MS
+    FER_MS_s = zeros(Float64, len_noise)
+    # BER_MS = zeros(Float64, len_noise)
+    # syndrome-based MS
+    FER_MS_syn_s = zeros(Float64, len_noise)
+    # BER_MS_syn = zeros(Float64, len_noise)
+    # MS with decimation
+    FER_MS_dec_s = zeros(Float64, len_noise)
+    # BER_MS_dec = zeros(Float64, len_noise)
+    # MS with correction
+    FER_MS_C_s = zeros(Float64, len_noise)
+    # BER_MS_C = zeros(Float64, len_noise)
+    # syndrome-based MS with correction
+    FER_MS_C_syn_s = zeros(Float64, len_noise)
+    # BER_MS_C_syn = zeros(Float64, len_noise)
+    # MS with correction and decimation
+    FER_MS_C_dec_s = zeros(Float64, len_noise)
+    # BER_MS_C_dec = zeros(Float64, len_noise)
     for (i, p) in enumerate(noise)
         println("Starting p = $p")
         # initialize everything for p
@@ -112,12 +179,16 @@ function decoders_test(H::CTMatrixTypes)
         init_0 = log((1 - p) / p)
         init_1 = log(p / (1 - p))
         # SP and MS
-        H_Int, v_Int, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-            var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-            max_iter, :SP, 0, chn_inits, schedule, erasures)
+        H_Int, _, var_adj_list, check_adj_list, chn_inits, check_to_var_messages_f,
+            var_to_check_messages_f, current_bits, totals, syn = _message_passing_init(H, v, chn,
+            max_iter, :SP, chn_inits, :flooding, erasures)
+        _, _, _, _, _, check_to_var_messages_s,
+            var_to_check_messages_s, _, _, _ = _message_passing_init(H, v, chn,
+            max_iter, :SP, chn_inits, :serial, erasures)
         # for syndrome-based we need to change the inits
         chn_inits_syn = [log((1 - p) / p) for _ in 1:n]
 
+        # flooding
         count_SP = 0
         count_SP_syn = 0
         count_SP_dec = 0
@@ -128,210 +199,21 @@ function decoders_test(H::CTMatrixTypes)
         count_MS_C_syn = 0
         count_MS_C_dec = 0
 
+        # serial
+        count_SP_s = 0
+        count_SP_syn_s = 0
+        count_SP_dec_s = 0
+        count_MS_s = 0
+        count_MS_syn_s = 0
+        count_MS_dec_s = 0
+        count_MS_C_s = 0
+        count_MS_C_syn_s = 0
+        count_MS_C_dec_s = 0
+
         for _ in 1:num_runs
             # sample
             @inbounds for j in 1:n
                 rand(dist) ≤ p ? (err[j] = 1; chn_inits[j] = init_1;) : (err[j] = 0; chn_inits[j] = init_0;)
-            end
-            w = v_Int .+ err
-            syn_Int = (H_Int * v_Int) .% 2
-            # pick a random bit to decimate
-            bit = rand(1:n)
-            decimated_bits = [bit]
-            # for now, setup as a genie-assisted decoder
-            decimated_values = [err[bit]]
-
-            # run SP
-            flag, out, _, _, _ = _message_passing(H_Int, w, chn_inits, _SP_check_node_message_box_plus,
-                var_adj_list, check_adj_list, max_iter, :SP, schedule, current_bits, totals, syn,
-                check_to_var_messages, var_to_check_messages, 0, 0.0)
-            (!flag || !iszero(out)) && (count_SP += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run syndrome-based SP
-            flag, out, _, _, _ = _message_passing_syndrome(H_Int, syn_Int, chn_inits_syn, _SP_check_node_message_box_plus,
-            var_adj_list, check_adj_list, max_iter, :SP, schedule, current_bits, totals, syn, 
-            check_to_var_messages, var_to_check_messages, 0, 0.0)
-            (!flag || out ≠ err) && (count_SP_syn += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run SP with decimation
-            flag, out, _, _, _ = _message_passing_decimation(H_Int, w, chn_inits, _SP_check_node_message_box_plus,
-            var_adj_list, check_adj_list, max_iter, :SP, schedule, decimated_bits, decimated_values,
-            current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0, algorithm,
-            guided_rounds)
-            (!flag || !iszero(out)) && (count_SP_dec += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run MS
-            flag, out, _, _, _ = _message_passing(H_Int, w, chn_inits, _MS_check_node_message, var_adj_list,
-            check_adj_list, max_iter, :MS, schedule, current_bits, totals, syn, check_to_var_messages,
-            var_to_check_messages, 0, attenuation)
-            (!flag && !iszero(out)) && (count_MS += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run syndrome-based MS
-            flag, out, _, _, _ = _message_passing_syndrome(H_Int, w, chn_inits_syn, _MS_check_node_message,
-            var_adj_list, check_adj_list, max_iter, :MS, schedule, current_bits, totals, syn, 
-            check_to_var_messages, var_to_check_messages, 0, attenuation)
-            (!flag && out ≠ err) && (count_MS_syn += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run MS with decimation
-            flag, out, _, _, _ = _message_passing_decimation(H_Int, w, chn_inits, _MS_check_node_message,
-            var_adj_list, check_adj_list, max_iter, :MS, schedule, decimated_bits, decimated_values,
-            current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0, algorithm,
-            guided_rounds)
-            (!flag || !iszero(out)) && (count_MS_dec += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run MS with correction
-            flag, out, _, _, _ = _message_passing(H_Int, w, chn_inits, _MS_correction_check_node_message, var_adj_list,
-            check_adj_list, max_iter, :MS, schedule, current_bits, totals, syn, check_to_var_messages,
-            var_to_check_messages, 0, attenuation)
-            (!flag || !iszero(out)) && (count_MS_C += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run syndrome-based MS with correction
-            flag, out, _, _, _ = _message_passing_syndrome(H_Int, syn_Int, chn_inits_syn, _MS_correction_check_node_message,
-            var_adj_list, check_adj_list, max_iter, :MS, schedule, current_bits, totals, syn, 
-            check_to_var_messages, var_to_check_messages, 0, attenuation)
-            (!flag || out ≠ err) && (count_MS_C_syn += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-
-            # run MS with correction and decimation
-            flag, out, _, _, _ = _message_passing_decimation(H_Int, w, chn_inits, _MS_check_node_message,
-            var_adj_list, check_adj_list, max_iter, :MS, schedule, decimated_bits, decimated_values,
-            current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0, algorithm,
-            guided_rounds)
-            (!flag || !iszero(out)) && (count_MS_C_dec += 1;)
-
-            # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
-        end
-
-        FER_SP[i] = count_SP / num_runs
-        println("FER_SP = $(FER_SP[i])")
-        FER_SP_syn[i] = count_SP_syn / num_runs
-        println("FER_SP_syn = $(FER_SP_syn[i])")
-        FER_SP_dec[i] = count_SP_dec / num_runs
-        println("FER_SP_dec = $(FER_SP_dec[i])")
-        FER_MS[i] = count_MS / num_runs
-        println("FER_MS = $(FER_MS[i])")
-        FER_MS_syn[i] = count_MS_syn / num_runs
-        println("FER_MS_syn = $(FER_MS_syn[i])")
-        FER_MS_dec[i] = count_MS_dec / num_runs
-        println("FER_MS_dec = $(FER_MS_dec[i])")
-        FER_MS_C[i] = count_MS_C / num_runs
-        println("FER_MS_C = $(FER_MS_C[i])")
-        FER_MS_C_syn[i] = count_MS_C_syn / num_runs
-        println("FER_MS_C_syn = $(FER_MS_C_syn[i])")
-        FER_MS_C_dec[i] = count_MS_C_dec / num_runs
-        println("FER_MS_C_dec = $(FER_MS_C_dec[i])")
-        println("Finished p = $p")
-    end
-    return FER_SP, FER_SP_syn, FER_SP_dec, FER_MS, FER_MS_syn, FER_MS_dec, FER_MS_C, FER_MS_C_syn,
-        FER_MS_C_dec
-end
-
-function single_decoder_test(H::CTMatrixTypes)
-    # initial parameters
-    # noise = [0.02]
-    noise = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
-    len_noise = length(noise)
-    noise_model = :BSC
-    num_runs = 10000
-    nr, n = size(H)
-    # it suffices to decode the zero codeword
-    v = zero_matrix(base_ring(H), 1, n)
-    syn_Int = zeros(Int, nr)
-    max_iter = 50
-    schedule = :flooding
-    erasures = Int[]
-    chn_inits = zeros(Float64, n)
-    dist = Uniform(0.0, 1.0)
-    err = zeros(Int, n)
-    algorithm = :manual
-    guided_rounds = 10
-    attenuation = 0.5
-
-    FER = zeros(Float64, len_noise)
-    for (i, p) in enumerate(noise)
-        println("Starting p = $p")
-        # initialize everything for p
-        chn = MPNoiseModel(noise_model, p)
-        init_0 = log((1 - p) / p)
-        # init_1 = log(p / (1 - p))
-        # SP
-        # H_Int, v_Int, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-        #     var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-        #     max_iter, :SP, 0, chn_inits, schedule, erasures)
-        # MS
-        H_Int, v_Int, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-            var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-            max_iter, :MS, 0, chn_inits, schedule, erasures)
-        chn_inits_syn = [init_0 for _ in 1:n]
-
-        count = 0
-        for _ in 1:num_runs
-            # sample
-            # @inbounds for j in 1:n
-            #     rand(dist) ≤ p ? (err[j] = 1; chn_inits[j] = init_1;) : (err[j] = 0; chn_inits[j] = init_0;)
-            # end
-            @inbounds for j in 1:n
-                rand(dist) ≤ p ? (err[j] = 1;) : (err[j] = 0;)
             end
             LinearAlgebra.mul!(syn_Int, H_Int, err)
             @inbounds @simd for i in 1:nr
@@ -343,51 +225,281 @@ function single_decoder_test(H::CTMatrixTypes)
             # # for now, setup as a genie-assisted decoder
             # decimated_values = [err[bit]]
 
-            # SP
-            # flag, out, _ = _message_passing(H_Int, missing, chn_inits, _SP_check_node_message_box_plus,
-            #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-            #     check_to_var_messages, var_to_check_messages, 0.0)
-            # (!flag || !iszero(out)) && (count += 1;)
-            # MS
-            # flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_check_node_message_box_plus,
-            #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-            #     check_to_var_messages, var_to_check_messages, attenuation)
-            # (!flag || !iszero(out)) && (count += 1;)
-            # SP syn
-            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, schedule,
-                current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0.0)
-            (!flag || out ≠ err) && (count += 1;)
-            # !flag && println("err = $err, out = $out, - $flag")
-            # print("$iter, ")
-            # run SP with decimation
-            # flag, out, _, _, _ = _message_passing_decimation(H_Int, err, chn_inits,
-            #     _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, :SP, schedule,
-            #     decimated_bits, decimated_values, current_bits, totals, syn, check_to_var_messages,
-            #     var_to_check_messages, 0, 0.0, algorithm, guided_rounds)
-            # (!flag || !iszero(out)) && (count += 1;)
-            # run MS with decimation
-            # flag, out, _, _, _ = _message_passing_decimation(H_Int, err, chn_inits, 
-            #     _MS_check_node_message, var_adj_list, check_adj_list, max_iter, :MS, schedule,
-            #     decimated_bits, decimated_values, current_bits, totals, syn, check_to_var_messages, 
-            #     var_to_check_messages, 0, attenuation, algorithm, guided_rounds)
-            # (!flag || !iszero(out)) && (count += 1;)
-            # run syndrome-based MS
-            flag, out, _, _, _ = _message_passing(H_Int, syn_Int, chn_inits_syn, 
-                _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule, 
-                current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 
-                attenuation)
-            # (!flag && out ≠ err) && (count += 1;)
+            # flooding
+            # run SP
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _SP_check_node_message_box_plus,
+                var_adj_list, check_adj_list, max_iter, :flooding, current_bits, totals, syn,
+                check_to_var_messages_f, var_to_check_messages_f, 0.0)
+            (!flag || !iszero(out)) && (count_SP += 1;)
 
             # reset inputs for next run, but don't re-allocate new memory
-            check_to_var_messages[:, :, :] .= 0.0
-            var_to_check_messages[:, :, :] .= 0.0
-            # current_bits[:] .= 0
-            # totals[:] .= 0.0
-            # syn[:] .= 0
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
 
+            # run syndrome-based SP
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+                _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, :flooding,
+                current_bits, totals, syn, check_to_var_messages_f, var_to_check_messages_f, 0.0)
+            (!flag || out ≠ err) && (count_SP_syn += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
+
+            # run MS
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_check_node_message,
+                var_adj_list, check_adj_list, max_iter, :flooding, current_bits, totals, syn,
+                check_to_var_messages_f, var_to_check_messages_f, attenuation)
+            (!flag && !iszero(out)) && (count_MS += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
+
+            # run syndrome-based MS
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+            _MS_check_node_message, var_adj_list, check_adj_list, max_iter, :flooding,
+                current_bits, totals, syn, check_to_var_messages_f, var_to_check_messages_f, 0.0)
+            (!flag && out ≠ err) && (count_MS_syn += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
+
+            # run MS with correction
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_correction_check_node_message,
+                var_adj_list, check_adj_list, max_iter, :flooding, current_bits, totals, syn,
+                check_to_var_messages_f, var_to_check_messages_f, attenuation)
+            (!flag || !iszero(out)) && (count_MS_C += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
+
+            # run syndrome-based MS with correction
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+            _MS_correction_check_node_message, var_adj_list, check_adj_list, max_iter, :flooding,
+                current_bits, totals, syn, check_to_var_messages_f, var_to_check_messages_f, attenuation)
+            (!flag || out ≠ err) && (count_MS_C_syn += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_f[:, :, :] .= 0.0
+            var_to_check_messages_f[:, :, :] .= 0.0
+
+            # serial
+            # run SP
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _SP_check_node_message_box_plus,
+                var_adj_list, check_adj_list, max_iter, :serial, current_bits, totals, syn,
+                check_to_var_messages_s, var_to_check_messages_s, 0.0)
+            (!flag || !iszero(out)) && (count_SP_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
+
+            # run syndrome-based SP
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+                _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, :serial,
+                current_bits, totals, syn, check_to_var_messages_s, var_to_check_messages_s, 0.0)
+            (!flag || out ≠ err) && (count_SP_syn_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
+
+            # run MS
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_check_node_message,
+                var_adj_list, check_adj_list, max_iter, :serial, current_bits, totals, syn,
+                check_to_var_messages_s, var_to_check_messages_s, attenuation)
+            (!flag && !iszero(out)) && (count_MS_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
+
+            # run syndrome-based MS
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+            _MS_check_node_message, var_adj_list, check_adj_list, max_iter, :serial,
+                current_bits, totals, syn, check_to_var_messages_s, var_to_check_messages_s, 0.0)
+            (!flag && out ≠ err) && (count_MS_syn_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
+
+            # run MS with correction
+            flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_correction_check_node_message,
+                var_adj_list, check_adj_list, max_iter, :serial, current_bits, totals, syn,
+                check_to_var_messages_s, var_to_check_messages_s, attenuation)
+            (!flag || !iszero(out)) && (count_MS_C_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
+
+            # run syndrome-based MS with correction
+            flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+            _MS_correction_check_node_message, var_adj_list, check_adj_list, max_iter, :serial,
+                current_bits, totals, syn, check_to_var_messages_s, var_to_check_messages_s, attenuation)
+            (!flag || out ≠ err) && (count_MS_C_syn_s += 1;)
+
+            # reset inputs for next run, but don't re-allocate new memory
+            check_to_var_messages_s[:, :, :] .= 0.0
+            var_to_check_messages_s[:, :, :] .= 0.0
         end
-        @inbounds FER[i] = count / num_runs
+
+        # flooding
+        FER_SP[i] = count_SP / num_runs
+        # println("FER_SP = $(FER_SP[i])")
+        FER_SP_syn[i] = count_SP_syn / num_runs
+        # println("FER_SP_syn = $(FER_SP_syn[i])")
+        # FER_SP_dec[i] = count_SP_dec / num_runs
+        # println("FER_SP_dec = $(FER_SP_dec[i])")
+        FER_MS[i] = count_MS / num_runs
+        # println("FER_MS = $(FER_MS[i])")
+        FER_MS_syn[i] = count_MS_syn / num_runs
+        # println("FER_MS_syn = $(FER_MS_syn[i])")
+        # FER_MS_dec[i] = count_MS_dec / num_runs
+        # println("FER_MS_dec = $(FER_MS_dec[i])")
+        FER_MS_C[i] = count_MS_C / num_runs
+        # println("FER_MS_C = $(FER_MS_C[i])")
+        FER_MS_C_syn[i] = count_MS_C_syn / num_runs
+        # println("FER_MS_C_syn = $(FER_MS_C_syn[i])")
+        # FER_MS_C_dec[i] = count_MS_C_dec / num_runs
+        # println("FER_MS_C_dec = $(FER_MS_C_dec[i])")
+
+        # serial
+        FER_SP_s[i] = count_SP_s / num_runs
+        # println("FER_SP_s = $(FER_SP_s[i])")
+        FER_SP_syn_s[i] = count_SP_syn_s / num_runs
+        # println("FER_SP_syn_s = $(FER_SP_syn_s[i])")
+        # FER_SP_dec_s[i] = count_SP_dec_s / num_runs
+        # println("FER_SP_dec_s = $(FER_SP_dec_s[i])")
+        FER_MS_s[i] = count_MS_s / num_runs
+        # println("FER_MS_s = $(FER_MS_s[i])")
+        FER_MS_syn_s[i] = count_MS_syn_s / num_runs
+        # println("FER_MS_syn_s = $(FER_MS_syn_s[i])")
+        # FER_MS_dec_s[i] = count_MS_dec_s / num_runs
+        # println("FER_MS_dec_s = $(FER_MS_dec_s[i])")
+        FER_MS_C_s[i] = count_MS_C_s / num_runs
+        # println("FER_MS_C_s = $(FER_MS_C_s[i])")
+        FER_MS_C_syn_s[i] = count_MS_C_syn_s / num_runs
+        # println("FER_MS_C_syn_s = $(FER_MS_C_syn_s[i])")
+        # FER_MS_C_dec_s[i] = count_MS_C_dec_s / num_runs
+        # println("FER_MS_C_dec_s = $(FER_MS_C_dec_s[i])")
+        println("Finished p = $p")
+    end
+    return FER_SP, FER_SP_syn, FER_SP_dec, FER_MS, FER_MS_syn, FER_MS_dec, FER_MS_C, FER_MS_C_syn,
+        FER_MS_C_dec, FER_SP_s, FER_SP_syn_s, FER_SP_dec_s, FER_MS_s, FER_MS_syn_s, FER_MS_dec_s,
+        FER_MS_C_s, FER_MS_C_syn_s, FER_MS_C_dec_s
+end
+
+function single_decoder_test(H::CTMatrixTypes)
+    # initial parameters
+    # noise = [0.02]
+    # noise = [0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
+    left = 0.001
+    right = 0.04
+    intervals = 10
+    Δ = (right - left) / (intervals - 1)
+    noise = collect(left:Δ:right)
+    len_noise = length(noise)
+    noise_model = :BSC
+    num_runs = 15000
+    nr, n = size(H)
+    # it suffices to decode the zero codeword
+    v = zero_matrix(base_ring(H), 1, n)
+    max_iter = 50
+    schedule = :flooding
+    dist = Uniform(0.0, 1.0)
+    algorithm = :manual
+    guided_rounds = 10
+    attenuation = 0.5
+    num_threads = Threads.nthreads()
+    runs_per_thread = cld(num_runs, num_threads)
+    new_num_runs = runs_per_thread * num_threads
+    # println(num_threads, ", ", runs_per_thread, ", ", new_num_runs)
+    # return
+
+    FER = zeros(Float64, len_noise)
+    for (i, p) in enumerate(noise)
+        println("Starting p = $p")
+        # initialize everything for p
+        chn = MPNoiseModel(noise_model, p)
+        init_0 = log((1 - p) / p)
+        init_1 = log(p / (1 - p))
+        local_counts = zeros(Int, num_threads)
+        Threads.@threads for th in 1:num_threads
+            err = zeros(Int, n)
+            syn_Int = zeros(Int, nr)
+            erasures = Int[]
+            chn_inits = zeros(Float64, n)
+            # SP/MS for BSC
+            H_Int, _, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
+                var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
+                max_iter, :SP, chn_inits, schedule, erasures)
+            # chn_inits_syn = [init_0 for _ in 1:n]
+
+            for _ in 1:runs_per_thread
+                # sample
+                @inbounds for j in 1:n
+                    rand(dist) ≤ p ? (err[j] = 1; chn_inits[j] = init_1;) : (err[j] = 0; chn_inits[j] = init_0;)
+                end
+                # @inbounds for j in 1:n
+                #     rand(dist) ≤ p ? (err[j] = 1;) : (err[j] = 0;)
+                # end
+                # LinearAlgebra.mul!(syn_Int, H_Int, err)
+                # @inbounds @simd for i in 1:nr
+                #     syn_Int[i] %= 2
+                # end
+                # pick a random bit to decimate
+                # bit = rand(1:n)
+                # decimated_bits = [bit]
+                # # for now, setup as a genie-assisted decoder
+                # decimated_values = [err[bit]]
+
+                # SP
+                flag, out, _ = _message_passing(H_Int, missing, chn_inits, _SP_check_node_message_box_plus,
+                    var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+                    check_to_var_messages, var_to_check_messages, 0.0)
+                (!flag || !iszero(out)) && (local_counts[th] += 1;)
+                # MS
+                # flag, out, _ = _message_passing(H_Int, missing, chn_inits, _MS_check_node_message,
+                #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+                #     check_to_var_messages, var_to_check_messages, attenuation)
+                # (!flag || !iszero(out)) && (count += 1;)
+                # SP syn
+                # flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
+                #     _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, schedule,
+                #     current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0.0)
+                # (!flag || out ≠ err) && (count += 1;)
+                # !flag && println("err = $err, out = $out, - $flag")
+                # print("$iter, ")
+                # run SP with decimation
+                # flag, out, _ = _message_passing_decimation(H_Int, err, chn_inits,
+                #     _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, :SP, schedule,
+                #     decimated_bits, decimated_values, current_bits, totals, syn, check_to_var_messages,
+                #     var_to_check_messages, 0, 0.0, algorithm, guided_rounds)
+                # (!flag || !iszero(out)) && (count += 1;)
+                # run MS with decimation
+                # flag, out, _= _message_passing_decimation(H_Int, err, chn_inits, 
+                #     _MS_check_node_message, var_adj_list, check_adj_list, max_iter, :MS, schedule,
+                #     decimated_bits, decimated_values, current_bits, totals, syn, check_to_var_messages, 
+                #     var_to_check_messages, 0, attenuation, algorithm, guided_rounds)
+                # (!flag || !iszero(out)) && (count += 1;)
+                # run syndrome-based MS
+                # flag, out, _= _message_passing(H_Int, syn_Int, chn_inits_syn, 
+                #     _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule, 
+                #     current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 
+                #     attenuation)
+                # (!flag && out ≠ err) && (count += 1;)
+
+                # reset inputs for next run, but don't re-allocate new memory
+                check_to_var_messages[:, :, :] .= 0.0
+                var_to_check_messages[:, :, :] .= 0.0
+            end
+        end
+        @inbounds FER[i] = sum(local_counts) / new_num_runs
         println("FER = $(FER[i])")
         println("Finished p = $p")
     end

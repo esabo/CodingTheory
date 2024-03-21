@@ -518,30 +518,39 @@ end
 
 _channel_init_BAWGNC_MS(v::Vector{T}) where T <: AbstractFloat = v
 
-function _message_passing_init(H::T, v::T, chn::Union{Missing, MPNoiseModel}, max_iter::Int,
-    kind::Symbol, Bt::Int, chn_inits::Union{Missing, Vector{Float64}}, schedule::Symbol,
-    erasures::Vector{Int}) where T <: CTMatrixTypes
+function _message_passing_init(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
+    T}, chn::MPNoiseModel, max_iter::Int, kind::Symbol, chn_inits::Union{Missing,
+    Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
+    T <: CTMatrixTypes}
 
-    kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
-    kind ∈ (:SP, :MS) && ismissing(chn) && throw(ArgumentError(":SP and :MS require a noise model"))
-    Int(order(base_ring(H))) == 2 ||
+    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter kind"))
+    # will this work?
+    if isa(H, CTMatrixTypes)
+        Int(order(base_ring(H))) == 2 ||
         throw(ArgumentError("Currently only implemented for binary codes"))
-    num_check, num_var = size(H)
+        H_Int = _Flint_matrix_to_Julia_int_matrix(H)
+    else
+        H_Int = H
+    end
+    num_check, num_var = size(H_Int)
     num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    length(v) == num_var || throw(ArgumentError("Vector has incorrect dimension"))
-    (kind == :B && !(1 <= Bt <= num_check)) &&
-        throw(DomainError("Improper threshold for Gallager B"))
     2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
-    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) &&
-        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
-        throw(DomainError("Received message should be a vector of Ints for BSC."))
     
-    H_Int = _Flint_matrix_to_Julia_int_matrix(H)
-    w = vec(_Flint_matrix_to_Julia_int_matrix(v))
+    len_v = length(v)
+    if len_v == num_var
+        syndrome_based = false
+        kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<: AbstractFloat}) &&
+        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
+        kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
+        throw(DomainError("Received message should be a vector of Ints for BSC."))
+    elseif len_v == num_checks
+        syndrome_based = true
+    else
+        throw(ArgumentError("Vector has incorrect dimension"))
+    end
+    
     check_adj_list = [Int[] for _ in 1:num_check]
     var_adj_list = [Int[] for _ in 1:num_var]
-
     for r in 1:num_check
         for c in 1:num_var
             if !iszero(H_Int[r, c])
@@ -551,7 +560,7 @@ function _message_passing_init(H::T, v::T, chn::Union{Missing, MPNoiseModel}, ma
         end
     end
 
-    if ismissing(chn_inits) && kind ∈ (:SP, :MS)
+    if !syndrome_based && ismissing(chn_inits)
         chn_inits = if chn.type == :BSC
             _channel_init_BSC(w, chn.cross_over_prob)
         elseif chn.type == :BAWGNC && kind == :SP
@@ -559,20 +568,21 @@ function _message_passing_init(H::T, v::T, chn::Union{Missing, MPNoiseModel}, ma
         elseif chn.type == :BAWGNC && kind == :MS
             _channel_init_BAWGNC_MS(w)
         end
+    elseif syndrome_based && ismissing(chn_inits)
+        chn_inits = [log((1 - chn.cross_over_prob) / chn.cross_over_prob) for _ in 1:num_var]
     end
 
     # could reduce this stuff to UInt8 if needed
     current_bits = zeros(Int, num_var)
     totals = zeros(Float64, num_var)
     syn = zeros(Int, num_check)
-    # R = kind ∈ (:A, :B) ? Int : Float64
-    R = Float64
+
     if schedule == :flooding
-        check_to_var_messages = zeros(R, num_check, num_var, 2)
-        var_to_check_messages = zeros(R, num_var, num_check, 2)
+        check_to_var_messages = zeros(Float64, num_check, num_var, 2)
+        var_to_check_messages = zeros(Float64, num_var, num_check, 2)
     else
-        check_to_var_messages = zeros(R, num_check, num_var, 1)
-        var_to_check_messages = zeros(R, num_var, num_check, 1)
+        check_to_var_messages = zeros(Float64, num_check, num_var, 1)
+        var_to_check_messages = zeros(Float64, num_var, num_check, 1)
     end
 
     if !isempty(erasures)
@@ -583,26 +593,40 @@ function _message_passing_init(H::T, v::T, chn::Union{Missing, MPNoiseModel}, ma
         end
     end
 
-    return H_Int, w, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
+    return H_Int, syndrome_based, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
         var_to_check_messages, current_bits, totals, syn
 end
 
-function _message_passing_init_syndrome(H::T, syndrome::T, chn::Union{Missing, MPNoiseModel}, 
-    max_iter::Int, chn_inits::Union{Missing, Vector{Float64}}, kind::Symbol, schedule::Symbol
-    ) where T <: CTMatrixTypes
+function _message_passing_init_Int(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
+    T}, max_iter::Int, kind::Symbol, Bt::Int, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
+    T <: CTMatrixTypes}
 
-    Int(order(base_ring(H))) == 2 ||
+    kind ∈ (:A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
+    # will this work?
+    if isa(H, CTMatrixTypes)
+        Int(order(base_ring(H))) == 2 ||
         throw(ArgumentError("Currently only implemented for binary codes"))
-    num_check, num_var = size(H)
+        H_Int = _Flint_matrix_to_Julia_int_matrix(H)
+    else
+        H_Int = H
+    end
+    num_check, num_var = size(H_Int)
     num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    length(syndrome) == num_check || throw(ArgumentError("Syndrome has incorrect dimension"))
+    (kind == :B && !(1 <= Bt <= num_check)) &&
+        throw(DomainError("Improper threshold for Gallager B"))
     2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
     
-    H_Int = _Flint_matrix_to_Julia_int_matrix(H)
-    syndrome_Int = vec(_Flint_matrix_to_Julia_int_matrix(syndrome))
+    len_v = length(v)
+    if len_v == num_var
+        syndrome_based = false
+    elseif len_v == num_checks
+        syndrome_based = true
+    else
+        throw(ArgumentError("Vector has incorrect dimension"))
+    end
+    
     check_adj_list = [Int[] for _ in 1:num_check]
     var_adj_list = [Int[] for _ in 1:num_var]
-
     for r in 1:num_check
         for c in 1:num_var
             if !iszero(H_Int[r, c])
@@ -612,32 +636,25 @@ function _message_passing_init_syndrome(H::T, syndrome::T, chn::Union{Missing, M
         end
     end
 
-    # TODO: this part needs to be redone
-    # if ismissing(chn_inits)
-    #     chn_inits = if chn.type == :BSC
-    #         _channel_init_BSC(w, chn.cross_over_prob)
-    #     elseif chn.type == :BAWGNC && kind == :SP
-    #         _channel_init_BAWGNC_SP(w, chn.sigma)
-    #     elseif chn.type == :BAWGNC && kind == :MS
-    #         _channel_init_BAWGNC_MS(w)
-    #     end
-    # end
-
-    chn_inits = [log((1 - chn.cross_over_prob) / chn.cross_over_prob) for _ in 1:num_var]
+    # TODO: what are proper inits for syndrome and erasures here?
+    if !syndrome_based && ismissing(chn_inits)
+        chn_inits = vec(_Flint_matrix_to_Julia_int_matrix(v))
+    elseif syndrome_based && ismissing(chn_inits)
+        chn_inits = [log((1 - chn.cross_over_prob) / chn.cross_over_prob) for _ in 1:num_var]
+    end
 
     # could reduce this stuff to UInt8 if needed
     current_bits = zeros(Int, num_var)
-    totals = zeros(Float64, num_var)
     syn = zeros(Int, num_check)
-    R = kind ∈ (:A, :B) ? Int : Float64
     if schedule == :flooding
-        check_to_var_messages = zeros(R, num_check, num_var, 2)
-        var_to_check_messages = zeros(R, num_var, num_check, 2)
+        check_to_var_messages = zeros(Int, num_check, num_var, 2)
+        var_to_check_messages = zeros(Int, num_var, num_check, 2)
     else
-        check_to_var_messages = zeros(R, num_check, num_var, 1)
-        var_to_check_messages = zeros(R, num_var, num_check, 1)
+        check_to_var_messages = zeros(Int, num_check, num_var, 1)
+        var_to_check_messages = zeros(Int, num_var, num_check, 1)
     end
 
+    # TODO
     if !isempty(erasures)
         all(1 ≤ bit ≤ num_var for bit in erasures) ||
             throw(ArgumentError("Invalid bit index in erasures"))
@@ -646,8 +663,8 @@ function _message_passing_init_syndrome(H::T, syndrome::T, chn::Union{Missing, M
         end
     end
 
-   return H_Int, syndrome_Int, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-       var_to_check_messages, current_bits, totals, syn
+    return H_Int, syndrome_based, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
+        var_to_check_messages, current_bits, syn
 end
 
 function _message_passing_init_decimation(H::T, v::T, chn::Union{Missing, MPNoiseModel},
@@ -750,98 +767,8 @@ end
       # Message Passing
 #############################
 
-# function _message_passing(H::Matrix{T}, w::Vector{T}, chn_inits::Union{Missing,
-#     Vector{Float64}}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-#     check_adj_list::Vector{Vector{Int}}, max_iter::Int, kind::Symbol, schedule::Symbol,
-#     current_bits::Vector{Int}, totals::Union{Vector{Int}, Vector{Float64}}, syn::Vector{Int},
-#     check_to_var_messages::Union{Array{Float64, 3}, Array{Int, 3}},
-#     var_to_check_messages::Union{Array{Float64, 3}, Array{Int, 3}}, Bt::Int,
-#     attenuation::Float64) where T <: Integer
-
-#     # the inclusion of the kind statements add less than a microsecond
-#     num_check, num_var = size(H)
-#     # first iteration for variable nodes - set to channel initialization
-#     if kind ∈ (:SP, :MS)
-#         @inbounds for v in 1:num_var
-#             var_to_check_messages[v, var_adj_list[v], 1] .= chn_inits[v]
-#         end
-#     elseif kind ∈ (:A, :B)
-#         # TODO: remove and set this to chn_inits
-#         @inbounds for v in 1:num_var
-#             var_to_check_messages[v, var_adj_list[v], :] .= w[v]
-#         end
-#     end
-
-#     iter = 1
-#     curr_iter = 1
-#     schedule == :flooding ? (prev_iter = 2;) : (prev_iter = 1;)
-#     # does this propagate correctly?
-#     @inbounds while iter ≤ max_iter
-#         # variable node is already done for first iteration, so start with check nodes
-#         @simd for c in 1:num_check
-#             for v in check_adj_list[c]
-#                 check_to_var_messages[c, v, curr_iter] = c_to_v_mess(c, v, curr_iter, 
-#                     check_adj_list, var_to_check_messages, attenuation)
-#             end
-#         end
-
-#         # one full iteration done, check if converged
-#         if kind ∈ (:SP, :MS)
-#             @simd for v in 1:num_var
-#                 totals[v] = chn_inits[v]
-#                 for c in var_adj_list[v]
-#                     totals[v] += check_to_var_messages[c, v, curr_iter]
-#                 end
-#                 current_bits[v] = totals[v] >= 0 ? 0 : 1
-#             end
-#         elseif kind ∈ (:A, :B)
-#             @simd for v in 1:num_var
-#                 len = length(var_adj_list[v])
-#                 one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
-#                 d = fld(len, 2)
-#                 current_bits[v] = one_count + (isone(w[v]) && iseven(len)) > d
-#             end
-#         end
-
-#         LinearAlgebra.mul!(syn, H, current_bits)
-#         iszero(syn .% 2) && return true, current_bits, iter, var_to_check_messages,
-#             check_to_var_messages
-#         iter += 1
-#         if schedule == :flooding
-#             temp = curr_iter
-#             curr_iter = prev_iter
-#             prev_iter = temp
-#         end
-
-#         if iter <= max_iter
-#             for v in 1:num_var
-#                 for c in var_adj_list[v]
-#                     if kind ∈ (:SP, :MS)
-#                         # this includes the channel inputs in total
-#                         var_to_check_messages[v, c, curr_iter] = totals[v] -
-#                             check_to_var_messages[c, v, prev_iter]
-#                     elseif kind == :A && length(var_adj_list[v]) > 1
-#                         if all(!Base.isequal(w[v]), check_to_var_messages[c2, v, prev_iter] for
-#                             c2 in var_adj_list[v] if c != c2)
-
-#                             var_to_check_messages[v, c, curr_iter] ⊻= 1
-#                         end
-#                     elseif kind == :B && length(var_adj_list[v]) >= Bt
-#                         if count(!Base.isequal(w[v]), check_to_var_messages[c2, v, prev_iter] for 
-#                             c2 in var_adj_list[v] if c != c2) >= Bt
-
-#                             var_to_check_messages[v, c, curr_iter] ⊻= 1
-#                         end
-#                     end
-#                 end
-#             end
-#         end
-#     end
-
-#     return false, current_bits, iter, var_to_check_messages, check_to_var_messages
-# end
- 
-function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}}, chn_inits::Vector{Float64}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
+function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
+    chn_inits::Vector{Float64}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
     check_adj_list::Vector{Vector{Int}}, max_iter::Int, schedule::Symbol,
     current_bits::Vector{Int}, totals::Vector{Float64}, syn::Vector{Int},
     check_to_var_messages::Array{Float64, 3}, var_to_check_messages::Array{Float64, 3},
@@ -856,10 +783,15 @@ function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}}, chn
         end
     end
 
-    @simd for c in 1:num_check
+    @inbounds @simd for c in 1:num_check
         for v in check_adj_list[c]
-            check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v,
+            if !ismissing(syndrome)
+                check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v,
                 1, check_adj_list, var_to_check_messages, attenuation)
+            else
+                check_to_var_messages[c, v, 1] = c_to_v_mess(c, v,
+                1, check_adj_list, var_to_check_messages, attenuation)
+            end
         end
     end
 
@@ -893,8 +825,13 @@ function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}}, chn
 
         @simd for c in 1:num_check
             for v in check_adj_list[c]
-                check_to_var_messages[c, v, curr_iter] = (-1)^syndrome[c] * c_to_v_mess(c, v,
-                curr_iter, check_adj_list, var_to_check_messages, attenuation)
+                if !ismissing(syndrome)
+                    check_to_var_messages[c, v, curr_iter] = (-1)^syndrome[c] * c_to_v_mess(c, v,
+                    curr_iter, check_adj_list, var_to_check_messages, attenuation)
+                else
+                    check_to_var_messages[c, v, curr_iter] = c_to_v_mess(c, v,
+                    curr_iter, check_adj_list, var_to_check_messages, attenuation)
+                end
             end
         end
     
@@ -925,98 +862,25 @@ function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}}, chn
     return false, current_bits, iter
 end
 
-# function _message_passing_syndrome(H::Matrix{T}, syndrome::Vector{T}, chn_inits::Vector{Float64}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-#     check_adj_list::Vector{Vector{Int}}, max_iter::Int, schedule::Symbol,
-#     current_bits::Vector{Int}, totals::Vector{Float64}, syn::Vector{Int},
-#     check_to_var_messages::Array{Float64, 3}, var_to_check_messages::Array{Float64, 3},
-#     attenuation::Float64) where T <: Integer
-
-#     num_check, num_var = size(H)
-
-#     # first iteration for variable nodes - set to channel initialization
-#     @inbounds for v in 1:num_var
-#         @simd for c in var_adj_list[v]
-#             var_to_check_messages[v, c, 1] = chn_inits[v]
-#         end
-#     end
-
-#     @simd for c in 1:num_check
-#         for v in check_adj_list[c]
-#             check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v,
-#                 1, check_adj_list, var_to_check_messages, attenuation)
-#         end
-#     end
-
-#     # one full iteration done, check if converged
-#     @simd for v in 1:num_var
-#         totals[v] = chn_inits[v]
-#         for c in var_adj_list[v]
-#             totals[v] += check_to_var_messages[c, v, 1]
-#         end
-#         current_bits[v] = totals[v] >= 0 ? 0 : 1
-#     end
-#     LinearAlgebra.mul!(syn, H, current_bits)
-#     all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
-
-#     iter = 2
-#     schedule == :flooding ? (curr_iter = 2;) : (curr_iter = 1;)
-#     prev_iter = 1
-#     # does this propagate correctly?
-#     @inbounds while iter ≤ max_iter
-#         @simd for v in 1:num_var
-#             for c in var_adj_list[v]
-#                 # this includes the channel inputs in total
-#                 var_to_check_messages[v, c, curr_iter] = totals[v] -
-#                     check_to_var_messages[c, v, prev_iter]
-#             end
-#         end
-
-#         @simd for c in 1:num_check
-#             for v in check_adj_list[c]
-#                 check_to_var_messages[c, v, curr_iter] = (-1)^syndrome[c] * c_to_v_mess(c, v,
-#                 curr_iter, check_adj_list, var_to_check_messages, attenuation)
-#             end
-#         end
-    
-#         # iteration done, check if converged
-#         @simd for v in 1:num_var
-#             totals[v] = chn_inits[v]
-#             for c in var_adj_list[v]
-#                 totals[v] += check_to_var_messages[c, v, curr_iter]
-#             end
-#             current_bits[v] = totals[v] >= 0 ? 0 : 1
-#         end
-    
-#         LinearAlgebra.mul!(syn, H, current_bits)
-#         all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
-#         if schedule == :flooding
-#             temp = curr_iter
-#             curr_iter = prev_iter
-#             prev_iter = temp
-#         end
-#         iter += 1
-#     end
-
-#     return false, current_bits, iter
-# end
-
-function _message_passing_syndrome_Int(H::Matrix{T}, syndrome::Vector{T}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-    check_adj_list::Vector{Vector{Int}}, max_iter::Int, kind::Symbol, schedule::Symbol,
-    current_bits::Vector{Int}, totals::Vector{Int}, syn::Vector{Int},
-    check_to_var_messages::Array{Int, 3},
-    var_to_check_messages::Array{Int, 3}, Bt::Int) where T <: Integer
+# significant speedups seperating the float and int code
+function _message_passing_Int(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
+    c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}}, check_adj_list::Vector{Vector{Int}},
+    max_iter::Int, kind::Symbol, schedule::Symbol, current_bits::Vector{Int},
+    syn::Vector{Int}, check_to_var_messages::Array{Int, 3}, var_to_check_messages::Array{Int, 3},
+    Bt::Int) where T <: Integer
 
     num_check, num_var = size(H)
 
     # first iteration for variable nodes - set to channel initialization
     @inbounds for v in 1:num_var
         @simd for c in var_adj_list[v]
-            var_to_check_messages[v, c, 1] = w[v]
+            var_to_check_messages[v, c, 1] = chn_inits[v]
         end
     end
 
     @simd for c in 1:num_check
         for v in check_adj_list[c]
+            # TODO: doesn't make sense for Gallager
             check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v,
                 1, check_adj_list, var_to_check_messages, attenuation)
         end
@@ -1027,10 +891,14 @@ function _message_passing_syndrome_Int(H::Matrix{T}, syndrome::Vector{T}, c_to_v
         len = length(var_adj_list[v])
         one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
         d = fld(len, 2)
-        current_bits[v] = one_count + (isone(w[v]) && iseven(len)) > d
+        current_bits[v] = one_count + (isone(chn_inits[v]) && iseven(len)) > d
     end
     LinearAlgebra.mul!(syn, H, current_bits)
-    all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
+    if !ismissing(syndrome)
+        all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
+    else
+        all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, 1 
+    end
 
     iter = 2
     schedule == :flooding ? (curr_iter = 2;) : (curr_iter = 1;)
@@ -1064,15 +932,19 @@ function _message_passing_syndrome_Int(H::Matrix{T}, syndrome::Vector{T}, c_to_v
     
         # iteration done, check if converged
         @simd for v in 1:num_var
-            totals[v] = w[v]
-            for c in var_adj_list[v]
-                totals[v] += check_to_var_messages[c, v, curr_iter]
-            end
-            current_bits[v] = totals[v] >= 0 ? 0 : 1
+            len = length(var_adj_list[v])
+            one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
+            d = fld(len, 2)
+            current_bits[v] = one_count + (isone(chn_inits[v]) && iseven(len)) > d
         end
     
         LinearAlgebra.mul!(syn, H, current_bits)
-        all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
+        if !ismissing(syndrome)
+            all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
+        else
+            all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, 1 
+        end        
+        
         if schedule == :flooding
             temp = curr_iter
             curr_iter = prev_iter
