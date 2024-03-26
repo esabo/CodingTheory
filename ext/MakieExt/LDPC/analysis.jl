@@ -16,12 +16,12 @@ Return a plot of the EXIT chart for the ensemble given the channel up to a numer
 # Note
 - Run `using Makie` to activate this extension.
 """
-function EXIT_chart_plot(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64 = 1e-9)
+function CodingTheory.EXIT_chart_plot(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64 = 1e-9)
     @assert isa(Ch, BinaryErasureChannel) "Only BEC is implemented so far"
     x = 0:0.01:1
-    c = 1 .- [_poly_eval(x, E.ρ) for x in 1 .- x]
-    v = Ch.param .* [_poly_eval(x, E.λ) for x in x]
-    Ch ∈ keys(E.density_evo) || _density_evolution!(E, Ch)
+    c = 1 .- [CodingTheory._poly_eval(x, E.ρ) for x in 1 .- x]
+    v = Ch.param .* [CodingTheory._poly_eval(x, E.λ) for x in x]
+    Ch ∈ keys(E.density_evo) || CodingTheory._density_evolution!(E, Ch)
     evo_x, evo_y = E.density_evo[Ch]
     ind = findfirst(evo_x .<= tol)
     title = if isnothing(ind)

@@ -16,7 +16,7 @@ Return a bar plot of the column and row degree distributions of `C`.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function degree_distributions_plot(C::AbstractLDPCCode)
+function CodingTheory.degree_distributions_plot(C::AbstractLDPCCode)
     cols, rows = degree_distributions(C)
 
     occurs_cols = [(i, count(==(i), cols)) for i in unique(cols)]
@@ -44,7 +44,7 @@ function degree_distributions_plot(C::AbstractLDPCCode)
 end
 
 """
-    count_short_cycles_plot(C::LDPCCode)
+    count_short_cycles_plot(C::AbstractLDPCCode)
 
 Return a bar graph and a dictionary of (length, count) pairs for unique short
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -55,9 +55,9 @@ when there are no cycles.
   where ``g`` is the girth.
 - Run `using Makie` to activate this extension.
 """
-function count_short_cycles_plot(C::LDPCCode)
+function CodingTheory.count_short_cycles_plot(C::AbstractLDPCCode)
     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        _count_cycles(C)
+        CodingTheory._count_cycles(C)
     end
     
     len = length(C.short_cycle_counts)
@@ -82,7 +82,7 @@ function count_short_cycles_plot(C::LDPCCode)
 end
 
 """
-    count_elementary_cycles_plot(C::LDPCCode)
+    count_elementary_cycles_plot(C::AbstractLDPCCode)
 
 Return a bar graph and a dictionary of (length, count) pairs for unique elementary
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -93,9 +93,9 @@ when there are no cycles.
   decomposed into a sequence of shorter cycles.
 - Run `using Makie` to activate this extension.
 """
-function count_elementary_cycles_plot(C::LDPCCode)
+function CodingTheory.count_elementary_cycles_plot(C::AbstractLDPCCode)
     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        _count_cycles(C)
+        CodingTheory._count_cycles(C)
     end
 
     len = length(C.elementary_cycle_counts)
@@ -120,14 +120,14 @@ function count_elementary_cycles_plot(C::LDPCCode)
 end
 
 """
-    ACE_spectrum(C::LDPCCode)
+    ACE_spectrum(C::AbstractLDPCCode)
 
 Return an interactive figure and data for the ACE spectrum of the Tanner graph of `C`.
 
 # Note
 - Run `using Makie` to activate this extension.
 """
-function ACE_spectrum_plot(C::LDPCCode) 
+function CodingTheory.ACE_spectrum_plot(C::AbstractLDPCCode) 
     # TODO: remove WGLMakie as a default use and only use for interactive plots
     fig = Figure();
     ax = Axis(fig[1, 1], xlabel = "ACE", ylabel = "Occurrences", title = "ACE Spectrum")
@@ -171,7 +171,7 @@ end
 # doesn't seem to be a point in making this dynamic with a slider, as it simply
 # continues in the same tree shape and no useful information is gained from watching it
 """
-    computation_graph(C::LDPCCode, lvl::Int, v::Int, v_type::Symbol=:v)
+    computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol=:v)
 
 Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
 for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherwise,
@@ -180,7 +180,7 @@ for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherw
 # Note
 - Run `using Makie` to activate this extension.
 """
-function computation_graph(C::LDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
+function CodingTheory.computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
     v_type ∈ (:v, :c) || throw(ArgumentError("Unknown argument for v_type"))
     if v_type == :v
         1 <= v <= C.n || throw(DomainError("Variable node index must be between 1 and length(C)"))
@@ -189,7 +189,7 @@ function computation_graph(C::LDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
     end
     lvl > 0 || throw(DomainError("Graph recipe requires at least one level"))
 
-    check_adj_list, var_adj_list = _node_adjacencies(C.H)
+    check_adj_list, var_adj_list = CodingTheory._node_adjacencies(C.H)
     G = SimpleDiGraph()
     labels = Vector{String}()
     colors = Vector{Symbol}()

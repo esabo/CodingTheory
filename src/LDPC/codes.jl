@@ -277,14 +277,14 @@ Return a bar plot of the column and row degree distributions of `C`.
 function degree_distributions_plot end
 
 """
-    girth(C::LDPCCode; max_iter::Int = 100)
+    girth(C::AbstractLDPCCode; max_iter::Int = 100)
 
 Return the girth of the Tanner graph of `C`.
 
 An error is thrown if the maximum number of iterations is reached and
 ``-1`` is returned to represent infinite girth.
 """
-function girth(C::LDPCCode; max_iter::Int = 100)
+function girth(C::AbstractLDPCCode; max_iter::Int = 100)
     check_adj_list, var_adj_list = _node_adjacencies(C.H)
     girth_arr = zeros(Int, C.n)
     Threads.@threads for vn in 1:C.n
@@ -346,16 +346,16 @@ end
 # TODO: degree 1 nodes
 # why did I make this note? is ACE defined for them differently?
 """
-    shortest_cycle_ACE(C::LDPCCode, v::Int)
-    shortest_cycle_ACE(C::LDPCCode, vs::Vector{Int})
-    shortest_cycle_ACE(C::LDPCCode)
+    shortest_cycle_ACE(C::AbstractLDPCCode, v::Int)
+    shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
+    shortest_cycle_ACE(C::AbstractLDPCCode)
 
 Return a cycle of minimum length and minimum ACE in the Tanner graph of `C`
 for the vertex `v` or vertices `vs`, in the order (ACEs, cycles). If no vertices
 are given, all vertices are computed by default. The cycle `v1 -- c1 -- ... -- 
 cn -- vn` is returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
 """
-function shortest_cycle_ACE(C::LDPCCode, vs::Vector{Int})
+function shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
     isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
     all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
 
@@ -522,13 +522,13 @@ function shortest_cycle_ACE(C::LDPCCode, vs::Vector{Int})
 
     return vs_ACE, cycles_vs
 end
-shortest_cycle_ACE(C::LDPCCode, v::Int) = shortest_cycle_ACE(C, [v])[1]
-shortest_cycle_ACE(C::LDPCCode) = shortest_cycle_ACE(C, collect(1:C.n))
+shortest_cycle_ACE(C::AbstractLDPCCode, v::Int) = shortest_cycle_ACE(C, [v])[1]
+shortest_cycle_ACE(C::AbstractLDPCCode) = shortest_cycle_ACE(C, collect(1:C.n))
 
 """
-    shortest_cycles(C::LDPCCode, v::Int)
-    shortest_cycles(C::LDPCCode, vs::Vector{Int})
-    shortest_cycles(C::LDPCCode)
+    shortest_cycles(C::AbstractLDPCCode, v::Int)
+    shortest_cycles(C::AbstractLDPCCode, vs::Vector{Int})
+    shortest_cycles(C::AbstractLDPCCode)
 
 Return all the cycles of shortest length in the Tanner graph of `C` for the vertex `v` or
 vertices `vs`. If no vertices are given, all vertices are computed by default.
@@ -537,7 +537,7 @@ vertices `vs`. If no vertices are given, all vertices are computed by default.
 - The length of the shortest cycle is not necessarily the same for each vertex.
 - To reduce computational complexity, the same cycle may appear under each vertex in the cycle.
 """
-function shortest_cycles(C::LDPCCode, vs::Vector{Int})
+function shortest_cycles(C::AbstractLDPCCode, vs::Vector{Int})
     # display(vs)
     shortest_cycle_ACE(C, vs)
     return C.shortest_cycles[vs]
@@ -671,9 +671,9 @@ function shortest_cycles(C::LDPCCode, vs::Vector{Int})
     # end
     # return cycles_vs
 end
-shortest_cycles(C::LDPCCode, v::Int) = shortest_cycles(C, [v])[1]
-shortest_cycles(C::LDPCCode) = shortest_cycles(C, collect(1:C.n))
-# function shortest_cycles(C::LDPCCode)
+shortest_cycles(C::AbstractLDPCCode, v::Int) = shortest_cycles(C, [v])[1]
+shortest_cycles(C::AbstractLDPCCode) = shortest_cycles(C, collect(1:C.n))
+# function shortest_cycles(C::AbstractLDPCCode)
     # cycles = shortest_cycles(C, collect(1:C.n))
     # girth = minimum([minimum([length(cycle) for cycle in cycles[i]]) for i in 1:C.n])
     # if ismissing(C.girth)
@@ -709,7 +709,7 @@ function _progressive_node_adjacencies(H::CTMatrixTypes, vs::Vector{Int}, v_type
     return check_adj_lists, var_adj_lists
 end
 
-function _count_cycles(C::LDPCCode)
+function _count_cycles(C::AbstractLDPCCode)
     check_adj_lists, var_adj_lists = _progressive_node_adjacencies(C.H, collect(1:C.n), :v)
     lengths = [Vector{Int}() for _ in 1:C.n]
     Threads.@threads for i in 1:C.n
@@ -797,7 +797,7 @@ function _count_cycles(C::LDPCCode)
 end
 
 """
-    count_short_cycles(C::LDPCCode)
+    count_short_cycles(C::AbstractLDPCCode)
 
 Return a dictionary of (length, count) pairs for unique short
 cycles in the Tanner graph of `C`. An empty dictionary is returned
@@ -807,7 +807,7 @@ when there are no cycles.
 - Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
   where ``g`` is the girth.
 """
-function count_short_cycles(C::LDPCCode)
+function count_short_cycles(C::AbstractLDPCCode)
     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
         _count_cycles(C)
     end
@@ -815,7 +815,7 @@ function count_short_cycles(C::LDPCCode)
 end
 
 """
-    count_short_cycles_plot(C::LDPCCode)
+    count_short_cycles_plot(C::AbstractLDPCCode)
 
 Return a bar graph and a dictionary of (length, count) pairs for unique short
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -829,7 +829,7 @@ when there are no cycles.
 function count_short_cycles_plot end
 
 """
-    count_elementary_cycles(C::LDPCCode)
+    count_elementary_cycles(C::AbstractLDPCCode)
 
 Return a dictionary of (length, count) pairs for unique elementary
 cycles in the Tanner graph of `C`. An empty dictionary is returned
@@ -839,7 +839,7 @@ when there are no cycles.
 - Elementary cycles do not contain the same vertex twice and are unable to be
   decomposed into a sequence of shorter cycles.
 """
-function count_elementary_cycles(C::LDPCCode)
+function count_elementary_cycles(C::AbstractLDPCCode)
     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
         _count_cycles(C)
     end
@@ -847,7 +847,7 @@ function count_elementary_cycles(C::LDPCCode)
 end
 
 """
-    count_elementary_cycles_plot(C::LDPCCode)
+    count_elementary_cycles_plot(C::AbstractLDPCCode)
 
 Return a bar graph and a dictionary of (length, count) pairs for unique elementary
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -861,14 +861,14 @@ when there are no cycles.
 function count_elementary_cycles_plot end
 
 """
-    ACE_distribution(C::LDPCCode, v::Int)
-    ACE_distribution(C::LDPCCode, vs::Vector{Int})
-    ACE_distribution(C::LDPCCode)
+    ACE_distribution(C::AbstractLDPCCode, v::Int)
+    ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
+    ACE_distribution(C::AbstractLDPCCode)
 
 Return the ACEs and cycle lengths for vertex `v` or vertices `vs` of the Tanner graph
 of `C`. If no vertices are given, all vertices are computed by default.
 """
-function ACE_distribution(C::LDPCCode, vs::Vector{Int})
+function ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
     # using the original DFS approach constructs a significantly larger tree than this truncated BFS approach
 
     isempty(vs) && throw(ArgumentError("Input node list cannot be empty"))
@@ -954,50 +954,50 @@ function ACE_distribution(C::LDPCCode, vs::Vector{Int})
 
     return vs_ACEs, lengths
 end
-function ACE_distribution(C::LDPCCode, v::Int)
+function ACE_distribution(C::AbstractLDPCCode, v::Int)
     vs_ACE, lengths = ACE_distribution(C, [v])
     return vs_ACE[1], lengths[1]
 end
 
 # TODO: plots
-ACE_distribution(C::LDPCCode) = ACE_distribution(C, collect(1:C.n))
+ACE_distribution(C::AbstractLDPCCode) = ACE_distribution(C, collect(1:C.n))
 
 """
-    average_ACE_distribution(C::LDPCCode, v::Int)
-    average_ACE_distribution(C::LDPCCode, vs::Vector{Int})
-    average_ACE_distribution(C::LDPCCode)
+    average_ACE_distribution(C::AbstractLDPCCode, v::Int)
+    average_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
+    average_ACE_distribution(C::AbstractLDPCCode)
 
 Return the average ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
 vertices are given, all vertices are computed (individually) by default.
 """
-function average_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+function average_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
     vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
     isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
     return [mean(C.ACEs_per_var_node[v]) for v in vs]
 end
-average_ACE_distribution(C::LDPCCode, v::Int) = average_ACE_distribution(C, [v])[1]
-average_ACE_distribution(C::LDPCCode) = average_ACE_distribution(C, collect(1:C.n))
+average_ACE_distribution(C::AbstractLDPCCode, v::Int) = average_ACE_distribution(C, [v])[1]
+average_ACE_distribution(C::AbstractLDPCCode) = average_ACE_distribution(C, collect(1:C.n))
 
 """
-    median_ACE_distribution(C::LDPCCode, v::Int)
-    median_ACE_distribution(C::LDPCCode, vs::Vector{Int})
-    median_ACE_distribution(C::LDPCCode)
+    median_ACE_distribution(C::AbstractLDPCCode, v::Int)
+    median_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
+    median_ACE_distribution(C::AbstractLDPCCode)
 
 Return the median ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
 vertices are given, all vertices are computed (individually) by default.
 """
-function median_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+function median_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
     vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
     isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
     return [median(C.ACEs_per_var_node[v]) for v in vs]
 end
-median_ACE_distribution(C::LDPCCode, v::Int) = median_ACE_distribution(C, [v])[1]
-median_ACE_distribution(C::LDPCCode) = median_ACE_distribution(C, collect(1:C.n))
+median_ACE_distribution(C::AbstractLDPCCode, v::Int) = median_ACE_distribution(C, [v])[1]
+median_ACE_distribution(C::AbstractLDPCCode) = median_ACE_distribution(C, collect(1:C.n))
 
 """
-    mode_ACE_distribution(C::LDPCCode, v::Int)
-    mode_ACE_distribution(C::LDPCCode, vs::Vector{Int})
-    mode_ACE_distribution(C::LDPCCode)
+    mode_ACE_distribution(C::AbstractLDPCCode, v::Int)
+    mode_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
+    mode_ACE_distribution(C::AbstractLDPCCode)
 
 Return the mode ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
 vertices are given, all vertices are computed (individually) by default.
@@ -1005,20 +1005,20 @@ vertices are given, all vertices are computed (individually) by default.
 # Note
 - In case of ties, the smallest tied value is returned.
 """
-function mode_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+function mode_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
     vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
     isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
     return [StatsBase.mode(sort(C.ACEs_per_var_node[v])) for v in vs]
 end
-mode_ACE_distribution(C::LDPCCode, v::Int) = mode_ACE_distribution(C, [v])[1]
-mode_ACE_distribution(C::LDPCCode) = mode_ACE_distribution(C, collect(1:C.n))
+mode_ACE_distribution(C::AbstractLDPCCode, v::Int) = mode_ACE_distribution(C, [v])[1]
+mode_ACE_distribution(C::AbstractLDPCCode) = mode_ACE_distribution(C, collect(1:C.n))
 
 """
-    ACE_spectrum(C::LDPCCode)
+    ACE_spectrum(C::AbstractLDPCCode)
 
 Return the ACE spectrum of the Tanner graph of `C`.
 """
-function ACE_spectrum(C::LDPCCode)
+function ACE_spectrum(C::AbstractLDPCCode)
     vs_ACEs, lengths = ACE_distribution(C, collect(1:C.n))
     # (false) spectrum: how many nodes have that ACE for that length
     # (true) spectrum: for a given length 4 <= l <= maximum(variabledegreedistribution(C)),
@@ -1054,7 +1054,7 @@ function ACE_spectrum(C::LDPCCode)
 end
 
 """
-    ACE_spectrum_plot(C::LDPCCode)
+    ACE_spectrum_plot(C::AbstractLDPCCode)
 
 Return an interactive figure and data for the ACE spectrum of the Tanner graph of `C`.
 
@@ -1064,7 +1064,7 @@ Return an interactive figure and data for the ACE spectrum of the Tanner graph o
 function ACE_spectrum_plot end
 
 """
-    computation_graph(C::LDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
+    computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
 
 Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
 for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherwise,

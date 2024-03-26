@@ -21,7 +21,9 @@ stabilizers is computed.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabilizer)
+function CodingTheory.weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto,
+    type::Symbol = :stabilizer)
+
     type ∈ (:stabilizer, :normalizer, :quotient) || throw(ArgumentError("Unknown value $type for parameter type."))
 
     wt_dist = weight_distribution(S, alg = alg, type = type, compact = false)
@@ -54,7 +56,7 @@ Return a bar graph of the weight distribution of the `X` stabilizers.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+function CodingTheory.weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
     C = LinearCode(S.X_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
@@ -78,7 +80,7 @@ Return a bar graph of the weight distribution of the `Z` stabilizers.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+function CodingTheory.weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
     C = LinearCode(S.Z_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
@@ -102,10 +104,10 @@ Return bar graphs of the weight distribution of both the `X` and 'Z' stabilizers
 # Note
 - Run `using Makie` to activate this extension.
 """
-function weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+function CodingTheory.weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
     C = LinearCode(S.X_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
+    x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
     y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
     fig = Figure()
     ax1 = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms",
@@ -118,7 +120,7 @@ function weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
     # okay to overwrite
     C = LinearCode(S.Z_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
+    x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
     y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
     ax2 = Axis(fig[1, 2], xlabel = "Weight", ylabel = "Number of Terms",
         title = "Z-Weight Distribution")

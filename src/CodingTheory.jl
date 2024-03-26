@@ -7,7 +7,6 @@
 module CodingTheory
 
 using AutoHashEquals
-# using CairoMakie, NetworkLayout, GraphMakie, GLMakie, WGLMakie, Graphs
 using Graphs
 import Graphs as Grphs
 # using Plots

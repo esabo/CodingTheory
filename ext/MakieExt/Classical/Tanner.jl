@@ -12,9 +12,9 @@ Return the Tanner graph of the matrix `H` as a `Figure` object.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function Tanner_graph_plot(H::Union{T, Matrix{Int}}) where T <: CodingTheory.CTMatrixTypes
+function CodingTheory.Tanner_graph_plot(H::Union{CodingTheory.CTMatrixTypes, Matrix{Int}}) 
     # convert H to A
-    M = _Flint_matrix_to_Julia_int_matrix(H)
+    M = CodingTheory._Flint_matrix_to_Julia_int_matrix(H)
     nr, nc = size(M)
     A = zeros(Int, nr + nc, nr + nc)
     # put in top right corner in order to get parents, children working
