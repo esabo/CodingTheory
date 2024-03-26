@@ -24,8 +24,18 @@ function LDPCEnsemble(λ::PolyRingElem, ρ::PolyRingElem)
     design_rate = Float64(1 - l_avg / r_avg)
     density_evo = Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}()
     threshold = Dict{Type, Float64}()
-    return LDPCEnsemble(λ, ρ, L, R, Float64(l_avg), Float64(r_avg), design_rate, density_evo, threshold)
+    return LDPCEnsemble(λ, ρ, L, R, Float64(l_avg), Float64(r_avg), design_rate, density_evo,
+        threshold)
 end
+
+# TODO: ERROR: MethodError: no method matching LDPCEnsemble(::QQPolyRingElem, ::QQPolyRingElem)
+"""
+    LDPCEnsemble(L::AbstractLDPCCode)
+
+Return the LDPC ensemble determined by the variable degree distribution `λ` and the check
+degree distribution `ρ` of `L`, both from an edge perspective.
+"""
+LDPCEnsemble(L::AbstractLDPCCode) = LDPCEnsemble(L.λ, L.ρ)
 
 #############################
       # getter functions
@@ -120,29 +130,14 @@ function _density_evolution_BEC(λ::Vector{<:Real}, ρ::Vector{<:Real}, ε::Real
 end
 
 """
-    plot_EXIT_chart(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64=1e-9)
+    EXIT_chart_plot(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64 = 1e-9)
 
 Return a plot of the EXIT chart for the ensemble given the channel up to a numerical tolerance of `tol`.
+
+# Note
+- Run `using Makie` to activate this extension.
 """
-function plot_EXIT_chart(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64=1e-9)
-    @assert isa(Ch, BinaryErasureChannel) "Only BEC is implemented so far"
-    x = 0:0.01:1
-    c = 1 .- [_poly_eval(x, E.ρ) for x in 1 .- x]
-    v = Ch.param .* [_poly_eval(x, E.λ) for x in x]
-    Ch ∈ keys(E.density_evo) || _density_evolution!(E, Ch)
-    evo_x, evo_y = E.density_evo[Ch]
-    ind = findfirst(evo_x .<= tol)
-    title = if isnothing(ind)
-        "Failed to converge after $(length(evo_x) - 1) iterations (tol = $tol)"
-    else
-        "Converged after $(ind - 1) iterations (tol = $tol), \$\\varepsilon = $(Ch.param)\$"
-    end
-    p = plot(x, c, label = "\$c(x)\$")
-    plot!(p, v, x, label = "\$v_{\\varepsilon}^{-1}(x)\$")
-    plot!(p, evo_x[1:ind], evo_y[1:ind], seriestype=:steppre, linestyle=:dash, linecolor=:black, label=false)
-    plot!(p, legend=:bottomright, xlims = (0, min(1, Ch.param * 1.2)), ylims = (0, 1), title=title)
-    return p
-end
+function EXIT_chart_plot end
 
 # TODO: what else should we accept here and under which do we want to store this and threshold?
 """

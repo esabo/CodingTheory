@@ -7,9 +7,10 @@
 module CodingTheory
 
 using AutoHashEquals
-using CairoMakie, NetworkLayout, GraphMakie, GLMakie, WGLMakie, Graphs
+# using CairoMakie, NetworkLayout, GraphMakie, GLMakie, WGLMakie, Graphs
+using Graphs
 import Graphs as Grphs
-using Plots
+# using Plots
 # import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
 using Combinatorics
@@ -30,7 +31,6 @@ import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols,
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
-import CairoMakie: save
 import Combinatorics: powerset
 import DataStructures: capacity
 
@@ -138,7 +138,8 @@ export variable_degree_distribution, check_degree_distribution,
     check_degree_polynomial, column_row_bounds, limited, regular_LDPC_code,
     shortest_cycle_ACE, shortest_cycles, computation_graph, ACE_distribution,
     ACE_spectrum, count_short_cycles, average_ACE_distribution,
-    median_ACE_distribution, mode_ACE_distribution, girth, count_elementary_cycles
+    median_ACE_distribution, mode_ACE_distribution, girth, count_elementary_cycles,
+    count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph
 
 #############################
         # LDPCalgs.jl
@@ -184,7 +185,7 @@ export BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, BAWGNChannel,
 include("LDPC/analysis.jl")
 
 export LDPCEnsemble, erasure_probability, crossover_probability, standard_deviation, variance,
-    type, density_evolution, density_evolution!, plot_EXIT_chart, multiplicative_gap,
+    type, density_evolution, density_evolution!, EXIT_chart_plot, multiplicative_gap,
     multiplicative_gap_lower_bound, density_lower_bound, check_concentrated_degree_distribution
 
 #############################

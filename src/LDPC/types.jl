@@ -40,7 +40,8 @@ mutable struct LDPCCode <: AbstractLDPCCode
     limited::Int
     density::Float64
     is_reg::Bool
-    Tanner_graph::Union{Figure, Missing}
+    # Tanner_graph::Union{Figure, Missing}
+    Tanner_graph::Missing
     λ::fmpq_poly
     ρ::fmpq_poly
     girth::Union{Int, Missing}

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, Eric Sabo, Benjamin Ide, Michael Vasmer
+# Copyright (c) 2022 Eric Sabo, Benjamin Ide, Michael Vasmer
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -91,9 +91,9 @@ struct GrayCode
     mutate::Bool
 end
 
-GrayCode(n::Int, k::Int; mutate=false) = GrayCode(n, k, Int[], mutate=mutate)
+GrayCode(n::Int, k::Int; mutate::Bool = false) = GrayCode(n, k, Int[]; mutate = mutate)
 
-function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate=false)
+function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate::Bool = false)
     GrayCode(n, k, n - length(prefix), k - count(prefix .!= 0), prefix,
         length(prefix), mutate)
 end
@@ -181,11 +181,11 @@ end
 
 # TODO: fix doc string
 """
-    Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int)
+    Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::Int =  2, max_iters::Int = 50000)
 
 Search for codewords of `C` of weight `w` using Stern's attack and return any found.
 """
-function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int, num_find::Int=2, max_iters::Int=50000)
+function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::Int =  2, max_iters::Int = 50000)
     # requires 2 * x = 0
     Int(order(C.F)) == 2 || throw(ArgumentError("Only valid for binary codes."))
     if !ismissing(C.d)
@@ -196,7 +196,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int, num_find::
     1 <= p <= ceil(C.k / 2) || throw(ArgumentError("p must be between 1 and k/2"))
 
     # G = generator_matrix(C, true)
-    H = paritycheckmatrix(C, true)
+    H = parity_check_matrix(C, true)
     nr, nc = size(H)
     # nr, nc = size(G)
     1 <= l <= nr || throw(ArgumentError("l must be between 1 and n - k"))
@@ -392,22 +392,21 @@ end
 # 7. decoding attacks from thesis
 
 # TODO: this does not produce the optimal set of matrices
-# TODO: switch to symbols instead of strings
 # see section 7.3 of White's thesis for comments on this
-function _get_information_sets(G::CTMatrixTypes, alg::String)
-    # alg ∈ ["Brouwer", "Zimmermann", "White", "Chen"] || throw(ArgumentError("Expected 'Brouwer', 'Zimmermann', or 'White'."))
+function _get_information_sets(G::CTMatrixTypes, alg::Symbol)
+    # alg ∈ (:Brouwer, :Zimmermann, :White, :Chen) || throw(ArgumentError("Expected :Brouwer, :Zimmermann, :White, or :Chen."))
     nr, nc = size(G)
     gen_mats = []
     # Gi = deepcopy(G)
     rnk = nr
-    if alg == "Brouwer"
+    if alg == :Brouwer
         for i in 0:Int(floor(nc / nr)) - 1
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
             push!(gen_mats, (rnk, Gi, Pi))
             # Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
             # push!(gen_mats, Ai)
         end
-    elseif alg == "Zimmermann"
+    elseif alg == :Zimmermann
         for i in 0:Int(floor(nc / nr))
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
             push!(gen_mats, (rnk, Gi, Pi))
@@ -418,7 +417,7 @@ function _get_information_sets(G::CTMatrixTypes, alg::String)
             # println(" ")
             # push!(gen_mats, (rnk, Ai))
         end
-    elseif alg == "White"
+    elseif alg == :White
         # TODO: this is not true when the parity-check matrix is true
         # the expansion factor of the code
         for i in 0:div(nc, nr) - 1
@@ -428,7 +427,7 @@ function _get_information_sets(G::CTMatrixTypes, alg::String)
             # println(rnk)
             push!(gen_mats, (rnk, Gi, Pi))
         end
-    elseif alg == "Chen"
+    elseif alg == :Chen
         # should remove this in the future as this should simply be (k, Gstand, P)
         rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, 1:nc)
         push!(gen_mats, (rnk, Gi, Pi))
@@ -436,17 +435,16 @@ function _get_information_sets(G::CTMatrixTypes, alg::String)
     return gen_mats
 end
 
-# TODO: switch to symbols instead of strings
-@inline function _lower_bounds(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int}, type::String)
-    if type == "BZ"
+@inline function _lower_bounds(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int}, type::Symbol)
+    if type == :BZ
         h = length(rank_defs)
         lower = 0
         for i in 1:h
             lower += maximum([0, r - rank_defs[i]])
         end
-    elseif type == "Chen"
+    elseif type == :Chen
         lower = Int(ceil(n * r / k))
-    elseif type == "White"
+    elseif type == :White
         lower = 0
         for i in 1:l
 	        lower += Int(ceil(n * maximum([0, r - rank_defs[i]]) / (l * (k + rank_defs[i]))))
@@ -455,19 +453,19 @@ end
     return lower
 end
 
+# In the thesis, the h and GrayCode for loops are switched. This seems inefficient
+# but does allow one to update the lower bound using a single matrix after every
+# GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
+# once will overcome this. Could be tested though.
 """
-    Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
+    Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false)
 
 Return the minimum distance of `C` using a deterministic algorithm based on enumerating
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
 is found before the lower and upper bounds cross, it is returned; otherwise, `missing`
 is returned.
 """
-# In the thesis, the h and GrayCode for loops are switched. This seems inefficient
-# but does allow one to update the lower bound using a single matrix after every
-# GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
-# once will overcome this. Could be tested though.
-function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
+function Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false)
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
 
@@ -480,13 +478,13 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
     parity_check_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, "Chen")
+        gen_mats = _get_information_sets(G, :Chen)
     # TODO: fix this case
     # elseif typeof(C) <: AbstractQuasiCyclicCode
     #     verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-    #     gen_mats = _get_information_sets(G, "White")
+    #     gen_mats = _get_information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, "Zimmermann")
+        gen_mats = _get_information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [deepcopy(_Flint_matrix_to_Julia_int_matrix(x[2])') for x in gen_mats]
     h = length(gen_mats_Julia)
@@ -544,13 +542,13 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
 
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
-            new_lower = _lower_bounds(r, C.n, C.k, 0, [0], "Chen")
+            new_lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
             C.l_bound < new_lower && (C.l_bound = new_lower;)
         # elseif typeof(C) <: AbstractQuasiCyclicCode
-        #     new_lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
+        #     new_lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, :White)
         #     C.l_bound < new_lower && (C.l_bound = new_lower;)
         else
-            new_lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, "BZ")
+            new_lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, :BZ)
             C.l_bound < new_lower && (C.l_bound = new_lower;)
         end
         # an even code can't have have an odd minimum weight
@@ -631,11 +629,11 @@ function Gray_code_minimum_distance(C::AbstractLinearCode, verbose::Bool=false)
 end
 
 """
-    words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verbose::Bool=false)
+    words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
 
 Return all the codewords of `C` of Hamming weight in the range `[l_bound, u_bound]`.
 """
-function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verbose::Bool=false)
+function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
 
@@ -649,12 +647,12 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verb
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, "Chen")
+        gen_mats = _get_information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, "White")
+        gen_mats = _get_information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, "Zimmermann")
+        gen_mats = _get_information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
@@ -695,11 +693,11 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verb
     W = Set{typeof(G)}()
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
-            lower = _lower_bounds(r, C.n, C.k, 0, [0], "Chen")
+            lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
-            lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
+            lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, :White)
         else
-            lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, "BZ")
+            lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, :BZ)
         end
         # an even code can't have have an odd minimum weight
         (!triply_even_flag && !doubly_even_flag && even_flag) && (lower += lower % 2;)
@@ -739,25 +737,27 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verb
 end
 
 """
-    words_of_weight(C::AbstractLinearCode, bound::Int, verbose::Bool=false)
+    words_of_weight(C::AbstractLinearCode, bound::Int; verbose::Bool = false)
 
 Return all the codewords of `C` of Hamming weight `bound`.
 """
-words_of_weight(C::AbstractLinearCode, bound::Int, verbose::Bool=false) = words_of_weight(C, bound, bound, verbose)
+words_of_weight(C::AbstractLinearCode, bound::Int; verbose::Bool = false) = words_of_weight(C, bound, bound, verbose = verbose)
 
 # untested
 # TODO: figure out if even weight upper weight needs to subtract or not
-function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int, verbose::Bool=false)
+function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int;
+    verbose::Bool = false)
+
     p = Int(characteristic(C.F))
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, "Chen")
+        gen_mats = _get_information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, "White")
+        gen_mats = _get_information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, "Zimmermann")
+        gen_mats = _get_information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
@@ -798,11 +798,11 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     W = Set{typeof(G)}()
     for r in C.k:-1:1
         if typeof(C) <: AbstractCyclicCode
-            upper = _lower_bounds(r, C.n, C.k, 0, [0], "Chen")
+            upper = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
-            upper = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
+            upper = _lower_bounds(r, C.n, C.k, C.l, rank_defs, :White)
         else
-            upper = _lower_bounds(r, C.n, C.k, 0, rank_defs, "BZ")
+            upper = _lower_bounds(r, C.n, C.k, 0, rank_defs, :BZ)
         end
         # # an even code can't have have an odd minimum weight
         # (!triply_even_flag && !doubly_even_flag && even_flag) && (upper += upper % 2;)
@@ -841,9 +841,10 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     end
 end
 
-#TODO: change above to BigInts
+# TODO: change above to BigInts
+# TODO: type stability of this
 """
-    partial_weight_distribution(C::AbstractLinearCode, bound::Int, compact::Bool=false)
+    partial_weight_distribution(C::AbstractLinearCode, bound::Int; compact::Bool = false)
 
 Return the partial weight distribution of `C` up to weight `bound`. If `compact` is false,
 the result will be a `Vector{BigInt}` of length `length(C) + 1` whose `i`th entry is the
@@ -851,8 +852,7 @@ number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
 `Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
 above.
 """
-# TODO: type stability of this
-function partial_weight_distribution(C::AbstractLinearCode, bound::Int, compact::Bool=false)
+function partial_weight_distribution(C::AbstractLinearCode, bound::Int; compact::Bool = false)
 	1 <= bound <= C.n || throw(ArgumentError("Bound must be between 1 and n."))
 
 	W = words_of_weight(C, 1, bound)
@@ -880,7 +880,7 @@ end
 Return the set of codewords of `C` with weight equal to the minimum distance.
 
 # Notes
-* This algorithm simultaneously computes the minimum distance and stores the words of
+- This algorithm simultaneously computes the minimum distance and stores the words of
   this weight that it finds, removing the repeated work of calling
   `w = minimum_distance(C); W = words_of_weight(C, w);`
 """
@@ -895,12 +895,12 @@ function minimum_words(C::AbstractLinearCode)
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, "Chen")
+        gen_mats = _get_information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, "White")
+        gen_mats = _get_information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, "Zimmermann")
+        gen_mats = _get_information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats] # deepcopy doesn't save anythign here
     # gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2]) for x in gen_mats]
@@ -957,11 +957,11 @@ function minimum_words(C::AbstractLinearCode)
     W = Set{typeof(G)}()
     for r in 1:C.k
         if typeof(C) <: AbstractCyclicCode
-            lower = _lower_bounds(r, C.n, C.k, 0, [0], "Chen")
+            lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
-            lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, "White")
+            lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, :White)
         else
-            lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, "BZ")
+            lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, :BZ)
         end
         # an even code can't have have an odd minimum weight
         (!triply_even_flag && !doubly_even_flag && even_flag) && (lower += lower % 2;)
@@ -1021,10 +1021,9 @@ end
 #############################
     # Weight Enumerators
 #############################
-
-# TODO: name here, C is a placeholder for classical
-function weight_enumerator_C(T::Trellis, type::Symbol=:complete)
-    type ∈ [:complete, :Hamming] ||
+# TODO: doc string?
+function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
+    type ∈ (:complete, :Hamming) ||
         throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
 
     if type == :complete && !ismissing(T.CWE)
@@ -1077,14 +1076,14 @@ function weight_enumerator_C(T::Trellis, type::Symbol=:complete)
 end
 
 """
-    MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator, dual::Symbol=:Euclidean)
+    MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
 
 Return the weight enumerator of the dual (`:Euclidean` or `:Hermitian`) of `C` obtained
 by applying the MacWilliams identities to `W`.
 """
 # TODO: remove C from this, store in WE struct
-function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator, dual::Symbol=:Euclidean)
-    dual ∈ [:Euclidean, :Hermitian] ||
+function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
+    dual ∈ (:Euclidean, :Hermitian) ||
         throw(ArgumentError("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals."))
     (dual == :Hermitian && Int(order(C.F)) != 4) &&
         throw(ArgumentError("The MacWilliams identity for the Hermitian dual is only programmed for GF(4)."))
@@ -1193,14 +1192,14 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator, dual::
 end
 
 """
-    weight_enumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::String="auto")
+    weight_enumerator(C::AbstractLinearCode; type::Symbol = :complete, alg::Symbol = :auto)
 
 Return either the `:complete` or `:Hamming` weight enumerator of `C` using the algorithm `alg`.
 """
-function weight_enumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::String="auto")
-    type ∈ [:complete, :Hamming] ||
+function weight_enumerator(C::AbstractLinearCode; type::Symbol = :complete, alg::Symbol = :auto)
+    type ∈ (:complete, :Hamming) ||
         throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
-    alg ∈ ["auto", "trellis", "bruteforce"] ||
+    alg ∈ (:auto, :trellis, :bruteforce) ||
         throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
     if type == :complete && !ismissing(C.weight_enum)
@@ -1209,11 +1208,11 @@ function weight_enumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::S
         return CWE_to_HWE(C.weight_enum)
     end
 
-    if alg == "auto"
+    if alg == :auto
         if cardinality(C) <= 1e6 # random cutoff
             C.weight_enum = _weight_enumerator_BF(C.G)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
             type == :Hamming && return HWE
             return C.weight_enum
@@ -1222,23 +1221,23 @@ function weight_enumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::S
             if cardinality(D) <= 1e6 # random cutoff
                 D.weight_enum = _weight_enumerator_BF(D.G)
             else
-                weight_enumerator_C(syndrome_trellis(D, "primal", false), type)
+                weight_enumerator_classical(syndrome_trellis(D, "primal", false), type = type)
             end
             C.weight_enum = MacWilliams_identity(D, D.weight_enum)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
             type == :Hamming && return HWE
             return C.weight_enum
         else
-            return weight_enumerator_C(syndrome_trellis(C, "primal", false), type)
+            return weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
         end
-    elseif alg == "trellis"
-        return weight_enumerator_C(syndrome_trellis(C, "primal", false), type)
-    elseif alg == "bruteforce"
+    elseif alg == :trellis
+        return weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
+    elseif alg == :bruteforce
         C.weight_enum = _weight_enumerator_BF(C.G)
         HWE = CWE_to_HWE(C.weight_enum)
-        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
             for i in 1:length(HWE.polynomial)]))
         type == :Hamming && return HWE
         return C.weight_enum
@@ -1246,7 +1245,7 @@ function weight_enumerator(C::AbstractLinearCode, type::Symbol=:complete, alg::S
 end
 
 """
-    weight_distribution(C::AbstractLinearCode, alg::String="auto", compact::Bool=true)
+    weight_distribution(C::AbstractLinearCode; alg::Symbol = :auto, compact::Bool = true)
 
 Return the weight distribution of `C` using the algorithm `alg`. If `compact` is false,
 the result will be a `Vector{BigInt}` of length `length(C) + 1` whose `i`th entry is the
@@ -1254,11 +1253,11 @@ number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
 `Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
 above.
 """
-function weight_distribution(C::AbstractLinearCode, alg::String="auto", compact::Bool=true)
-    alg ∈ ["auto", "trellis", "bruteforce"] ||
+function weight_distribution(C::AbstractLinearCode; alg::Symbol = :auto, compact::Bool = true)
+    alg ∈ (:auto, :trellis, :bruteforce) ||
         throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
-    ismissing(C.weight_enum) && weight_enumerator(C, :complete, alg)
+    ismissing(C.weight_enum) && weight_enumerator(C, type = :complete, alg = alg)
     HWE = CWE_to_HWE(C.weight_enum)
 
     if compact
@@ -1277,21 +1276,14 @@ function weight_distribution(C::AbstractLinearCode, alg::String="auto", compact:
 end
 
 """
-    weight_plot(C::AbstractLinearCode, alg::String="auto")
+    weight_plot(C::AbstractLinearCode; alg::Symbol = :auto)
 
-Return a bar plot of the weight distribution of `C`.
+Return a bar graph of the weight distribution of `C`.
+
+# Note
+- Run `using Makie` to activate this extension.
 """
-function weight_plot(C::AbstractLinearCode, alg::String="auto")
-    wt_dist = weight_distribution(C, alg, true)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    ismissing(C.d) ? (title="Weight Distribution - [$(C.n), $(C.k)]";) :
-        title="Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
-    f = bar(0:C.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms", title=title)
-    display(f)
-    return f
-end
+function weight_plot end
 
 """
     support(C::AbstractLinearCode)
@@ -1299,9 +1291,10 @@ end
 Returns the support of `C`.
 
 # Notes
-* The support of `C` is the collection of nonzero exponents of the Hamming weight enumerator of `C`.
+- The support of `C` is the collection of nonzero exponents of the Hamming weight enumerator of `C`.
 """
-support(C::AbstractLinearCode) = [i for (i, _) in weight_distribution(C, "auto", true)]
+support(C::AbstractLinearCode) = [i for (i, _) in weight_distribution(C, alg = :auto,
+    compact = true)]
 
 #############################
      # Minimum Distance
@@ -1309,24 +1302,26 @@ support(C::AbstractLinearCode) = [i for (i, _) in weight_distribution(C, "auto",
 
 # TODO: update doc strings for these and this whole file in general
 """
-    minimum_distance(C::AbstractLinearCode, alg::String="trellis", sect::Bool=false)
+    minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::Bool = false, verbose::Bool = false)
 
 Return the minimum distance of the linear code if known, otherwise computes it
 using the algorithm of `alg`. If `alg = "trellis"`, the sectionalization flag
 `sect` can be set to true to further compactify the reprsentation.
 """
-function minimum_distance(C::AbstractLinearCode, alg::String="auto", sect::Bool=false, verbose::Bool=false)
+function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::Bool = false,
+    verbose::Bool = false)
+
     !ismissing(C.d) && return C.d
 
-    alg ∈ ["auto", "Gray", "trellis", "Leon", "bruteforce", "wt_dist"] ||
+    alg ∈ (:auto, :Gray, :trellis, :Leon, :bruteforce, :wt_dist) ||
         throw(ArgumentError("Unexpected algorithm '$alg'."))
     
-    if alg == "auto"
+    if alg == :auto
         D = dual(C)
         if cardinality(C) <= 1e6 # random cutoff
             C.weight_enum = _weight_enumerator_BF(C.G)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         elseif rate(C) > 0.5
@@ -1334,39 +1329,37 @@ function minimum_distance(C::AbstractLinearCode, alg::String="auto", sect::Bool=
             if cardinality(D) <= 1e6 # random cutoff
                 D.weight_enum = _weight_enumerator_BF(D.G)
             else
-                weight_enumerator_C(syndrome_trellis(D, "primal", false), type)
+                weight_enumerator_classical(syndrome_trellis(D, "primal", false), type = type)
             end
             C.weight_enum = MacWilliams_identity(D, D.weight_enum)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         else
-            return Gray_code_minimum_distance(C, verbose)
+            return Gray_code_minimum_distance(C, verbose = verbose)
         end
-    elseif alg == "Gray"
-        return Gray_code_minimum_distance(C, verbose)
-    elseif alg == "trellis"
-        weight_enumerator_C(syndrome_trellis(C, "primal", false), type)
+    elseif alg == :Gray
+        return Gray_code_minimum_distance(C, verbose = verbose)
+    elseif alg == :trellis
+        weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
         return C.d
-    elseif alg == "bruteforce"
+    elseif alg == :bruteforce
         C.weight_enum = _weight_enumerator_BF(C.G)
         HWE = CWE_to_HWE(C.weight_enum)
-        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
             for i in 1:length(HWE.polynomial)]))
         return C.d
-    elseif alg == "wt_dist"
-        HWE = weight_enumerator(C, :Hamming, alg)
+    elseif alg == :wt_dist
+        HWE = weight_enumerator(C, type = :Hamming, alg = alg)
         !ismissing(C.d) && return C.d
         # this line should only be needed to be run if the weight enumerator is known
         # but the minimum distance is intentionally set to missing
         # ordering here can be a bit weird
-        C.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
             for i in 1:length(HWE.polynomial)]))
         return C.d
     # elseif alg == "Leon"
     #     Leon(C)
     end
 end
-
-

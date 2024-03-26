@@ -66,7 +66,7 @@ end
 # formulas from
 # "Weight enumerators for nonbinary asymmetric quantum codes and their applications"
 # by Chuangqiang Hu, Shudi Yang, Stephen S.-T.Yau
-function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator, dual::Bool=false)
+function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator; dual::Bool = false)
     dual ? (card = BigInt(characteristic(S.F))^(S.n + S.k);) : (card = cardinality(S);)
     if W.type == :Hamming
         # (1/(q^n|S|))W(y - x, y + (q^2 - 1)x)
@@ -127,30 +127,31 @@ function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator, du
     end
 end
 
-# TODO: switch to symbols
-function weight_enumerator(S::AbstractStabilizerCode, type::Symbol=:complete,
-    alg::String="auto", set::String="all")
+function weight_enumerator(S::AbstractStabilizerCode; type::Symbol = :complete,
+    alg::Symbol = :auto, set::Symbol = :all)
 
-    type ∈ [:complete, :Hamming] || error("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.")
-    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weight_enumerator.")
-    set ∈ ["all", "stabilizers", "logicals", "quotient"] || throw(ArgumentError("Unsupported set type '$set'. Expected 'all', 'stabilizers', 'logicals', 'quotient'."))
+    type ∈ (:complete, :Hamming) || throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
+    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
+    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(ArgumentError("Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'."))
 
-    if set ∈ ["all", "logicals"] && ismissing(S.sgn_CWE_logs)
+    if set ∈ (:all, :logicals) && ismissing(S.sgn_CWE_logs)
         logs_mat = logicals_matrix(S)
         S.sgn_CWE_logs = _weight_enumerator_BF_Q(logs_mat, S.char_vec, missing)
     end
 
-    if set != "logicals" && ismissing(S.sgn_CWE_stabs)
-        if alg == "bruteforce" || cardinality(S) <= 1e6
-            S.sgn_CWE_stabs = _weight_enumerator_BF_Q(S.stabs, S.char_vec, parent(S.sgn_CWE_logs.polynomial))
+    if set != :logicals && ismissing(S.sgn_CWE_stabs)
+        if alg == :bruteforce || cardinality(S) <= 1e6
+            S.sgn_CWE_stabs = _weight_enumerator_BF_Q(S.stabs, S.char_vec,
+                parent(S.sgn_CWE_logs.polynomial))
         else
             # trellis solution here
         end
     end
 
-    if set ∈ ["all", "quotient"] && ismissing(S.sgn_CWE_dual)
-        if alg == "bruteforce" || BigInt(characteristic(S.F))^(S.n + S.k) <= 3e6
-            S.sgn_CWE_dual = _weight_enumerator_BF_Q(vcat(S.stabs, logicals_matrix(S)), S.char_vec, parent(S.sgn_CWE_logs.polynomial))
+    if set ∈ (:all, :quotient) && ismissing(S.sgn_CWE_dual)
+        if alg == :bruteforce || BigInt(characteristic(S.F))^(S.n + S.k) <= 3e6
+            S.sgn_CWE_dual = _weight_enumerator_BF_Q(vcat(S.stabs, logicals_matrix(S)), S.char_vec,
+                parent(S.sgn_CWE_logs.polynomial))
         else
             # trellis solution here
         end
@@ -160,30 +161,31 @@ function weight_enumerator(S::AbstractStabilizerCode, type::Symbol=:complete,
         # compute minimum distance here
         poly = WeightEnumerator(S.sgn_CWE_dual.polynomial - S.sgn_CWE_stabs.polynomial, :complete)
         HWE = CWE_to_HWE(poly)
-        S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(HWE.polynomial))[i][1]
+        S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
             for i in 1:length(HWE.polynomial)]))
     end
 
     if type == :complete
-        set == "all" && return S.sgn_CWE_stabs, S.sgn_CWE_dual, S.sgn_CWE_logs, poly
-        set == "stabilizers" && return S.sgn_CWE_stabs
-        set == "logicals" && return S.sgn_CWE_logs
+        set == :all && return S.sgn_CWE_stabs, S.sgn_CWE_dual, S.sgn_CWE_logs, poly
+        set == :stabilizers && return S.sgn_CWE_stabs
+        set == :logicals && return S.sgn_CWE_logs
         return poly
     else
-        set == "all" && return CWE_to_HWE(S.sgn_CWE_stabs), CWE_to_HWE(S.sgn_CWE_dual), CWE_to_HWE(S.sgn_CWE_logs), CWE_to_HWE(poly)
-        set == "stabilizers" && return CWE_to_HWE(S.sgn_CWE_stabs)
-        set == "logicals" && return CWE_to_HWE(S.sgn_CWE_logs)
+        set == :all && return CWE_to_HWE(S.sgn_CWE_stabs), CWE_to_HWE(S.sgn_CWE_dual), CWE_to_HWE(S.sgn_CWE_logs), CWE_to_HWE(poly)
+        set == :stabilizers && return CWE_to_HWE(S.sgn_CWE_stabs)
+        set == :logicals && return CWE_to_HWE(S.sgn_CWE_logs)
         return HWE
     end
 end
 
 # MAGMA returns this format
 # [ <0, 1>, <4, 105>, <6, 280>, <8, 435>, <10, 168>, <12, 35> ]
-function weight_distribution(S::AbstractStabilizerCode, alg::String="auto", compact::Bool=true, set::String="all")
-    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weight_enumerator.")
-    set ∈ ["all", "stabilizers", "logicals", "quotient"] || throw(ArgumentError("Unsupported set type '$set'. Expected 'all', 'stabilizers', 'logicals', 'quotient'."))
+function weight_distribution(S::AbstractStabilizerCode; alg::Symbol = :auto, compact::Bool = true, set::Symbol = :all)
 
-    wt_enums = weight_enumerator(S, :Hamming, alg, set)
+    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
+    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(ArgumentError("Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'."))
+
+    wt_enums = weight_enumerator(S, type = :Hamming, alg = alg, set = set)
 
     if compact
         if length(wt_enums) == 1
@@ -226,8 +228,8 @@ function weight_distribution(S::AbstractStabilizerCode, alg::String="auto", comp
     return wt_dist
 end
 
-function weight_enumerator_Q(T::Trellis, type::Symbol=:complete)
-    type ∈ [:complete, :Hamming] || error("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.")
+function weight_enumerator_quantum(T::Trellis; type::Symbol = :complete)
+    type ∈ (:complete, :Hamming) || throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
 
     if type == :complete && !ismissing(T.CWE)
         return T.CWE
@@ -300,102 +302,54 @@ function weight_enumerator_Q(T::Trellis, type::Symbol=:complete)
 end
 
 """
-    weight_plot(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
+    weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabilizer)
 
-Return a bar plot of the weight distribution related to `S`.
+Return a bar graph of the weight distribution related to `S`.
 
-If `type` is `stabilizer`, the weight distribution of the stabilizers are computed.
-If `type` is `normalizer`, the weight distrbution of the normalizer of the stabilizers
-are computed. If `type` is `quotient`, the weight distrbution of the normalizer mod the
-stabilizers (logical representatives only) is computed.
+If `type` is `:stabilizer`, the weight distribution of the stabilizers are computed.
+If `type` is `:normalizer`, the weight distrbution of the normalizer of the stabilizers
+are computed. If `type` is `:quotient`, the weight distrbution of the normalizer mod the
+stabilizers is computed.
+
+# Note
+- Run `using Makie` to activate this extension.
 """
-function weight_plot(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
-    type ∈ ["stabilizer", "normalizer", "quotient"] || throw(ArgumentError("Unknown value $type for parameter type."))
-
-    wt_dist = weight_distribution(S, alg, type, false)
-    x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    if type == "stabilizer"
-        title_str = "Stabilizer Weight Distribution"
-    elseif type == "normalizer"
-        title_str = "Normalizer Weight Distribution"
-    else
-        title_str = "Quotient Weight Distribution"
-    end
-    ismissing(S.d) ? (title="$title_str - [$(S.n), $(S.k)]";) :
-        title="$title_str - [$(S.n), $(S.k), $(S.d)]"
-    f = bar(0:S.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms", title=title)
-    display(f)
-    return f
-end
+function weight_plot end
 
 """
-    weight_plot_CSS_X(S::AbstractStabilizerCodeCSS, alg::String="auto")
+    weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
 
-Return a bar plot of the weight distribution of the `X` stabilizers.
+Return a bar graph of the weight distribution of the `X` stabilizers.
+
+# Note
+- Run `using Makie` to activate this extension.
 """
-function weight_plot_CSS_X(S::AbstractStabilizerCodeCSS, alg::String="auto")
-    C = LinearCode(S.X_stabs)
-    wt_dist = weight_distribution(C, alg, false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    f = bar(0:C.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms",
-        title="X-Weight Distribution")
-    display(f)
-    return f
-end
+function weight_plot_CSS_X end
 
 """
-    weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS, alg::String="auto")
+    weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
 
-Return a bar plot of the weight distribution of the `Z` stabilizers.
+Return a bar graph of the weight distribution of the `Z` stabilizers.
+
+# Note
+- Run `using Makie` to activate this extension.
 """
-function weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS, alg::String="auto")
-    C = LinearCode(S.Z_stabs)
-    wt_dist = weight_distribution(C, alg, false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    f = bar(0:C.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms",
-        title="Z-Weight Distribution")
-    display(f)
-    return f
-
-end
+function weight_plot_CSS_Z end
 
 """
-    weight_plot_CSS(S::AbstractStabilizerCodeCSS, alg::String="auto")
+    weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
 
 Return bar plots of the weight distribution of the both the
 `X` and 'Z' stabilizers, separately.
-"""
-function weight_plot_CSS(S::AbstractStabilizerCodeCSS, alg::String="auto")
-    C = LinearCode(S.X_stabs)
-    wt_dist = weight_distribution(C, alg, false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    f_X = bar(0:C.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms",
-        title="X-Weight Distribution")
 
-    # okay to overwrite
-    C = LinearCode(S.Z_stabs)
-    wt_dist = weight_distribution(C, alg, false)
-    x_ticks = findall(x->x>0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    f_Z = bar(0:C.n, wt_dist', bar_width=1, xticks=x_ticks, yticks=y_ticks,
-        legend=false, xlabel="Weight", ylabel="Number of Terms",
-        title="Z-Weight Distribution")
-    
-    f = Plots.plot(f_X, f_Z, layout=(1, 2))
-    display(f)
-    return f
-end
-
+# Note
+- Run `using Makie` to activate this extension.
 """
-    support(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer")
+function weight_plot_CSS end
+
+# TODO: standardize set and type throughout file
+"""
+    support(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabilizer)
 
 Returns the support related to `S`.
 
@@ -405,33 +359,33 @@ If `type` is `normalizer`, the support of the normalizer of the stabilizers
 are computed. If `type` is `quotient`, the support of the normalizer mod the
 stabilizers (logical representatives only) is computed.
 """
-support(S::AbstractStabilizerCode, alg::String="auto", type::String="stabilizer") =
-    [i for (i, _) in weight_distribution(S, alg, type, true)]
+support(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabilizer) =
+    [i for (i, _) in weight_distribution(S, alg = alg, set = type, compact = true)]
 
 #############################
      # Minimum Distance
 #############################
 
 """
-    minimum_distance(Q::AbstractStabilizerCode, alg::String="trellis", sect::Bool=false)
+    minimum_distance(Q::AbstractStabilizerCode; alg::Symbol = :auto, sect::Bool=false)
 
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimum_distance(S::AbstractStabilizerCode, alg::String="auto", verbose::Bool=false)
+function minimum_distance(S::AbstractStabilizerCode; alg::Symbol = :auto, verbose::Bool = false)
     !ismissing(S.d) && return S.d
 
     # these should be different? weight? auto? BZ?
-    alg ∈ ["auto", "trellis", "bruteforce"] || error("Algorithm `$alg` is not implemented in weight_enumerator.")
+    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
     if iszero(S.k)
         # "Quantum Error Correction Via Codes Over GF(4)"
         # the distance of an [𝑛,0] code is defined as the smallest non-zero weight of any stabilizer in the code
     else
         # something like this
-        if alg == "auto"
-            weight_enumerator(S, :Hamming, "auto", "quotient")
-        elseif alg == "trellis"
+        if alg == :auto
+            weight_enumerator(S, type = :Hamming, alg = auto, set = :quotient)
+        elseif alg == :trellis
             TOF_stabs = trellis_oriented_form_additive(S.stabs)
             TOF_norm = trellis_oriented_form_additive(S.dualgens)
             boundaries, num_E_sect_primal = optimal_sectionalization_Q(TOF_stabs, TOF_norm)
@@ -442,36 +396,35 @@ function minimum_distance(S::AbstractStabilizerCode, alg::String="auto", verbose
             profiles_dual = trellis_profiles(TOF_norm, TOF_stabs, boundaries, "symplectic")
             if sum(profiles_primal[2]) <= sum(profiles_dual[2])
                 T_primal = sect(S, "primal", true, false)
-                T_primal_HWE = weight_enumerator_Q(T_primal, "complete")
-                T_dual_HWE = MacWilliams_identity(S, T_primal_HWE, true)
+                T_primal_HWE = weight_enumerator_quantum(T_primal, type = :complete)
+                T_dual_HWE = MacWilliams_identity(S, T_primal_HWE, dual = true)
                 poly = T_dual_HWE.polynomial - T_primal_HWE.polynomial
-                S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+                S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(poly))[i][1]
                     for i in 1:length(poly)]))
             else
                 T_dual = sect(S, "dual", true, false)
-                T_dual_HWE = weight_enumerator_Q(T_dual, :Hamming)
+                T_dual_HWE = weight_enumerator_quantum(T_dual, type = :Hamming)
                 T_primal_HWE = MacWilliams_identity(S, T_dual_HWE)
                 poly = T_dual_HWE.polynomial - T_primal_HWE.polynomial
-                S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+                S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(poly))[i][1]
                     for i in 1:length(poly)]))
             end
 
             # T_dual = syndrome_trellis(S, "primal", true, true)
-            # T_dual_HWE = weight_enumerator_Q(T_dual, "Hamming")
+            # T_dual_HWE = weight_enumerator_quantum(T_dual, "Hamming")
             # T_dual = missing
             # println("Primal trellis complete")
             # Tstabs = syndrome_trellis(S, "dual", true, true)
-            # THWE = weight_enumerator_Q(Tstabs, "Hamming")
+            # THWE = weight_enumerator_quantum(Tstabs, "Hamming")
             # Tstabs = missing
             # poly = T_dual_HWE.polynomial - THWE.polynomial
-            # S.d = minimum(filter(x->x!=0, [collect(exponent_vectors(poly))[i][1]
+            # S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(poly))[i][1]
             #     for i in 1:length(poly)]))
         else
             # brute force solution here
         end
          #TODO: purity - 
     end
-   
     return S.d
 end
 
@@ -489,24 +442,25 @@ function minimum_distance_X_Z(S::AbstractStabilizerCodeCSS)
         C1 = LinearCode(S.Z_stabs)
         C2 = LinearCode(S.X_stabs)
     end
-    C1_wt_enum = weight_enumerator(C1, :Hamming)
-    C2_wt_enum = weight_enumerator(C2, :Hamming)
+    C1_wt_enum = weight_enumerator(C1, type = :Hamming)
+    C2_wt_enum = weight_enumerator(C2, type = :Hamming)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C1_set_diff_C2_wt_enum = C1_dual_wt_enum.polynomial - C2_dual_wt_enum.polynomial
     C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.d_z = minimum(filter(x->x!=0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
+    S.d_z = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
         for i in 1:length(C1_set_diff_C2_wt_enum)]))
-    S.d_x = minimum(filter(x->x!=0, [collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1]
-        for i in 1:length(C2_dual_set_diff_C1_dual_wt_enum)]))
+    S.d_x = minimum(filter(x -> x != 0, [collect(exponent_vectors(
+        C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
+        C2_dual_set_diff_C1_dual_wt_enum)]))
     # the above commands will set Ci.d
     (S.d_x == C2.d && S.d_z == C1.d) ? (S.pure = true;) : (S.pure = false;)
     return S.d_z, S.d_x
 
     # some other paper has this as the formula
-    # expsC1setdiffC2 = filter(x->x!=0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
+    # expsC1setdiffC2 = filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
     #     for i in 1:length(C1_set_diff_C2_wt_enum)])
-    # expsC2dualsetdiffC2dual = filter(x->x!=0, [collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1]
+    # expsC2dualsetdiffC2dual = filter(x -> x != 0, [collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1]
     #     for i in 1:length(C2_dual_set_diff_C1_dual_wt_enum)])
     # exps = vcat(expsC1setdiffC2, expsC2dualsetdiffC2dual)
     # S.d_x = minimum(exps)
@@ -524,13 +478,14 @@ function minimum_distance_X(S::AbstractStabilizerCodeCSS)
         C1 = LinearCode(S.Z_stabs)
         C2 = LinearCode(S.X_stabs)
     end
-    C1_wt_enum = weight_enumerator(C1, :Hamming)
-    C2_wt_enum = weight_enumerator(C2, :Hamming)
+    C1_wt_enum = weight_enumerator(C1, type = :Hamming)
+    C2_wt_enum = weight_enumerator(C2, type = :Hamming)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.d_x = minimum(filter(x->x!=0, [collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1]
-        for i in 1:length(C2_dual_set_diff_C1_dual_wt_enum)]))
+    S.d_x = minimum(filter(x -> x != 0, [collect(exponent_vectors(
+        C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
+        C2_dual_set_diff_C1_dual_wt_enum)]))
     return S.d_x
 end
 
@@ -545,13 +500,13 @@ function minimum_distance_Z(S::AbstractStabilizerCodeCSS)
         C1 = LinearCode(S.Z_stabs)
         C2 = LinearCode(S.X_stabs)
     end
-    C1_wt_enum = weight_enumerator(C1, :Hamming)
-    C2_wt_enum = weight_enumerator(C2, :Hamming)
+    C1_wt_enum = weight_enumerator(C1, type = :Hamming)
+    C2_wt_enum = weight_enumerator(C2, type = :Hamming)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C1_set_diff_C2_wt_enum = C1_dual_wt_enum.polynomial - C2_dual_wt_enum.polynomial
-    S.d_z = minimum(filter(x->x!=0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
-        for i in 1:length(C1_set_diff_C2_wt_enum)]))
+    S.d_z = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
+        for i in eachindex(C1_set_diff_C2_wt_enum)]))
     return S.d_z
 end
 
@@ -569,9 +524,9 @@ end
 
 # TODO: pure for subsystem if no weight of gauge group is less than min dist
 
-
+# TODO: max_av is what type?
 """
-    distrandCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int, min_dist::Int=0, debug::Int=0, field::GapObj=GAP.Globals.GF(2), max_av=Nothing)
+    distrandCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int; min_dist::Int = 0, debug::Int = 0, field::GapObj = GAP.Globals.GF(2), max_av = Nothing)
 
 Wrapper for the QDistRnd function DistRandCSS.
 ## QDistRnd documentation
@@ -588,8 +543,8 @@ Wrapper for the QDistRnd function DistRandCSS.
 - `max_av` (Options stack): if set, terminate when `<n>` greater than `max_av`, 
     see Section Emprirical. Not set by default.
 """
-function QDistRndCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int, min_dist::Int,
-    debug::Int=0, field::GapObj=GAP.Globals.GF(2), max_av=missing)
+function QDistRndCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int; min_dist::Int = 0,
+    debug::Int = 0, field::GapObj = GAP.Globals.GF(2), max_av = missing)
 
     Packages.load("QDistRnd");
     # Convert input matrices to GAP matrices over the given field
@@ -603,4 +558,3 @@ function QDistRndCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int, min_dist::Int
     end
     return dist
 end
-
