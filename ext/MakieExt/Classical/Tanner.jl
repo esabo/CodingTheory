@@ -45,12 +45,12 @@ function CodingTheory.Tanner_graph_plot(H::Union{CodingTheory.CTMatrixTypes, Mat
         text!(points[v], text = L"c_{%$i}", offset = (20, -15))
     end
 
-    for point in points[1:nc]
+    for (i, point) in enumerate(points[1:nc])
         CairoMakie.scatter!(point, color = :black, marker = :circle, markersize = 25)
         text!(point, text = L"v_{%$i}", offset = (-30, -10))
     end
 
-    for point in points[nc + 1:end]
+    for (i, point) in enumerate(points[nc + 1:end])
         CairoMakie.scatter!(point, color = :black, marker = :rect, markersize = 25)
     end
     display(fig)

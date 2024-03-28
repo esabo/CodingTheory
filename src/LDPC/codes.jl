@@ -46,10 +46,9 @@ function LDPCCode(H::CTMatrixTypes)
 
     C = LinearCode(H, true)
     return LDPCCode(base_ring(H), C.n, C.k, C.d, C.l_bound, C.u_bound, H, nnz,
-        cols, rows, c, r, maximum([c, r]), den, is_reg, missing, col_poly,
-        row_poly, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Int}() for _ in 1:C.n],
-        [Vector{Tuple{Int, Int}}() for _ in 1:C.n],
-        Dict{Int, Int}(), Dict{Int, Int}())
+        cols, rows, c, r, maximum([c, r]), den, is_reg, col_poly,
+        row_poly, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Tuple{Int64, Int64}}() for
+        _ in 1:C.n])
 end
 
 """
@@ -95,9 +94,8 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
     R, x = PolynomialRing(Nemo.QQ, :x)
     C = LinearCode(H, true)
     return LDPCCode(C.F, C.n, C.k, C.d, C.l_bound, C.u_bound, H, n * l, l * ones(Int, n),
-        r * ones(Int, m), l, r, max(l, r), r / n, true, missing, (1 // l) * x^l,
-        (1 // r) * x^r, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Int}() for _ in 1:C.n],
-        [Vector{Tuple{Int, Int}}() for _ in 1:C.n], Dict{Int, Int}(), Dict{Int, Int}())
+        r * ones(Int, m), l, r, max(l, r), r / n, true, (1 // l) * x^l, (1 // r) * x^r, missing,
+        [Vector{Int}() for _ in 1:C.n], [Vector{Tuple{Int64, Int64}}() for _ in 1:C.n])
 end
 regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) =
     regular_LDPC_code(2, n, l, r, seed = seed)
@@ -357,7 +355,7 @@ cn -- vn` is returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
 """
 function shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
     isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
-    all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
+    all(x -> 1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
 
     # might not be efficient to have the or here
     vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x]) || isempty(C.shortest_cycles[x])]
@@ -493,6 +491,7 @@ function shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
                 end
                 popfirst!(queue)
             end
+            # println("variable node $i, cycles: $cycles")
             C.ACEs_per_var_node[vs_to_do[i]] = ACEs
             C.cycle_lens[vs_to_do[i]] = cycle_lens
             C.shortest_cycles[vs_to_do[i]] = cycles
@@ -538,188 +537,56 @@ vertices `vs`. If no vertices are given, all vertices are computed by default.
 - To reduce computational complexity, the same cycle may appear under each vertex in the cycle.
 """
 function shortest_cycles(C::AbstractLDPCCode, vs::Vector{Int})
-    # display(vs)
     shortest_cycle_ACE(C, vs)
     return C.shortest_cycles[vs]
-    # return [C.shortest_cycles[v] for v in vs]
-    # cycles_vs = [Vector{Tuple{Int, Int}}() for _ in 1:length(vs)]
-    # for (i, v) in enuemrate(vs)
-    #     cycles_vs[i] = C.shortest_cycles[v]
-    # end
-    # isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
-    # all(x->1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
-
-    # check_adj_list, var_adj_list = _node_adjacencies(C.H)
-    # cycles_vs = [Vector{Vector{Tuple{Int, Int}}}() for _ in 1:length(vs)]
-
-    # Threads.@threads for i in 1:length(vs)
-    #     # moving this inside allocates more but allows for multi-threading
-    #     check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_list)]
-    #     var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_list[i]) - 2) for i in 1:C.n]
-    #     cycles = Vector{Vector{Tuple{Int, Int}}}()
-    #     not_emptied = true
-    #     root = var_nodes[vs[i]]
-    #     root.lvl = 0
-    #     queue = Deque{Union{_ACECheckNode, _ACEVarNode}}()
-    #     push!(queue, root)
-    #     while length(queue) > 0
-    #         curr = first(queue)
-    #         if isa(curr, _ACEVarNode)
-    #             for cn in var_adj_list[curr.id]
-    #                 # can't pass messages back to the same node
-    #                 if cn != curr.parent_id
-    #                     cn_node = check_nodes[cn]
-    #                     if cn_node.lvl != -1
-    #                         # have seen before
-    #                         # trace the cycle from curr to root and cn_node to root
-    #                         temp = Vector{Tuple{Int, Int}}()
-    #                         node = cn_node
-    #                         while node.lvl != 0
-    #                             push!(temp, (node.parent_id, node.id))
-    #                             if isodd(node.lvl)
-    #                                 node = var_nodes[node.parent_id]
-    #                             else
-    #                                 node = check_nodes[node.parent_id]
-    #                             end
-    #                         end
-    #                         reverse!(temp)
-    #                         push!(temp, (cn_node.id, curr.id))
-    #                         node = curr
-    #                         while node.lvl != 0
-    #                             push!(temp, (node.id, node.parent_id))
-    #                             if isodd(node.lvl)
-    #                                 node = var_nodes[node.parent_id]
-    #                             else
-    #                                 node = check_nodes[node.parent_id]
-    #                             end
-    #                         end
-    #                         push!(cycles, temp)
-
-    #                         # finish this level off but don't go deeper so remove children at lower level
-    #                         if not_emptied
-    #                             while length(queue) > 0
-    #                                 back = last(queue)
-    #                                 if back.lvl != curr.lvl
-    #                                     pop!(queue)
-    #                                 else
-    #                                     break
-    #                                 end
-    #                             end
-    #                             not_emptied = false
-    #                         end
-    #                     elseif not_emptied
-    #                         cn_node.lvl = curr.lvl + 1
-    #                         cn_node.parent_id = curr.id
-    #                         push!(queue, cn_node)
-    #                     end
-    #                 end
-    #             end
-    #         else
-    #             for vn in check_adj_list[curr.id]
-    #                  # can't pass messages back to the same node
-    #                 if vn != curr.parent_id
-    #                     vn_node = var_nodes[vn]
-    #                     if vn_node.lvl != -1
-    #                         # have seen before
-    #                         temp = Vector{Tuple{Int, Int}}()
-    #                         node = vn_node
-    #                         while node.lvl != 0
-    #                             push!(temp, (node.parent_id, node.id))
-    #                             if isodd(node.lvl)
-    #                                 node = var_nodes[node.parent_id]
-    #                             else
-    #                                 node = check_nodes[node.parent_id]
-    #                             end
-    #                         end
-    #                         reverse!(temp)
-    #                         push!(temp, (vn_node.id, curr.id))
-    #                         node = curr
-    #                         while node.lvl != 0
-    #                             push!(temp, (node.id, node.parent_id))
-    #                             if isodd(node.lvl)
-    #                                 node = var_nodes[node.parent_id]
-    #                             else
-    #                                 node = check_nodes[node.parent_id]
-    #                             end
-    #                         end
-    #                         push!(cycles, temp)
-
-    #                         # finish this level off but don't go deeper so remove children at lower level
-    #                         if not_emptied
-    #                             while length(queue) > 0
-    #                                 back = last(queue)
-    #                                 if back.lvl != curr.lvl
-    #                                     pop!(queue)
-    #                                 else
-    #                                     break
-    #                                 end
-    #                             end
-    #                             not_emptied = false
-    #                         end
-    #                     elseif not_emptied
-    #                         vn_node.lvl = curr.lvl + 1
-    #                         vn_node.parent_id = curr.id
-    #                         push!(queue, vn_node)
-    #                     end
-    #                 end
-    #             end
-    #         end
-    #         popfirst!(queue)
-    #     end
-    #     C.shortest_cycles[vs_to_do[i]] = cycles
-    #     cycles_vs[i] = cycles
-    # end
-    # return cycles_vs
 end
 shortest_cycles(C::AbstractLDPCCode, v::Int) = shortest_cycles(C, [v])[1]
 shortest_cycles(C::AbstractLDPCCode) = shortest_cycles(C, collect(1:C.n))
-# function shortest_cycles(C::AbstractLDPCCode)
-    # cycles = shortest_cycles(C, collect(1:C.n))
-    # girth = minimum([minimum([length(cycle) for cycle in cycles[i]]) for i in 1:C.n])
-    # if ismissing(C.girth)
-    #     C.girth = girth
-    # else
-    #     if C.girth != girth
-    #         @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
-    #     end
-    # end
-    # C.shortest_cycles = filter.(x -> length(x) < 2 * girth - 2, C.shortest_cycles)
-    # return cycles
+
+# function _progressive_node_adjacencies(H::CTMatrixTypes, vs::Vector{Int}, v_type::Symbol)
+#     check_adj_list, var_adj_list = _node_adjacencies(H)
+#     unique!(sort!(vs))
+#     len = length(vs)
+#     check_adj_lists = [deepcopy(check_adj_list) for _ in 1:len]
+#     var_adj_lists = [deepcopy(var_adj_list) for _ in 1:len]
+
+#     # println("before: ", check_adj_lists)
+#     # for i in 2:len
+#     #     prev = vs[1:i - 1]
+#     #     if v_type == :v
+#     #         for (j, x) in enumerate(check_adj_lists[i])
+#     #             check_adj_lists[i][j] = setdiff(x, prev)
+#     #         end
+#     #     else
+#     #         for (j, x) in enumerate(var_adj_lists[i])
+#     #             var_adj_lists[i][j] = setdiff(x, prev)
+#     #         end
+#     #     end
+#     # end
+#     # println("after: ", check_adj_lists)
+#     return check_adj_lists, var_adj_lists
 # end
 
-function _progressive_node_adjacencies(H::CTMatrixTypes, vs::Vector{Int}, v_type::Symbol)
-    check_adj_list, var_adj_list = _node_adjacencies(H)
-    unique!(sort!(vs))
-    len = length(vs)
-    check_adj_lists = [deepcopy(check_adj_list) for _ in 1:len]
-    var_adj_lists = [deepcopy(var_adj_list) for _ in 1:len]
-
-    for i in 2:len
-        prev = vs[1:i - 1]
-        if v_type == :v
-            for (j, x) in enumerate(check_adj_lists[i])
-                check_adj_lists[i][j] = setdiff(x, prev)
-            end
-        else
-            for (j, x) in enumerate(var_adj_lists[i])
-                var_adj_lists[i][j] = setdiff(x, prev)
-            end
-        end
-    end
-    return check_adj_lists, var_adj_lists
-end
-
-function _count_cycles(C::AbstractLDPCCode)
-    check_adj_lists, var_adj_lists = _progressive_node_adjacencies(C.H, collect(1:C.n), :v)
+# change to _enumerate_cycles
+function _enumerate_cycles(C::AbstractLDPCCode)
+    check_adj_list, var_adj_list = _node_adjacencies(C.H)
+    check_adj_lists = [deepcopy(check_adj_list) for _ in 1:C.n]
+    var_adj_lists = [deepcopy(var_adj_list) for _ in 1:C.n]
     lengths = [Vector{Int}() for _ in 1:C.n]
-    Threads.@threads for i in 1:C.n
+    cycles = [Vector{Vector{Vector{Tuple{Int, Int}}}}() for _ in 1:C.n]
+
+    # Threads.@threads 
+    for i in 1:C.n
         check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
         var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
 
         cycle_lens = Vector{Int}()
+        local_cycles = Vector{Vector{Tuple{Int, Int}}}()
+        # TODO: there is a race condition here
+        cycles_sorted = Set{Tuple{Vector{Int}, Vector{Int}}}()
         root = var_nodes[i]
         root.lvl = 0
-        queue = Queue{Union{_ACECheckNode,_ACEVarNode}}()
+        queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
         enqueue!(queue, root)
         while length(queue) > 0
             curr = first(queue)
@@ -730,7 +597,44 @@ function _count_cycles(C::AbstractLDPCCode)
                         cn_node = check_nodes[cn]
                         if cn_node.lvl != -1
                             # have seen before
-                            push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
+                            # trace the cycle from curr to root and cn_node to root
+                            temp = Vector{Tuple{Int, Int}}()
+                            temp_var = Vector{Int}()
+                            temp_check = Vector{Int}()
+                            node = cn_node
+                            while node.lvl != 0
+                                push!(temp, (node.parent_id, node.id))
+                                if isa(node, _ACECheckNode)
+                                    push!(temp_check, node.id)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp_var, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+                            reverse!(temp)
+                            push!(temp, (cn_node.id, curr.id))
+                            # push!(temp_var, curr.id)
+                            node = curr
+                            while node.lvl != 0
+                                push!(temp, (node.id, node.parent_id))
+                                if isa(node, _ACECheckNode)
+                                    push!(temp_check, node.id)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp_var, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+
+                            key = (sort!(temp_var), sort!(temp_check))
+                            # println(key)
+                            if key ∉ keys(cycles_sorted.dict)
+                                # println("here")
+                                push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
+                                push!(cycles_sorted, key)
+                                push!(local_cycles, temp)
+                            end
                         else
                             cn_node.lvl = curr.lvl + 1
                             cn_node.parent_id = curr.id
@@ -745,7 +649,50 @@ function _count_cycles(C::AbstractLDPCCode)
                         vn_node = var_nodes[vn]
                         if vn_node.lvl != -1
                             # have seen before
-                            push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
+                            # push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
+                            # trace the cycle from curr to root and vn_node to root
+                            temp = Vector{Tuple{Int, Int}}()
+                            temp_var = Vector{Int}()
+                            temp_check = Vector{Int}()
+                            node = vn_node
+                            # push!(temp_var, node.id)
+                            while node.lvl != 0
+                                push!(temp, (node.parent_id, node.id))
+                                if isa(node, _ACECheckNode)
+                                    # push!(temp_var, node.id)
+                                    push!(temp_check, node.id)
+                                    node = var_nodes[node.parent_id]
+                                    # push!(temp_check, node.id)
+                                else
+                                    push!(temp_var, node.id)
+                                    # push!(temp_check, node.id)
+                                    node = check_nodes[node.parent_id]
+                                    # push!(temp_var, node.id)
+                                end
+                            end
+                            reverse!(temp)
+                            push!(temp, (vn_node.id, curr.id))
+                            # push!(temp_var, vn_node.id)
+                            node = curr
+                            while node.lvl != 0
+                                push!(temp, (node.id, node.parent_id))
+                                if isa(node, _ACECheckNode)
+                                    push!(temp_check, node.id)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp_var, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+
+                            key = (sort!(temp_var), sort!(temp_check))
+                            # println(key)
+                            if key ∉ keys(cycles_sorted.dict)
+                                # println("here2")
+                                push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
+                                push!(cycles_sorted, key)
+                                push!(local_cycles, temp)
+                            end
                         else
                             vn_node.lvl = curr.lvl + 1
                             vn_node.parent_id = curr.id
@@ -757,22 +704,13 @@ function _count_cycles(C::AbstractLDPCCode)
             dequeue!(queue)
         end
         lengths[i] = cycle_lens
+        push!(cycles[i], local_cycles)
+        # also do ACE here
     end
 
-    counts = Dict{Int, Int}()
-    lens = unique!(reduce(vcat, lengths))
-    for i in lens
-        for j in 1:C.n
-            if i ∈ keys(counts)
-                counts[i] += count(x -> x == i, lengths[j])
-            else
-                counts[i] = count(x -> x == i, lengths[j])
-            end
-        end
-    end
-    C.elementary_cycle_counts = counts
-
-    girth = minimum([isempty(lengths[i]) ? 9999999 : minimum(lengths[i]) for i in 1:C.n])
+    C.elementary_cycles = reduce(vcat, cycles)
+    lens = length.(C.elementary_cycles)
+    girth = minimum(lens)
     girth == 9999999 && (girth = -1)
     if ismissing(C.girth)
         C.girth = girth
@@ -781,19 +719,7 @@ function _count_cycles(C::AbstractLDPCCode)
             @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
         end
     end
-
-    counts = Dict{Int, Int}()
-    for i in girth:2:2 * girth - 2
-        for j in 1:C.n
-            if i ∈ keys(counts)
-                counts[i] += count(x -> x == i, lengths[j])
-            else
-                counts[i] = count(x -> x == i, lengths[j])
-            end
-        end
-    end
-    C.short_cycle_counts = counts
-    return nothing
+    return StatsBase.countmap(lens)
 end
 
 """
@@ -827,6 +753,114 @@ when there are no cycles.
 - Run `using Makie` to activate this extension.
 """
 function count_short_cycles_plot end
+
+"""
+    elementary_cycle_distribution_by_variable_node(C::AbstractLDPCCode)
+
+Return a dictionary of the number of elementary cycles (values) each variable node (keys)
+participates in.
+"""
+function elementary_cycle_distribution_by_variable_node(C::AbstractLDPCCode)
+    check_adj_list, var_adj_list = _node_adjacencies(C.H)
+    check_adj_lists = [deepcopy(check_adj_list) for _ in 1:C.n]
+    var_adj_lists = [deepcopy(var_adj_list) for _ in 1:C.n]
+    cycles = [Vector{Vector{Int}}() for _ in 1:C.n]
+
+    Threads.@threads for i in 1:C.n
+        check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
+        var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
+
+        # these should be unique by the manner it's computed, but use a Set just in case
+        local_cycles = Set{Vector{Int}}()
+        root = var_nodes[i]
+        root.lvl = 0
+        queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
+        enqueue!(queue, root)
+        while length(queue) > 0
+            curr = first(queue)
+            if isa(curr, _ACEVarNode)
+                for cn in var_adj_lists[i][curr.id]
+                    # can't pass messages back to the same node
+                    if cn != curr.parent_id
+                        cn_node = check_nodes[cn]
+                        if cn_node.lvl != -1
+                            # have seen before
+                            # trace the cycle from curr to root and cn_node to root
+                            temp = Vector{Int}()
+                            node = cn_node
+                            while node.lvl != 0
+                                if isa(node, _ACECheckNode)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+                            node = curr
+                            while node.lvl != 0
+                                if isa(node, _ACECheckNode)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+                            push!(local_cycles, sort!(temp))
+                        else
+                            cn_node.lvl = curr.lvl + 1
+                            cn_node.parent_id = curr.id
+                            enqueue!(queue, cn_node)
+                        end
+                    end
+                end
+            else
+                for vn in check_adj_lists[i][curr.id]
+                    # can't pass messages back to the same node
+                    if vn != curr.parent_id
+                        vn_node = var_nodes[vn]
+                        if vn_node.lvl != -1
+                            # have seen before
+                            # trace the cycle from curr to root and vn_node to root
+                            temp = Vector{Int}()
+                            node = vn_node
+                            while node.lvl != 0
+                                if isa(node, _ACECheckNode)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+                            push!(temp, vn_node.id)
+                            node = curr
+                            while node.lvl != 0
+                                if isa(node, _ACECheckNode)
+                                    node = var_nodes[node.parent_id]
+                                else
+                                    push!(temp, node.id)
+                                    node = check_nodes[node.parent_id]
+                                end
+                            end
+                            push!(local_cycles, sort!(temp))
+                        else
+                            vn_node.lvl = curr.lvl + 1
+                            vn_node.parent_id = curr.id
+                            enqueue!(queue, vn_node)
+                        end
+                    end
+                end
+            end
+            dequeue!(queue)
+        end
+        cycles[i] = collect(keys(local_cycles.dict))
+    end
+
+    flattened = Vector{Int}()
+    for i in 1:C.n
+        !isempty(cycles[i]) && append!(flattened, reduce(vcat, reduce(vcat, cycles[i])))
+    end
+    return StatsBase.countmap(flattened)
+end
 
 """
     count_elementary_cycles(C::AbstractLDPCCode)

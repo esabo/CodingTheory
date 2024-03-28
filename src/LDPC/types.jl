@@ -41,15 +41,11 @@ mutable struct LDPCCode <: AbstractLDPCCode
     density::Float64
     is_reg::Bool
     # Tanner_graph::Union{Figure, Missing}
-    Tanner_graph::Missing
     λ::fmpq_poly
     ρ::fmpq_poly
     girth::Union{Int, Missing}
     ACEs_per_var_node::Vector{Vector{Int}}
-    cycle_lens::Vector{Vector{Int}}
-    shortest_cycles::Vector{Vector{Vector{Tuple{Int, Int}}}}
-    short_cycle_counts::Dict{Int, Int}
-    elementary_cycle_counts::Dict{Int, Int}
+    elementary_cycles::Vector{Vector{Tuple{Int64, Int64}}}
 end
 
 #############################

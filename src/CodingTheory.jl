@@ -138,7 +138,8 @@ export variable_degree_distribution, check_degree_distribution,
     shortest_cycle_ACE, shortest_cycles, computation_graph, ACE_distribution,
     ACE_spectrum, count_short_cycles, average_ACE_distribution,
     median_ACE_distribution, mode_ACE_distribution, girth, count_elementary_cycles,
-    count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph
+    count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph,
+    elementary_cycle_distribution_by_variable_node, short_cycle_distribution_by_variable_node
 
 #############################
         # LDPCalgs.jl

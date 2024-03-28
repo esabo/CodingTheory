@@ -1,6 +1,7 @@
 module MakieExt
 
-using CodingTheory, Makie, NetworkLayout, CairoMakie, GraphMakie, GLMakie, WGLMakie, GraphPlot
+using CodingTheory, Makie, NetworkLayout, CairoMakie, GraphMakie, GLMakie, WGLMakie, GraphPlot, Graphs
+import Graphs as Grphs
 # import CairoMakie: save
 
 include("Classical/Tanner.jl")
