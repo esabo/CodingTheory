@@ -45,7 +45,7 @@ mutable struct LDPCCode <: AbstractLDPCCode
     ρ::fmpq_poly
     girth::Union{Int, Missing}
     ACEs_per_var_node::Vector{Vector{Int}}
-    elementary_cycles::Vector{Vector{Tuple{Int64, Int64}}}
+    simple_cycles::Vector{Vector{Int}}
 end
 
 #############################

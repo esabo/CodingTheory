@@ -47,8 +47,7 @@ function LDPCCode(H::CTMatrixTypes)
     C = LinearCode(H, true)
     return LDPCCode(base_ring(H), C.n, C.k, C.d, C.l_bound, C.u_bound, H, nnz,
         cols, rows, c, r, maximum([c, r]), den, is_reg, col_poly,
-        row_poly, missing, [Vector{Int}() for _ in 1:C.n], [Vector{Tuple{Int64, Int64}}() for
-        _ in 1:C.n])
+        row_poly, missing, [Vector{Int}() for _ in 1:C.n], Vector{Vector{Int}}())
 end
 
 """
@@ -95,7 +94,7 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
     C = LinearCode(H, true)
     return LDPCCode(C.F, C.n, C.k, C.d, C.l_bound, C.u_bound, H, n * l, l * ones(Int, n),
         r * ones(Int, m), l, r, max(l, r), r / n, true, (1 // l) * x^l, (1 // r) * x^r, missing,
-        [Vector{Int}() for _ in 1:C.n], [Vector{Tuple{Int64, Int64}}() for _ in 1:C.n])
+        [Vector{Int}() for _ in 1:C.n], Vector{Vector{Int}}())
 end
 regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) =
     regular_LDPC_code(2, n, l, r, seed = seed)
@@ -280,7 +279,7 @@ function degree_distributions_plot end
 Return the girth of the Tanner graph of `C`.
 
 An error is thrown if the maximum number of iterations is reached and
-``-1`` is returned to represent infinite girth.
+`-1` is returned to represent infinite girth.
 """
 function girth(C::AbstractLDPCCode; max_iter::Int = 100)
     check_adj_list, var_adj_list = _node_adjacencies(C.H)
@@ -326,6 +325,18 @@ function girth(C::AbstractLDPCCode; max_iter::Int = 100)
     return C.girth
 end
 
+"""
+    computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
+
+Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
+for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherwise,
+`v_type` is `:c` and `v` is interpreted as a check node.
+
+# Note
+- Run `using Makie` to activate this extension.
+"""
+function computation_graph end
+
 mutable struct _ACEVarNode
     id::Int
     parent_id::Int
@@ -340,6 +351,371 @@ mutable struct _ACECheckNode
     lvl::Int
     cum_ACE::Int
 end
+
+#############################
+      # simple cycles
+#############################
+
+function _enumerate_cycles(L::AbstractLDPCCode, len::Int)
+    g, _, _ = Tanner_graph(L)
+    d = DiGraph(g)
+    if len == -1
+        cycles = simplecycles_hawick_james(d)
+    else
+        cycles = simplecycles_limited_length(d, len)
+    end
+
+    unique_cycles = Set{Vector{Int}}()
+    final_cycles = Vector{Vector{Int}}()
+    for cycle in cycles
+        if length(cycle) > 2
+            temp = sort(cycle)
+            found_flag = false
+            for key in keys(unique_cycles.dict)
+                if temp == key
+                    found_flag = true
+                    break
+                end
+            end
+            if !found_flag
+                push!(unique_cycles, temp)
+                push!(final_cycles, cycle)
+            end
+        end
+    end
+    
+    (len == -1) && (L.simple_cycles = final_cycles;)
+    lens = length.(final_cycles)
+    girth = minimum(lens)
+    girth == 9999999 && (girth = -1)
+    if ismissing(L.girth)
+        L.girth = girth
+    else
+        if L.girth != girth
+            @warn "Known girth, $(L.girth), does not match just computed girth, $girth"
+        end
+    end
+    return final_cycles
+end
+
+"""
+    enumerate_simple_cycles(L::AbstractLDPCCode; len::Int = -1)
+
+Return the unique simple cycles up to length `len` of the Tanner graph of `L`. If
+`len` is `-1`, then all simple cycles will be enumerated. An empty `Vector{Vector{Int}}`
+is returned when there is no cycles.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- Cycles are returned as a vector of vertex indices, where the vertices are ordered left-to-right by
+  columns of `parity_check_matrix(L)` then top-to-bottom by rows.
+"""
+function enumerate_simple_cycles(L::AbstractLDPCCode; len::Int = -1)
+    (len == -1 || ispositive(len)) ||
+        throw(DomainError("Cycle length parameter must be `-1` or a positive integer"))
+
+    if len == -1 && !isempty(L.simple_cycles)
+        return L.simple_cycles
+    elseif len != -1 && !isempty(L.simple_cycles)
+        return filter(x -> length(x) <= len, L.simple_cycles)
+    else
+        return _enumerate_cycles(L, len)
+    end
+end
+
+"""
+    simple_cycle_length_distribution(L::AbstractLDPCCode; len::Int = -1)
+
+Return a dictionary of (length, count) pairs for the unique simple cycles up to length `len` of the
+Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
+dictionary is returned when there are no cycles.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+simple_cycle_length_distribution(L::AbstractLDPCCode; len::Int = -1) = StatsBase.countmap(length.(
+    enumerate_simple_cycles(L, len = len)))
+
+"""
+    simple_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+
+Return a bar graph and dictionary of (length, count) pairs for the unique simple cycles up to
+length `len` of the Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be
+enumerated. An empty figure and dictionary are returned when there are no cycles.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+- Run `using Makie` to activate this extension.
+"""
+function simple_cycle_length_distribution_plot end
+
+"""
+    average_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the average cycle length of unique simple cycles up to length `len` of the Tanner graph of
+`L`. If `len` is `-1`, then all simple cycles will be enumerated.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+average_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1) = mean(length.(
+    enumerate_simple_cycles(L, len = len)))
+
+"""
+    median_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the median cycle length of unique simple cycles up to length `len` of the Tanner graph of
+`L`. If `len` is `-1`, then all simple cycles will be enumerated.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+median_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1) = median(length.(
+    enumerate_simple_cycles(L, len = len)))
+
+"""
+    mode_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the most common cycle length of unique simple cycles up to length `len` of the Tanner graph
+of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+mode_simple_cycle_length(L::AbstractLDPCCode; len::Int = -1) = StatsBase.mode(length.(
+    enumerate_simple_cycles(L, len = len)))
+
+# TODO: there are ways to compute this without enumerating all of the cycles, but they are complicated and perhaps not worth the effort unless explicitly requested by a user
+"""
+    count_simple_cycles(L::AbstractLDPCCode; len::Int = -1)
+
+Return the total number of unique simple cycles up to length `len` of the Tanner graph
+of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+count_simple_cycles(L::AbstractLDPCCode; len::Int = -1) = length(enumerate_simple_cycles(L,
+    len = len))
+
+"""
+    simple_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = -1)
+
+Return a dictionary of (node, count) pairs for the unique simple cycles up to length `len` of the
+Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
+dictionary is returned when there are no cycles.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+simple_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = -1) =
+    StatsBase.countmap(reduce(vcat, enumerate_simple_cycles(L, len = len)))
+
+# TODO: write this function in MakieExt
+"""
+    simple_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode; len::Int = -1)
+
+Return bar graph and a dictionary of (node, count) pairs for the unique simple cycles up to length
+`len` of the Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An
+empty figure and dictionary are returned when there are no cycles.
+
+# Note
+- Simple cycles do not contain the same vertex twice.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+    already cached.
+- Run `using Makie` to activate this extension.
+"""
+function simple_cycle_distribution_by_variable_node_plot end
+
+#############################
+        # short cycles
+#############################
+
+# TODO: time this versus calling girth and then doing the upper bound function
+"""
+    enumerate_short_cycles(L::AbstractLDPCCode; len::Int = -1)
+
+Return the unique short cycles up to length `len` of the Tanner graph of `L`. If
+`len` is `-1`, then all short cycles will be enumerated. An empty `Vector{Vector{Int}}`
+is returned when there is no short cycles.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- Cycles are returned as a vector of vertex indices, where the vertices are ordered left-to-right by
+  columns of `parity_check_matrix(L)` then top-to-bottom by rows.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+enumerate_short_cycles(L::AbstractLDPCCode; len::Int = -1) = filter(x -> length(x) <=
+    2 * girth(L) - 2, _enumerate_cycles(L, len))
+
+"""
+    short_cycle_length_distribution(L::AbstractLDPCCode; len::Int = -1)
+
+Return a dictionary of (length, count) pairs for the unique short cycles up to length `len` of the
+Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
+dictionary is returned when there are no cycles.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+short_cycle_length_distribution(L::AbstractLDPCCode; len::Int = -1) = StatsBase.countmap(length.(
+    enumerate_short_cycles(L, len = len)))
+
+"""
+    short_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+
+Return a bar graph and dictionary of (length, count) pairs for the unique short cycles up to
+length `len` of the Tanner graph of `L`. If `len` is `-1`, then all short cycles will be
+enumerated. An empty figure and dictionary are returned when there are no cycles.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+- Run `using Makie` to activate this extension.
+"""
+function short_cycle_length_distribution_plot end
+
+# TODO: axis and move to MakieExt
+function short_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+    dist = short_cycle_length_distribution(L)
+    x_data = collect(keys(dist))
+    y_data = collect(values(dist))
+    fig = Figure()
+    ax = Axis(fig[1, 2])
+    barplot!(ax, x_data, y_data, bar_width = 1, x_ticks = collect(girth(L):2 * girth(L) - 2),
+        y_ticks = y_data)
+    display(fig)
+    return fig
+end
+
+"""
+    average_short_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the average cycle length of unique short cycles up to length `len` of the Tanner graph of
+`L`. If `len` is `-1`, then all short cycles will be enumerated.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+average_short_cycle_length(L::AbstractLDPCCode; len::Int = -1) = mean(length.(
+    enumerate_short_cycles(L, len = len)))
+
+"""
+    median_short_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the median cycle length of unique short cycles up to length `len` of the Tanner graph of
+`L`. If `len` is `-1`, then all short cycles will be enumerated.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+median_short_cycle_length(L::AbstractLDPCCode; len::Int = -1) = median(length.(
+    enumerate_short_cycles(L, len = len)))
+
+"""
+    mode_short_cycle_length(L::AbstractLDPCCode; len::Int = -1)
+
+Return the most common cycle length of unique short cycles up to length `len` of the Tanner graph
+of `L`. If `len` is `-1`, then all short cycles will be enumerated.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+mode_short_cycle_length(L::AbstractLDPCCode; len::Int = -1) = StatsBase.mode(length.(
+    enumerate_short_cycles(L, len = len)))
+
+ """
+    count_short_cycles(L::AbstractLDPCCode; len::Int = -1)
+
+Return the total number of unique short cycles up to length `len` of the Tanner graph
+of `L`. If `len` is `-1`, then all short cycles will be enumerated.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+count_short_cycles(L::AbstractLDPCCode; len::Int = -1) = length(enumerate_short_cycles(L,
+    len = len))
+
+"""
+    short_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = -1)
+
+Return a dictionary of (node, count) pairs for the unique short cycles up to length `len` of the
+Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
+dictionary is returned when there are no cycles.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+  already cached.
+"""
+short_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = -1) =
+    StatsBase.countmap(reduce(vcat, enumerate_short_cycles(L, len = len)))
+
+# TODO: write this function in MakieExt
+"""
+    short_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode; len::Int = -1)
+
+Return bar graph and a dictionary of (node, count) pairs for the unique short cycles up to length
+`len` of the Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An
+empty figure and dictionary are returned when there are no cycles.
+
+# Note
+- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+  where ``g`` is the girth.
+- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
+    already cached.
+- Run `using Makie` to activate this extension.
+"""
+function short_cycle_distribution_by_variable_node_plot end
+
+#############################
+        # lollipops
+#############################
+
+
+
+
+
+
+
+
+#############################
+           # ACE
+#############################
 
 # TODO: degree 1 nodes
 # why did I make this note? is ACE defined for them differently?
@@ -543,357 +919,6 @@ end
 shortest_cycles(C::AbstractLDPCCode, v::Int) = shortest_cycles(C, [v])[1]
 shortest_cycles(C::AbstractLDPCCode) = shortest_cycles(C, collect(1:C.n))
 
-# function _progressive_node_adjacencies(H::CTMatrixTypes, vs::Vector{Int}, v_type::Symbol)
-#     check_adj_list, var_adj_list = _node_adjacencies(H)
-#     unique!(sort!(vs))
-#     len = length(vs)
-#     check_adj_lists = [deepcopy(check_adj_list) for _ in 1:len]
-#     var_adj_lists = [deepcopy(var_adj_list) for _ in 1:len]
-
-#     # println("before: ", check_adj_lists)
-#     # for i in 2:len
-#     #     prev = vs[1:i - 1]
-#     #     if v_type == :v
-#     #         for (j, x) in enumerate(check_adj_lists[i])
-#     #             check_adj_lists[i][j] = setdiff(x, prev)
-#     #         end
-#     #     else
-#     #         for (j, x) in enumerate(var_adj_lists[i])
-#     #             var_adj_lists[i][j] = setdiff(x, prev)
-#     #         end
-#     #     end
-#     # end
-#     # println("after: ", check_adj_lists)
-#     return check_adj_lists, var_adj_lists
-# end
-
-# change to _enumerate_cycles
-function _enumerate_cycles(C::AbstractLDPCCode)
-    check_adj_list, var_adj_list = _node_adjacencies(C.H)
-    check_adj_lists = [deepcopy(check_adj_list) for _ in 1:C.n]
-    var_adj_lists = [deepcopy(var_adj_list) for _ in 1:C.n]
-    lengths = [Vector{Int}() for _ in 1:C.n]
-    cycles = [Vector{Vector{Vector{Tuple{Int, Int}}}}() for _ in 1:C.n]
-
-    # Threads.@threads 
-    for i in 1:C.n
-        check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
-        var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
-
-        cycle_lens = Vector{Int}()
-        local_cycles = Vector{Vector{Tuple{Int, Int}}}()
-        # TODO: there is a race condition here
-        cycles_sorted = Set{Tuple{Vector{Int}, Vector{Int}}}()
-        root = var_nodes[i]
-        root.lvl = 0
-        queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
-        enqueue!(queue, root)
-        while length(queue) > 0
-            curr = first(queue)
-            if isa(curr, _ACEVarNode)
-                for cn in var_adj_lists[i][curr.id]
-                    # can't pass messages back to the same node
-                    if cn != curr.parent_id
-                        cn_node = check_nodes[cn]
-                        if cn_node.lvl != -1
-                            # have seen before
-                            # trace the cycle from curr to root and cn_node to root
-                            temp = Vector{Tuple{Int, Int}}()
-                            temp_var = Vector{Int}()
-                            temp_check = Vector{Int}()
-                            node = cn_node
-                            while node.lvl != 0
-                                push!(temp, (node.parent_id, node.id))
-                                if isa(node, _ACECheckNode)
-                                    push!(temp_check, node.id)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp_var, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-                            reverse!(temp)
-                            push!(temp, (cn_node.id, curr.id))
-                            # push!(temp_var, curr.id)
-                            node = curr
-                            while node.lvl != 0
-                                push!(temp, (node.id, node.parent_id))
-                                if isa(node, _ACECheckNode)
-                                    push!(temp_check, node.id)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp_var, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-
-                            key = (sort!(temp_var), sort!(temp_check))
-                            # println(key)
-                            if key ∉ keys(cycles_sorted.dict)
-                                # println("here")
-                                push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
-                                push!(cycles_sorted, key)
-                                push!(local_cycles, temp)
-                            end
-                        else
-                            cn_node.lvl = curr.lvl + 1
-                            cn_node.parent_id = curr.id
-                            enqueue!(queue, cn_node)
-                        end
-                    end
-                end
-            else
-                for vn in check_adj_lists[i][curr.id]
-                    # can't pass messages back to the same node
-                    if vn != curr.parent_id
-                        vn_node = var_nodes[vn]
-                        if vn_node.lvl != -1
-                            # have seen before
-                            # push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
-                            # trace the cycle from curr to root and vn_node to root
-                            temp = Vector{Tuple{Int, Int}}()
-                            temp_var = Vector{Int}()
-                            temp_check = Vector{Int}()
-                            node = vn_node
-                            # push!(temp_var, node.id)
-                            while node.lvl != 0
-                                push!(temp, (node.parent_id, node.id))
-                                if isa(node, _ACECheckNode)
-                                    # push!(temp_var, node.id)
-                                    push!(temp_check, node.id)
-                                    node = var_nodes[node.parent_id]
-                                    # push!(temp_check, node.id)
-                                else
-                                    push!(temp_var, node.id)
-                                    # push!(temp_check, node.id)
-                                    node = check_nodes[node.parent_id]
-                                    # push!(temp_var, node.id)
-                                end
-                            end
-                            reverse!(temp)
-                            push!(temp, (vn_node.id, curr.id))
-                            # push!(temp_var, vn_node.id)
-                            node = curr
-                            while node.lvl != 0
-                                push!(temp, (node.id, node.parent_id))
-                                if isa(node, _ACECheckNode)
-                                    push!(temp_check, node.id)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp_var, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-
-                            key = (sort!(temp_var), sort!(temp_check))
-                            # println(key)
-                            if key ∉ keys(cycles_sorted.dict)
-                                # println("here2")
-                                push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
-                                push!(cycles_sorted, key)
-                                push!(local_cycles, temp)
-                            end
-                        else
-                            vn_node.lvl = curr.lvl + 1
-                            vn_node.parent_id = curr.id
-                            enqueue!(queue, vn_node)
-                        end
-                    end
-                end
-            end
-            dequeue!(queue)
-        end
-        lengths[i] = cycle_lens
-        push!(cycles[i], local_cycles)
-        # also do ACE here
-    end
-
-    C.elementary_cycles = reduce(vcat, cycles)
-    lens = length.(C.elementary_cycles)
-    girth = minimum(lens)
-    girth == 9999999 && (girth = -1)
-    if ismissing(C.girth)
-        C.girth = girth
-    else
-        if C.girth != girth
-            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
-        end
-    end
-    return StatsBase.countmap(lens)
-end
-
-"""
-    count_short_cycles(C::AbstractLDPCCode)
-
-Return a dictionary of (length, count) pairs for unique short
-cycles in the Tanner graph of `C`. An empty dictionary is returned
-when there are no cycles.
-
-# Note
-- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
-  where ``g`` is the girth.
-"""
-function count_short_cycles(C::AbstractLDPCCode)
-    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        _count_cycles(C)
-    end
-    return C.short_cycle_counts
-end
-
-"""
-    count_short_cycles_plot(C::AbstractLDPCCode)
-
-Return a bar graph and a dictionary of (length, count) pairs for unique short
-cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
-when there are no cycles.
-
-# Note
-- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
-  where ``g`` is the girth.
-- Run `using Makie` to activate this extension.
-"""
-function count_short_cycles_plot end
-
-"""
-    elementary_cycle_distribution_by_variable_node(C::AbstractLDPCCode)
-
-Return a dictionary of the number of elementary cycles (values) each variable node (keys)
-participates in.
-"""
-function elementary_cycle_distribution_by_variable_node(C::AbstractLDPCCode)
-    check_adj_list, var_adj_list = _node_adjacencies(C.H)
-    check_adj_lists = [deepcopy(check_adj_list) for _ in 1:C.n]
-    var_adj_lists = [deepcopy(var_adj_list) for _ in 1:C.n]
-    cycles = [Vector{Vector{Int}}() for _ in 1:C.n]
-
-    Threads.@threads for i in 1:C.n
-        check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_lists[i])]
-        var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_lists[i][i]) - 2) for i in 1:C.n]
-
-        # these should be unique by the manner it's computed, but use a Set just in case
-        local_cycles = Set{Vector{Int}}()
-        root = var_nodes[i]
-        root.lvl = 0
-        queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
-        enqueue!(queue, root)
-        while length(queue) > 0
-            curr = first(queue)
-            if isa(curr, _ACEVarNode)
-                for cn in var_adj_lists[i][curr.id]
-                    # can't pass messages back to the same node
-                    if cn != curr.parent_id
-                        cn_node = check_nodes[cn]
-                        if cn_node.lvl != -1
-                            # have seen before
-                            # trace the cycle from curr to root and cn_node to root
-                            temp = Vector{Int}()
-                            node = cn_node
-                            while node.lvl != 0
-                                if isa(node, _ACECheckNode)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-                            node = curr
-                            while node.lvl != 0
-                                if isa(node, _ACECheckNode)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-                            push!(local_cycles, sort!(temp))
-                        else
-                            cn_node.lvl = curr.lvl + 1
-                            cn_node.parent_id = curr.id
-                            enqueue!(queue, cn_node)
-                        end
-                    end
-                end
-            else
-                for vn in check_adj_lists[i][curr.id]
-                    # can't pass messages back to the same node
-                    if vn != curr.parent_id
-                        vn_node = var_nodes[vn]
-                        if vn_node.lvl != -1
-                            # have seen before
-                            # trace the cycle from curr to root and vn_node to root
-                            temp = Vector{Int}()
-                            node = vn_node
-                            while node.lvl != 0
-                                if isa(node, _ACECheckNode)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-                            push!(temp, vn_node.id)
-                            node = curr
-                            while node.lvl != 0
-                                if isa(node, _ACECheckNode)
-                                    node = var_nodes[node.parent_id]
-                                else
-                                    push!(temp, node.id)
-                                    node = check_nodes[node.parent_id]
-                                end
-                            end
-                            push!(local_cycles, sort!(temp))
-                        else
-                            vn_node.lvl = curr.lvl + 1
-                            vn_node.parent_id = curr.id
-                            enqueue!(queue, vn_node)
-                        end
-                    end
-                end
-            end
-            dequeue!(queue)
-        end
-        cycles[i] = collect(keys(local_cycles.dict))
-    end
-
-    flattened = Vector{Int}()
-    for i in 1:C.n
-        !isempty(cycles[i]) && append!(flattened, reduce(vcat, reduce(vcat, cycles[i])))
-    end
-    return StatsBase.countmap(flattened)
-end
-
-"""
-    count_elementary_cycles(C::AbstractLDPCCode)
-
-Return a dictionary of (length, count) pairs for unique elementary
-cycles in the Tanner graph of `C`. An empty dictionary is returned
-when there are no cycles.
-
-# Note
-- Elementary cycles do not contain the same vertex twice and are unable to be
-  decomposed into a sequence of shorter cycles.
-"""
-function count_elementary_cycles(C::AbstractLDPCCode)
-    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        _count_cycles(C)
-    end
-    return C.elementary_cycle_counts
-end
-
-"""
-    count_elementary_cycles_plot(C::AbstractLDPCCode)
-
-Return a bar graph and a dictionary of (length, count) pairs for unique elementary
-cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
-when there are no cycles.
-
-# Note
-- Elementary cycles do not contain the same vertex twice and are unable to be
-  decomposed into a sequence of shorter cycles.
-- Run `using Makie` to activate this extension.
-"""
-function count_elementary_cycles_plot end
-
 """
     ACE_distribution(C::AbstractLDPCCode, v::Int)
     ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
@@ -1096,15 +1121,3 @@ Return an interactive figure and data for the ACE spectrum of the Tanner graph o
 - Run `using Makie` to activate this extension.
 """
 function ACE_spectrum_plot end
-
-"""
-    computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
-
-Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
-for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherwise,
-`v_type` is `:c` and `v` is interpreted as a check node.
-
-# Note
-- Run `using Makie` to activate this extension.
-"""
-function computation_graph end

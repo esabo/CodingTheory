@@ -24,11 +24,9 @@ the bits and parity checks, respectively.
 """
 function Tanner_graph(H::Union{CTMatrixTypes, Matrix{Int}})
     typeof(H) <: CTMatrixTypes ? (I = _Flint_matrix_to_Julia_int_matrix(H);) : (I = H;)
-    I_tr = transpose(I)
-    # TODO: fix B - no zeros for this type
-    B = vcat(hcat(zeros(Int, size(I_tr)), I), hcat(I_tr, zeros(Int, size(I))))
+    nr, nc = size(I)
+    B = vcat(hcat(zeros(Int, nc, nc), transpose(I)), hcat(I, zeros(Int, nr, nr)))
     G = SimpleGraph(B)
-    nr, nc = size(H)
     # lhs - bits
     # rhs - parity checks
     return G, collect(1:nr), collect(nr + 1:nr + nc)
@@ -43,12 +41,12 @@ respectively.
 """
 Tanner_graph(C::AbstractLinearCode) = Tanner_graph(parity_check_matrix(C))
 
-"""
-    Tanner_graph(C::AbstractLDPCCode)
+# """
+#     Tanner_graph(C::AbstractLDPCCode)
 
-Return the Tanner graph of `C` as a `Figure` object.
-"""
-Tanner_graph(C::AbstractLDPCCode) = ismissing(C.tangr) ? (return Tanner_graph(C.H);) : (return C.tangr;)
+# Return the Tanner graph of `C` as a `Figure` object.
+# """
+# Tanner_graph(C::AbstractLDPCCode) = Tanner_graph(C.H)
 
 # compressed sparse column (CSC) format used here so data is
 # colptr, nzvals, rowval

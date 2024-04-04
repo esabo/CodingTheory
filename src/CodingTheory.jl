@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023, 2024 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -131,15 +131,17 @@ export code_complement, quo, quotient, /, direct_sum, ⊗, kron, tensor_product,
 #############################
 
 include("LDPC/codes.jl")
-export variable_degree_distribution, check_degree_distribution,
-    degree_distributions, column_bound, row_bound, bounds, density, is_regular,
-    LDPCCode, degree_distributions_plot, variable_degree_polynomial,
-    check_degree_polynomial, column_row_bounds, limited, regular_LDPC_code,
-    shortest_cycle_ACE, shortest_cycles, computation_graph, ACE_distribution,
-    ACE_spectrum, count_short_cycles, average_ACE_distribution,
-    median_ACE_distribution, mode_ACE_distribution, girth, count_elementary_cycles,
-    count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph,
-    elementary_cycle_distribution_by_variable_node, short_cycle_distribution_by_variable_node
+export regular_LDPC_code, variable_degree_distribution, check_degree_distribution,
+    degree_distributions, column_bound, row_bound, column_row_bounds, limited, density,
+    is_regular, variable_degree_polynomial, check_degree_polynomial, degree_distributions_plot,
+    girth, computation_graph, enumerate_simple_cycles, simple_cycle_length_distribution,
+    simple_cycle_length_distribution_plot, average_simple_cycle_length, median_simple_cycle_length,
+    mode_simple_cycle_length, count_simple_cycles, simple_cycle_distribution_by_variable_node,
+    simple_cycle_distribution_by_variable_node, enumerate_short_cycles,
+    short_cycle_length_distribution, short_cycle_length_distribution_plot,
+    average_short_cycle_length, median_short_cycle_length, mode_short_cycle_length,
+    count_short_cycles, short_cycle_distribution_by_variable_node,
+    short_cycle_distribution_by_variable_node_plot
 
 #############################
         # LDPCalgs.jl
