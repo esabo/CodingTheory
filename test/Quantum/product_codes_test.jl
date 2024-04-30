@@ -47,6 +47,48 @@
     @test LogicalTrait(typeof(Q)) == HasLogicals()
     @test GaugeTrait(typeof(Q)) == HasNoGauges()
 
+    # Quantum kronecker sum-product low-density parity-check codes with finite rate
+    # Fig 2
+    l = 21
+    R = residue_ring(S, x^l - 1)
+    h = R(1 + x + x^3)
+    A = residue_polynomial_to_circulant_matrix(h)
+    a1 = A[1:7, 1:7]
+    a2 = A[1:7, 8:14]
+    a3 = A[1:7, 15:21]
+    χ = 1
+    Q = HyperBicycleCodeCSS([a1, a2, a3], [a1, a2, a3], χ)
+    @test length(Q) == 294
+    @test CodingTheory.dimension(Q) == 18
+    @test LogicalTrait(typeof(Q)) == HasLogicals()
+    @test GaugeTrait(typeof(Q)) == HasNoGauges()
+
+    # Example 6
+    l = 30
+    R = residue_ring(S, x^l - 1)
+    h = R(1 + x + x^3 + x^5)
+    A = residue_polynomial_to_circulant_matrix(h)
+    a1 = A[1:15, 1:15]
+    a2 = A[1:15, 16:30]
+    χ = 1
+    Q = HyperBicycleCodeCSS([a1, a2], [a1, a2], χ)
+    @test length(Q) == 900
+    @test CodingTheory.dimension(Q) == 50
+    @test LogicalTrait(typeof(Q)) == HasLogicals()
+    @test GaugeTrait(typeof(Q)) == HasNoGauges()
+
+    # Example 13 (non-CSS example)
+    l = 17
+    R = residue_ring(S, x^l - 1)
+    h = R(x^4 * (1 + x + x^3 + x^6 + x^8 + x^9))
+    A = residue_polynomial_to_circulant_matrix(h)
+    χ = 1
+    Q = HyperBicycleCode([A], [A], χ)
+    @test length(Q) == 289
+    @test CodingTheory.dimension(Q) == 81
+    @test LogicalTrait(typeof(Q)) == HasLogicals()
+    @test GaugeTrait(typeof(Q)) == HasNoGauges()
+
     # HGP codes are (l, q)-QLDPC code
     # l, q = columnrowweights(Sq2)
 
