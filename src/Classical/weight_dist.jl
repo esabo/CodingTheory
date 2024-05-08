@@ -202,8 +202,8 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
     1 <= l <= nr || throw(ArgumentError("l must be between 1 and n - k"))
     H2 = deepcopy(H)
     # G2 = deepcopy(G)
-    # len_w_vecs = Vector{fq_nmod_mat}()
-    len_w_vecs = Set{fq_nmod_mat}()
+    # len_w_vecs = Vector{fqPolyRepMatrix}()
+    len_w_vecs = Set{fqPolyRepMatrix}()
     count = 0
     found = 0
     while count < max_iters
@@ -310,7 +310,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
         # storing this is a terrible idea but avoids repeated calculations of πB for each A
         # will have to check later if that's fast enough in parallel to do
         left = nr - l
-        AπAs = Vector{Tuple{Vector{Int}, Vector{fq_nmod}}}()
+        AπAs = Vector{Tuple{Vector{Int}, Vector{fqPolyRepFieldElem}}}()
         # for every size-p subset A of X
         for A in powerset(X, p, p)
             # compute the sum of the columns in A for each of those l rows
@@ -323,7 +323,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
         end
 
         # compute π(B) for every size-p subset B of Y
-        BπBs = Vector{Tuple{Vector{Int}, Vector{fq_nmod}}}()
+        BπBs = Vector{Tuple{Vector{Int}, Vector{fqPolyRepFieldElem}}}()
         for B in powerset(Y, p, p)
             πB = [sum(H2[Z[left + 1], B])]
             for i in 2:l

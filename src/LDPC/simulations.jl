@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 #############################
         # Noise Model
 #############################
@@ -657,7 +656,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_f_dir[:, :, :] .= 0.0
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based SP
+                    # run syndrome-based SP
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                         _SP_check_node_message_box_plus, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, 0.0)
@@ -677,7 +676,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_f_dir[:, :, :] .= 0.0
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based MS
+                    # run syndrome-based MS
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                     _MS_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, 0.0)
@@ -697,7 +696,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_f_dir[:, :, :] .= 0.0
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based MS with correction
+                    # run syndrome-based MS with correction
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                     _MS_correction_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, attenuation)
@@ -718,7 +717,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_s_dir[:, :, :] .= 0.0
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based SP
+                    # run syndrome-based SP
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                         _SP_check_node_message_box_plus, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, 0.0)
@@ -738,7 +737,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_s_dir[:, :, :] .= 0.0
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based MS
+                    # run syndrome-based MS
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                     _MS_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, 0.0)
@@ -758,7 +757,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     check_to_var_messages_s_dir[:, :, :] .= 0.0
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
-                    # run syn_dirdrome-based MS with correction
+                    # run syndrome-based MS with correction
                     flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
                     _MS_correction_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
                         current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, attenuation)
@@ -943,8 +942,6 @@ function single_decoder_test(H::CTMatrixTypes)
     end
     return FER
 end
-
-
 
 #     for k in eachindex(noise)
 

@@ -22,8 +22,8 @@ using StatsBase
 using Distributions
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
-import Oscar: dual, isprime, factor, transpose, order, polynomial, nrows, ncols, degree,
-    isisomorphic, lift, quo, VectorSpace, dimension, extend, support, complement,
+import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
+    lift, quo, VectorSpace, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic
@@ -45,7 +45,7 @@ const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
-const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
+const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
 
 include("Classical/types.jl")
@@ -85,7 +85,8 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     is_regular, edge_vertex_incidence_matrix, edge_vertex_incidence_graph,
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
     row_supports, row_supports_symplectic, strongly_lower_triangular_reduction,
-    residue_polynomial_to_circulant_matrix, group_algebra_element_to_circulant_matrix
+    residue_polynomial_to_circulant_matrix, group_algebra_element_to_circulant_matrix,
+    load_alist
     # , _min_wt_row
     # , circ_shift
     # , lift
@@ -131,7 +132,7 @@ export code_complement, quo, quotient, /, direct_sum, ⊗, kron, tensor_product,
 #############################
 
 include("LDPC/codes.jl")
-export regular_LDPC_code, variable_degree_distribution, check_degree_distribution,
+export LDPCCode, regular_LDPC_code, variable_degree_distribution, check_degree_distribution,
     degree_distributions, column_bound, row_bound, column_row_bounds, limited, density,
     is_regular, variable_degree_polynomial, check_degree_polynomial, degree_distributions_plot,
     girth, computation_graph, enumerate_simple_cycles, simple_cycle_length_distribution,
@@ -162,7 +163,8 @@ export MPNoiseModel
 
 include("LDPC/MP_decoders.jl")
 export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, sum_product_syndrome,
-    min_sum, min_sum_syndrome, find_MP_schedule
+    min_sum, min_sum_syndrome, min_sum_with_correction, min_sum_with_correction_syndrome,
+    layered_schedule, balance_of_layered_schedule
    
 #############################
     # LDPC/LP_decoders.jl
@@ -190,6 +192,9 @@ export LDPCEnsemble, erasure_probability, crossover_probability, standard_deviat
     type, density_evolution, density_evolution!, EXIT_chart_plot, multiplicative_gap,
     multiplicative_gap_lower_bound, density_lower_bound, check_concentrated_degree_distribution
 
+export optimal_lambda, optimal_rho, optimal_lambda_and_rho, optimal_threshold, multiplicative_gap,
+    irregular_LDPC_code
+
 #############################
 # Classical/MatrixProductCode.jl
 #############################
@@ -213,7 +218,7 @@ export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     design_distance, qcosets, qcosets_reps, generator_polynomial, parity_check_polynomial,
     idempotent, is_primitive, is_narrowsense, is_reversible, find_delta, dual_defining_set,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCHbound, is_degenerate, nonzeros, is_cyclic, is_antiprimitive
+    zeros, BCH_bound, is_degenerate, nonzeros, is_cyclic, is_antiprimitive
 
 #############################
 # Classical/quasi-cyclic_code.jl
@@ -295,7 +300,7 @@ export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
     ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D,
-    Q832, SmallestInterestingColorCode
+    Q832, SmallestInterestingColorCode #, PlanarSurfaceCode3D, ToricCode3D
 
 #############################
         # trellis.jl
@@ -326,7 +331,7 @@ include("Quantum/weight_dist.jl")
 export QDistRndCSS
 
 #############################
-# Quantum/product_codes.jl
+#  Quantum/product_codes.jl
 #############################
 
 include("Quantum/product_codes.jl")
@@ -337,6 +342,13 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
     Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code,
     homological_product, ⊠
+
+#############################
+#   Quantum/simulation.jl
+#############################
+
+include("Quantum/simulation.jl")
+export CSS_decoder_test, CSS_decoder_with_Bayes
 
 #############################
         # tilings.jl

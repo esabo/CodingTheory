@@ -32,7 +32,7 @@ abstract type AbstractConcatenatedCode <: AbstractLinearCode end
 #############################
 
 struct WeightEnumerator
-      polynomial::Union{fmpz_mpoly, AbstractAlgebra.Generic.MPoly{nf_elem}}
+      polynomial::Union{ZZMPolyRingElem, AbstractAlgebra.Generic.MPoly{nf_elem}}
       type::Symbol
   end
     
@@ -69,7 +69,7 @@ struct WeightEnumerator
       P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
       weight_enum::Union{WeightEnumerator, Missing}
       Cvec::Vector{AbstractLinearCode}
-      A::fq_nmod_mat
+      A::fqPolyRepMatrix
   end
   
   #############################

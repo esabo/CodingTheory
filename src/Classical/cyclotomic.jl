@@ -18,7 +18,7 @@ function ord(n::Int, q::Int)
         throw(DomainError("q and n both need to be positive. Passed: q = $q, n = $n"))
 
     # finite stop instead of while
-    for i = 1:200
+    for i in 1:200
         if mod(BigInt(q)^i, n) == 1
             return i
         end
@@ -27,7 +27,7 @@ function ord(n::Int, q::Int)
 end
 
 """
-    cyclotomic_coset(x::Int, q::Int, n::Int, to_sort::Bool=true, verbose::Bool=false)
+    cyclotomic_coset(x::Int, q::Int, n::Int; to_sort::Bool=true, verbose::Bool=false)
 
 Return the `q`-cyclotomic coset of `x` modulo `n`.
 
@@ -36,11 +36,11 @@ Return the `q`-cyclotomic coset of `x` modulo `n`.
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """
-function cyclotomic_coset(x::Int, q::Int, n::Int, to_sort::Bool=true,
-    verbose::Bool=false)
+function cyclotomic_coset(x::Int, q::Int, n::Int; to_sort::Bool = true,
+    verbose::Bool = false)
 
     temp = [mod(x, n)]
-    for i = 0:(n - 1)
+    for i in 0:(n - 1)
         y = mod(temp[end] * q, n)
         if y ∉ temp
             append!(temp, y)
@@ -67,7 +67,7 @@ function cyclotomic_coset(x::Int, q::Int, n::Int, to_sort::Bool=true,
 end
 
 """
-    all_cyclotomic_cosets(q::Int, n::Int, to_sort::Bool=true, verbose::Bool=false)
+    all_cyclotomic_cosets(q::Int, n::Int; to_sort::Bool=true, verbose::Bool=false)
 
 Return all `q`-cyclotomic cosets modulo `n`.
 
@@ -76,8 +76,8 @@ Return all `q`-cyclotomic cosets modulo `n`.
 sorted. If the optional parameter `verbose` is set to `true`, the result will
 pretty print.
 """
-function all_cyclotomic_cosets(q::Int, n::Int, to_sort::Bool=true,
-    verbose::Bool=false)
+function all_cyclotomic_cosets(q::Int, n::Int; to_sort::Bool = true,
+    verbose::Bool = false)
 
     n % q == 0 && throw(DomainError("Cyclotomic coset requires gcd(n, q) = 1"))
 
@@ -92,7 +92,7 @@ function all_cyclotomic_cosets(q::Int, n::Int, to_sort::Bool=true,
         end
 
         if !found
-            Cx = cyclotomic_coset(x, q, n, to_sort, false)
+            Cx = cyclotomic_coset(x, q, n, to_sort = to_sort, verbose = false)
             push!(arr, Cx)
         end
     end
@@ -176,14 +176,19 @@ function qcoset_pairings(arr::Vector{Vector{Int64}}, n::Int)
     end
     return coset_pair_list, coset_rep_list
 end
+qcoset_pairings(q::Int, n::Int) = qcoset_pairings(all_cyclotomic_cosets(q, n, to_sort = false), n)
 
-qcoset_pairings(q::Int, n::Int) = qcoset_pairings(all_cyclotomic_cosets(q, n, false), n)
+# TODO: redo this with an abstract range
+"""
+    qcoset_table(a::Int, b::Int, q::Int)
 
+Print all `q`-cyclotomic cosets modulo `n` for `n` between `a` and `b`.
+"""
 function qcoset_table(a::Int, b::Int, q::Int)
     for n in a:b
         if n % q != 0
             println("n = $n")
-            all_cyclotomic_cosets(q, n, true)
+            all_cyclotomic_cosets(q, n, to_sort = true, verbose = true)
             println(" ")
         end
     end
@@ -198,7 +203,7 @@ function dual_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
     comp_cosets = complement_qcosets(q, n, qcosets)
     for a in comp_cosets
         for (i, x) in enumerate(a)
-            a[i] = mod(n - a[i], n)
+            a[i] = mod(n - x, n)
         end
         sort!(a)
     end

@@ -48,7 +48,6 @@ GraphPlot = "0.5.2"
 Graphs = "1.9.0"
 Makie = "0.19.11"
 NetworkLayout = "0.4.6"
-Oscar = "0.13.0"
 StatsBase = "0.34.2"
 WGLMakie = "0.8.15"
 julia = "≥ 1.9"
@@ -57,4 +56,4 @@ julia = "≥ 1.9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "JLD2"]
+test = ["Test"]

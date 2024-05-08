@@ -9,7 +9,7 @@
 #############################
 
 """
-    LDPCCode(H::fq_nmod_mat)
+    LDPCCode(H::fqPolyRepMatrix)
 
 Return the LDPC code defined by the parity-check matrix `H`.
 """
@@ -707,7 +707,8 @@ function short_cycle_distribution_by_variable_node_plot end
 #############################
 
 
-
+# one for short cycles which cuts off stems at the correct lengths
+# one for doing all of them
 
 
 

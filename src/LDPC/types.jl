@@ -41,8 +41,8 @@ mutable struct LDPCCode <: AbstractLDPCCode
     density::Float64
     is_reg::Bool
     # Tanner_graph::Union{Figure, Missing}
-    λ::fmpq_poly
-    ρ::fmpq_poly
+    λ::QQPolyRingElem
+    ρ::QQPolyRingElem
     girth::Union{Int, Missing}
     ACEs_per_var_node::Vector{Vector{Int}}
     simple_cycles::Vector{Vector{Int}}

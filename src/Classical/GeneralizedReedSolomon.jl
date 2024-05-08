@@ -9,7 +9,7 @@
 #############################
 
 """
-    GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})
+    GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::Vector{fqPolyRepFieldElem})
 
 Return the dimension `k` Generalized Reed-Solomon code with scalars `v` and
 evaluation points `γ`.
@@ -19,7 +19,7 @@ evaluation points `γ`.
 * The elements of `v` need not be distinct but must be nonzero.
 * The elements of `γ` must be distinct.
 """
-function GeneralizedReedSolomonCode(k::Int, v::Vector{fq_nmod}, γ::Vector{fq_nmod})
+function GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::Vector{fqPolyRepFieldElem})
     n = length(v)
     1 <= k <= n || throw(DomainError("The dimension of the code must be between 1 and n."))
     n == length(γ) || throw(DomainError("Lengths of scalars and evaluation points must be equal."))

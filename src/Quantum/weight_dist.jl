@@ -10,7 +10,7 @@
 
 # TODO: test with other iterator
 # TODO: remove quadratic extension
-function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{nmod},
+function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingElem},
     R::Union{AbstractAlgebra.Generic.MPolyRing{nf_elem}, Missing})
     # this should be the quadratic extension field
     E = base_ring(G)

@@ -104,8 +104,8 @@ Return the Bacon-Shor subsystem code on a `d x d` lattice.
 BaconShorCode(d::Int) = BaconShorCode(d, d)
 
 """
-    BravyiBaconShorCode(A::fq_nmod_mat)
-    GeneralizedBaconShorCode(A::fq_nmod_mat)
+    BravyiBaconShorCode(A::fqPolyRepMatrix)
+    GeneralizedBaconShorCode(A::fqPolyRepMatrix)
 
 Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With Spatially Local
 Generators", (2011).
@@ -1388,9 +1388,26 @@ end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
 
 ################################
+     # 3D PlanarSurfaceCode
+################################
+
+"""
+    PlanarSurfaceCode3D(d::Int)
+
+Return the 3D planar surface code of distance `d`.
+
+# Note
+- Run `using JLD2` to activate this extension.
+- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
+  `3 ≤ d ≤ 9`.
+"""
+function PlanarSurfaceCode3D_X end
+
+################################
        # XY Surface Codes
 ################################
 
+# TODO remove quadratic
 """
     XYSurfaceCode(d_x::Int, d_z::Int)
     XYSurfaceCode(d::Int)
@@ -1400,7 +1417,6 @@ Return the `[[d_x * d_y + (d_x - 1) * (d_y - 1), 1, d_x/d_y]]` XY surface code o
 
 The top and bottom boundaries are "smooth" (`Y`) and the left and right are "rough" (`X`).
 """
-# TODO: remove quadratic
 function XYSurfaceCode(d_x::Int, d_y::Int)
     (2 <= d_x && 2 <= d_y) || throw(DomainError("Distances must be at least two."))
 
@@ -1548,6 +1564,22 @@ function HCode(k::Int)
     end
     return CSSCode(X, Z)
 end
+
+#################################
+        # 3D Toric codes
+#################################
+
+"""
+    ToricCode3D(d::Int)
+
+Return the 3D toric code of distance `d`.
+
+# Note
+- Run `using JLD2` to activate this extension.
+- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
+  `2 ≤ d ≤ 13`.
+"""
+function ToricCode3D_X end
 
 #################################
         # 4D Toric codes
@@ -1784,8 +1816,8 @@ function ToricCode4D(l::Int)
     Z_redundant = _compute_redundant(Z_redundancy, volume_dict)
     X_redundant = _compute_redundant(X_redundancy, edge_dict)
 
-    X_logicals, Z_logicals = _compute_logicals(l)
-    X_logical, Z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
+    # X_logicals, Z_logicals = _compute_logicals(l)
+    # X_logical, Z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
 
     # defining the code objects
     F = GF(2)
@@ -1803,5 +1835,8 @@ function ToricCode4D(l::Int)
         Z[I[i], J[i]] = F_one
     end
 
-    return CSSCode(X, Z)
+    S = CSSCode(X, Z)
+    set_X_metacheck!(S, X_redundant)
+    set_Z_metacheck!(S, Z_redundant)
+    return S
 end

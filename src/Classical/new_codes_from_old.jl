@@ -566,14 +566,14 @@ function expanded_code(C::AbstractLinearCode, K::CTFieldTypes, β::Vector{<:CTFi
 end
 
 # """
-#     subfield_subcode(C::AbstractLinearCode, K::FqNmodFiniteField)
+#     subfield_subcode(C::AbstractLinearCode, K::fqPolyRepField)
 #
 # Return the subfield subcode code of `C` over `K` using Delsarte's theorem.
 #
 # Use this method if you are unsure of the dual basis to the basis you which
 # to expand with.
 # """
-# function subfield_subcode(C::AbstractLinearCode, K::FqNmodFiniteField)
+# function subfield_subcode(C::AbstractLinearCode, K::fqPolyRepField)
 #     return dual(trace_code(dual(C), K))
 # end
 

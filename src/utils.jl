@@ -1018,6 +1018,45 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
     return ker, im
 end
 
+"""
+    load_alist(file::String)
+
+Return a `Matrix{Int}` object from the matrix stored in the alist file format in `file`.
+"""
+function load_alist(file::String)
+    contents = split.(readlines(file))
+    length(contents[1]) == 2 || throw(ArgumentError("Not a valid alist file. First line wrong."))
+    length(contents[2]) == 2 || throw(ArgumentError("Not a valid alist file. Second line wrong."))
+    M = parse(Int, contents[1][1])
+    N = parse(Int, contents[1][2])
+    length(contents) == M + N + 4 || throw(ArgumentError("Not a valid alist file. Wrong number of lines."))
+    row_wts = parse.(Int, contents[3])
+    col_wts = parse.(Int, contents[4])
+    length(row_wts) == M || throw(ArgumentError("Not a valid alist file. Wrong number of row weights."))
+    length(col_wts) == N || throw(ArgumentError("Not a valid alist file. Wrong number of column weights."))
+    maximum(row_wts) == parse(Int, contents[2][1]) || throw(ArgumentError("Not a valid alist file. Row weight mismatch."))
+    maximum(col_wts) == parse(Int, contents[2][2]) || throw(ArgumentError("Not a valid alist file. Col weight mismatch."))
+    all(allunique, contents[5:end]) || throw(ArgumentError("Not a valid alist file. Indices are repeated."))
+    all(length(contents[j]) == row_wts[i] for (i, j) in enumerate(5:M + 4)) || throw(ArgumentError("Not a valid alist file. Row weights don't match."))
+    all(length(contents[j]) == col_wts[i] for (i, j) in enumerate(M + 5:M + N + 4)) || throw(ArgumentError("Not a valid alist file. Column weights don't match."))
+
+    mat = zeros(Int, M, N)
+    for (col, i) in enumerate(M + 5:M + N + 4)
+        rows = parse.(Int, contents[i])
+        for row in rows
+            mat[row, col] = 1
+        end
+    end
+
+    for (row, i) in enumerate(5:M + 4)
+        cols = parse.(Int, contents[i])
+        for col in 1:N
+            mat[row, col] == (col in cols) || throw(ArgumentError("Not a valid alist file. The two matrix representations don't match."))
+        end
+    end
+    return mat
+end
+
 #############################
   # Quantum Helper Functions
 #############################
@@ -1194,7 +1233,7 @@ end
 _Pauli_string_to_symplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = reduce(vcat, [_Pauli_string_to_symplectic(s) for s in A])
 # need symplectictoPaulistring
 
-# charvec::Union{Vector{nmod}, Missing}=missing)
+# charvec::Union{Vector{zzModRingElem}, Missing}=missing)
 function _process_strings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
     # Paulisigns = Vector{Int}()
     S_tr_Pauli_stripped = Vector{String}()
@@ -1239,7 +1278,7 @@ end
 #############################
 
 """
-    tr(x::fq_nmod, K::FqNmodFiniteField, verify::Bool=false)
+    tr(x::fqPolyRepFieldElem, K::fqPolyRepField, verify::Bool=false)
 
 Return the relative trace of `x` from its base field to the field `K`.
 
@@ -1298,7 +1337,7 @@ function _expand_matrix(M::CTMatrixTypes, D::Dict{fqPolyRepFieldElem, fqPolyRepM
 end
 
 """
-    expand_matrix(M::CTMatrixTypes, K::FqNmodFiniteField, β::Vector{fq_nmod})
+    expand_matrix(M::CTMatrixTypes, K::fqPolyRepField, β::Vector{fqPolyRepFieldElem})
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the basis `β` for the base ring of `M` over `K`.
@@ -1359,7 +1398,7 @@ function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
 end
 
 """
-    is_extension(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    is_extension(E::fqPolyRepField, F::fqPolyRepField)
 
 Return `true` if `E/F` is a valid field extension.
 """
@@ -1381,7 +1420,7 @@ end
 is_subfield(F::CTFieldTypes, E::CTFieldTypes) = is_extension(E, F)
 
 """
-    is_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    is_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
 
 Return `true` and the dual (complementary) basis if `basis` is a basis for `E/F`,
 otherwise return `false, missing`.
@@ -1398,7 +1437,7 @@ function is_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}
 end
 
 """
-    primitive_basis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    primitive_basis(E::fqPolyRepField, F::fqPolyRepField)
 
 Return a primitive basis for `E/F` and its dual (complementary) basis.
 """
@@ -1411,11 +1450,11 @@ function primitive_basis(E::CTFieldTypes, F::CTFieldTypes)
     return basis, λ
 end
 # these are slightly different
-# polynomialbasis(E::FqNmodFiniteField, F::FqNmodFiniteField) = primitive_basis(E, F)
-# monomialbasis(E::FqNmodFiniteField, F::FqNmodFiniteField) = primitive_basis(E, F)
+# polynomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
+# monomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
 
 """
-    normal_basis(E::FqNmodFiniteField, F::FqNmodFiniteField)
+    normal_basis(E::fqPolyRepField, F::fqPolyRepField)
 
 Return a normal basis for `E/F` and its dual (complementary) basis.
 """
@@ -1436,8 +1475,8 @@ function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
 end
 
 """
-    dual_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
-    complementary_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+    complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
 
 Return the dual (complentary) basis of `basis` for the extension `E/F`.
 """
@@ -1449,8 +1488,8 @@ end
 complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dual_basis(E, F, basis)
 
 """
-    verify_dual_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dual_basis::Vector{fq_nmod})
-    verify_complementary_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod}, dual_basis::Vector{fq_nmod})
+    verify_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
+    verify_complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
 
 Return `true` if `basis` is the dual of `dual_basis` for `E/F`, otherwise return `false`.
 """
@@ -1484,7 +1523,7 @@ end
 verify_complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem}) = verify_dual_basis(E, F, basis, dual_basis)
 
 """
-    are_equivalent_basis(basis::Vector{fq_nmod}, basis2::Vector{fq_nmod})
+    are_equivalent_basis(basis::Vector{fqPolyRepFieldElem}, basis2::Vector{fqPolyRepFieldElem})
 
 Return `true` if `basis` is a scalar multiple of `basis2`.
 """
@@ -1503,7 +1542,7 @@ function are_equivalent_basis(basis::Vector{<:CTFieldElem}, basis2::Vector{<:CTF
 end
 
 """
-    is_self_dual_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    is_self_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
 
 Return `true` if `basis` is equal to its dual.
 """
@@ -1514,7 +1553,7 @@ function is_self_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_primitive_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    is_primitive_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
 
 Return `true` if `basis` is a primitive basis for `E/F`.
 """
@@ -1530,7 +1569,7 @@ function is_primitive_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_normal_basis(E::FqNmodFiniteField, F::FqNmodFiniteField, basis::Vector{fq_nmod})
+    is_normal_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
 
 Return `true` if `basis` is a normal basis for `E/F`.
 """

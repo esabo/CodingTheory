@@ -767,7 +767,6 @@ end
 
 """
     VectorSpace(C::AbstractLinearCode)
-    vector_space(C::AbstractLinearCode)
 
 Return the code `C` as a vector space object.
 """
@@ -776,7 +775,7 @@ function VectorSpace(C::AbstractLinearCode)
     G = generator_matrix(C)
     return sub(V, [V(view(G, i:i, :)) for i in 1:nrows(G)])
 end
-vector_space(C::AbstractLinearCode) = VectorSpace(C)
+# vector_space(C::AbstractLinearCode) = VectorSpace(C)
 
 """
     is_even(C::AbstractLinearCode)
