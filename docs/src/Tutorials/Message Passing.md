@@ -348,6 +348,20 @@ julia> Gallager_B(H, y)
 ## Trapping Sets
 
 # Simulations
+While the examples above are interesting learning tools, they are not particularly relevant. A more useful example is an FER simulation of a code. The way this library is written, the initialization and actual message passing is split into different functions. The goal of this is to only need to initialize a Tanner graph once per simulation. To decode multiple errors, we only need to reset the message values to either zero or the channel inputs btween runs. In this way, we can decode multiple times without allocating new memory. If the message passing function and simulation functions are written properly, the number of allocations will be independent of the number of samples taken.
+
+The examples here will all use *direct sampling*. In general, this is highly inappropriate for research-level simulations; however, when importance sampling was included the number of lines of code tripled and became more difficult to follow. Hence for simplicity, since this is *not* a research paper, we will aim for easier to follow code. This has a number of downsides in terms of results. Most importantly, suppose we wish to demonstrate an FER of $10^{-6}$. If we sample 15k errors, the two best answers we can get are $0$ (no decoding failures) or $1/15000 = 6.67 * 10^{-5}$ (a single decoding failure). Hence, we may be dramatically over or underestimating the FER. In order to reach the desired accuracy, we'd need to direct sample at least 1 million times, which may or may not be feasible for certain codes without a large amount of computing resources. Having neither the time, desire, nor resources for this, these examples will stick to 15k samples. A black horizontal line will be drawn on plots at an FER of $1/15000$ to remind us of the artificial sampling-induced error floor none of our decoders can surpass. Lines which have an FER value of $0$ will abruptly terminate (going from right-to-left) since the $y$-axis is a plotted on a log scale. (This of course implies we need to sample more or switch to importance sampling.)
+
+Another problem with direct sampling is the expected value of number of errors. Sampling errors on length 20 code under a BSC with crossover probability $p = 10^{-3}$ will produce on average no errors per sample. If 15k samples are taken but only a small number of them were not the all-zero error, then it's likely we have underestimated the FER. Again, since the sole goal here is to demonstrate the library functions, we will ignore these issues.
+
+On the flip side, we don't want to waste time by oversampling. Unfortunately, the number of samples varies along the $x$-axis and is best determined after a preliminary plot has been created. We will come back to this later.
+
+Finally, we wish to point out that the actual message-passing functions in this library are *not* parallelized. As a result, all schedules are going to take an equal amount of time. This is because it is a better use of limited resources to parallelize across a large number of errors in a simulation than to parallelize inside a function which may only take nanoseconds, which may actually slow it down.
+
+
+
+
+
 EXAMPLE HERE COMPARING SYNDROME TO REGULAR BP
 ```
 
@@ -1141,6 +1155,6 @@ julia> check_weights(X_meta_L)
 
 By distance eight, scheme one was difficult to run without a cluster. We did not attempt distance nine with this scheme. This is problematic for many reasons, the most important of which is that many code families do not "settle in" to their asymptotic behaviors until distances much higher than this (although the exact distance depends on the decoder being used). For example, for the surface codes under minimum-weight perfect-matching (MWPM), anything below distance 20 is considered the small-code regime (compare this to distance seven for the same code family using trellis decoding). 
 
-
+![CSS_Single_Shot_test](./../assets/images/CSS_Single_Shot_test.png)
 
 Logical errors were equally distributed among the cosets and only occurred on odd-distance codes.

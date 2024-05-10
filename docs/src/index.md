@@ -1,6 +1,6 @@
 # ErrorCorrection.jl
 
-Welcome to `ErrorCorrection.jl`, a coding theory library for Julia. The package is built on the [Oscar framework](https://docs.oscar-system.org/dev/), while using as much native Julia as possible. The library supports classical,  modern (LDPC), and quantum coding theory.
+Welcome to `CodingTheory.jl` (soon to be renamed `ErrorCorrection.jl`), a coding theory library for Julia. The package is built on the [Oscar framework](https://docs.oscar-system.org/dev/), while using as much native Julia as possible. The library supports classical,  modern (LDPC), and quantum coding theory.
 
 The main developers so far are
 * [esabo](https://github.com/esabo)
@@ -21,9 +21,10 @@ const CTFieldElem = FinFieldElem
 const CTMatrixTypes = MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
-const CTGroupAlgebra = AlgGrpElem{fpFieldElem, AlgGrp{fpFieldElem, GrpAbFinGen, GrpAbFinGenElem}}
+const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}}
 ```
+REDO GIVEN NEW TYPES:
 A code is defined by matrices of type `CTMatrixTypes`, which include `fpMatrix` and `fqPolyRepMatrix`. The former have base ring `GF(p)` and the latter `GF(p, l, :α)`. Due to the way finite fields are typically represented in a computer, matrices over `GF(p, l, :α)` are *considerably* larger and slower than those over `GF(p)`. This in turn *considerably* limits the length of the codes able to be handled by the library when using this type. Therefore, it is *strongly* encouraged to utilize the field constructor `GF(p)` instead of `GF(p, 1)` when building codes over $$\mathbb{F}_p$$.
 
 It is recommended to avoid `deepcopy(C)` and instead use `copy(C)` to create a copy of the code `C`. The use of `deepcopy` on a code object will create a new Galois field object in the struct while the matrices in the struct will still be defined over the previous Galois field. Although these two Galois fields are mathematically identical, functions in the Oscar framework consider them to be different.
@@ -34,4 +35,4 @@ It is often desirable to build a code with a specific matrix representation. Whi
 
 ## Suppressing The Oscar Banner
 
-The Oscar banner will display be default when calling `using ErrorCorrection`. This can be suppressed by running Julia with the `-q` flag: `julia -q`. Note that this will also suppress the Julia banner.
+The Oscar banner will display be default when calling `using CodingTheory`. This can be suppressed by running Julia with the `-q` flag: `julia -q`. Note that this will also suppress the Julia banner.
