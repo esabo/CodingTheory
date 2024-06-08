@@ -1362,7 +1362,7 @@ end
 Return the sets of quadratic resides and quadratic non-residues of `q` and `n`.
 """
 function quadratic_residues(q::Int, n::Int)
-    isodd(n) && isprime(n) || throw(ArgumentError("n must be an odd prime in quadratic residues"))
+    isodd(n) && is_prime(n) || throw(ArgumentError("n must be an odd prime in quadratic residues"))
     q^div(n - 1, 2) % n == 1 || throw(ArgumentError("q^(n - 1)/2 ≅ 1 mod n in quadratic residues"))
 
     # F = GF(n, 1, :α)

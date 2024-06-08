@@ -145,10 +145,17 @@ export LDPCCode, regular_LDPC_code, variable_degree_distribution, check_degree_d
     short_cycle_distribution_by_variable_node_plot
 
 #############################
-        # LDPCalgs.jl
+     # LDPC/cycles.jl
 #############################
 
-include("LDPC/algorithms.jl")
+include("LDPC/cycles.jl")
+export remove_cycles
+
+# #############################
+#     # LDPC/algorithms.jl
+# #############################
+
+# include("LDPC/algorithms.jl")
 
 #############################
     # LDPC/simulations.jl

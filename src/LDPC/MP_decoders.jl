@@ -78,7 +78,9 @@ end
 function _SP_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}}, var_to_check_messages::Array{Float64, 3},
     attenuation::Float64)
 
+    # TODO why does the other one produce NaN
     ϕ(x) = -log(tanh(0.5 * x))
+    # ϕ(x) = log((exp(x) + 1)/(exp(x) - 1))
     temp = 0.0
     s = 1
     @inbounds for v2 in check_adj_list[c]
@@ -95,6 +97,11 @@ function _SP_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vecto
     return s * ϕ(temp)
 end
 
+function  ϕ_test(x::Real)
+    # x >= 0 ? (return -log(tanh(0.5 * x));) : (return log(tanh(-0.5 * x));)
+    x >= 0 ? (return log((exp(x) + 1)/(exp(x) - 1));) : (return -log((exp(-x) + 1)/(exp(-x) - 1));)
+end
+
 ⊞(a::Float64, b::Float64) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
 ⊞(a...) = reduce(⊞, a...)
 function _SP_check_node_message_box_plus(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}},
@@ -104,7 +111,7 @@ function _SP_check_node_message_box_plus(c::Int, v::Int, iter::Int, check_adj_li
 end
 
 """
-    sum_product(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the sum-product algorithm with the parity-check matrix `H`, received vector `v`, and channel
 `chn`.
@@ -113,7 +120,7 @@ Run the sum-product algorithm with the parity-check matrix `H`, received vector 
 - Use `chn_inits` to pass in soft information.
 - The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
 """
-function sum_product(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, chn_inits::Union{Missing,
+function sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing,
     Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false,
     erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
@@ -122,29 +129,41 @@ function sum_product(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, chn_ini
     (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("H cannot have a zero dimension"))
     (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
     # do we want to flip it if necessary?
-    max_iter > 0 || throw(DomainError("max_iter must be a positive integer"))
+    2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
     schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
         throw(ArgumentError("Unknown schedule algorithm"))
     schedule == :flooding && (schedule = :parallel;)
     schedule == :semiserial && (schedule = :layered;)
 
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-        max_iter, :SP, chn_inits, schedule, erasures)
+    H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+        current_bits, syn = _message_passing_init_fast(H, v, chn, :SP, chn_inits, :serial, erasures)
+    if schedule == :layered
+        # initialization - do these outside to reduce allocations when looped
+        layers = layered_schedule(H, schedule = schedule, random = rand_sched)
+        # H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
+        #     var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
+        #     :SP, chn_inits, schedule, erasures)
 
-    # return _message_passing(H_Int, missing, chn_inits_2, _SP_check_node_message, var_adj_list,
-    #     check_adj_list, max_iter, schedule, current_bits, totals, syn, check_to_var_messages,
-    #     var_to_check_messages, 0.0)
+        # return _message_passing(H_Int, missing, chn_inits_2, _SP_check_node_message, var_adj_list,
+        #     check_adj_list, max_iter, schedule, current_bits, totals, syn, check_to_var_messages,
+        #     var_to_check_messages, 0.0)
 
-    return _message_passing_layered(H_Int, missing, chn_inits_2, _SP_check_node_message, 
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-        check_to_var_messages, var_to_check_messages, 0.0, layers)
+        # return _message_passing_layered(H_Int, missing, chn_inits_2, _SP_check_node_message, 
+            # var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+            # check_to_var_messages, var_to_check_messages, 0.0, layers)
+            return _message_passing_fast_layered(H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages,
+            var_to_check_messages, current_bits, syn, ϕ_test, ϕ_test, max_iter, layers)
+    else
+        # H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+        # current_bits, syn = _message_passing_init_fast(H, v, chn, :SP, chn_inits, :serial, erasures)
+    
+        return _message_passing_fast(H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages,
+            var_to_check_messages, current_bits, syn, ϕ_test, ϕ_test, max_iter)
+    end
 end
 
 """
-    sum_product_box_plus(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    sum_product_box_plus(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the sum-product box-plus algorithm with the parity-check matrix `H`, received vector `v`, and
 channel `chn`.
@@ -153,7 +172,7 @@ channel `chn`.
 - Use `chn_inits` to pass in soft information.
 - The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
 """
-function sum_product_box_plus(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100,
+function sum_product_box_plus(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
     chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
     rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
@@ -187,7 +206,7 @@ function sum_product_box_plus(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100
 end
 
 """
-    sum_product_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    sum_product_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the syndrome-based sum-product algorithm with the parity-check matrix `H`, syndrome `syndrome`,
 and channel `chn`.
@@ -196,7 +215,7 @@ and channel `chn`.
 - Use `chn_inits` to pass in soft information.
 - The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
 """
-function sum_product_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100,
+function sum_product_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
     chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
     rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
@@ -227,7 +246,7 @@ function sum_product_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::In
 end
 
 # believe this can be merged into an optional argument of the above but keep for now so as not to break working code
-function sum_product_decimation(H::T, v::T, chn::MPNoiseModel, algorithm::Symbol;
+function sum_product_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
     decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
     chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
     rand_sched::Bool = false, guided_rounds::Int = 10, erasures::Vector{Int} = Int[]) where {T <:
@@ -284,7 +303,7 @@ function _MS_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vecto
 end
 
 """
-    min_sum(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    min_sum(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`, and channel
 `chn`.
@@ -294,7 +313,7 @@ Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`,
 - The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
 - Set the normalization constant with `attenuation`.
 """
-function min_sum(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation::Float64 =
+function min_sum(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 =
     0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
     rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
@@ -324,7 +343,7 @@ function min_sum(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation
 end
 
 """
-    min_sum_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    min_sum_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the syndrome-based min-sum algorithm with the parity-check matrix `H`, syndrome `syndrome`,
 and channel `chn`.
@@ -334,7 +353,7 @@ and channel `chn`.
 - The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
 - Set the normalization constant with `attenuation`.
 """
-function min_sum_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100,
+function min_sum_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
     attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
     schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
     T <: CTMatrixTypes
@@ -366,7 +385,7 @@ function min_sum_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 
 end
 
 # believe this can be merged into an optional argument of the above but keep for now so as not to break working code
-function min_sum_decimation(H::T, v::T, chn::MPNoiseModel, algorithm::Symbol;
+function min_sum_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
     decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
     attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, 
     schedule::Symbol = :parallel, rand_sched::Bool = false, guided_rounds::Int = 10,
@@ -430,7 +449,7 @@ function _MS_correction_check_node_message(c::Int, v::Int, iter::Int, check_adj_
 end
 
 """
-    min_sum_with_correction(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    min_sum_with_correction(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`, and channel
 `chn`.
@@ -441,7 +460,7 @@ Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`,
 - Set the normalization constant with `attenuation`.
 - A low-complexity approximation to the correction term is used.
 """
-function min_sum_with_correction(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 100,
+function min_sum_with_correction(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
     attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
     schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
     T <: CTMatrixTypes
@@ -472,7 +491,7 @@ function min_sum_with_correction(H::T, v::T, chn::MPNoiseModel; max_iter::Int = 
 end
 
 """
-    min_sum_correction_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+    min_sum_correction_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
 Run the syndrome-based min-sum-with-correction algorithm with the parity-check matrix `H`, syndrome 
 `syndrome`, and channel `chn`.
@@ -483,7 +502,7 @@ Run the syndrome-based min-sum-with-correction algorithm with the parity-check m
 - Set the normalization constant with `attenuation`.
 - A low-complexity approximation to the correction term is used.
 """
-function min_sum_with_correction_syndrome(H::T, syndrome::T, chn::MPNoiseModel; max_iter::Int = 100,
+function min_sum_with_correction_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
     attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
     schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
     T <: CTMatrixTypes
@@ -514,7 +533,7 @@ function min_sum_with_correction_syndrome(H::T, syndrome::T, chn::MPNoiseModel; 
         check_to_var_messages, var_to_check_messages, attenuation, layers)
 end
 
-function min_sum_correction_decimation(H::T, v::T, chn::MPNoiseModel, algorithm::Symbol;
+function min_sum_correction_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
     decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
     attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, 
     schedule::Symbol = :parallel, rand_sched::Bool = false, guided_rounds::Int = 10,
@@ -567,6 +586,22 @@ function _channel_init_BSC(v::Vector{<: Integer}, p::Float64)
     return chn_init
 end
 
+function _channel_init_BSC!(var_to_check_messages::Matrix{Float64}, v::CTMatrixTypes, p::Float64)
+    temp = log((1 - p) / p)
+    @inbounds for i in eachindex(v)
+        iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
+    end
+    return nothing
+end
+
+# function _channel_init_BSC!(var_to_check_messages::Array{Float64, 3}, v::CTMatrixTypes, p::Float64)
+#     temp = log((1 - p) / p)
+#     @inbounds for i in eachindex(v)
+#         iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
+#     end
+#     return nothing
+# end
+
 function _channel_init_BAWGNC_SP(v::Vector{<: AbstractFloat}, σ::Float64)
     temp = 2 / σ^2
     chn_init = zeros(Float64, length(v))
@@ -576,10 +611,101 @@ function _channel_init_BAWGNC_SP(v::Vector{<: AbstractFloat}, σ::Float64)
     return chn_init
 end
 
+function _channel_init_BAWGNC_SP!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}, σ::Float64)
+    temp = 2 / σ^2
+    @inbounds for i in eachindex(v)
+        var_to_check_messages[i, 1] = temp * v[i]
+    end
+    return nothing
+end
+
 _channel_init_BAWGNC_MS(v::Vector{<: AbstractFloat}) = v
 
+_channel_init_BAWGNC_MS!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}) = var_to_check_messages[:, 1] .= v
+
+function _message_passing_init_fast(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
+    T}, chn::AbstractClassicalNoiseChannel, kind::Symbol, chn_inits::Union{Missing,
+    Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
+    T <: CTMatrixTypes}
+
+    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter kind"))
+    if isa(H, CTMatrixTypes)
+        Int(order(base_ring(H))) == 2 ||
+        throw(ArgumentError("Currently only implemented for binary codes"))
+        H_Int = UInt8.(_Flint_matrix_to_Julia_int_matrix(H))
+        v_Int = UInt8.(_Flint_matrix_to_Julia_int_matrix(H))
+    else
+        H_Int = UInt8.(H)
+        v_Int = UInt8.(v)
+    end
+    num_check, num_var = size(H_Int)
+    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
+    
+    len_v = length(v)
+    if len_v == num_var
+        syndrome_based = false
+        kind ∈ (:SP, :MS) && isa(chn, BAWGNChannel) && !isa(v, Vector{<: AbstractFloat}) &&
+        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
+        kind ∈ (:SP, :MS) && isa(chn, BinarySymmetricChannel) && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
+        throw(DomainError("Received message should be a vector of Ints for BSC."))
+    elseif len_v == num_check
+        syndrome_based = true
+    else
+        throw(ArgumentError("Vector has incorrect dimension"))
+    end
+    
+    check_adj_list = [Int[] for _ in 1:num_check]
+    for r in 1:num_check
+        for c in 1:num_var
+            if !iszero(H_Int[r, c])
+                push!(check_adj_list[r], c)
+            end
+        end
+    end
+
+    check_to_var_messages::Vector{Vector{Float64}} = [zeros(Float64, length(check_adj_list[c])) for c in eachindex(check_adj_list)]
+    if schedule == :serial
+        var_to_check_messages = zeros(Float64, num_var, 1)
+    else
+        var_to_check_messages = zeros(Float64, num_var, 2)
+    end
+
+    # TODO the way v is handled isn't going to work for non-BSC
+    if !syndrome_based && ismissing(chn_inits)
+        if isa(chn, BinarySymmetricChannel)
+            _channel_init_BSC!(var_to_check_messages, v, chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :SP
+            _channel_init_BAWGNC_SP!(var_to_check_messages, v, chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :MS
+            _channel_init_BAWGNC_MS!(var_to_check_messages, v)
+        end
+    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
+        temp = log((1 - chn.param) / chn.param)
+        var_to_check_messages[:, 1] .= temp
+    elseif !ismissing(chn_inits)
+        length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
+        var_to_check_messages[:, 1] .= chn_inits
+    else
+        error("Haven't yet implemented this combination of channels and inputs")
+    end
+
+    if !isempty(erasures)
+        all(1 ≤ bit ≤ num_var for bit in erasures) ||
+            throw(ArgumentError("Invalid bit index in erasures"))
+        @inbounds for i in erasures
+            var_to_check_messages[i, 1] = 0.0
+        end
+    end
+
+    current_bits = zeros(UInt8, num_var)
+    syn = zeros(UInt8, num_check)
+
+    return H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages,
+        var_to_check_messages, current_bits, syn
+end
+
 function _message_passing_init(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
-    T}, chn::MPNoiseModel, max_iter::Int, kind::Symbol, chn_inits::Union{Missing,
+    T}, chn::AbstractClassicalNoiseChannel, kind::Symbol, chn_inits::Union{Missing,
     Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
     T <: CTMatrixTypes}
 
@@ -594,14 +720,13 @@ function _message_passing_init(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vecto
     end
     num_check, num_var = size(H_Int)
     num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
     
     len_v = length(v)
     if len_v == num_var
         syndrome_based = false
-        kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<: AbstractFloat}) &&
+        kind ∈ (:SP, :MS) && isa(chn, BAWGNChannel) && !isa(v, Vector{<: AbstractFloat}) &&
         throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-        kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
+        kind ∈ (:SP, :MS) && isa(chn, BinarySymmetricChannel) && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
         throw(DomainError("Received message should be a vector of Ints for BSC."))
     elseif len_v == num_check
         syndrome_based = true
@@ -620,36 +745,40 @@ function _message_passing_init(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vecto
         end
     end
 
+    # remove for combing everything into a single layered system
+    # if schedule == :serial
+    #     check_to_var_messages = zeros(Float64, num_check, num_var, 1)
+    #     var_to_check_messages = zeros(Float64, num_var, num_check, 1)
+    # else
+    check_to_var_messages = zeros(Float64, num_check, num_var, 2)
+    var_to_check_messages = zeros(Float64, num_var, num_check, 2)
+# end
+
+    # TODO the way v is handled isn't going to work for non-BSC
     if !syndrome_based && ismissing(chn_inits)
-        chn_inits_2 = if chn.type == :BSC
-            typeof(v) <: CTMatrixTypes ? (w = _Flint_matrix_to_Julia_int_vector(v);) : (w = w;)
-            _channel_init_BSC(w, chn.cross_over_prob)
-        elseif chn.type == :BAWGNC && kind == :SP
-            _channel_init_BAWGNC_SP(v, chn.sigma)
-        elseif chn.type == :BAWGNC && kind == :MS
+        chn_inits_2 = if isa(chn, BinarySymmetricChannel)
+            _channel_init_BSC(_Flint_matrix_to_Julia_int_vector(v), chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :SP
+            _channel_init_BAWGNC_SP(v, chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :MS
             _channel_init_BAWGNC_MS(v)
         end
-    elseif syndrome_based && ismissing(chn_inits)
-        chn_inits_2 = [log((1 - chn.cross_over_prob) / chn.cross_over_prob) for _ in 1:num_var]
-    else
-        # println(length(chn_inits), ", ", num_var)
+    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
+        temp = log((1 - chn.param) / chn.param)
+        # var_to_check_messages[:, 1] .= temp
+        chn_inits_2 = [iszero(v[i]) ? temp : -temp for i in 1:num_vars]
+    elseif !ismissing(chn_inits)
         length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
+        # var_to_check_messages[:, 1] .= chn_inits
         chn_inits_2 = chn_inits
+    else
+        error("Haven't yet implemented this combination of channels and inputs")
     end
 
     # could reduce this stuff to UInt8 if needed
     current_bits = zeros(Int, num_var)
     totals = zeros(Float64, num_var)
     syn = zeros(Int, num_check)
-
-    # remove for combing everything into a single layered system
-    # if schedule == :serial
-    #     check_to_var_messages = zeros(Float64, num_check, num_var, 1)
-    #     var_to_check_messages = zeros(Float64, num_var, num_check, 1)
-    # else
-        check_to_var_messages = zeros(Float64, num_check, num_var, 2)
-        var_to_check_messages = zeros(Float64, num_var, num_check, 2)
-    # end
 
     if !isempty(erasures)
         all(1 ≤ bit ≤ num_var for bit in erasures) ||
@@ -733,7 +862,7 @@ function _message_passing_init_Int(H::Union{Matrix{S}, T}, v::Union{Vector{S},
         var_to_check_messages, current_bits, syn
 end
 
-function _message_passing_init_decimation(H::T, v::T, chn::Union{Missing, MPNoiseModel},
+function _message_passing_init_decimation(H::T, v::T, chn::Union{Missing, AbstractClassicalNoiseChannel},
     decimated_bits_values::Vector{Tuple{Int, S}}, max_iter::Int, kind::Symbol, Bt::Int,
     chn_inits::Union{Missing, Vector{Float64}}, schedule::Symbol) where {S <: CTFieldElem,
     T <: CTMatrixTypes}
@@ -767,14 +896,23 @@ function _message_passing_init_decimation(H::T, v::T, chn::Union{Missing, MPNois
         end
     end
 
-    if ismissing(chn_inits) && kind ∈ (:SP, :MS)
-        chn_inits = if chn.type == :BSC
-            _channel_init_BSC(w, chn.cross_over_prob)
-        elseif chn.type == :BAWGNC && kind == :SP
-            _channel_init_BAWGNC_SP(w, chn.sigma)
-        elseif chn.type == :BAWGNC && kind == :MS
-            _channel_init_BAWGNC_MS(w)
+    # TODO the way v is handled isn't going to work for non-BSC
+    if !syndrome_based && ismissing(chn_inits)
+        if isa(chn, BinarySymmetricChannel)
+            _channel_init_BSC!(var_to_check_messages, v, chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :SP
+            _channel_init_BAWGNC_SP!(var_to_check_messages, v, chn.param)
+        elseif isa(chn, BAWGNChannel) && kind == :MS
+            _channel_init_BAWGNC_MS!(var_to_check_messages, v)
         end
+    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
+        temp = log((1 - chn.param) / chn.param)
+        var_to_check_messages[:, 1] .= temp
+    elseif !ismissing(chn_inits)
+        length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
+        var_to_check_messages[:, 1] .= chn_inits
+    else
+        error("Haven't yet implemented this combination of channels and inputs")
     end
 
     if !isempty(decimated_bits_values)
@@ -918,7 +1056,7 @@ function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
             all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, iter
         end
 
-        if schedule == :flooding
+        if schedule == :parallel
             temp = curr_iter
             curr_iter = prev_iter
             prev_iter = temp
@@ -1005,41 +1143,117 @@ function _message_passing_layered(H::Matrix{T}, syndrome::Union{Missing, Vector{
     return false, current_bits, iter
 end
 
-function _MP_test()
+function _message_passing_fast(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_based::Bool,
+    check_adj_list::Vector{Vector{Int}}, check_to_var_messages::Vector{Vector{Float64}},
+    var_to_check_messages::Matrix{Float64}, current_bits::Vector{UInt8}, syn::Vector{UInt8},
+    phi::Function, phi_inv::Function, max_iter::Int)
+    
     # TODO
-    # 1. setup init function
-    # 2. pass in char_adj_list, size of H, max_iter, phi
     # 3. estabilish how phi and phi^{-1} behave wrt to above functions
 
-    check_to_var_messages::Vector{Vector{Float64}} = [zeros(Float64, length(check_adj_list[c])) for c in eachindex(check_adj_list)]
-    var_to_check_messages = zeros(Float64, num_var)
-    var_to_check_messages .= chn_inits
-
+    num_check, num_var = size(H_Int)
     iter = 1
+    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
+    prev_iter = 1
     @inbounds while iter < max_iter
-        # here, S is totals, current bits threshold this
-        S_flag = true
-        S::Float64 = 0.0
         for c in 1:num_check
+            S::Float64 = 0.0
             for v in check_adj_list[c]
-                # ⊞
-                S += phi(var_to_check_messages[v] - check_to_var_messages[c][v])
-            end
-
-            if S_flag && S < 0
-                S_flag = false
+                S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v])
             end
 
             for v in check_adj_list[c]
-                Q_temp = var_to_check_messages[v] - check_to_var_messages[c][v]
-                check_to_var_messages[c][v] = phi_inv(S - phi(Q_temp))
-                var_to_check_messages[v] = Q_temp + check_to_var_messages[c][v]
+                Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v]
+                # TODO fix phi_inv here to not need this (-1)^sign term
+                temp = S - phi(Q_temp)
+                check_to_var_messages[c][v] = (-1)^sign(temp) * phi_inv(temp)
+                var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][v]
             end
         end
 
-        # how to extract the error here?
-        S_flag && (return true, Int[var_to_check_messages[:] >= 0 ? 0 : 1], iter;)
+        @inbounds for i in 1:num_var
+            current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
+        end
+
+        LinearAlgebra.mul!(syn, H_Int, current_bits)
+        if syndrome_based
+            all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter
+        else
+            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter
+        end
+
+        if schedule == :parallel
+            temp_iter = curr_iter
+            curr_iter = prev_iter
+            prev_iter = temp_iter
+        end
         iter += 1
+    end
+
+    @inbounds for i in 1:num_var
+        current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
+    end
+    return false, current_bits, iter
+end
+
+function _message_passing_fast_layered(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_based::Bool,
+    check_adj_list::Vector{Vector{Int}}, check_to_var_messages::Vector{Vector{Float64}},
+    var_to_check_messages::Matrix{Float64}, current_bits::Vector{UInt8}, syn::Vector{UInt8},
+    phi::Function, phi_inv::Function, max_iter::Int, layers::Vector{Vector{Int}})
+    
+    # TODO
+    # 3. estabilish how phi and phi^{-1} behave wrt to above functions
+
+    num_check, num_var = size(H_Int)
+    iter = 1
+    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
+    prev_iter = 1
+    @inbounds while iter < max_iter
+        for layer in layers
+            for c in layer
+                S = 0.0
+                for v in check_adj_list[c]
+                    S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v])
+                end
+
+                for v in check_adj_list[c]
+                    Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v]
+                    # TODO fix phi_inv here to not need this (-1)^sign term
+                    temp = S - phi(Q_temp)
+                    check_to_var_messages[c][v] = (-1)^sign(temp) * phi_inv(temp)
+                    var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][v]
+                end
+            end
+
+            # switch these current values to previous values so the next layer can use them
+            @inbounds @simd for c in layer
+                for v in check_adj_list[c]
+                    var_to_check_messages[v, prev_iter] = var_to_check_messages[v, curr_iter]
+                end
+            end
+        end
+
+        @inbounds for i in 1:num_var
+            current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
+        end
+
+        LinearAlgebra.mul!(syn, H_Int, current_bits)
+        if syndrome_based
+            all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter
+        else
+            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter
+        end
+
+        if schedule == :parallel
+            temp_iter = curr_iter
+            curr_iter = prev_iter
+            prev_iter = temp_iter
+        end
+        iter += 1
+    end
+
+    @inbounds for i in 1:num_var
+        current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
     end
     return false, current_bits, iter
 end
@@ -1339,6 +1553,7 @@ function layered_schedule(H::CTMatrixTypes; schedule::Symbol = :layered, random:
     end
     return sched_list
 end
+# TODO LDPCCode version
 
 # ref: Layered Decoding of Quantum LDPC Codes
 function balance_of_layered_schedule(sch::Vector{Vector{Int}})
@@ -1357,12 +1572,109 @@ function balance_of_layered_schedule(sch::Vector{Vector{Int}})
     return γ
 end
 
+mutable struct Region
+    id::Vector{Int}
+    parents::Vector{Region}
+    ancestors::Vector{Region}
+    subregions::Vector{Region}
+end
+
+function canonical_region_graph(H::CTMatrixTypes)
+    num_check, num_var = size(H)
+    check_adj_list = [Int[] for _ in 1:num_check]
+    for r in 1:num_check
+        for c in 1:num_var
+            iszero(H[r, c]) || push!(check_adj_list[r], c)
+        end
+    end
+    return region_graph_from_base_nodes(check_adj_list)
+end
+canonical_region_graph(L::AbstractLDPCCode) = canonical_region_graph(parity_check_matrix(L))
+
+function region_graph_from_base_nodes(regions::Vector{Region})
+    isempty(regions) && return regions
+
+    left = 1
+    right = length(regions)
+    while left < right
+        for r1 in left:right - 1
+            for r2 in left + 1:right
+                if r1 ≠ r2
+                    cap = regions[r1].id ∩ regions[r2].id
+                    if !isempty(cap) && cap ≠ regions[r1].id && cap ≠ regions[r2].id
+                        found = false
+                        for r in regions
+                            if cap == r.id
+                                found = true
+                                for par in r.parents
+                                    if par ∈ regions[r1].ancestors
+                                        r.parents = [r3 for r3 in r.parents if r3 ≠ par]
+                                    end
+
+                                    if par ∈ regions[r2].ancestors
+                                        r.parents = [r3 for r3 in r.parents if r3 ≠ par]
+                                    end
+                                end
+
+                                regions[r1] ∉ r.parents && push!(r.parents, regions[r1])
+                                regions[r2] ∉ r.parents && push!(r.parents, regions[r2])
+                                r.ancestors = unique!(reduce(vcat, [[r3.ancestors for r3 in r.parents]; r.parents]))
+                                # do I want to blank this out?
+                                # r.subregions = Vector{Region}()
+
+                                for r3 in r.ancestors
+                                    r ∉ r3.subregions && push!(r3.subregions, r)
+                                end
+                                break
+                            end
+                        end
+
+                        if !found
+                            push!(regions, Region(cap, [regions[r1], regions[r2]], unique!([regions[r1].ancestors; regions[r2].ancestors; [regions[r1], regions[r2]]]), Vector{Region}()))
+
+                            for r3 in regions[end].ancestors
+                                push!(r3.subregions, regions[end])
+                            end
+
+                        end
+                    end
+                end
+            end
+        end
+        left = right + 1
+        right = length(regions)
+    end
+    return regions
+end
+
+function region_graph_from_base_nodes(R::Vector{Vector{Int}})
+    regions = Vector{Region}()
+    for r in R
+        push!(regions, Region(r, Vector{Region}(), Vector{Region}(), Vector{Region}()))
+    end
+    return region_graph_from_base_nodes(regions)
+end
+
+# R = CodingTheory.region_graph_from_base_nodes([[1, 2, 4, 5], [2, 3, 5, 6], [4, 5, 7, 8], [5, 6, 8, 9]]);
+# for r in R
+#     println("id = ", r.id)
+#     for p in r.parents
+#         println("parent: ", p.id)
+#     end
+#     for p in r.subregions
+#        println("sub: ", p.id)
+#     end
+#     for p in r.ancestors
+#        println("anc: ", p.id)
+#     end
+# end
+
 # output should end up [1 1 1 0 0 0 0]
 
 # H = matrix(GF(2), [1 1 0 1 1 0 0; 1 0 1 1 0 1 0; 0 1 1 1 0 0 1]);
 # v = matrix(GF(2), 7, 1, [1, 1, 0, 0, 0, 0, 0]);
 # syn = H * v;
-# nm = MPNoiseModel(:BSC, 1/7);
+# nm = AbstractClassicalNoiseChannel(:BSC, 1/7);
 # decimated_bits_values = [(1, base_ring(v)(1))];
 # flag, out, iter = sum_product(H, v, nm); flag
 # flag, out, iter = sum_product_syndrome(H, syn, nm); flag

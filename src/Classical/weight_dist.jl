@@ -31,7 +31,7 @@ end
 function _weight_enumerator_BF(G::CTMatrixTypes)
     E = base_ring(G)
     ord_E = Int(order(E))
-    R, vars = PolynomialRing(Nemo.ZZ, ord_E)
+    R, vars = polynomial_ring(Nemo.ZZ, ord_E)
 
     # See if we can return immediately
     iszero(G) && return WeightEnumerator(vars[1]^ncols(G), :complete)
@@ -71,7 +71,7 @@ Return the Hamming weight enumerator associated with the complete weight enumera
 function CWE_to_HWE(CWE::WeightEnumerator)
     CWE.type == :complete || throw(ArgumentError("Not a complete weight enumerator"))
 
-    R, (x, y) = PolynomialRing(base_ring(CWE.polynomial), (:x, :y))
+    R, (x, y) = polynomial_ring(base_ring(CWE.polynomial), [:x, :y])
     poly = R(0)
     for i in 1:length(CWE.polynomial)
         exps = exponent_vector(CWE.polynomial, i)
@@ -1035,7 +1035,7 @@ function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
     # if this ever changes or permutes will have to store with T
     elms = collect(field(T.code))
     lookup = Dict(value => key for (key, value) in enumerate(elms))
-    R, vars = PolynomialRing(Nemo.ZZ, length(elms))
+    R, vars = polynomial_ring(Nemo.ZZ, length(elms))
 
     V = T.vertices
     E = T.edges
@@ -1108,7 +1108,7 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
     elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
         K, ζ = CyclotomicField(3, :ζ)
-        R, vars = PolynomialRing(K, 3)
+        R, vars = polynomial_ring(K, 3)
         # might have to switch this here
         poly = divexact(W.polynomial(
             vars[1] + vars[2] + vars[3],
@@ -1155,9 +1155,9 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
         end
     else
         q = Int(order(C.F))
-        if isprime(q)
+        if is_prime(q)
             K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
-            R, vars = PolynomialRing(K, q)
+            R, vars = polynomial_ring(K, q)
             elms = collect(C.F)
             func_args = []
             for i in 1:q
@@ -1171,7 +1171,7 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
                 :complete)
         else
             K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
-            R, vars = PolynomialRing(K, q)
+            R, vars = polynomial_ring(K, q)
             prime_field = GF(Int(characteristic(C.F)))
             _, λ = primitivebasis(C.F, prime_field)
             elms = collect(C.F)

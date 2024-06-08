@@ -213,7 +213,75 @@ The standard stopping condition for this algorithm is obtaining a zero syndrome.
 The following is summarized from Chapter 5 of [ryan2009channel](@cite).
 
 
-The check-node message as written above is numerically slow and unstable. Numerous papers have been written improving this in various directions. 
+The check-node message as written above is numerically slow and unstable. Numerous papers have been written improving this in various directions. To improve this, first, we factor $m_{vc}$ into it's sign and magnitude, $m_{vc} = \alpha_{vc} \beta{vc}$, where $\alpha_{vc} = \mathrm{sign}(m_{vc})$ and $\beta_{vc} = |m_{vc}|$. Then,
+
+$$\tanh(m_{vc} / 2) = \prod_{v^\prime \in \mathcal{N}(c) \setminus \{ v \}} \alpha_{v^\prime c} \prod_{v^\prime \in \mathcal{N}(c) \setminus \{ v \}} \tanh(\beta_{v^\prime c} / 2)$$
+
+such that
+
+$$\begin{align}
+m_{cv} &= \prod_{v^\prime} \alpha_{v^\prime c} 2 \tanh^{-1} \left(\prod_{v^\prime} \tanh(\beta_{v^\prime c} / 2)\right)\\
+&= \prod_{v^\prime} \alpha_{v^\prime c} 2 \tanh^{-1} \log^{-1} \log \left(\prod_{v^\prime} \tanh(\beta_{v^\prime c} / 2)\right)\\
+&= \prod_{v^\prime} \alpha_{v^\prime c} 2 \tanh^{-1} \log^{-1} \sum_{v^\prime} \log \left(\tanh(\beta_{v^\prime c} / 2)\right)\\
+&= \prod_{v^\prime} \alpha_{v^\prime c} \phi\left(\sum_{v^\prime} \phi(\beta_{v^\prime c})),$$
+
+where
+
+$$\phi(x) = - \log(\tanh(x / 2)) = \log \left( \frac{e^x + 1}{e^x - 1}\right)$$
+
+and $\phi^{-1}(x) = \phi(x)$.
+
+```
+f = Figure()
+ax = Axis(f[1, 1],
+    aspect = 1,
+    limits = ((0, 6), (0, 6)),
+    xlabel = L"x",
+    ylabel = L"\phi(x)"
+)
+x = range(0, 6, length = 10000);
+# y = -log10.(tanh.(x / 2));
+y = log.((exp.(x) .+ 1) ./ (exp.(x) .- 1));
+lines!(ax, x, y, color = :blue)
+lines!(ax, x, x, color = :black)
+f
+
+```
+![phi](./../assets/images/phi.png)
+
+Trying to plot this function with the $\tanh$ versus plotting this function with the exponentials makes the numerical instability of the $\tanh$ apparent. Fortunately, the exponential form makes it apparent that it is not only symmetric about $y = x$, but also that the function is dominated by smaller values of $x$:
+
+$$\phi\left(\sum_{v^\prime} \phi(\beta_{v^\prime c})\right) \approx \phi\left( \phi \left(\min_{v^\prime} \beta_{v^\prime c}\right)\right) = \min_{v^\prime} \beta_{v^\prime c}.$$
+
+This is called the *min-sum* approximation. It is faster, more hardware friendly, but often not a very good approximation. To compensate, a normalization constant called the *attenuation constant* is often included such that
+
+$$m_{cv} = \prod_{v^\prime} \alpha_{v^\prime c} c_\mathrm{atten} \min_{v^\prime} \beta_{v^\prime c}.$$
+
+In practice, the attenuation is often defaulted to $1/2$ and then changed until the min-sum decoding line comes within a desired distance of the full sum-product decoding line, if possible. Note that in practice it is generally innappropriate to use min-sum unless one has checked its accuracy against sum-product. In particular, min-sum is more sensitive to finite precision such as when run on real hardware like an FPGA.
+
+Another way to derive the min-sum approximation is through the box-plus message formula. One can show using first prinicples that the log-likelihood ratio (LLR) of the sum of two binary random variables, $L_1$ and $L_2$, respectively, gives
+
+$$ L_1 \boxplus L_2 = \log \left(\frac{1 + e^{L_1 + L_2}}{e^{L_1} + e^{L_2}}),$$
+
+from which one can show
+
+$$m_{cv} = \boxplus_{v^\prime} m_{v^\prime c}.$$
+
+(There are a lot of details here; see the reference for a full explanation.) This is the *box-sum* update formula. It is equivalent to the full sum-product, but is more hardware friendly and numerically stable. Futhermore, one can show that
+
+$$L_1 \boxplus L_2 = \mathrm{sign}(L_1) \mathrm{sign}(L_2) \left[\min\left(|L_1|, |L_2|\right) + s\left(|L_1|, |L_2|\right)\right],$$
+
+where
+
+$$s(x, y) = \log\left(1 + e^{-|x + y|}\right) - \log\left(1 + e^{-|x - y|}\right)$$
+
+is the *correction term*. Ignoring the correction gives the min-sum approximation. The correction is expensive to compute; a lower complexity version is given by
+
+$$\tilde{s} s(x, y) = \begin{cases} c && \text{if $|x + y| < 2$ and $|x - y| > 2|x + y|$}\\
+-c && \text{if $|x - y| < 2$ and $|x + y| > 2|x - y|$}\\
+0 && \text{otherwise} \end{cases}.$$
+
+This is included in this library under the name `min_sum_with_correction` using $c = 0.5$.
 
 ### Syndrome-Based Belief Propagation
 Let $\mathcal{C}$ be a binary linear code with parity-check matrix $H$. In the previous section on belief propagation, we viewed the problem as a codeword, $c \in \mathcal{C}$, being sent over a channel where an error, $e$, occurred, causing the vector $y = c + e$ to be received. Given $y$, the goal was to recover $c$. The error was never explicitly computed, although it could be easily inferred by subtraction. In syndrome-based belief propagation, we apply the parity-check matrix to get $s = Hy = Hc + He = He$, where we used the fact that $Hc = 0$ since $c \in \mathcal{C}$. Now, we are given the syndrome $s$ and the goal is to determine $e$. The exact codeword that was sent is irrelevant since it does not contribute to the syndrome.
@@ -236,17 +304,11 @@ As before, belief propagation can be used to compute these marginals.
 As written, the indicator function says we should fix an error on a variable node (edge), and if it combined with the current guess for the other variable nodes (edges) satisfy the check node, then the probability is non-zero and should be included in the message. This is repeated for all possible errors. A straightforward implementation would therefore include a `for` loop over all possible errors followed by an `if` statement matching the syndrome. However, for binary codes there is only one possible error which will work (either a 0 or a 1) and belief propagation automatically returns the desired probability. So the same implementation may be used for the regular and syndrome-based algorithms for binary codes. The difference between the two is the initialization and stopping criteria. For regular belief propagation, start with the received vector and check for the zero syndrome (a codeword). If $\mathrm{wt}(e)$ errors occurred, then it will need to flip $\mathrm{wt}(e)$ bits. For syndrome-based, start with the zero error (no error) and check for the syndrome $s$. If $\mathrm{wt}(e)$ errors occurred, then it will also need to flip $\mathrm{wt}(e)$ bits. The minus sign is necessary in the syndrome-based message formula to get the bit to flip from 0 to 1. Non-binary codes do not simplify as nicely, although quantum codes over $\mathbf{F}_{2^\ell}$ can use a similar trick since the trace inner product means the syndrome bits are elements of the prime subfield, $\mathbf{F}_2$.
 
 ### Scheduling Patterns
-The order messages are passed around is referred to as a schedule. In the standard message passing algorithms described above, all check nodes are updated at the same time then all variable nodes are updated at the same time. This is called a *parallel* or *flooding* schedule. Here, a node uses the previous iteration's values to update the current values. Thus, one must store both the previous values and the current values. If the value of a variable node is changed by a check node, the other check nodes will not know until the next iteration. In a *serial* schedule, only one set of values is stored. If the value of a variable node is changed by a check node, all following check nodes use this new value immediately. In a *semi-serial* or *layered* schedule, the nodes are partitioned into disjoint sets. The first set of nodes performs one iteration in parallel, then the second set of nodes performs one iteration in parallel, and so on until all sets have performed one iteration. Each (parallel) set uses the new values of the previous (parallel) set as if it was run in serial. For this to work, the nodes in each set must not interact (be connected to) the nodes in any other set.
+The order messages are passed around is referred to as a *schedule*. In the standard message passing algorithms described above, all check nodes are updated at the same time then all variable nodes are updated at the same time. This is called a *parallel* or *flooding* schedule. Here, a node uses the previous iteration's values to update the current values. If the value of a variable node is changed by a check node, the other check nodes will not know until the next iteration. In a *serial* schedule, we iterate over the check (variable) nodes and send all messages into the node and then all messages out of the node. If the value of a variable node is changed by a check node, all following check nodes use this new value immediately. In a *semi-serial* or *layered* schedule, the nodes are partitioned into disjoint sets. The first set of nodes performs one iteration in parallel, then the second set of nodes performs one iteration in parallel, and so on until all sets have performed one iteration. Each (parallel) set uses the new values of the previous (parallel) set as if it was run in serial. For this to work, the nodes in each set must not interact (be connected to) the nodes in any other set.
 
 The advantage of a parallel schedule is that all messages are able to be computed and processed simultaneously. A serial schedule is slower because a node has to wait for all its predecessors to finish before proceeding. On the other hand, if a bit is going to flip, a serial schedule passes that information on faster than a parallel schedule, which is assumed to speed convergence. Fewer iterations is good for hardware but may still be slower than giving up parallelization. It can also be good for converging before the affect of short cycles causes the decoder to fail. A serial schedule can also be beneficial in situations where the value of a node is being pulled in opposite directions by different nodes causing no change to happen. In a serial schedule, the node will make a decision based on the first message, which could change the result of the second message and break the stalemate. A semi-serial schedule attempts to recover some of the speed of the parallel schedule while retaining some of the benefits of the serial schedule.
 
-Parallel scheduling is default for all methods. Serial scheduling may be set using the optional parameter `schedule = :serial`. No multi-threading is actually performed in these message passing implementations because it is assumed the goal is to run large scale simulations in which the threads would be better utilized in another manner. In the case this is not desired, for example when distributing the workload over multiple cores instead of threads, one may simply manually modify the message passing function to use `Threads.@threads for ...` for the parallel scheduling option.
-
-
-(old)
-As described, all variable nodes compute their messages in parallel and pass them in parallel. Likewise, all check nodes compute their messages in parallel and pass them in parallel. This is called a *parallel (flooding) update schedule*. Sometimes other schedules can help break the decoder out of local minima it is stuck in (trapping sets). In a *serial schedule*, all of the check nodes connected to the first variable node sends their messages to the variable node, which then sends its updated value back to all check nodes. The same procedure is repeated for all variable nodes. A *layered schedule* where some set of variable nodes is updated in parallel followed by the next set of variable nodes is also popular.
-
-
+Parallel scheduling is default for all methods. Other scheduling may be set using the optional parameter `schedule`. No multi-threading is actually performed in these message passing implementations because it is assumed the goal is to run large scale simulations in which the threads would be better utilized in another manner.
 
 ## Belief Propagation In CodingTheory
 To use the message-passing decoders coding theory, first we need a (code) parity-check matrix, a received vector, and a noise model. For simplicity, we will introduce a weight-one error.
@@ -280,7 +342,7 @@ julia> nm = MPNoiseModel(:BSC, 1/7);
 Finally, to decode
 ```
 julia> flag, out, iter, = sum_product(H, y, nm)
-(true, [1, 1, 1, 0, 0, 0, 0], 1)
+(true, [1, 1, 1, 0, 0, 0, 0], 3)
 ```
 
 If `flag` is true, then the decoder converged to the codeword `out` in `iter` iterations, at which point we declare it to be successful if `out` is equal to `c`.
@@ -288,7 +350,7 @@ If `flag` is true, then the decoder converged to the codeword `out` in `iter` it
 This function uses the $\tanh$ formula. The box-plus update formula is available with `sum_product_box_plus`. The results should be equivalent, but one may be faster and more numerically stable. The optional parameters and their defaults are
 - `max_iter::Int = 100` - sets the maximum number of iterations
 - `chn_inits::Union{Missing, Vector{Float64}} = missing` - initial conditions on the bits in the form of log-likelihoods, used to pass soft information into the decoder
-- `schedule::Symbol = :parallel` - choose either a `:parallel` or `:serial` schedule
+- `schedule::Symbol = :parallel` - choose either a `:parallel`, `:serial`, or `:layered` schedule
 - `erasures::Vector{Int} = Int[]` - set the erasure locations with respect to the input vector `y`
 These are also available with all of the belief-propagation-based algorithms described below.
 
@@ -302,7 +364,7 @@ EXAMPLE HERE OF AN ERASURE, MAYBE DEMO BEYOND MIN D DECODING
 For the syndrome-based version,
 ```
 julia> flag, out, iter, = sum_product_syndrome(H, syn, nm)
-(true, [0, 0, 1, 0, 0, 0, 0], 1)
+(true, [0, 0, 1, 0, 0, 0, 0], 3)
 ```
 Here, decoding is declared to be successful if `out` is equal to `e`.
 
@@ -315,10 +377,10 @@ julia> flag, out, iter = min_sum_syndrome(H, syn, nm)
 (true, [0, 0, 1, 0, 0, 0, 0], 1)
 
 julia> flag, out, iter = min_sum_with_correction(H, y, nm)
-(true, [1, 1, 1, 0, 0, 0, 0], 1)
+(true, [1, 1, 1, 0, 0, 0, 0], 13)
 
 julia> flag, out, iter = min_sum_with_correction_syndrome(H, syn, nm)
-(true, [0, 0, 1, 0, 0, 0, 0], 1)
+(true, [0, 0, 1, 0, 0, 0, 0], 13)
 ```
 The normalization constant is set to 0.5 by default and may be changed via the optional parameter `attenuation::Float64 = 0.5`.
 
@@ -344,6 +406,9 @@ julia> Gallager_B(H, y)
 ```
 
 ## Decimation
+Decimation was previously used in message-passing applications outside of error correction and was applied to stabilizer codes in [](@cite). The idea is to freeze the value of a variable node. We can either do this from the start to obtain a so-called *genie-aided* decoder, or we can periodically pause message passing to fix a bit. In *guided decimation*, we pause every fixed number of rounds and freeze the value of the variable node with the highest log-likelihood ratio. In *automated decimation*, we pause after every iteration and fix any bit whose absolute value has passed a certain threshold.
+
+It is important to note that when a variable node is fixed to a specific value, the decoder is now sampling possible solutions with that fixed bit, which is different from the ML and MAP problems above. Furthermore, if there is a unique solution and a bit is fixed which does not match the solution, the decoder will fail instead of correcting that bit. For example, fixing the most reliable bit in guided decimation may mean fixing a bit which is still far from reliable and could go either way. On the other hand, fixing a bit could help the decoder converge faster and also break out of trapping sets. In this sense, decimation can be very helpful decoding degenerate stabilizer codes where there are many valid solutions and BP has a difficult time picking one to converge to.
 
 ## Trapping Sets
 
@@ -755,7 +820,7 @@ $$\begin{pmatrix} H & I \\ 0 & M\end{pmatrix}.$$
 
 We will refer to this matrix as the single-shot matrix. Besides being simpler, one advatange of this scheme is that the matrix $L$ is often dense, making it a poor candidate for BP decoding. Along these lines, note that every stabilizer code has metachecks, but few are known which have sparse metachecks.
 
-Here we compare scheme one and scheme two. Although it is a bit inconvenient, it is most accurate to compare on the same errors, including the same measurement errors. This means ininitalizing four sepearate BP decoders (scheme one: stabilizers. metachecks, $M + L$, scheme two: single-shot matrix) and using extra memory to not overwrite data in scheme one which needs to be used in scheme two. The stabilizer Tanner graph is initialized as before. The $M$ and $M + L$ Tanner graphs should use $\log((1 - p_\mathrm{meas}) / p_\mathrm{meas})$ to initialize the channel and the metacheck syndrome to decode. The single-shot matrix should use $\log((1 - p) / p)$ on the data qubits, $\log((1 - p_\mathrm{meas}) / p_\mathrm{meas})$ on the new columns corresponding to the metacheck, and the syndrome $(s \,\, Ms)^T$. Although CodingTheory makes it easy to compute homologies, we will eliminate a potential source of mismatch with the literature by using the matrices conveniently provided by the authors of scheme one [cite](Mike's Github). A value of $p_\mathrm{meas} \in (10^{-3}, 10^{-2})$ is appropriate for many state-of-the-art quantum computing architectures. Note that both papers set $p_\mathrm{meas}$ equal to the depolarizing probability instead.
+Here we compare scheme one and scheme two. Although it is a bit inconvenient, it is most accurate to compare on the same errors, including the same measurement errors. This means ininitalizing four sepearate BP decoders (scheme one: stabilizers. metachecks, $M + L$, scheme two: single-shot matrix) and using extra memory to not overwrite data in scheme one which needs to be used in scheme two. The stabilizer Tanner graph is initialized as before. The $M$ and $M + L$ Tanner graphs should use $\log((1 - p_\mathrm{meas}) / p_\mathrm{meas})$ to initialize the channel and the metacheck syndrome to decode. The single-shot matrix should use $\log((1 - p) / p)$ on the data qubits, $\log((1 - p_\mathrm{meas}) / p_\mathrm{meas})$ on the new columns corresponding to the metacheck, and the syndrome $(s \,\, Ms)^T$. Although CodingTheory makes it easy to compute homologies, we will eliminate a potential source of mismatch with the literature by using the matrices conveniently provided by the authors of scheme one [Vasmer_2020](@cite). A value of $p_\mathrm{meas} \in (10^{-3}, 10^{-2})$ is appropriate for many state-of-the-art quantum computing architectures. Note that both papers set $p_\mathrm{meas}$ equal to the depolarizing probability instead.
 
 The failure condition of single-shot decoding is a bit different from the previous example. Due to measurement errors, there may be a small residue error left over after decoding, which will be handled in the next round. This proceeds for a fixed number of rounds, $L - 1$, and is followed by a round of perfect measurements which clears up any remaining residual errors. As a result, we don't care if the BP decoders converge until the last round, at which point we also check for logical errors. Note that this means that if $t$ samples are taken, $tL$ rounds are run, increasing both the time and memory requirements.
 
@@ -1108,7 +1173,7 @@ function CSS_metachecks(X_stabs::T, X_logs::T, X_meta::T, X_meta_L::T) where T <
 end
 ```
 
-Here we use eight rounds of noisy syndromes followed by a round of perfect measurement. As before, we will only do a rough sample of 15,000 points. The maximum number of iterations is set to 20, although the data suggests that raising this could improve convergence. Note that both references use BP+OSD, so our results are not going to be directly comparable. Also, the code family in [cite](Mike's Github) is the 3D toric code. This is known for performing extremely poorly under BP decoding (due to trapping sets), and this is exactly what we expect to see that here. Later, we will apply other decoding to the same problem to show our progress.
+Here we use eight rounds of noisy syndromes followed by a round of perfect measurement. As before, we will only do a rough sample of 15,000 points. The maximum number of iterations is set to 20, although the data suggests that raising this could improve convergence. Note that both references use BP+OSD, so our results are not going to be directly comparable. Also, the code family in [Vasmer_2020](@cite) is the 3D toric code. This is known for performing extremely poorly under BP decoding (due to trapping sets), and this is exactly what we expect to see that here. Later, we will apply other decoding to the same problem to show our progress.
 
 The first thing we notice is that scheme one takes an incredibly long time due to the previously mentioned check-node degrees
 ```

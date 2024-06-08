@@ -1,4 +1,4 @@
-# Cyclic Codes
+# Cyclic Codes Tutorial
 
 ## Background
 The following represents the notation and conventions used for cyclic codes throughout the library.

@@ -1,16 +1,9 @@
 using DocumenterCitations, Documenter, CodingTheory
 
-# change to trigger bot
+bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numeric)
 
-bib = CitationBibliography(
-    joinpath(@__DIR__, "src", "refs.bib"); # note: this is copied from the docs, I didn't add the use of @__DIR__
-    style = :numeric)
-
-# root = "../",
-# 	source = "src",
-# 	build = "build",
-Documenter.makedocs(
-    bib,
+Documenter.makedocs(;
+	plugins=[bib],
 	clean = true,
 	doctest = false,
 	modules = Module[CodingTheory],
@@ -67,4 +60,4 @@ Documenter.makedocs(
 	]
 )
 
-deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "master")
+deploydocs(repo = "github.com/esabo/CodingTheory.git", devbranch = "dev")

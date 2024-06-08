@@ -1,7 +1,7 @@
 # The Vardy-Be’ery Decomposition
 
 ## Background
-This example draws from and uses the notation from the background sections in the [linear codes](link) and [cyclic codes](link) tutorials.
+This example draws from and uses the notation from the background sections in the [Linear Codes Over Finite Fields](@ref) and [Cyclic Codes](@ref) tutorials.
 
 ## The Almost-Block-Diagonal Form
 Vardy and Be'ery showed that expanded (cyclic) Reed-Solomon codes may be seen as interleaved BCH codes plus some extra "glue".

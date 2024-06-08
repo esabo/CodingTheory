@@ -10,7 +10,7 @@ We are also grateful for contributions from
 * [kalmarek](https://github.com/kalmarek)
 and various members of the Oscar project, especially [thofma](https://github.com/thofma) for helping get the initial package off the ground.
 
-If you are interested in contributing to the library, see the [Developer Documentation](link) and feel free to contact us on the #codingtheory channel of the Julia Slack workspace.
+If you are interested in contributing to the library, see the Developer Documentation and feel free to contact us on the #codingtheory channel of the Julia Slack workspace.
 
 ## Structure
 

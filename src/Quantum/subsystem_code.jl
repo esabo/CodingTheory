@@ -915,18 +915,18 @@ function _process_char_vec(char_vec::Union{Vector{zzModRingElem}, Missing}, p::I
     if !ismissing(char_vec)
         n == length(char_vec) || throw(ArgumentError("The characteristic value is of incorrect length."))
         if p == 2
-            R = residue_ring(Nemo.ZZ, 4)
+            R, _ = residue_ring(Nemo.ZZ, 4)
         else
-            R = residue_ring(Nemo.ZZ, p)
+            R, _ = residue_ring(Nemo.ZZ, p)
         end
         for s in char_vec
             modulus(s) == modulus(R) || throw(ArgumentError("Phases are not in the correct ring."))
         end
     else
         if p == 2
-            R = residue_ring(Nemo.ZZ, 4)
+            R, _ = residue_ring(Nemo.ZZ, 4)
         else
-            R = residue_ring(Nemo.ZZ, p)
+            R, _ = residue_ring(Nemo.ZZ, p)
         end
         char_vec = [R(0) for _ in 1:n]
     end
@@ -1076,23 +1076,23 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
                     if iszero(first)
                         first = c
                         if !isone(prod[1, c])
-                            L[first, :] *= F(prod[1, c]^-1)
+                            L[first:first, :] *= F(prod[1, c]^-1)
                         end
                     else
-                        L[c, :] += F(prod[1, c]^-1) * L[first, :]
+                        L[c:c, :] += F(prod[1, c]^-1) * L[first:first, :]
                     end
                 end
             end
             iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
             for c in 2:num_prod
                 if !iszero(prod[first, c])
-                    L[c, :] += F(prod[first, c]^-1) * L[1, :]
+                    L[c:c, :] += F(prod[first, c]^-1) * L[1:1, :]
                 end
             end
             prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
             # println("after")
             # display(prod)
-            push!(logs, (L[1, :], L[first, :]))
+            push!(logs, (L[1:1, :], L[first:first, :]))
             L = L[setdiff(1:nrows(L), [1, first]), :]
         end
         # display(logs)
@@ -1112,20 +1112,20 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
                     if iszero(first)
                         first = c
                     else
-                        L[c, :] += L[first, :]
+                        L[c:c, :] += L[first:first, :]
                     end
                 end
             end
             iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
             for c in 2:num_prod
                 if !iszero(prod[first, c])
-                    L[c, :] += L[1, :]
+                    L[c:c, :] += L[1:1, :]
                 end
             end
             prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
             # println("after")
             # display(prod)
-            push!(logs, (L[1, :], L[first, :]))
+            push!(logs, (L[1:1, :], L[first:first, :]))
             L = L[setdiff(1:nrows(L), [1, first]), :]
         end
         # display(logs)

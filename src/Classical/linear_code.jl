@@ -23,7 +23,10 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=t
     G_new = _remove_empty(G_new, :rows)
 
     C = if parity
-            rnk_H, H = right_kernel(G_new)
+            H = kernel(G_new, side = :right)
+            rnk_H = rank(H)
+            # println(rnk_H)
+            # display(H)
         if ncols(H) == rnk_H
             H_tr = transpose(H)
         else
@@ -64,7 +67,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=t
         else
             MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
         end
-        d = minimum(filter(ispositive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
         set_minimum_distance!(C, d)
     end
 
