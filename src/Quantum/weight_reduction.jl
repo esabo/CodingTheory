@@ -197,7 +197,7 @@ end
 copying(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
     error("Only valid for CSS codes.")
 
-function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false)
+function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
     q_X = maximum(count(!iszero, H_X[:, j]) for j in 1:ncols(H_X))
     q_X == 1 && return H_X, H_Z
     n_X = nrows(H_X)
@@ -205,7 +205,7 @@ function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; per
     for i in 1:ncols(H_X)
         H = matrix(F, diagm(q_X - 1, q_X, 0 => ones(Int, q_X - 1), 1 => ones(Int, q_X - 1)))
         f_1 = zero_matrix(F, q_X, nrows(H_X))
-        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+        for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, 1] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
             end
@@ -222,7 +222,7 @@ function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; per
     return H_X, H_Z
 end
 
-function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false)
+function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
     F = base_ring(H_X)
     n_X = nrows(H_X)
     for i in 1:ncols(H_X)
@@ -234,7 +234,7 @@ function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; perm
         end
         H = matrix(F, diagm(q - 1, q, 0 => ones(Int, q - 1), 1 => ones(Int, q - 1)))
         f_1 = zero_matrix(F, q, nrows(H_X))
-        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+        for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, 1] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
             end
@@ -252,7 +252,7 @@ function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; perm
 end
 
 function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3;
-    permute = false)
+    permute = false, rng::AbstractRNG = Random.seed!())
 
     target_q_X < 3 && throw(DomainError(target_q_X, "Must be at least 3"))
     F = base_ring(H_X)
@@ -267,7 +267,7 @@ function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, targe
         H = matrix(F, diagm(q - target_q_X, q - target_q_X + 1, 0 => ones(Int, q - target_q_X),
             1 => ones(Int, q - target_q_X)))
         f_1 = zero_matrix(F, q - target_q_X + 1, nrows(H_X))
-        for j in (permute ? shuffle(1:n_X) : 1:n_X)
+        for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, 1] == 1
                 k = 1
                 while count(!iszero, f_1[k, :]) == target_q_X - 2 + isone(k) + (k == ncols(H))
@@ -294,18 +294,18 @@ Return the result of copying on `H_X` and `H_Z` using either the Hastings, reduc
 methods by using the mapping cone.
 """
 function copying_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings,
-    target_q_X::Int = 3)
+    target_q_X::Int = 3, rng::AbstractRNG = Random.seed!())
 
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
     # should we check these commute or trust the user?
 
     if method == :Hastings
-       return _copying_as_coning_Hastings(H_X, H_Z)
+       return _copying_as_coning_Hastings(H_X, H_Z, rng = rng)
     elseif method == :reduced
-        return _copying_as_coning_reduced(H_X, H_Z)
+        return _copying_as_coning_reduced(H_X, H_Z, rng = rng)
     else
-        return _copying_as_coning_target(H_X, H_Z, target_q_X)
+        return _copying_as_coning_target(H_X, H_Z, target_q_X, rng = rng)
     end
 end
 
@@ -315,16 +315,16 @@ end
 Return the result of copying on `S` using either the Hastings, reduced, or targeted methods
 by using the mapping cone.
 """
-copying_as_coning(S::T; method::Symbol = :Hastings, target_q_X::Int = 3) where
-    {T <: AbstractStabilizerCode} = copying_as_coning(CSSTrait(T), S, method, target_q_X)
-function copying_as_coning(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int)
+copying_as_coning(S::T; method::Symbol = :Hastings, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where
+    {T <: AbstractStabilizerCode} = copying_as_coning(CSSTrait(T), S, method, target_q_X, rng)
+function copying_as_coning(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.seed!())
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
-    H_X, H_Z = copying_as_coning(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X)
+    H_X, H_Z = copying_as_coning(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X, rng = rng)
     return CSSCode(H_X, H_Z)
 end
-copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
+copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.seed!()) =
     error("Only valid for CSS codes.")
 
 #############################
@@ -420,7 +420,7 @@ gauging(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes
 Return the result of gauging on `H_X` and `H_Z` by using the mapping cone.
 """
 function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3,
-    permute = false)
+    permute = false, rng::AbstractRNG = Random.seed!())
 
     target_w_X < 3 && throw(DomainError(target_w_X, "Must be at least 3"))
     F = base_ring(H_X)
@@ -434,7 +434,7 @@ function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::I
         H = matrix(F, diagm(w - target_w_X, w - target_w_X + 1, 0 => ones(Int, w - target_w_X),
             1 => ones(Int, w - target_w_X)))
         f_1 = zero_matrix(F, w - target_w_X + 1, ncols(H_X))
-        for j in (permute ? shuffle(1:n) : 1:n)
+        for j in (permute ? shuffle(rng, 1:n) : 1:n)
             if isone(H_X[1, j])
                 k = 1
                 while count(!iszero, f_1[k, :]) == target_w_X - 2 + isone(k) + (k == ncols(H))
@@ -457,10 +457,10 @@ end
 
 Return the result of gauging on `S` by using the mapping cone.
 """
-gauging_as_coning(S::T) where {T <: AbstractStabilizerCode} = gauging_as_coning(CSSTrait(T), S)
-gauging_as_coning(::IsCSS, S::AbstractStabilizerCode) = CSSCode(gauging_as_coning(S.X_stabs,
-    S.Z_stabs)...)
-gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes.")
+gauging_as_coning(S::T; rng::AbstractRNG = Random.seed!()) where {T <: AbstractStabilizerCode} = gauging_as_coning(CSSTrait(T), S, rng = rng)
+gauging_as_coning(::IsCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.seed!()) = CSSCode(gauging_as_coning(S.X_stabs,
+    S.Z_stabs, rng = rng)...)
+gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
 
 #############################
 # Thickening And Choosing Heights
@@ -518,7 +518,7 @@ thickening_and_choose_heights(::IsNotCSS, S::AbstractStabilizerCode, l::Integer,
           # Coning
 #############################
 
-function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
+function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG = Random.seed!()) where T
     edges = Vector{T}[[e...] for e in _edges]
     vertices = unique(union(_edges...))
     degrees = zeros(Int, length(vertices))
@@ -563,7 +563,7 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
 
         # step 2B: if there is a degree 2 vertex that isn't from a self-edge (because all self-edges were removed in 2A), compress the two edges into a single edge
         if 2 ∈ degrees && 1 ∉ degrees
-            i = rand(findall(isequal(2), degrees)) # randomize which vertex we choose
+            i = rand(rng, findall(isequal(2), degrees)) # randomize which vertex we choose
             j = findall(vertices[i] == first(e) || vertices[i] == last(e) for e in edges)
             last(edges[j[1]]) == vertices[i] || reverse!(edges[j[1]])
             first(edges[j[2]]) == vertices[i] || reverse!(edges[j[2]])
@@ -577,7 +577,7 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}) where T
 
             # detect if there are any double-edges, if there are pick randomly:
             indices = nothing
-            for e in shuffle(edges)
+            for e in shuffle(rng, edges)
                 j = findall(sort([first(e), last(e)]) == sort([first(e2), last(e2)]) for e2 in edges)
                 if length(j) > 1
                     indices = j[randperm(length(j))[1:2]]
@@ -626,7 +626,7 @@ Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers i
 `row_indices` and using the optional arguments `l` and `target_q_X` for an optional round of
 thickening and choosing heights.
 """
-function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
     
     F = base_ring(H_X)
     n_X, n = size(H_X)
@@ -653,7 +653,7 @@ function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, ta
         unique_edges = unique(edges)
 
         # c = Grphs.cycle_basis(Grphs.SimpleGraph(Grphs.SimpleEdge.(unique_edges)))
-        c = _cycle_basis_decongestion(unique_edges)
+        c = _cycle_basis_decongestion(unique_edges, rng = rng)
 
         # Bim1[i] = c
 
@@ -747,7 +747,7 @@ function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, ta
 
     # We have the cone code, but it might need thickened "dually" (swap X and Z, thicken, swap X and Z back) because we could have high column weight in X.
     q_X = maximum(count(!iszero, ∂0[:, j]) for j in 1:size(∂0, 2))
-    ∂1, ∂0 = if q_X > target_q_X && l > 1
+    ∂1, ∂0 = if l > 1
         n_Z = ncols(∂1)
         n_X, n = size(∂0)
         H = matrix(F, diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
@@ -774,12 +774,12 @@ end
 Return the result of coning on `S` by reducing the `Z` stabilizers in `row_indices` and using the
 optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::T, row_indices::AbstractVector{Int}; l::Int, target_q_X::Int = 3) where {T <:
-    AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, l = l, target_q_X = target_q_X)
+coning(S::T, row_indices::AbstractVector{Int}; l::Int, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where {T <:
+    AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, l = l, target_q_X = target_q_X, rng = rng)
 coning(::IsCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
-    target_q_X::Int) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, l = l, target_q_X = target_q_X)...)
+    target_q_X::Int, rng::AbstractRNG = Random.seed!()) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, l = l, target_q_X = target_q_X, rng = rng)...)
 coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
-    target_q_X::Int) = error("Only valid for CSS codes.")
+    target_q_X::Int, rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
 
 
 #############################
@@ -794,34 +794,28 @@ Return the weight-reduced CSS code of `S`.
 """
 quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}; copying_type::Symbol = :Hastings,
     copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
-    seed::Union{Nothing, Int} = nothing) where {T <: AbstractStabilizerCode} =
+    rng::AbstractRNG = Random.seed!()) where {T <: AbstractStabilizerCode} =
     quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type = copying_type,
-        copying_target = copying_target, l2 = l2, target_q_X = target_q_X, seed = seed)
+        copying_target = copying_target, l2 = l2, target_q_X = target_q_X, rng = rng)
 function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int,
-    seed::Union{Nothing, Int} = nothing)
-
-    Random.seed!(seed)
+    rng::AbstractRNG = Random.seed!())
 
     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
-    # check copying target
-    # check coning target
-    # check second optional t&ch
-    # check everything
     H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = copying_type, target_q_X = copying_target)
     H_X, H_Z = gauging(H_X, H_Z)
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
     row_indices = 1:a
-    H_X, H_Z = coning(H_X, H_Z, row_indices, l = l2, target_q_X = target_q_X)
+    H_X, H_Z = coning(H_X, H_Z, row_indices, l = l2, target_q_X = target_q_X, rng = rng)
     return CSSCode(H_X, H_Z)
 end
 quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
-    seed::Union{Nothing, Int} = nothing) =  error("Only valid for CSS codes.")
+    rng::AbstractRNG = Random.seed!()) =  error("Only valid for CSS codes.")
 
 weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
-    seed::Union{Nothing, Int} = nothing) = quantum_weight_reduction(S, l1, heights,
+    rng::AbstractRNG = Random.seed!()) = quantum_weight_reduction(S, l1, heights,
     copying_type = copying_type, copying_target = copying_target, l2 = l2, target_q_X = target_q_X,
-    seed = seed)
+    rng = rng)
