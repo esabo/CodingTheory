@@ -620,166 +620,136 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG
 end
 
 """
-    coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
+    coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
 
-Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in
-`row_indices` and using the optional arguments `l` and `target_q_X` for an optional round of
-thickening and choosing heights.
+Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in `row_indices`. The
+optional argument `rng` can be used to make the output of this function reproducible.
 """
-function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
+function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
     
     F = base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = size(H_Z, 1)
 
     issubset(row_indices, 1:n_Z) || throw(DomainError(row_indices, "Choice of Z stabilizers is out of bounds."))
-    target_q_X >= 3 || throw(DomainError(target_q_X, "Can't target a q_X below 3."))
 
-    # Create the spaces (B_i)_1. Each space is the support of a Z stabilizer
-    Bi1 = [getindex.(findall(!iszero, H_Z[i, :]), 2) for i in row_indices]
+    hx = Int.(data.(H_X))
+    hz = Int.(data.(H_Z))
+    f1_all = Matrix{Int}[]
+    f0_all = Matrix{Int}[]
+    p1_all = Matrix{Int}[]
+    p0_all = Matrix{Int}[]
 
-    # Create the spaces (B_i)_0
-    # TODO: This assumes overlap of Bi1[i] and any X stabilizer is 0 or 2 qubits. This is true in Hastings algorithm but won't be true in general. Need to extend to work in the general case.
-    Xsupports = [getindex.(findall(!iszero, H_X[i, :]), 2) for i in 1:n_X]
-    all(all(length(X ∩ Q) < 3 for X in Xsupports) for Q in Bi1) || throw(DomainError(row_indices, "Z stabilizers chosen for reducing must have overlap of at most 2 with all X stabilizers."))
-    Bi0 = [Tuple{Int, Tuple{Int, Int}}[(i, (sort(X ∩ Q)...,)) for (i, X) in enumerate(Xsupports) if !iszero(length(X ∩ Q))] for Q in Bi1]
+    for r in row_indices
+        Q = findall(isone, hz[r, :])
 
-    # Create the spaces (B_i)_{-1} and append some edges to (B_i)_0
-    Bim1 = [Vector{Int}[] for _ in eachindex(Bi0)]
-    for i in eachindex(Bim1)
-        # extract edges from Bi0[i] and find a cycle basis c for the graph they define
-        edges = getindex.(Bi0[i], 2)
-        isempty(edges) && (edges = Tuple{Int, Int}[];)
+        f1 = zeros(Int, n, length(Q))
+        for (i, q) in enumerate(Q)
+            f1[q, i] = 1
+        end
+
+        p1 = hx[:, Q]
+        zero_rows = findall(iszero, p1[i, :] for i in 1:n_X)
+        nonzero_rows = setdiff(1:n_X, zero_rows)
+        p1 = p1[nonzero_rows, :]
+        all(2 == count(isone, p1[i, :]) for i in 1:size(p1, 1)) || throw(DomainError(row_indices, "Z stabilizers chosen for reducing must have overlap of at most 2 with all X stabilizers."))
+
+        f0 = zeros(Int, n_X, length(nonzero_rows))
+        for (j, i) in enumerate(nonzero_rows)
+            f0[i, j] = 1
+        end
+
+        p0 = zeros(Int, 0, length(nonzero_rows))
+        edges = [tuple(findall(isone, p1[i, :])...) for i in axes(p1, 1)]
         unique_edges = unique(edges)
+        cycles = _cycle_basis_decongestion(unique_edges, rng = rng)
+        # cycles = Grphs.cycle_basis(Grphs.SimpleGraph(Grphs.SimpleEdge.(unique_edges)))
 
-        # c = Grphs.cycle_basis(Grphs.SimpleGraph(Grphs.SimpleEdge.(unique_edges)))
-        c = _cycle_basis_decongestion(unique_edges, rng = rng)
-
-        # Bim1[i] = c
-
-        # cellulate big cycles
-        for j in eachindex(c)
-            if length(c[j]) > 4 # split it up
-                a = 1
-                b = length(c[j])
-                while b - a - 1 >= 2 # at least 2 points between a and b
-                    push!(Bim1[i], c[j][[a, a + 1, b - 1, b]])
-                    a += 1
-                    b -= 1
-                    if b - a > 1 # keep track of new edges that need added
-                        new_edge = (-1, (sort(c[j][[a, b]])...,))
-                        new_edge ∈ Bi0[i] || push!(Bi0[i], new_edge)
-                    end
-                end
-                if b - a - 1 > 0 # if there are any points left between a and b
-                    push!(Bim1[i], c[j][[a; a + 1:b - 1; b]])
-                end
-            else # keep the cycle as is
-                push!(Bim1[i], c[j])
-            end
-        end
-
-        # add extra cycles in case this is actually a multigraph
-        for (j, e) in enumerate(edges)
-            if e ∈ edges[1:j - 1]
-                push!(Bim1[i], [e...])
-            end
-        end
-    end
-
-    # Build ∂1
-    ∂i1 = [zero_matrix(F, length(Bi0[i]), length(Bi1[i])) for i in eachindex(Bi1)]
-    for i in eachindex(∂i1)
-        for j in axes(∂i1[i], 1)
-            for k in axes(∂i1[i], 2)
-                if Bi1[i][k] ∈ Bi0[i][j][2] # && Bi0[i][j][1] != -1
-                    ∂i1[i][j, k] = 1
+        # take care of length 2 cycles
+        for (i, e) in enumerate(unique_edges)
+            if count(isequal(e), edges) > 1
+                repeats = findall(1 == p1[j, e[1]] == p1[j, e[2]] for j in 1:size(p1, 1))
+                nr, nc = size(p0)
+                p0 = vcat(p0, zeros(Int, length(repeats) - 1, nc))
+                for j in 1:length(repeats) - 1
+                    p0[nr + j, repeats[j:j + 1]] .= 1
                 end
             end
         end
-    end
-    ∂1 = reduce(direct_sum, ∂i1)
 
-    # Build ∂0
-    ∂i0 = [zero_matrix(F, length(Bim1[i]), length(Bi0[i])) for i in eachindex(Bi1)]
-    for i in eachindex(∂i0)
-        cycle_edges = [[(sort(Bim1[i][j][k == 1 ? [1, length(Bim1[i][j])] : [k - 1, k]])...,) for k in 1:length(Bim1[i][j])] for j in eachindex(Bim1[i])]
-        for j in axes(∂i0[i], 1)
-            if length(cycle_edges[j]) == 2
-                # this cycle was added to take care of multigraphs, so special case
-                indices = findall(isequal(cycle_edges[j][1]), getindex.(Bi0[i], 2))
-                num = count(isequal(cycle_edges[j]), cycle_edges[1:j])
-                ∂i0[i][j, indices[num]] = 1
-                ∂i0[i][j, indices[num + 1]] = 1
-            else
-                # normal cycle from the (non-multi) graph cycle decomposition
-                for k in axes(∂i0[i], 2)
-                    if Bi0[i][k][2] ∈ cycle_edges[j] && Bi0[i][k][2] ∉ getindex.(Bi0[i][1:k - 1], 2)
-                        ∂i0[i][j, k] = 1
+        # take care of length 3 and longer cycles
+        for c in cycles
+            num_cells = max(1, div(length(c) - 1, 2))
+            rows, cols = size(p0)
+            p0 = vcat(p0, zeros(Int, num_cells, cols))
+            if num_cells == 1 # i.e., if length(c) <= 4, don't cellulate
+                if length(c) == 3
+                    e1 = rand(rng, findall(1 == p1[j, c[1]] == p1[j, c[2]] for j in 1:size(p1, 1)))
+                    e2 = rand(rng, findall(1 == p1[j, c[2]] == p1[j, c[3]] for j in 1:size(p1, 1)))
+                    e3 = rand(rng, findall(1 == p1[j, c[3]] == p1[j, c[1]] for j in 1:size(p1, 1)))
+                    p0[end, [e1, e2, e3]] .= 1
+                else
+                    e1 = rand(rng, findall(1 == p1[j, c[1]] == p1[j, c[2]] for j in 1:size(p1, 1)))
+                    e2 = rand(rng, findall(1 == p1[j, c[2]] == p1[j, c[3]] for j in 1:size(p1, 1)))
+                    e3 = rand(rng, findall(1 == p1[j, c[3]] == p1[j, c[4]] for j in 1:size(p1, 1)))
+                    e4 = rand(rng, findall(1 == p1[j, c[4]] == p1[j, c[1]] for j in 1:size(p1, 1)))
+                    p0[end, [e1, e2, e3, e4]] .= 1
+                end
+            else # cellulate
+                p0 = hcat(p0, zeros(Int, rows + num_cells, num_cells - 1))
+                p1rows = size(p1, 1)
+                p1 = vcat(p1, zeros(Int, num_cells - 1, size(p1, 2)))
+                f0 = hcat(f0, zeros(Int, size(f0, 1), num_cells - 1))
+                for i in 1:num_cells - 1
+                    p0[rows + i:rows + i + 1, cols + i] .= 1
+                    p1[p1rows + i, c[[1 + i, end - i]]] .= 1
+                end
+                for i in 1:num_cells
+                    e1 = rand(rng, findall(1 == p1[j, c[i]] == p1[j, c[i + 1]] for j in 1:size(p1, 1)))
+                    e2 = rand(rng, findall(1 == p1[j, c[end - i + 1]] == p1[j, c[end - i]] for j in 1:size(p1, 1)))
+                    p0[rows + i, [e1, e2]] .= 1
+                    if i == 1
+                        e3 = rand(rng, findall(1 == p1[j, c[1]] == p1[j, c[end]] for j in 1:size(p1, 1)))
+                        p0[rows + i, e3] = 1
+                    elseif i == num_cells && iseven(length(c))
+                        e3 = rand(rng, findall(1 == p1[j, c[end - i]] == p1[j, c[i + 1]] for j in 1:size(p1, 1)))
+                        p0[rows + i, e3] = 1
                     end
                 end
             end
         end
-    end
-    ∂0 = reduce(direct_sum, ∂i0)
 
-    offset = size(∂1, 1)
-    ∂1 = direct_sum(∂1, transpose(H_Z[setdiff(1:size(H_Z, 1), row_indices), :]))
-    j = 0
-    for Q in Bi1
-        for q in Q
-            j += 1
-            ∂1[q + offset, j] = 1
-        end
+        push!(f1_all, f1)
+        push!(f0_all, f0)
+        push!(p1_all, p1)
+        push!(p0_all, p0)
     end
 
-    offset = size(∂0, 1)
-    ∂0 = direct_sum(∂0, H_X)
-    j = 0
-    for S in Bi0
-        for (X, _) in S
-            j += 1
-            if X > 0
-                ∂0[X + offset, j] = 1
-            end
-        end
-    end
+    p1 = mapreduce(x -> matrix(F, x), direct_sum, p1_all)
+    p0 = mapreduce(x -> matrix(F, x), direct_sum, p0_all)
+    f1 = mapreduce(x -> matrix(F, x), hcat, f1_all)
+    f0 = mapreduce(x -> matrix(F, x), hcat, f0_all)
 
-    # We have the cone code, but it might need thickened "dually" (swap X and Z, thicken, swap X and Z back) because we could have high column weight in X.
-    q_X = maximum(count(!iszero, ∂0[:, j]) for j in 1:size(∂0, 2))
-    ∂1, ∂0 = if l > 1
-        n_Z = ncols(∂1)
-        n_X, n = size(∂0)
-        H = matrix(F, diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
-        Z = hcat(identity_matrix(F, n_Z) ⊗ transpose(H), transpose(∂1) ⊗ identity_matrix(F, l))
-        X1 = hcat(∂1 ⊗ identity_matrix(F, l - 1), identity_matrix(F, n) ⊗ H)
-        X2 = hcat(zero_matrix(F, l * n_X, (l - 1) * n_Z), ∂0 ⊗ identity_matrix(F, l))
+    H_X_new = hcat(vcat(p0, f0), vcat(zero_matrix(F, size(p0, 1), n), H_X))
+    H_Z_remaining_tr = transpose(H_Z[setdiff(1:n_Z, row_indices), :])
+    H_Z_new_tr = hcat(vcat(p1, f1), vcat(zero_matrix(F, size(p1, 1), size(H_Z_remaining_tr, 2)), H_Z_remaining_tr))
 
-        # TODO: figure out a good way to compute heights
-        # choosing heights here is not done in the same way as before. We only choose heights for part of it.
-        num_heights = n_X - size(H_X, 1)
-        heights = rand(1:l, num_heights)
-
-        X3 = X2[[h + l * (i - 1) for (i, h) in enumerate(heights)] ∪ (num_heights * l + 1:size(X2, 1)), :]
-        transpose(Z), vcat(X1, X3)
-    else
-        ∂1, ∂0
-    end
-    return ∂0, transpose(∂1) # this is the new H_X, H_Z
+    return H_X_new, transpose(H_Z_new_tr)
 end
 
-"""
-    coning(S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int = 0, target_q_X::Int = 3) where T <: CTMatrixTypes
 
-Return the result of coning on `S` by reducing the `Z` stabilizers in `row_indices` and using the
-optional arguments `l` and `target_q_X` for an optional round of thickening and choosing heights.
 """
-coning(S::T, row_indices::AbstractVector{Int}; l::Int, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where {T <:
-    AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, l = l, target_q_X = target_q_X, rng = rng)
-coning(::IsCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
-    target_q_X::Int, rng::AbstractRNG = Random.seed!()) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, l = l, target_q_X = target_q_X, rng = rng)...)
-coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; l::Int,
-    target_q_X::Int, rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
+    coning(S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
+
+Return the result of coning on `S` by reducing the `Z` stabilizers in `row_indices`. The optional
+argument `rng` can be used to make the output of this function reproducible.
+"""
+coning(S::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where {T <:
+    AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, rng = rng)
+coning(::IsCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int};
+    rng::AbstractRNG = Random.seed!()) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, rng = rng)...)
+coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int};
+    rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
 
 
 #############################
@@ -787,19 +757,18 @@ coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; 
 #############################
 
 """
-    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, target_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
-    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, target_q_X::Int = 3, seed::Union{Nothing, Int} = nothing)
+    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, rng::AbstractRNG = Random.seed!())
+    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, rng::AbstractRNG = Random.seed!())
 
 Return the weight-reduced CSS code of `S`.
 """
 quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}; copying_type::Symbol = :Hastings,
-    copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
+    copying_target::Int = 3, l2::Int = 1,
     rng::AbstractRNG = Random.seed!()) where {T <: AbstractStabilizerCode} =
     quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type = copying_type,
-        copying_target = copying_target, l2 = l2, target_q_X = target_q_X, rng = rng)
+        copying_target = copying_target, l2 = l2, rng = rng)
 function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-    copying_type::Symbol, copying_target::Int, l2::Int, target_q_X::Int,
-    rng::AbstractRNG = Random.seed!())
+    copying_type::Symbol, copying_target::Int, l2::Int, rng::AbstractRNG = Random.seed!())
 
     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
     H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = copying_type, target_q_X = copying_target)
@@ -807,15 +776,34 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
     row_indices = 1:a
-    H_X, H_Z = coning(H_X, H_Z, row_indices, l = l2, target_q_X = target_q_X, rng = rng)
+    n_X_precone = size(H_X, 1)
+    H_X, H_Z = coning(H_X, H_Z, row_indices, rng = rng)
+    H_X, H_Z = if l2 > 1
+        n_Z = size(H_Z, 1)
+        n_X, n = size(H_X)
+        F = base_ring(H_X)
+        H = matrix(F, diagm(l2 - 1, l2, 0 => ones(Int, l2 - 1), 1 => ones(Int, l2 - 1)))
+        Z = hcat(identity_matrix(F, n_Z) ⊗ transpose(H), H_Z ⊗ identity_matrix(F, l2))
+        X1 = hcat(transpose(H_Z) ⊗ identity_matrix(F, l2 - 1), identity_matrix(F, n) ⊗ H)
+        X2 = hcat(zero_matrix(F, l2 * n_X, (l2 - 1) * n_Z), H_X ⊗ identity_matrix(F, l2))
+
+        # TODO: figure out a good way to compute heights
+        # choosing heights here is not done in the same way as before. We only choose heights for part of it.
+        num_heights = n_X - n_X_precone
+        heights = rand(1:l2, num_heights)
+
+        X3 = X2[[h + l2 * (i - 1) for (i, h) in enumerate(heights)] ∪ (num_heights * l2 + 1:size(X2, 1)), :]
+        vcat(X1, X3), Z
+    else
+        H_X, H_Z
+    end
     return CSSCode(H_X, H_Z)
 end
 quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
+    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1,
     rng::AbstractRNG = Random.seed!()) =  error("Only valid for CSS codes.")
 
 weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1, target_q_X::Int = 3,
+    copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1,
     rng::AbstractRNG = Random.seed!()) = quantum_weight_reduction(S, l1, heights,
-    copying_type = copying_type, copying_target = copying_target, l2 = l2, target_q_X = target_q_X,
-    rng = rng)
+    copying_type = copying_type, copying_target = copying_target, l2 = l2, rng = rng)
