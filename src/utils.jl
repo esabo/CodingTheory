@@ -275,6 +275,21 @@ function FpmattoJulia(M::CTMatrixTypes)
 end
 FpmattoJulia(M::fpMatrix) = data.(M)
 
+_Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
+    Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
+
+_Flint_matrix_element_to_Julia_int(x::FqMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
+    Oscar.Nemo.libflint), Int, (Ref{FqMatrix}, Int, Int), x, i - 1 , j - 1)
+
+_Flint_matrix_to_Julia_int_matrix(A) = [ _Flint_matrix_element_to_Julia_int(A, i, j) for i in
+    1:nrows(A), j in 1:ncols(A)]
+
+# function _Flint_matrix_to_Julia_int_vector(A)
+#     # (nr == 1 || nc == 1) || throw(ArgumentError("Cannot cast matrix to vector"))
+#     return _Flint_matrix_element_to_Julia_int(A, 1, 1)
+# end
+_Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
+
 function _non_pivot_cols(A::CTMatrixTypes, type::Symbol=:nsp)
     type ∈ [:sp, :nsp]
     if type == :sp

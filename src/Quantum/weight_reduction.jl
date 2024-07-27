@@ -633,8 +633,8 @@ function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractR
 
     issubset(row_indices, 1:n_Z) || throw(DomainError(row_indices, "Choice of Z stabilizers is out of bounds."))
 
-    hx = Int.(data.(H_X))
-    hz = Int.(data.(H_Z))
+    hx = _Flint_matrix_to_Julia_int_matrix(H_X)
+    hz = _Flint_matrix_to_Julia_int_matrix(H_Z)
     f1_all = Matrix{Int}[]
     f0_all = Matrix{Int}[]
     p1_all = Matrix{Int}[]
