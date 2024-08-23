@@ -622,13 +622,13 @@ function qdistrnd(S::T, type::Symbol = :both; dressed::Bool = true, iters::Int =
         -1
     else
         type in (:both, :X, :Z) || throw(DomainError(type, "Must choose `:both`, `:X` or `:Z`."))
-        if CSSTriat(T) == IsNotCSS() && type in (:X, :Z)
+        if CSSTrait(T) == IsNotCSS() && type in (:X, :Z)
             throw(ArgumentError("Restricting to `:X` or `:Z` distance is not supported for non-CSS codes"))
         end
         order(field(S)) == 2 || throw(DomainError(S, "Only GF(2) is implemented."))
         if GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsNotCSS() && dressed
             throw(ArgumentError("Dressed distance is not supported for non-CSS subsystem codes."))
-        elseif GaugeTrait(T) == HasGauges() && CSSTriat(T) == IsCSS() && type == :both && dressed
+        elseif GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsCSS() && type == :both && dressed
             min(_qdistrnd(IsCSS(), S, :X, dressed, iters, d_lower_bound),
                 _qdistrnd(IsCSS(), S, :Z, dressed, iters, d_lower_bound))
         elseif CSSTrait(T) == IsNotCSS() || type == :both
