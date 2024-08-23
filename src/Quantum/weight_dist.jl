@@ -605,40 +605,78 @@ function QDistRndCSS(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int, min_dist::Int
 end
 
 """
-    qdistrnd(S::AbstractSubsystemCode, type::Symbol = :X; dressed::Bool = true, iters::Int = 100,
+    qdistrnd(S::AbstractSubsystemCode, type::Symbol = :both; dressed::Bool = true, iters::Int = 100,
         d_lower_bound::Int = 1)
 
 Use the QDistRnd algorithm to find an upper bound on the distance of the code `S`. If `type` is `:X`
-then this is applied to the X-distance, and similarly for `:Z`. If the given code is a subsystem
-code, then if `dressed = true` (default) then an upper bound for the dressed distance is returned,
-and if `dressed = false` then the bound is for the bare distance. Runs for `iters` iterations and
-stops early if a logical of weight `d_lower_bound` is found.
+then this is applied to the X-distance, and similarly for `:Z` (default `:both`). If the given code
+is a subsystem code, then if `dressed = true` (default) then an upper bound for the dressed distance
+is returned, and if `dressed = false` then the bound is for the bare distance. Runs for `iters`
+iterations and stops early if a logical of weight `d_lower_bound` is found.
 """
-function qdistrnd(S::T, type::Symbol = :X; dressed::Bool = true, iters::Int = 100,
+function qdistrnd(S::T, type::Symbol = :both; dressed::Bool = true, iters::Int = 100,
         d_lower_bound::Int = 1) where T <: AbstractSubsystemCode
 
     if LogicalTrait(T) == HasNoLogicals()
         @warn "The given code has no logicals."
         -1
     else
-        _qdistrnd(CSSTrait(T), S, type, dressed, iters, d_lower_bound)
+        GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsNotCSS() && throw(ArgumentError("Non-CSS subsystem codes are not supported."))
+        order(field(S)) == 2 || throw(DomainError(S, "Only GF(2) is implemented."))
+        type in (:both, :X, :Z) || throw(DomainError(type, "Must choose `:both`, `:X` or `:Z`."))
+        if GaugeTrait(T) == HasGauges() && CSSTriat(T) == IsCSS() && type == :both && dressed
+            min(_qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound), _qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound))
+        elseif CSSTrait(T) == IsNotCSS() || type == :both
+            _qdistrnd(IsNotCSS(), S, type, dressed, iters, d_lower_bound)
+        else # IsCSS() and type in (:X, :Z)
+            _qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound)
+        end
     end
 end
 
 function _qdistrnd(::IsNotCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
         d_lower_bound::Int) where T <: AbstractSubsystemCode
 
-    GaugesTrait(T) == HasNoGauges() || throw(ArgumentError("Non-CSS subsystem codes are not supported."))
-    throw(ArgumentError("Non-CSS stabilizer codes are not yet implemented"))
-    return -1
+    n = length(S)
+    k = dimension(S)
+    stabs = _Flint_matrix_to_Julia_bool_matrix(stabilizers(S))
+    _rref_no_col_swap!(stabs)
+    stabs = _remove_empty(stabs, :rows)
+    nstabs = size(stabs, 1)
+    logs = _Flint_matrix_to_Julia_bool_matrix(logicals_matrix(S))
+    bound = fill(2n, Threads.nthreads())
+    s = fill(stabs, Threads.nthreads())
+    l = fill(logs, Threads.nthreads())
+    Threads.@threads for iter in 1:iters
+        tid = Threads.threadid()
+        p = shuffle(1:n)
+        p2 = [p; p .+ n]
+        s[tid] .= stabs[:, p2]
+        l[tid] .= logs[:, p2]
+        _rref_no_col_swap!(s[tid])
+        pivots = [findfirst(view(s[tid], i, :)) for i in 1:nstabs]
+        for (j, pivot) in enumerate(pivots)
+            for i in 1:2k
+                if l[tid][i, pivot]
+                    l[tid][i, :] .⊻= s[tid][j, :]
+                end
+            end
+        end
+        bound[tid] = min(bound[tid], minimum(count(view(l[tid], i, :)) for i in 1:2k))
+        if bound[tid] <= d_lower_bound
+            if bound[tid] < d_lower_bound
+                @warn "The given `d_lower_bound` is greater than the distance."
+            end
+            break
+        end
+    end
+    d_upper_bound = minimum(bound)
+    
+    return d_upper_bound
 end
 
 function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
         d_lower_bound::Int) where T <: AbstractSubsystemCode
-
-    # could consider defaulting to `type = :both` instead of `:X`?
-    type in (:X, :Z) || throw(DomainError(type, "Must choose either `:X` or `:Z`."))
-    order(field(S)) == 2 || throw(DomainError(S, "Only GF(2) is implemented."))
 
     n = length(S)
     k = dimension(S)
