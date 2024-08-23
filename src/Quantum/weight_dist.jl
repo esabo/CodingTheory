@@ -621,11 +621,16 @@ function qdistrnd(S::T, type::Symbol = :both; dressed::Bool = true, iters::Int =
         @warn "The given code has no logicals."
         -1
     else
-        GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsNotCSS() && throw(ArgumentError("Non-CSS subsystem codes are not supported."))
-        order(field(S)) == 2 || throw(DomainError(S, "Only GF(2) is implemented."))
         type in (:both, :X, :Z) || throw(DomainError(type, "Must choose `:both`, `:X` or `:Z`."))
-        if GaugeTrait(T) == HasGauges() && CSSTriat(T) == IsCSS() && type == :both && dressed
-            min(_qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound), _qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound))
+        if CSSTriat(T) == IsNotCSS() && type in (:X, :Z)
+            throw(ArgumentError("Restricting to `:X` or `:Z` distance is not supported for non-CSS codes"))
+        end
+        order(field(S)) == 2 || throw(DomainError(S, "Only GF(2) is implemented."))
+        if GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsNotCSS() && dressed
+            throw(ArgumentError("Dressed distance is not supported for non-CSS subsystem codes."))
+        elseif GaugeTrait(T) == HasGauges() && CSSTriat(T) == IsCSS() && type == :both && dressed
+            min(_qdistrnd(IsCSS(), S, :X, dressed, iters, d_lower_bound),
+                _qdistrnd(IsCSS(), S, :Z, dressed, iters, d_lower_bound))
         elseif CSSTrait(T) == IsNotCSS() || type == :both
             _qdistrnd(IsNotCSS(), S, type, dressed, iters, d_lower_bound)
         else # IsCSS() and type in (:X, :Z)
@@ -645,24 +650,22 @@ function _qdistrnd(::IsNotCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
     nstabs = size(stabs, 1)
     logs = _Flint_matrix_to_Julia_bool_matrix(logicals_matrix(S))
     bound = fill(2n, Threads.nthreads())
-    s = fill(stabs, Threads.nthreads())
-    l = fill(logs, Threads.nthreads())
     Threads.@threads for iter in 1:iters
         tid = Threads.threadid()
-        p = shuffle(1:n)
-        p2 = [p; p .+ n]
-        s[tid] .= stabs[:, p2]
-        l[tid] .= logs[:, p2]
-        _rref_no_col_swap!(s[tid])
-        pivots = [findfirst(view(s[tid], i, :)) for i in 1:nstabs]
+        perm = shuffle(1:n)
+        perm2 = [perm; perm .+ n]
+        s = stabs[:, perm2]
+        l = logs[:, perm2]
+        _rref_no_col_swap!(s)
+        pivots = [findfirst(view(s, i, :)) for i in 1:nstabs]
         for (j, pivot) in enumerate(pivots)
             for i in 1:2k
-                if l[tid][i, pivot]
-                    l[tid][i, :] .⊻= s[tid][j, :]
+                if l[i, pivot]
+                    l[i, :] .⊻= s[j, :]
                 end
             end
         end
-        bound[tid] = min(bound[tid], minimum(count(view(l[tid], i, :)) for i in 1:2k))
+        bound[tid] = min(bound[tid], minimum(count(view(l, i, :)) for i in 1:2k))
         if bound[tid] <= d_lower_bound
             if bound[tid] < d_lower_bound
                 @warn "The given `d_lower_bound` is greater than the distance."
@@ -705,23 +708,21 @@ function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
 
     # Basic algorithm for CSS codes over GF(2):
     bound = fill(n, Threads.nthreads())
-    s = fill(stabs, Threads.nthreads())
-    l = fill(logs, Threads.nthreads())
     Threads.@threads for iter in 1:iters
         tid = Threads.threadid()
-        p = shuffle(1:n)
-        s[tid] .= stabs[:, p]
-        l[tid] .= logs[:, p]
-        _rref_no_col_swap!(s[tid])
-        pivots = [findfirst(view(s[tid], i, :)) for i in 1:nstabs]
-        for (j, p) in enumerate(pivots)
+        perm = shuffle(1:n)
+        s = stabs[:, perm]
+        l = logs[:, perm]
+        _rref_no_col_swap!(s)
+        pivots = [findfirst(view(s, i, :)) for i in 1:nstabs]
+        for (j, pivot) in enumerate(pivots)
             for i in 1:k
-                if l[tid][i, p]
-                    l[tid][i, :] .⊻= s[tid][j, :]
+                if l[i, pivot]
+                    l[i, :] .⊻= s[j, :]
                 end
             end
         end
-        bound[tid] = min(bound[tid], minimum(count(view(l[tid], i, :)) for i in 1:k))
+        bound[tid] = min(bound[tid], minimum(count(view(l, i, :)) for i in 1:k))
         if bound[tid] <= d_lower_bound
             if bound[tid] < d_lower_bound
                 @warn "The given `d_lower_bound` is greater than the distance."
