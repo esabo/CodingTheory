@@ -294,6 +294,10 @@ function _Flint_matrix_to_Julia_bool_matrix(A::CTMatrixTypes)
     Matrix{Bool}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
+function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <: Number
+    Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
+end
+
 # function _Flint_matrix_to_Julia_int_vector(A)
 #     # (nr == 1 || nc == 1) || throw(ArgumentError("Cannot cast matrix to vector"))
 #     return _Flint_matrix_element_to_Julia_int(A, 1, 1)

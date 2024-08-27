@@ -631,8 +631,20 @@ function qdistrnd(S::T, type::Symbol = :both; dressed::Bool = true, iters::Int =
         elseif GaugeTrait(T) == HasGauges() && CSSTrait(T) == IsCSS() && type == :both && dressed
             min(_qdistrnd(IsCSS(), S, :X, dressed, iters, d_lower_bound),
                 _qdistrnd(IsCSS(), S, :Z, dressed, iters, d_lower_bound))
-        elseif CSSTrait(T) == IsNotCSS() || type == :both
+        elseif CSSTrait(T) == IsNotCSS()
             _qdistrnd(IsNotCSS(), S, type, dressed, iters, d_lower_bound)
+        elseif type == :both
+            dx, logx = _qdistrnd(IsCSS(), S, :X, dressed, iters, d_lower_bound)
+            if dx <= d_lower_bound
+                dx, logx
+            else
+                dz, logz = _qdistrnd(IsCSS(), S, :Z, dressed, iters, d_lower_bound)
+                if dx <= dz
+                    dx, logx
+                else
+                    dz, logz
+                end
+            end
         else # IsCSS() and type in (:X, :Z)
             _qdistrnd(IsCSS(), S, type, dressed, iters, d_lower_bound)
         end
@@ -644,28 +656,36 @@ function _qdistrnd(::IsNotCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
 
     n = length(S)
     k = dimension(S)
-    stabs = _Flint_matrix_to_Julia_bool_matrix(stabilizers(S))
+    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Bool)
     _rref_no_col_swap!(stabs)
     stabs = _remove_empty(stabs, :rows)
     nstabs = size(stabs, 1)
-    logs = _Flint_matrix_to_Julia_bool_matrix(logicals_matrix(S))
-    bound = fill(2n, Threads.nthreads())
+    logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Bool)
+    operators = vcat(stabs, logs)
+    anticommuting_logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Bool)
+    anticommuting_logs_symp_T = permutedims(anticommuting_logs[:, [n + 1: 2n; 1:n]])
+
+    temp = logs[:, 1:n] + logs[:, 1 + n:2n]
+    bestlogwt, bestlogindex = findmin(count(!iszero, temp[i, :]) for i in 1:k)
+    bound = fill(bestlogwt, Threads.nthreads())
+    saved_logs = fill(logs[bestlogindex, :], Threads.nthreads())
     Threads.@threads for iter in 1:iters
         tid = Threads.threadid()
         perm = shuffle(1:n)
         perm2 = [perm; perm .+ n]
-        s = stabs[:, perm2]
-        l = logs[:, perm2]
-        _rref_no_col_swap!(s)
-        pivots = [findfirst(view(s, i, :)) for i in 1:nstabs]
-        for (j, pivot) in enumerate(pivots)
-            for i in 1:2k
-                if l[i, pivot]
-                    l[i, :] .⊻= s[j, :]
+        permops = operators[:, perm2]
+        _rref_no_col_swap!(permops)
+        logtest = permops * anticommuting_logs_symp_T[perm2, :] .% 0x02
+        for i in axes(logtest, 1)
+            if !all(iszero, logtest[i, :]) # then permops[i, :] is a logical
+                temp = permops[i, 1:n] + permops[i, 1 + n:2n]
+                wt = count(!iszero, temp)
+                if wt < bound[tid]
+                    bound[tid] = wt
+                    saved_logs[tid] .= permops[i, invperm(perm2)]
                 end
             end
         end
-        bound[tid] = min(bound[tid], minimum(count(view(l, i, :)) for i in 1:2k))
         if bound[tid] <= d_lower_bound
             if bound[tid] < d_lower_bound
                 @warn "The given `d_lower_bound` is greater than the distance."
@@ -674,8 +694,11 @@ function _qdistrnd(::IsNotCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
         end
     end
     d_upper_bound = minimum(bound)
-    
-    return d_upper_bound
+    best_log = matrix(field(S), permutedims(saved_logs[argmin(bound)]))
+
+    is_logical(S, best_log) || error("Found something that isn't a logical. There is a bug in qdistrnd.")
+
+    return d_upper_bound, best_log
 end
 
 function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
@@ -685,7 +708,7 @@ function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
     k = dimension(S)
 
     # for dressed distance of a subsystem code, need to include gauges as stabilizers
-    stabs = if GaugeTrait(T) == HasGauges() && dressed
+    stabs = _Flint_matrix_to_Julia_T_matrix(if GaugeTrait(T) == HasGauges() && dressed
         if type == :X
             G = _remove_empty(gauges_matrix(S)[:, 1:n], :rows)
             vcat(X_stabilizers(S), G)
@@ -695,34 +718,37 @@ function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
         end
     else
         type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    end |> _Flint_matrix_to_Julia_bool_matrix
+    end, Bool)
     _rref_no_col_swap!(stabs)
     stabs = _remove_empty(stabs, :rows)
     nstabs = size(stabs, 1)
 
-    logs = if type == :X
-        _remove_empty(logicals_matrix(S)[:, 1:n], :rows)
-    else
-        _remove_empty(logicals_matrix(S)[:, n + 1:2n], :rows)
-    end |> _Flint_matrix_to_Julia_bool_matrix
+    logs = _Flint_matrix_to_Julia_T_matrix(_remove_empty(
+        logicals_matrix(S)[:, (1:n) .+ (type == :X ? 0 : n)], :rows), Bool)
+    operators = vcat(stabs, logs)
+    anticommuting_logs = _Flint_matrix_to_Julia_T_matrix(_remove_empty(
+        logicals_matrix(S)[:, (1:n) .+ (type == :Z ? 0 : n)], :rows), Bool)
+    anticommuting_logs_T = permutedims(anticommuting_logs)
 
     # Basic algorithm for CSS codes over GF(2):
-    bound = fill(n, Threads.nthreads())
+    bestlogwt, bestlogindex = findmin(count(logs[i, :]) for i in 1:k)
+    bound = fill(bestlogwt, Threads.nthreads())
+    saved_logs = fill(logs[bestlogindex, :], Threads.nthreads())
     Threads.@threads for iter in 1:iters
         tid = Threads.threadid()
         perm = shuffle(1:n)
-        s = stabs[:, perm]
-        l = logs[:, perm]
-        _rref_no_col_swap!(s)
-        pivots = [findfirst(view(s, i, :)) for i in 1:nstabs]
-        for (j, pivot) in enumerate(pivots)
-            for i in 1:k
-                if l[i, pivot]
-                    l[i, :] .⊻= s[j, :]
+        permops = operators[:, perm]
+        _rref_no_col_swap!(permops)
+        logtest = permops * anticommuting_logs_T[perm, :] .% 0x02
+        for i in axes(logtest, 1)
+            if !all(iszero, logtest[i, :]) # then permops[i, :] is a logical
+                wt = count(!iszero, permops[i, :])
+                if wt < bound[tid]
+                    bound[tid] = wt
+                    saved_logs[tid] .= permops[i, invperm(perm)]
                 end
             end
         end
-        bound[tid] = min(bound[tid], minimum(count(view(l, i, :)) for i in 1:k))
         if bound[tid] <= d_lower_bound
             if bound[tid] < d_lower_bound
                 @warn "The given `d_lower_bound` is greater than the distance."
@@ -731,6 +757,14 @@ function _qdistrnd(::IsCSS, S::T, type::Symbol, dressed::Bool, iters::Int,
         end
     end
     d_upper_bound = minimum(bound)
-    
-    return d_upper_bound
+    best_log = matrix(field(S), permutedims(saved_logs[argmin(bound)]))
+    if type == :X
+        best_log = hcat(best_log, zero_matrix(field(S), 1, n))
+    else
+        best_log = hcat(zero_matrix(field(S), 1, n), best_log)
+    end
+
+    is_logical(S, best_log) || error("Found something that isn't a logical. There is a bug in qdistrnd.")
+
+    return d_upper_bound, best_log
 end
