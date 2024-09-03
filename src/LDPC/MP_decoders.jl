@@ -127,7 +127,7 @@ function sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::I
     Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
     nr, nc = size(H)
     (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("H cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
+    # (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
     # do we want to flip it if necessary?
     2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
     schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
@@ -1571,103 +1571,6 @@ function balance_of_layered_schedule(sch::Vector{Vector{Int}})
     end
     return γ
 end
-
-mutable struct Region
-    id::Vector{Int}
-    parents::Vector{Region}
-    ancestors::Vector{Region}
-    subregions::Vector{Region}
-end
-
-function canonical_region_graph(H::CTMatrixTypes)
-    num_check, num_var = size(H)
-    check_adj_list = [Int[] for _ in 1:num_check]
-    for r in 1:num_check
-        for c in 1:num_var
-            iszero(H[r, c]) || push!(check_adj_list[r], c)
-        end
-    end
-    return region_graph_from_base_nodes(check_adj_list)
-end
-canonical_region_graph(L::AbstractLDPCCode) = canonical_region_graph(parity_check_matrix(L))
-
-function region_graph_from_base_nodes(regions::Vector{Region})
-    isempty(regions) && return regions
-
-    left = 1
-    right = length(regions)
-    while left < right
-        for r1 in left:right - 1
-            for r2 in left + 1:right
-                if r1 ≠ r2
-                    cap = regions[r1].id ∩ regions[r2].id
-                    if !isempty(cap) && cap ≠ regions[r1].id && cap ≠ regions[r2].id
-                        found = false
-                        for r in regions
-                            if cap == r.id
-                                found = true
-                                for par in r.parents
-                                    if par ∈ regions[r1].ancestors
-                                        r.parents = [r3 for r3 in r.parents if r3 ≠ par]
-                                    end
-
-                                    if par ∈ regions[r2].ancestors
-                                        r.parents = [r3 for r3 in r.parents if r3 ≠ par]
-                                    end
-                                end
-
-                                regions[r1] ∉ r.parents && push!(r.parents, regions[r1])
-                                regions[r2] ∉ r.parents && push!(r.parents, regions[r2])
-                                r.ancestors = unique!(reduce(vcat, [[r3.ancestors for r3 in r.parents]; r.parents]))
-                                # do I want to blank this out?
-                                # r.subregions = Vector{Region}()
-
-                                for r3 in r.ancestors
-                                    r ∉ r3.subregions && push!(r3.subregions, r)
-                                end
-                                break
-                            end
-                        end
-
-                        if !found
-                            push!(regions, Region(cap, [regions[r1], regions[r2]], unique!([regions[r1].ancestors; regions[r2].ancestors; [regions[r1], regions[r2]]]), Vector{Region}()))
-
-                            for r3 in regions[end].ancestors
-                                push!(r3.subregions, regions[end])
-                            end
-
-                        end
-                    end
-                end
-            end
-        end
-        left = right + 1
-        right = length(regions)
-    end
-    return regions
-end
-
-function region_graph_from_base_nodes(R::Vector{Vector{Int}})
-    regions = Vector{Region}()
-    for r in R
-        push!(regions, Region(r, Vector{Region}(), Vector{Region}(), Vector{Region}()))
-    end
-    return region_graph_from_base_nodes(regions)
-end
-
-# R = CodingTheory.region_graph_from_base_nodes([[1, 2, 4, 5], [2, 3, 5, 6], [4, 5, 7, 8], [5, 6, 8, 9]]);
-# for r in R
-#     println("id = ", r.id)
-#     for p in r.parents
-#         println("parent: ", p.id)
-#     end
-#     for p in r.subregions
-#        println("sub: ", p.id)
-#     end
-#     for p in r.ancestors
-#        println("anc: ", p.id)
-#     end
-# end
 
 # output should end up [1 1 1 0 0 0 0]
 

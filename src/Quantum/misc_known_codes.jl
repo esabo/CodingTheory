@@ -90,9 +90,8 @@ function BaconShorCode(m::Int, n::Int)
     S.Z_stabs = Z_stabs
     # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
     set_logicals!(S, logs)
-    m == n && set_minimum_distance!(S, m)
-    # Z distance is m
-    # X distance is n
+    set_minimum_X_distance!(S, n)
+    set_minimum_Z_distance!(S, m)
     return S
 end
 
@@ -192,12 +191,8 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     S = SubsystemCode(X_gauges ⊕ Z_gauges)
-    min_row_wt = minimum(row_wts)
-    min_col_wt = minimum(col_wts)
-    set_minimum_distance!(S, minimum([min_row_wt, min_col_wt]))
-    # TODO: also set d_x and d_z
-    # Z distance is min col wt?
-    # X distance is min row wt?
+    set_minimum_X_distance!(S, minimum(row_wts))
+    set_minimum_Z_distance!(S, minimum(col_wts))
     return S
 end
 GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
@@ -311,12 +306,9 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
 
     # return X_gauges, Z_gauges
     S = SubsystemCode(X_gauges ⊕ Z_gauges, logs_alg = :VS)
-    # min_row_wt = minimum(row_wts)
-    # min_col_wt = minimum(col_wts)
-    # set_minimum_distance!(S, minimum([min_row_wt, min_col_wt]))
-    # TODO: also set d_x and d_z
-    # Z distance is min col wt?
-    # X distance is min row wt?
+    # TODO same for this model?
+    # set_minimum_X_distance!(S, minimum(row_wts))
+    # set_minimum_Z_distance!(S, minimum(col_wts))
     return S
 end
 AugmentedBravyiBaconShorCode(A::CTMatrixTypes) = LocalBravyiBaconShorCode(A)
@@ -369,9 +361,8 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     end
 
     S = SubsystemCode(gauges, logs_alg = :VS)
-    S.d_x = k
-    S.d_z = m * n
-    S.d = minimum([k, m * n])
+    set_minimum_X_distance!(S, k)
+    set_minimum_Z_distance!(S, m * n)
     return S
 end
 
@@ -569,9 +560,10 @@ function SubsystemToricCode(m::Int, n::Int)
     S.k == 2 || error("Got wrong dimension for periodic case.")
     set_stabilizers!(S, stabs)
     set_logicals!(S, logs)
-    set_minimum_distance!(S, minimum([m, n]))
-    S.d_x = S.d
-    S.d_x = S.d
+    # TODO what to do here
+    # set_minimum_distance!(S, min(m, n))
+    # set_minimum_X_distance!(S, min(m, n))
+    # set_minimum_Z_distance!(S, min(m, n))
     return S
 end
 
@@ -716,6 +708,7 @@ function SubsystemSurfaceCode(m::Int, n::Int)
     set_minimum_distance!(S, minimum([m, n]))
     S.d_x = 2 * n + 1
     S.d_z = 2 * m + 1
+    # TODO how do these make sense?
     return S
 end
 
@@ -744,7 +737,7 @@ Return the `C_6` stabilizer code defined by Knill.
 """
 function QC6()
     S = StabilizerCode(["XIIXXX", "XXXIIX", "ZIIZZZ", "ZZZIIZ"])
-    S.d = 2
+    set_minimum_distance!(S, 2)
     return S
 end
 
@@ -755,7 +748,11 @@ end
 
 Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
-FiveQubitCode() = StabilizerCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
+function FiveQubitCode()
+    S = StabilizerCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
+    set_minimum_distance!(S, 3)
+    return S
+end
 Q513() = FiveQubitCode()
 # is a perfect code
 
@@ -766,7 +763,11 @@ Q513() = FiveQubitCode()
 
 Return the `[[7, 1, 3]]` Steane code.
 """
-SteaneCode() = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+function SteaneCode()
+    S = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+    set_minimum_distance!(S, 3)
+    return S
+end
 Q713() = SteaneCode()
 # _SteaneCodeTrellis() = CSSCode(["XXIXXII", "IXXIXXI", "IIIXXXX", "ZZIZZII", "IZZIZZI", "IIIZZZZ"])
 # also ZZIZZII, ZIZZIZI, IZZZIIZ, XXIXXII, XIXXIXI, IXXXIIX
@@ -777,8 +778,12 @@ Q713() = SteaneCode()
 
 Return the `[[9, 1, 3]]` Shor code.
 """
-ShorCode() = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ",
+function ShorCode()
+    S = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ",
     "XXXXXXIII", "IIIXXXXXX"])
+    set_minimum_distance!(S, 3)
+    return S
+end
 Q913() = ShorCode()
 
 Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
@@ -789,10 +794,18 @@ Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
 
 Return the `[[4, 2, 2]]`` stabilizer code `C_4`` defined by Knill.
 """
-Q422() = CSSCode(["XXXX", "ZZZZ"])
+function Q422()
+    S = CSSCode(["XXXX", "ZZZZ"])
+    set_minimum_distance!(S, 2)
+    return S
+end
 QC4() = Q422()
 
-Q511() = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
+function Q511()
+    S = StabilizerCode(["ZXIII", "XZXII", "IXZXI", "IIXZX"])
+    set_minimum_distance!(S, 1)
+    return S
+end
 
 function Q823()
     F = GF(2)
@@ -802,10 +815,16 @@ function Q823()
     0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
     0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
     0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0]);
-    return StabilizerCode(stabs)
+    S = StabilizerCode(stabs)
+    set_minimum_distance!(S, 3)
+    return S
 end
 
-Q832() = StabilizerCode(["XXXXXXXX", "ZZZZIIII", "ZZIIZZII", "ZIZIZIZI", "ZZZZZZZZ"])
+function Q832()
+    S = StabilizerCode(["XXXXXXXX", "ZZZZIIII", "ZZIIZZII", "ZIZIZIZI", "ZZZZZZZZ"])
+    set_minimum_distance!(S, 2)
+    return S
+end
 SmallestInterestingColorCode() = Q832()
 
 """
@@ -814,9 +833,13 @@ SmallestInterestingColorCode() = Q832()
 
 Return the `[[15, 1, 3]]` quantum Reed-Muller code.
 """
-Q15RM() = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ", "IIIIIIIZZZZZZZZ",
+function Q15RM()
+    S = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ", "IIIIIIIZZZZZZZZ",
     "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ", "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ",
     "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+    set_minimum_distance!(S, 3)
+    return S
+end
 Q1513() = Q15RM()
 
 """
@@ -824,9 +847,13 @@ Q1513() = Q15RM()
 
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
-Q1573() = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX", "XIXIXIXIXIXIXIX",
+function Q1573()
+    S = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX", "XIXIXIXIXIXIXIX",
     "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ", "ZIZIZIZIZIZIZIZ"])
     # one can use a basis for this such that the first logical pair is transversal X, Z
+    set_minimum_distance!(S, 3)
+    return S
+end
 
 #############################
  # Triangular Surface Codes
@@ -984,6 +1011,7 @@ function TriangularSurfaceCode(L::Int)
     Z_stabs = _triangular_lattice_Z_stabilizers(L, numbering)
     # println(Z_stabs)
     # logicals = [_triangular_lattice_X_logicals(L, numbering), _triangular_lattice_Z_logicals(L, numbering)]
+    # TODO distances
     return CSSCode(X_stabs[1:end - 1, :], Z_stabs[1:end - 1, :])
 end
 
@@ -1101,6 +1129,7 @@ function RotatedSurfaceCode(d::Int)
     stabs = _R_Surf_stabs(d)
     S = StabilizerCode(stabs)
     d <= 10 && set_logicals!(S, _R_Surf_logs(base_ring(stabs), d))
+    set_minimum_distance!(S, d)
     return S
 end
 
@@ -1200,6 +1229,7 @@ function XZZXSurfaceCode(d::Int)
     stabs, logs = _XZZX_stabs_logs(d)
     S = StabilizerCode(stabs)
     set_logicals!(S, logs)
+    set_minimum_distance!(S, d)
     return S
 end
 
@@ -1309,9 +1339,8 @@ function ToricCode(d::Int)
         X2[1, c] = F_one
     end
     set_logicals!(S, vcat(X1, Z1, X2, Z2))
-    S.d_x = d
-    S.d_z = d
-    S.d = d
+    set_minimum_X_distance!(S, d)
+    set_minimum_Z_distance!(S, d)
     return S
 end
 
@@ -1380,9 +1409,8 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
         Z1[1, c + S.n] = F_one
     end
     set_logicals!(S, vcat(X1, Z1))
-    S.d_x = d_x
-    S.d_z = d_z
-    S.d = minimum([d_x, d_z])
+    set_minimum_X_distance!(S, d_x)
+    set_minimum_Z_distance!(S, d_z)
     return S
 end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
@@ -1472,9 +1500,8 @@ function XYSurfaceCode(d_x::Int, d_y::Int)
     #     Z1[1, c] = ω
     # end
     # set_logicals!(S, vcat(X1, Z1))
-    # S.d_x = d_x
-    # S.d_z = d_z
-    # S.d = minimum([d_x, d_z])
+    set_minimum_X_distance!(S, d_x)
+    set_minimum_Z_distance!(S, d_z)
     return S
 end
 XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
@@ -1532,10 +1559,9 @@ XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
 #     end
 #     display(M)
 #     return
-#     S.d = d
-#     S.d_x = d
-#     S.d_z = 2 * d^2
 #     # Y distance is also 2 * d^2
+    # set_minimum_X_distance!(S, d)
+    # set_minimum_Z_distance!(S, 2 * d^2)
 # end
 
 ################################
@@ -1562,7 +1588,9 @@ function HCode(k::Int)
         X[2, c] = X[2, c + 1] = F_one
         Z[2, c] = Z[2, c + 1] = F_one
     end
-    return CSSCode(X, Z)
+    S = CSSCode(X, Z)
+    set_minimum_distance!(S, 2)
+    return S
 end
 
 #################################
@@ -1737,15 +1765,15 @@ function _compute_logicals(l::Int, n::Int = 2, d::Int = 4)
     coords_to_change = collect(combinations(1:d, n))
     for directions in coords_to_change
         original_face = []
-        for c in Iterators.product([0:l-1 for i=1:2]...)
+        for c in Iterators.product([0:l - 1 for i in 1:2]...)
             z_coord = [0, 0, 0, 0]
             for i in 1:length(directions)
                 z_coord[directions[i]] = c[i]
             end
             other_directions = setdiff(dirs, directions)
-            z_new_coords = Vector([copy(z_coord) for _ in 1:2^n-1])
-            for i in 1:2^n-1, j in 1:n
-                (i >> (j-1)) & 1 == 1 ? z_new_coords[i][directions[j]] += 1 : nothing
+            z_new_coords = Vector([copy(z_coord) for _ in 1:2^n - 1])
+            for i in 1:2^n - 1, j in 1:n
+                (i >> (j - 1)) & 1 == 1 ? z_new_coords[i][directions[j]] += 1 : nothing
             end
             vertices = Set{_Vertex}()
             push!(vertices, _Vertex(z_coord))

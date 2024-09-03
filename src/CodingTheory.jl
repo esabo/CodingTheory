@@ -174,6 +174,16 @@ export Gallager_A, Gallager_B, sum_product, sum_product_box_plus, sum_product_sy
     layered_schedule, balance_of_layered_schedule
    
 #############################
+        # LDPC/GBP.jl
+#############################
+
+include("LDPC/GBP.jl")
+export Region, id, parents, ancestors, subregions, descendents, overcounting_number, 
+    counting_number, RegionGraph, regions, base_regions, outer_regions, basic_clusters, leaves,
+    canonical_region_graph, region_graph_from_base_nodes, region_graph_from_base_nodes,
+    is_valid_region_graph, remove_zero_overcounting_numbers, leaves
+
+#############################
     # LDPC/LP_decoders.jl
 #############################
 

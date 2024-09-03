@@ -1223,3 +1223,11 @@ By distance eight, scheme one was difficult to run without a cluster. We did not
 ![CSS_Single_Shot_test](./../assets/images/CSS_Single_Shot_test.png)
 
 Logical errors were equally distributed among the cosets and only occurred on odd-distance codes.
+
+
+
+
+
+julia> x = -20:.05:20; y = [abs(atanh(tanh(x)) - x) for x in x]; y2 = [exp(2abs(x)) / 2^56 for x in x]; plot(x, [replace(y, 0.0 => 1e-21) y2], ylims = (1e-20, 1), yscale = :log10, linewidth = 0.5, label = ["abs(atanh(tanh(x)) - x)" "exp(2abs(x)) / 2^56"])
+
+p = 1 - 1/(1 + exp(LLR)) if LLR = log(p / (1 - p))

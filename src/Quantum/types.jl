@@ -40,7 +40,20 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
       n::Int
       k::Union{Int, Rational{BigInt}}
       r::Int
-      d::Union{Int, Missing}
+      d_bare::Union{Int, Missing}
+      d_dressed::Union{Int, Missing}
+      dx_bare::Union{Int, Missing}
+      dx_dressed::Union{Int, Missing}
+      dz_bare::Union{Int, Missing}
+      dz_dressed::Union{Int, Missing}
+      l_bound_bare::Int # lower bound on d_bare
+      u_bound_bare::Int # upper bound on d_bare
+      l_bound_dressed::Int # lower bound on d_dressed
+      u_bound_dressed::Int # upper bound on d_dressed
+      l_bound_dx_bare::Int # lower bound on dx_bare
+      u_bound_dx_dressed::Int # upper bound on dx_dressed
+      l_bound_dz_bare::Int # lower bound on dz_bare
+      u_bound_dz_dressed::Int # upper bound on dz_dressed
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
       Z_stabs::CTMatrixTypes
@@ -68,7 +81,12 @@ mutable struct SubsystemCode <: AbstractSubsystemCode
       n::Int
       k::Union{Int, Rational{BigInt}}
       r::Int
-      d::Union{Int, Missing}
+      d_bare::Union{Int, Missing}
+      d_dressed::Union{Int, Missing}
+      l_bound_bare::Int # lower bound on d_bare
+      u_bound_bare::Int # upper bound on d_bare
+      l_bound_dressed::Int # lower bound on d_dressed
+      u_bound_dressed::Int # upper bound on d_dressed
       stabs::CTMatrixTypes
       logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
       logs_mat::CTMatrixTypes
@@ -95,6 +113,12 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
       d::Union{Int, Missing}
       d_x::Union{Int, Missing}
       d_z::Union{Int, Missing}
+      l_bound::Int # lower bound on d
+      u_bound::Int # upper bound on d
+      l_bound_dx::Int # lower bound on dx
+      u_bound_dx::Int # upper bound on dx
+      l_bound_dz::Int # lower bound on dz
+      u_bound_dz::Int # upper bound on dz
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
       Z_stabs::CTMatrixTypes
@@ -124,6 +148,8 @@ mutable struct StabilizerCode <: AbstractStabilizerCode
       n::Int
       k::Union{Int, Rational{BigInt}}
       d::Union{Int, Missing}
+      l_bound::Int # lower bound on d
+      u_bound::Int # upper bound on d
       stabs::CTMatrixTypes
       logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
       logs_mat::CTMatrixTypes
@@ -150,7 +176,12 @@ mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
       n::Int
       k::Int
       r::Int
-      d::Union{Int, Missing}
+      d_bare::Union{Int, Missing}
+      d_dressed::Union{Int, Missing}
+      l_bound_bare::Int # lower bound on d_bare
+      u_bound_bare::Int # upper bound on d_bare
+      l_bound_dressed::Int # lower bound on d_dressed
+      u_bound_dressed::Int # upper bound on d_dressed
       stabs::CTMatrixTypes
       char_vec::Vector{zzModRingElem}
       signs::Vector{zzModRingElem}
@@ -170,9 +201,20 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
       n::Int
       k::Int
       r::Int
-      d::Union{Int, Missing}
-      d_x::Union{Int, Missing}
-      d_z::Union{Int, Missing}
+      d_bare::Union{Int, Missing}
+      d_dressed::Union{Int, Missing}
+      dx_bare::Union{Int, Missing}
+      dz_dressed::Union{Int, Missing}
+      dz_bare::Union{Int, Missing}
+      dz_dressed::Union{Int, Missing}
+      l_bound_bare::Int # lower bound on d_bare
+      u_bound_bare::Int # upper bound on d_bare
+      l_bound_dressed::Int # lower bound on d_dressed
+      u_bound_dressed::Int # upper bound on d_dressed
+      l_bound_dx_bare::Int # lower bound on dx_bare
+      u_bound_dx_dressed::Int # upper bound on dx_dressed
+      l_bound_dz_bare::Int # lower bound on dz_bare
+      u_bound_dz_dressed::Int # upper bound on dz_dressed
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
       Z_stabs::CTMatrixTypes
@@ -199,6 +241,8 @@ mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
       n::Int
       k::Int
       d::Union{Int, Missing}
+      l_bound::Int # lower bound on d
+      u_bound::Int # upper bound on d
       stabs::CTMatrixTypes
       char_vec::Vector{zzModRingElem}
       signs::Vector{zzModRingElem}
@@ -218,6 +262,12 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
       d::Union{Int, Missing}
       d_x::Union{Int, Missing}
       d_z::Union{Int, Missing}
+      l_bound::Int # lower bound on d
+      u_bound::Int # upper bound on d
+      l_bound_dx::Int # lower bound on dx
+      u_bound_dx::Int # upper bound on dx
+      l_bound_dz::Int # lower bound on dz
+      u_bound_dz::Int # upper bound on dz
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
       Z_stabs::CTMatrixTypes
@@ -250,6 +300,12 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
       d::Union{Integer, Missing}
       d_x::Union{Integer, Missing}
       d_z::Union{Integer, Missing}
+      l_bound::Int # lower bound on d
+      u_bound::Int # upper bound on d
+      l_bound_dx::Int # lower bound on dx
+      u_bound_dx::Int # upper bound on dx
+      l_bound_dz::Int # lower bound on dz
+      u_bound_dz::Int # upper bound on dz
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
       Z_stabs::CTMatrixTypes

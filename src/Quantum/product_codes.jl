@@ -68,11 +68,13 @@ function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Uni
     # q^n / p^k but rows is n - k
     k = BigInt(order(F))^n // BigInt(p)^rnk
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
+    # TODO is this distance formula not correct?
     # (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
-
-    return HypergraphProductCode(F, n, k, missing, missing, missing, stabs, H_X, H_Z, missing,
-        missing, signs, X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r,
-        stand_k, P_stand, missing, missing, missing, missing)
+    u_bound_dx, u_bound_dz = upper_bound_CSS(logs)
+    return HypergraphProductCode(F, n, k, missing, missing, missing, 1, min(u_bound_dx,
+        u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, H_X, H_Z, missing, missing, signs,
+        X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r, stand_k,
+        P_stand, missing, missing, missing, missing)
 end
 
 """
@@ -86,7 +88,7 @@ function HypergraphProductCode(C::AbstractLinearCode; char_vec::Union{Vector{zzM
     S = HypergraphProductCode(parity_check_matrix(C), parity_check_matrix(C), char_vec = char_vec, logs_alg = logs_alg)
     S.C1 = C
     S.C2 = C
-    S.d = C.d
+    ismissing(C.d) || set_minimum_distance!(S, C.d)
     return S
 end
 
@@ -102,7 +104,8 @@ function HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
         char_vec, logs_alg = logs_alg)
     S.C1 = C1
     S.C2 = C2
-    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
+    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) :
+        (set_minimum_distance!(S, min(C1.d, C2.d));)
     return S
 end
 
@@ -125,7 +128,8 @@ function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
     H_X = parity_check_matrix(C1) ⊗ identity_matrix(C2.F, C2.n)
     H_Z = generator_matrix(C1) ⊗ parity_check_matrix(C2)
     S = CSSCode(H_X, H_Z, char_vec = char_vec, logs_alg = logs_alg)
-    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) : (S.d = minimum([C1.d, C2.d]);)
+    (ismissing(C1.d) || ismissing(C2.d)) ? (S.d = missing;) :
+        (set_minimum_distance!(S, min(C1.d, C2.d));)
     return S
 end
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode,
@@ -390,7 +394,6 @@ GHGP_matrices(A::MatElem{T}, b::T) where T <: ResElem =
 lifted_product_matrices(A::MatElem{T}, b::T) where T <: ResElem =
     generalized_hypergraph_product_matrices(A, b)
 
-
 """
     generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
     GHGP_matrices(A::MatElem{T}, b::T) where T <: CTGroupAlgebra
@@ -645,9 +648,8 @@ function SPCDFoldProductCode(D::Int, s::Int = 1)
     end
     
     S = symmetric_product(vec_S)
-    set_minimum_distance!(S, 2^D)
-    S.d_x = S.d
-    S.d_x = S.d
+    set_minimum_X_distance!(S, 2^D)
+    set_minimum_Z_distance!(S, 2^D)
     S.pure = true
     # metacheck distance = 3
     return S
@@ -903,3 +905,60 @@ function random_homological_product_code(n1::Int, k1::Int, n2::Int, k2::Int)
     d = d1 ⊗ i2 - i1 ⊗ d2
     return CSSCode(d, transpose(d))
 end
+
+"""
+    BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+
+Return the bivariate bicycle code defined by the residue ring elements `a` and `b`.
+"""
+# function BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+#     R = parent(a)
+#     R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
+#     F = base_ring(base_ring(a))
+#     order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
+#     length(symbols(parent(a))) == 2 || throw(DomainError("Polynomials must be over two variables."))
+#     # x, y = symbols(parent(a))
+#     g = gens(modulus(R))
+#     length(g) == 2 || throw(DomainError("Residue rings must have only two generators."))
+#     for g1 in g
+#         exps = exponents(g1)
+#         length(exps) == 2 || throw(ArgumentError("Moduli of the incorrect form."))
+#         for e in exps
+#             if !iszero(e)
+#                 length(e)
+#     # single variate
+#     # get l amd m
+
+
+    
+    
+
+#     x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
+#     y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
+
+#     A = zero_matrix(F, l * m, l * m)
+#     for ex in exponents(a)
+#         iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `a` must not have any `xy` terms"))
+#         power, which = findmax(ex)
+#         if which == 1
+#             A += x^power
+#         elseif which == 2
+#             A += y^power
+#         end
+#     end
+
+#     B = zero_matrix(F, l * m, l * m)
+#     for ex in exponents(b)
+#         iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
+#         power, which = findmax(ex)
+#         if which == 1
+#             B += x^power
+#         elseif which == 2
+#             B += y^power
+#         end
+#     end
+    
+#     C = CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
+
+#     return C, A, B
+# end
