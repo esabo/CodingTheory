@@ -985,7 +985,7 @@ function _split_vectors_CSS(S::T, signs::Vector{zzModRingElem}) where {T <: CTMa
     half = div(ncols(S), 2)
     for r in 1:nrows(S)
         # use views?
-        s = S[r, :]
+        s = S[r:r, :]
         if iszero(s)
             continue
         else
