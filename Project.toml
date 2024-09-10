@@ -34,7 +34,7 @@ WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 [extensions]
 JLD2Ext = "JLD2"
 JuMPExt = ["JuMP", "GLPK"]
-MakieExt = "Makie"
+MakieExt = ["Makie", "NetworkLayout", "CairoMakie", "GraphMakie", "GLMakie", "WGLMakie", "GraphPlot"]
 
 [compat]
 AutoHashEquals = "2.1.0"

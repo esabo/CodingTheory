@@ -1339,8 +1339,8 @@ function ToricCode(d::Int)
         X2[1, c] = F_one
     end
     set_logicals!(S, vcat(X1, Z1, X2, Z2))
-    set_dressed_X_minimum_distance!(S, d)
-    set_dressed_Z_minimum_distance!(S, d)
+    set_X_minimum_distance!(S, d)
+    set_Z_minimum_distance!(S, d)
     return S
 end
 
