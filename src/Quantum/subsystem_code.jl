@@ -34,7 +34,8 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
     # dressed operators = < logs, gauge ops >
 
     # stabilizer group: ker G ∩ G
-    rnk_ker_G, ker_G = right_kernel(hcat(G[:, n + 1:end], -G[:, 1:n]))
+    ker_G = kernel(hcat(G[:, n + 1:end], -G[:, 1:n]), side = :right)
+    rnk_ker_G = rank(ker_G)
     if ncols(ker_G) == rnk_ker_G
         ker_G = transpose(ker_G)
     else
@@ -109,22 +110,81 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
     signs = _determine_signs(stabs, char_vec)
 
     args = _is_CSS_symplectic(stabs, signs, true)
+    # if CSS code
     if args[1]
         if graph_state
-            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, stabs, args[2],
+            # graph state distance is defined to be smallest weight stabilizer
+            # bare
+            _, X_mat = rref(args[2])
+            X_mat = _remove_empty(X_mat, :rows)
+            u_bound_dx_bare, _ = _min_wt_row(X_mat)
+            _, Z_mat = rref(args[4])
+            Z_mat = _remove_empty(Z_mat, :rows)
+            u_bound_dz_bare, _ = _min_wt_row(Z_mat)
+
+            # dressed
+            _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
+            X_mat = _remove_empty(X_mat, :rows)
+            u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+            _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
+            Z_mat = _remove_empty(Z_mat, :rows)
+            u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
+            return GraphStateSubsystemCSS(F, n, 0, r, missing, missing, missing, missing, missing,
+                missing, 1, min(u_bound_dx_bare, u_bound_dz_bare), 1, min(u_bound_dx_dressed,
+                u_bound_dz_dressed), 1, u_bound_dx_bare, 1, u_bound_dz_bare, 1, u_bound_dx_dressed, 1, u_bound_dz_dressed,  stabs, args[2],
                 args[4], missing, missing, signs, args[3], args[5], char_vec, missing, false,
                 gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+        else
+            # bare
+            _, X_mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in bare_logs])))
+            X_mat = _remove_empty(X_mat, :rows)
+            u_bound_dx_bare, _ = _min_wt_row(X_mat)
+            _, Z_mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in bare_logs])))
+            Z_mat = _remove_empty(Z_mat, :rows)
+            u_bound_dz_bare, _ = _min_wt_row(Z_mat)
+
+            # dressed
+            _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
+            X_mat = _remove_empty(X_mat, :rows)
+            u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+            _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
+            Z_mat = _remove_empty(Z_mat, :rows)
+            u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
+            return SubsystemCodeCSS(F, n, k, r, missing, missing, missing, missing, missing,
+                missing, 1, min(u_bound_dx_bare, u_bound_dz_bare), 1, min(u_bound_dx_dressed,
+                u_bound_dz_dressed), 1, u_bound_dx_bare, 1, u_bound_dz_bare, 1, u_bound_dx_dressed, 1, u_bound_dz_dressed, stabs, args[2],
+                args[4], missing, missing, signs, args[3], args[5], bare_logs, bare_logs_mat,
+                char_vec, gauge_ops, gauge_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand,
+                missing, missing)
         end
-        return SubsystemCodeCSS(F, n, k, r, missing, stabs, args[2], args[4], missing, missing,
-            signs, args[3], args[5], bare_logs, bare_logs_mat, char_vec, gauge_ops, gauge_ops_mat,
-            false, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+    # if not CSS code
     else
         if graph_state
-            return GraphStateSubsystem(F, n, 0, r, missing, stabs, char_vec, signs, missing, false,
-                gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing)
+            # graph state distance is defined to be smallest weight stabilizer
+            # bare
+            _, mat = _rref_symp_col_swap(stabs)
+            mat = _remove_empty(mat, :rows)
+            u_bound_bare, _ = _min_wt_row(mat)
+
+            # dressed
+            _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+            u_bound_dressed, _ = _min_wt_row(mat)
+            return GraphStateSubsystem(F, n, 0, r, missing, missing, 1, u_bound_bare, 1,
+                u_bound_dressed, stabs, char_vec, signs, missing, false, gauge_ops, gauge_ops_mat,
+                stabs_stand, stand_r, stand_k, P_stand, missing)
+        else
+            # bare
+            _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
+            u_bound_bare, _ = _min_wt_row(mat)
+
+            # dressed
+            _, mat = _rref_symp_col_swap(vcat(mat, gauge_ops_mat))
+            mat = _remove_empty(mat, :rows)
+            u_bound_dressed, _ = _min_wt_row(mat)
+            return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, 
+                stabs, signs, bare_logs, bare_logs_mat, char_vec, gauge_ops, gauge_ops_mat, false,
+                stabs_stand, stand_r, stand_k, P_stand, missing)
         end
-        return SubsystemCode(F, n, k, r, missing, stabs, signs, bare_logs, bare_logs_mat, char_vec,
-            gauge_ops, gauge_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand, missing)
     end
 end
 
@@ -216,12 +276,39 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
 
     args = _is_CSS_symplectic(S, signs, true)
     if args[1]
-        return SubsystemCodeCSS(F, n, k, r, missing, S, args[2], args[4], missing, missing, signs,
+        # bare
+        _, X_mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in log_pairs])))
+        X_mat = _remove_empty(X_mat, :rows)
+        u_bound_dx_bare, _ = _min_wt_row(X_mat)
+        _, Z_mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in log_pairs])))
+        Z_mat = _remove_empty(Z_mat, :rows)
+        u_bound_dz_bare, _ = _min_wt_row(Z_mat)
+
+        # dressed
+        _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in g_ops_pairs])))
+        X_mat = _remove_empty(X_mat, :rows)
+        u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+        _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in g_ops_pairs])))
+        Z_mat = _remove_empty(Z_mat, :rows)
+        u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
+        return SubsystemCodeCSS(F, n, k, r, missing, missing, missing, missing, missing,
+            missing, 1, min(u_bound_dx_bare, u_bound_dz_bare), 1, min(u_bound_dx_dressed,
+            u_bound_dz_dressed), 1, u_bound_dx_bare, 1, u_bound_dz_bare, 1, u_bound_dx_dressed, 1, u_bound_dz_dressed, S, args[2], args[4], missing, missing, signs,
             args[3], args[5], log_pairs, logs_mat, char_vec, g_ops_pairs, g_ops_mat, false,
             stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return SubsystemCode(F, n, k, r, missing, S, signs, log_pairs, logs_mat, char_vec,
-            g_ops_pairs, g_ops_mat, false, stabs_stand, stand_r, stand_k, P_stand, missing)
+        # bare
+        _, mat = _rref_symp_col_swap(vcat(stabs, logs_mat))
+        mat = _remove_empty(mat, :rows)
+        u_bound_bare, _ = _min_wt_row(mat)
+
+        # dressed
+        _, mat = _rref_symp_col_swap(vcat(mat, g_ops_mat))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dressed, _ = _min_wt_row(mat)
+        return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, S,
+            signs, log_pairs, logs_mat, char_vec, g_ops_pairs, g_ops_mat, false, stabs_stand,
+            stand_r, stand_k, P_stand, missing)
     end
 end
 
@@ -593,6 +680,158 @@ gauge_group_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 gauge_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 gauge_group_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 
+"""
+    bare_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the bare minimum distance.
+"""
+bare_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
+    bare_minimum_distance_lower_bound(GaugeTrait(T), S)
+bare_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = S.l_bound_bare
+bare_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    bare_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the bare minimum distance.
+"""
+bare_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
+    bare_minimum_distance_upper_bound(GaugeTrait(T), S)
+bare_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = S.u_bound_bare
+bare_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    dressed_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the dressed minimum distance.
+"""
+dressed_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
+    dressed_minimum_distance_lower_bound(GaugeTrait(T), S)
+dressed_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = S.l_bound_dressed
+dressed_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    dressed_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the dressed minimum distance.
+"""
+dressed_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
+    dressed_minimum_distance_upper_bound(GaugeTrait(T), S)
+dressed_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = S.u_bound_dressed
+dressed_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    bare_X_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the bare `X`-minimum distance.
+"""
+bare_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
+bare_X_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.l_bound_dx_bare
+bare_X_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+bare_X_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+bare_X_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `X_minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    bare_X_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the bare `X`-minimum distance.
+"""
+bare_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
+bare_X_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.u_bound_dx_bare
+bare_X_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+bare_X_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+bare_X_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `X_minimum_distance_upper_bound` for stabilizer codes.")
+
+"""
+    dressed_X_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the dressed `X`-minimum distance.
+"""
+dressed_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
+dressed_X_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.l_bound_dx_dressed
+dressed_X_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+dressed_X_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+dressed_X_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `X_minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    dressed_X_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the dressed `X`-minimum distance.
+"""
+dressed_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
+dressed_X_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.u_bound_dx_dressed
+dressed_X_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+dressed_X_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+dressed_X_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `X_minimum_distance_upper_bound` for stabilizer codes.")
+
+"""
+    bare_Z_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the bare `Z`-minimum distance.
+"""
+bare_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
+bare_Z_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.l_bound_dZ_bare
+bare_Z_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+bare_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+bare_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `Z_minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    bare_Z_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the bare `Z`-minimum distance.
+"""
+bare_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
+bare_Z_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.u_bound_dz_bare
+bare_Z_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+bare_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+bare_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `Z_minimum_distance_upper_bound` for stabilizer codes.")
+
+"""
+    dressed_Z_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+Return the currently stored lower bound on the dressed `Z`-minimum distance.
+"""
+dressed_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
+dressed_Z_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.l_bound_dz_dressed
+dressed_Z_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+dressed_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+dressed_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `Z_minimum_distance_lower_bound` for stabilizer codes.")
+
+"""
+    dressed_Z_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+Return the currently stored upper bound on the dressed `Z`-minimum distance.
+"""
+dressed_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
+dressed_Z_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    S.u_bound_dz_dressed
+dressed_Z_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for CSS codes")
+dressed_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes")
+dressed_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) =
+    error("Only valid for subsystem codes; use `Z_minimum_distance_upper_bound` for stabilizer codes.")
+
 #############################
       # setter functions
 #############################
@@ -804,9 +1043,9 @@ function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <
             y = findfirst(x -> x > 0, prod_Jul[:, 1])
             y = [F(prod[y, 1]), y]
             if y[1] != F_one
-                push!(logs, (L[1, :], y[1]^-1 * L[y[2], :]))
+                push!(logs, (L[1:1, :], y[1]^-1 * L[y[2]:y[2], :]))
             else
-                push!(logs, (L[1, :], L[y[2], :]))
+                push!(logs, (L[1:1, :], L[y[2]:y[2], :]))
             end
             L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
         end
@@ -815,7 +1054,7 @@ function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <
         while nrows(L) >= 2
             y = findfirst(x -> x > 0, prod_Jul[:, 1])
             y = [F(prod[y, 1]), y]
-            push!(logs, (L[1, :], L[y[2], :]))
+            push!(logs, (L[1:1, :], L[y[2]:y[2], :]))
             L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
         end
     end
@@ -895,17 +1134,209 @@ set_Z_metacheck(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) =
     error("Only valid for CSS codes.")
 
 """
-    set_minimum_distance!(S::AbstractSubsystemCode, d::Int)
-Set the minimum distance of the code to `d`.
+    set_bare_minimum_distance!(S::AbstractSubsystemCode, d::Int)
 
-# Notes
-* The only check done on the value of `d` is that `1 ≤ d ≤ n`.
+Set the bare minimum distance of the code to `d`.
 """
-function set_minimum_distance!(S::AbstractSubsystemCode, d::Int)
-    # TODO: should check bounds like Singleton for possibilities
-    d > 0 && d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
-    S.d = d
+set_bare_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode =
+    set_bare_minimum_distance!(GaugeTrait(T), S, d)
+function set_bare_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_bare < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_bare)")
+    d < S.l_bound_bare && (@warn "The distance set is less than the current lower bound of $(S.l_bound_bare)")
+    S.d_bare = d
+    S.l_bound_bare = d
+    S.u_bound_bare = d
+
+    if ismissing(S.d_dressed)
+        # bare is an upper bound on dressed 
+        S.d_bare < S.u_bound_dressed && (S.u_bound_dressed = S.d_bare;)
+    else
+        S.d_dressed ≤ S.d_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    if CSSTrait(typeof(S)) == IsCSS()
+        ismissing(S.dx_bare) && (S.l_bound_dx_bare = d;)
+        ismissing(S.dz_bare) && (S.l_bound_dz_bare = d;) 
+    end
+    return nothing
 end
+set_bare_minimum_distance!(::HasNoGauges, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_minimum_distance!` for stabilizer codes.")
+
+"""
+    set_bare_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the bare minimum `X`-distance of the code to `d`.
+"""
+set_bare_X_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_bare_X_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
+function set_bare_X_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dx_bare < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dx_bare)")
+    d < S.l_bound_dx_bare && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dx_bare)")
+    S.dx_bare = d
+    S.l_bound_dx_bare = d
+    S.u_bound_dx_bare = d
+
+    if ismissing(S.dx_dressed)
+        # bare is an upper bound on dressed 
+        S.dx_bare < S.u_bound_dx_dressed && (S.u_bound_dx_dressed = S.dx_bare;)
+    else
+        S.dx_dressed ≤ S.dx_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    # TODO think about whether I need to bound dressed here
+    if !ismissing(S.dz_bare)
+        S.d_bare = min(S.dx_bare, S.dz_bare)
+        S.u_bound_bare = S.d_bare
+        S.l_bound_bare = S.d_bare
+    else
+        S.dx_bare < S.u_bound_bare && (S.u_bound_bare = S.dx_bare;)
+    end
+    return nothing
+end
+set_bare_X_minimum_distance!(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for CSS codes")
+set_bare_X_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Not valid for this code")
+set_bare_X_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for subsytem codes; use `set_X_minimum_distance!` for stabilizer codes.")
+
+"""
+    set_bare_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the bare minimum `Z`-distance of the code to `d`.
+"""
+set_bare_Z_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_bare_Z_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
+function set_bare_Z_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dz_bare < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dz_bare)")
+    d < S.l_bound_dz_bare && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dz_bare)")
+    S.dz_bare = d
+    S.l_bound_dz_bare = d
+    S.u_bound_dz_bare = d
+
+    if ismissing(S.dz_dressed)
+        # bare is an upper bound on dressed 
+        S.dz_bare < S.u_bound_dz_dressed && (S.u_bound_dz_dressed = S.dz_bare;)
+    else
+        S.dz_dressed ≤ S.dz_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    # TODO think about whether I need to bound dressed here
+    if !ismissing(S.dx_bare)
+        S.d_bare = min(S.dx_bare, S.dz_bare)
+        S.u_bound_bare = S.d
+        S.l_bound_bare = S.d
+    else
+        S.dz_bare < S.u_bound_bare && (S.u_bound_bare = S.dz_bare;)
+    end
+    return nothing
+end
+set_bare_Z_minimum_distance!(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for CSS codes")
+set_bare_Z_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Not valid for this code")
+set_bare_Z_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for subsytem codes; use `set_Z_minimum_distance!` for stabilizer codes.")
+
+"""
+    set_dressed_minimum_distance!(S::AbstractSubsystemCode, d::Int)
+
+Set the dressed minimum distance of the code to `d`.
+"""
+set_dressed_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode =
+    set_dressed_minimum_distance!(GaugeTrait(T), S, d)
+function set_dressed_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dressed < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dressed)")
+    d < S.l_bound_dressed && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dressed)")
+    S.d_dressed = d
+    S.l_bound_dressed = d
+    S.u_bound_dressed = d
+
+    if !ismissing(S.d_dressed)
+        # bare is an upper bound on dressed 
+        S.d_dressed ≤ S.d_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    if CSSTrait(typeof(S)) == IsCSS()
+        ismissing(S.dx_dressed) && (S.l_bound_dx_dressed = d;)
+        ismissing(S.dz_dressed) && (S.l_bound_dz_dressed = d;) 
+    end
+    return nothing
+end
+set_dressed_minimum_distance!(::HasNoGauges, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_minimum_distance!` for stabilizer codes.")
+
+
+"""
+    set_dressed_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the dressed minimum `X`-distance of the code to `d`.
+"""
+set_dressed_X_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_X_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
+function set_dressed_X_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dx_dressed < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dx_dressed)")
+    d < S.l_bound_dx_dressed && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dx_dressed)")
+    S.dx_dressed = d
+    S.l_bound_dx_dressed = d
+    S.u_bound_dx_dressed = d
+
+    if !ismissing(S.dx_bare)
+        # bare is an upper bound on dressed 
+        S.dx_dressed ≤ S.dx_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    if !ismissing(S.dz_dressed)
+        S.d_dressed = min(S.dx_dressed, S.dz_dressed)
+        S.u_bound_dressed = S.d_dressed
+        S.l_bound_dressed = S.d_dressed
+    else
+        S.dx_dressed < S.u_bound_dressed && (S.u_bound_dressed = S.dx_dressed;)
+    end
+    return nothing
+end
+set_dressed_X_minimum_distance!(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for CSS codes")
+set_dressed_X_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Not valid for this code")
+set_dressed_X_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for subsytem codes; use `set_X_minimum_distance!` for stabilizer codes.")
+
+"""
+    set_dressed_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the dressed minimum `Z`-distance of the code to `d`.
+"""
+set_dressed_Z_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_Z_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
+function set_dressed_Z_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dz_dressed < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dz_dressed)")
+    d < S.l_bound_dz_dressed && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dz_dressed)")
+    S.dz_dressed = d
+    S.l_bound_dz_dressed = d
+    S.u_bound_dz_dressed = d
+
+    if ismissing(S.dz_dressed)
+        # bare is an upper bound on dressed 
+        S.dz_dressed ≤ S.dz_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
+    end
+
+    if !ismissing(S.dx_dressed)
+        S.d_dressed = min(S.dx_dressed, S.dz_dressed)
+        S.u_bound_dressed = S.d_dressed
+        S.l_bound_dressed = S.d_dressed
+    else
+        S.dz_dressed < S.u_bound_dressed && (S.u_bound_dressed = S.dz_dressed;)
+    end
+    return nothing
+end
+set_dressed_Z_minimum_distance!(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for CSS codes")
+set_dressed_Z_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Not valid for this code")
+set_dressed_Z_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) =
+    error("Only valid for subsytem codes; use `set_Z_minimum_distance!` for stabilizer codes.")
 
 #############################
      # general functions
@@ -1713,7 +2144,8 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = t
 
     # compute newly opened degrees of freedom
     temp = _remove_empty(vcat(stabs, logs, gauge_ops), :rows)
-    rnk_temp, temp = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    temp = kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]), side = :right)
+    rnk_temp = rank(temp)
     if ncols(temp) == rnk_temp
         temp = transpose(temp)
     else
@@ -1730,7 +2162,7 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = t
     # BUG: did I rename new_sym_stabs to temp_tr?
     temp = _quotient_space(temp, new_sym_stabs, logs_alg)
     new_logs = _make_pairs(temp)
-    return SubsystemCode(stabs, vcat(logs, new_logs), gauge_ops, S.char_vec)
+    return SubsystemCode(stabs, vcat(logs, new_logs), gauge_ops, char_vec = S.char_vec)
 end
 
 """
@@ -1758,7 +2190,8 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = 
     if GaugeTrait(typeof(S)) == HasGauges()
         temp = vcat(temp, S.g_ops_mat)
     end
-    rnk_H, H = right_kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]))
+    H = kernel(hcat(temp[:, S.n + 1:end], -temp[:, 1:S.n]), side = :right)
+    rnk_H = rank(H)
     if ncols(H) == rnk_H
         H_tr = transpose(H)
     else
@@ -1784,7 +2217,7 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = 
         verbose && println("New logical pairs:")
         verbose && display(new_log_pairs)
         if GaugeTrait(typeof(S)) == HasGauges()
-            return SubsystemCode(new_stabs, vcat(S.logs_mat, reduce(vcat, reduce(vcat, new_log_pairs))), S.g_ops_mat, S.char_vec)
+            return SubsystemCode(new_stabs, vcat(S.logs_mat, reduce(vcat, reduce(vcat, new_log_pairs))), S.g_ops_mat, char_vec = S.char_vec)
         else
             S_new = StabilizerCode(new_stabs, char_vec = S.char_vec)
             set_logicals!(S_new, vcat(S.logs_mat, reduce(vcat, reduce(vcat, new_log_pairs))))

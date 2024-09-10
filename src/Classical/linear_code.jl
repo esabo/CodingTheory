@@ -96,7 +96,7 @@ function LinearCode(G::T, H::T, brute_force_WE::Bool=true) where T <: CTMatrixTy
         else
             MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
         end
-        d = minimum(filter(ispositive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
         set_minimum_distance!(C, d)
     end
 
@@ -183,7 +183,8 @@ function generator_matrix(C::AbstractLinearCode, stand_form::Bool=false)
                 G = lift(C.A)
                 C.G = G
             else
-                rnk_G, G = right_kernel(lift(C.A))
+                G = kernel(lift(C.A), side = :right)
+                rnk_G = rank(G)
                 # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
                 nr = nrows(G)
                 G_tr = zero_matrix(base_ring(G), rnk_G, nr)
@@ -221,7 +222,8 @@ function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool=false)
                     G = lift(C.A)
                     C.G = G
                 else
-                    rnk_G, G = right_kernel(lift(C.A))
+                    G = kernel(lift(C.A), side = :right)
+                    rnk_G = rank(G)
                     # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
                     nr = nrows(G)
                     G_tr = zero_matrix(base_ring(G), rnk_G, nr)
@@ -236,7 +238,7 @@ function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool=false)
             C.G_stand, C.H_stand, C.P_stand, _ = _standard_form(C.G)
             return C.H_stand
         elseif ismissing(C.H)
-            C.H = C.A_type == :H ? lift(C.A) : transpose(right_kernel(lift(C.A))[2])
+            C.H = C.A_type == :H ? lift(C.A) : transpose(kernel(lift(C.A), side = :right))
         end
         return C.H
     elseif isa(C, LDPCCode)
@@ -427,11 +429,11 @@ function show(io::IO, C::AbstractLinearCode)
     if get(io, :compact, true)
         if typeof(C) <: AbstractCyclicCode
             println(io, "$(order(C.F))-Cyclotomic cosets: ")
-            len = length(qcosetsreps(C))
+            len = length(qcosets_reps(C))
             if len == 1
-                println("\tC_$(qcosetsreps(C)[1])")
+                println("\tC_$(qcosets_reps(C)[1])")
             else
-                for (i, x) in enumerate(qcosetsreps(C))
+                for (i, x) in enumerate(qcosets_reps(C))
                     if i == 1
                         print(io, "\tC_$x ∪ ")
                     elseif i == 1 && i == len
@@ -444,7 +446,7 @@ function show(io::IO, C::AbstractLinearCode)
                 end
             end
             println(io, "Generator polynomial:")
-            println(io, "\t", generatorpolynomial(C))
+            println(io, "\t", generator_polynomial(C))
         end
 
         if C.n <= 30
@@ -624,7 +626,7 @@ function dual(C::AbstractLinearCode)
         if !ismissing(C.weight_enum)
             dual_wt_enum = MacWilliams_identity(C, C.weight_enum)
             dual_HWE_poly = CWE_to_HWE(dual_wt_enum).polynomial
-            d = minimum(filter(ispositive, first.(exponent_vectors(dual_HWE_poly))))
+            d = minimum(filter(>(0), first.(exponent_vectors(dual_HWE_poly))))
             return LinearCode(C.F, C.n, C.n - C.k, d, d, d, H, G,
                 H_stand, G_stand, P_stand, dual_wt_enum)
         else

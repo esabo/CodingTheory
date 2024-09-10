@@ -179,7 +179,8 @@ function SimplexCode(q::Int, r::Int)
     q > 2 && return dual(HammingCode(q, r))
 
     # binary simplex codes
-    F = Oscar.Nemo.Native.GF(2)
+    # Oscar.Nemo.Native.
+    F = GF(2)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
         C = LinearCode(G2, false, false)

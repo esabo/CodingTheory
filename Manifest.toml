@@ -2,7 +2,7 @@
 
 julia_version = "1.10.3"
 manifest_format = "2.0"
-project_hash = "bfe680f29dea67e6631e3df6c225277c770780d3"
+project_hash = "c84edd4f45cdf6edc5b0ffc1ff326f1122793a6f"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -270,6 +270,12 @@ git-tree-sha1 = "4eef82c467ec1020174d96f83f44e1ef84061e8c"
 uuid = "e134572f-a0d5-539d-bddf-3cad8db41a82"
 version = "200.900.9+0"
 
+[[deps.FileIO]]
+deps = ["Pkg", "Requires", "UUIDs"]
+git-tree-sha1 = "82d8afa92ecf4b52d78d869f038ebfb881267322"
+uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+version = "1.16.3"
+
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
@@ -384,6 +390,12 @@ version = "300.1400.1400+0"
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.2"
+
+[[deps.JLD2]]
+deps = ["FileIO", "MacroTools", "Mmap", "OrderedCollections", "PrecompileTools", "Requires", "TranscodingStreams"]
+git-tree-sha1 = "1dbe274ad1c199490b19a153b60a9e46c5386f8d"
+uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+version = "0.5.1"
 
 [[deps.JLLWrappers]]
 deps = ["Artifacts", "Preferences"]
@@ -945,6 +957,11 @@ deps = ["ManualMemory"]
 git-tree-sha1 = "eda08f7e9818eb53661b3deb74e3159460dfbc27"
 uuid = "8290d209-cae3-49c0-8002-c8c24d57dab5"
 version = "0.5.2"
+
+[[deps.TranscodingStreams]]
+git-tree-sha1 = "e84b3a11b9bece70d14cce63406bbc79ed3464d2"
+uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "0.11.2"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]

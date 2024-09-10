@@ -50,11 +50,27 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
         dim_code = BigInt(order(C1.F))^C1.n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        return StabilizerCodeCSS(C1.F, C1.n, dim_code, missing, missing, missing, stabs, D2.H, C1.H,
+        # TODO check ordering of 1's and 2's here
+        _, mat = rref(vcat(D2.H, C1.G))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dx, _ = _min_wt_row(mat)
+        _, mat = rref(vcat(C1.H, D2.G))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dz, _ = _min_wt_row(mat)
+        return StabilizerCodeCSS(C1.F, C1.n, dim_code, missing, missing, missing, 1,
+            min(u_bound_dx, u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, D2.H, C1.H,
             C2, C1, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing,
             false, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, stabs, D2.H, C1.H, C2,
+        # graph state distance is defined to be smallest weight stabilizer
+        # TODO check if d's are known already from classical
+        _, mat = rref(D2.H)
+        mat = _remove_empty(mat, :rows)
+        u_bound_dx, _ = _min_wt_row(mat)
+        _, mat = rref(C1.H)
+        mat = _remove_empty(mat, :rows)
+        u_bound_dz, _ = _min_wt_row(Z_mat)
+        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, missing, missing, 1, u_bound_dx, 1, u_bound_dz, D2.d, C1.d, stabs, D2.H, C1.H, C2,
             C1, signs, X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k,
             P_stand, missing, missing)
     end
@@ -107,13 +123,30 @@ function StabilizerCodeCSS(C::LinearCode; char_vec::Union{Vector{zzModRingElem},
         dim_code = BigInt(order(D.F))^D.n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        return StabilizerCodeCSS(D.F, D.n, dim_code, missing, missing, missing, stabs, D.H, D.H, C,
+        _, mat = rref(vcat(D.H, reduce(vcat, [[:, 1:n] for log in logs])))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dx, _ = _min_wt_row(mat)
+        _, mat = rref(vcat(D.H, reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dz, _ = _min_wt_row(mat)
+        return StabilizerCodeCSS(D.F, D.n, dim_code, missing, missing, missing, 1,
+            min(u_bound_dx, u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, D.H, D.H, C,
             D, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing, false,
             missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return GraphStateStabilizerCSS(D.F, D.n, 0, missing, D.d, D.d, stabs, D.H, D.H, C, D, signs,
-            X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k, P_stand,
-            missing, missing)
+        # graph state distance is defined to be smallest weight stabilizer
+        if ismissing(D.d)
+            _, mat = rref(D.H)
+            mat = _remove_empty(mat, :rows)
+            u_bound, _ = _min_wt_row(mat)
+            return GraphStateStabilizerCSS(D.F, D.n, 0, missing, missing, missing, 1, u_bound, 1, 
+                u_bound, 1, u_bound, stabs, D.H, D.H, C, D, signs, X_signs, Z_signs, char_vec,
+                missing, false, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+        else
+            return GraphStateStabilizerCSS(D.F, D.n, 0, D.d, D.d, D.d, D.d, D.d, D.d, D.d, D.d,
+                D.d, stabs, D.H, D.H, C, D, signs, X_signs, Z_signs, char_vec, missing, false,
+                stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+        end
     end
 end
 CSSCode(C::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
@@ -154,7 +187,8 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
             logs = _make_pairs(_logicals_standard_form(stabs_stand, n, stand_k, stand_r, P_stand))
             logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
         else
-            rnk_H, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            H = kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]), side = :right)
+            rnk_H = rank(H)
             if ncols(H) == rnk_H
                 H_tr = transpose(H)
             else
@@ -179,13 +213,27 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
         dim_code = BigInt(order(F))^n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, X_matrix, Z_matrix,
+        _, mat = rref(vcat(X_matrix, reduce(vcat, [log[1][:, 1:n] for log in logs])))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dx, _ = _min_wt_row(mat)
+        _, mat = rref(vcat(Z_matrix, reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
+        mat = _remove_empty(mat, :rows)
+        u_bound_dz, _ = _min_wt_row(mat)
+        return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
+            u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, X_matrix, Z_matrix,
             missing, missing, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing,
             missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
-        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, X_matrix,
-            Z_matrix, missing, missing, signs, X_signs, Z_signs, char_vec, missing, over_comp,
-            stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+        _, mat = rref(X_matrix)
+        mat = _remove_empty(mat, :rows)
+        u_bound_dx, _ = _min_wt_row(mat)
+        _, mat = rref(Z_matrix)
+        mat = _remove_empty(mat, :rows)
+        u_bound_dz, _ = _min_wt_row(mat)
+        return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, 1, min(u_bound_dx,
+            u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, X_matrix, Z_matrix, missing,
+            missing, signs, X_signs, Z_signs, char_vec, missing, over_comp, stabs_stand, stand_r,
+            stand_k, P_stand, missing, missing)
     end
 end
 CSSCode(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
@@ -222,7 +270,8 @@ function StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingE
             logs = _make_pairs(_logicals_standard_form(stabs_stand, n, stand_k, stand_r, P_stand))
             logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
         else
-            rnk_H, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            H = kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]), side = :right)
+            rnk_H = rank(H)
             if ncols(H) == rnk_H
                 H_tr = transpose(H)
             else
@@ -254,14 +303,28 @@ function StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingE
             dim_code = BigInt(order(F))^n // BigInt(p)^rnk
             isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-            return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], logs, logs_mat, char_vec,
-                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
-                P_stand, missing, missing)
+            _, mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in logs])))
+            mat = _remove_empty(mat, :rows)
+            u_bound_dx, _ = _min_wt_row(mat)
+            _, mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
+            mat = _remove_empty(mat, :rows)
+            u_bound_dz, _ = _min_wt_row(mat)
+            return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
+                u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2], args[4], missing,
+                missing, signs, args[3], args[5], logs, logs_mat, char_vec, missing, missing,
+                missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing,
+                missing)
         else
-            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp,
-                stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+            _, mat = rref(args[2])
+            mat = _remove_empty(mat, :rows)
+            u_bound_dx, _ = _min_wt_row(mat)
+            _, mat = rref(args[4])
+            mat = _remove_empty(mat, :rows)
+            u_bound_dz, _ = _min_wt_row(mat)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, 1, min(u_bound_dx,
+                u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2], args[4], missing,
+                missing, signs, args[3], args[5], char_vec, missing, over_comp, stabs_stand,
+                stand_r, stand_k, P_stand, missing, missing)
         end
     else
         error("Provided Pauli strings are not CSS.")
@@ -344,7 +407,8 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
             logs = _make_pairs(_logicals_standard_form(stabs_stand, n, stand_k, stand_r, P_stand))
             logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
         else
-            rnk_H, H = right_kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]))
+            H = kernel(hcat(stabs[:, n + 1:end], -stabs[:, 1:n]), side = :right)
+            rnk_H = rank(H)
             if ncols(H) == rnk_H
                 H_tr = transpose(H)
             else
@@ -376,23 +440,43 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
     args = _is_CSS_symplectic(stabs, signs, true)
     if args[1]
         if !iszero(stand_k)
-            return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], logs, logs_mat, char_vec,
-                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
-                P_stand, missing, missing)
+            _, mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in logs])))
+            mat = _remove_empty(mat, :rows)
+            u_bound_dx, _ = _min_wt_row(mat)
+            _, mat = rref(vcat(args[4], reduce(vcat, [log[2][:, 1:n] for log in logs])))
+            mat = _remove_empty(mat, :rows)
+            u_bound_dz, _ = _min_wt_row(mat)
+            return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
+                u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2],  args[4], missing,
+                missing, signs, args[3], args[5], logs, logs_mat, char_vec, missing, missing,
+                missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing,
+                missing)
         else
-            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, stabs, args[2],
-                args[4], missing, missing, signs, args[3], args[5], char_vec, missing, over_comp,
-                stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+            _, mat = rref(args[2])
+            mat = _remove_empty(mat, :rows)
+            u_bound_dx, _ = _min_wt_row(mat)
+            _, mat = rref(args[4])
+            mat = _remove_empty(mat, :rows)
+            u_bound_dz, _ = _min_wt_row(mat)
+            return GraphStateStabilizerCSS(F, n, 0, missing, missing, missing, 1, min(u_bound_dx,
+                u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2], args[4], missing,
+                missing, signs, args[3], args[5], char_vec, missing, over_comp, stabs_stand,
+                stand_r, stand_k, P_stand, missing, missing)
         end
     else
         if !iszero(stand_k)
-            return StabilizerCode(F, n, dim_code, missing, stabs, logs, logs_mat, char_vec, signs,
-                missing, missing, missing, over_comp, missing, stabs_stand, stand_r, stand_k,
-                P_stand, missing)
+            _, mat = rref(vcat(stabs, logs_mat))
+            mat = _remove_empty(mat, :rows)
+            u_bound, _ = _min_wt_row(mat)
+            return StabilizerCode(F, n, dim_code, missing, 1, u_bound, stabs, logs, logs_mat, 
+                char_vec, signs, missing, missing, missing, over_comp, missing, stabs_stand,
+                stand_r, stand_k, P_stand, missing)
         else
-            return GraphStateStabilizer(F, n, 0, missing, stabs, char_vec, signs, missing,
-                over_comp, stabs_stand, stand_r, stand_k, P_stand, missing)
+            _, mat = rref(stabs)
+            mat = _remove_empty(mat, :rows)
+            u_bound, _ = _min_wt_row(mat)
+            return GraphStateStabilizer(F, n, 0, missing, 1, u_bound, stabs, char_vec, signs,
+                missing, over_comp, stabs_stand, stand_r, stand_k, P_stand, missing)
         end
     end
 end
@@ -414,9 +498,125 @@ end
       # getter functions
 #############################
 
+"""
+    minimum_distance_lower_bound(S::AbstractStabilizerCode)
+Return the currently stored lower bound on the minimum distance.
+"""
+minimum_distance_lower_bound(S::AbstractStabilizerCode) = S.l_bound
+
+"""
+    minimum_distance_upper_bound(S::AbstractStabilizerCode)
+Return the currently stored upper bound on the minimum distance.
+"""
+minimum_distance_upper_bound(S::AbstractStabilizerCode) = S.u_bound
+
+"""
+    X_minimum_distance_lower_bound(S::AbstractStabilizerCode)
+Return the currently stored lower bound on the minimum `X`-distance.
+"""
+X_minimum_distance_lower_bound(S::T) where T <: AbstractStabilizerCode = X_minimum_distance_lower_bound(CSSTrait(T), S)
+X_minimum_distance_lower_bound(::IsCSS, S::AbstractStabilizerCode) = S.l_bound_dx
+X_minimum_distance_lower_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
+
+"""
+    X_minimum_distance_upper_bound(S::AbstractStabilizerCode)
+Return the currently stored upper bound on the minimum `X`-distance.
+"""
+X_minimum_distance_upper_bound(S::T) where T <: AbstractStabilizerCode = X_minimum_distance_upper_bound(CSSTrait(T), S)
+X_minimum_distance_upper_bound(::IsCSS, S::AbstractStabilizerCode) = S.u_bound_dx
+X_minimum_distance_upper_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
+
+"""
+    Z_minimum_distance_lower_bound(S::AbstractStabilizerCode)
+Return the currently stored lower bound on the minimum `Z`-distance.
+"""
+Z_minimum_distance_lower_bound(S::T) where T <: AbstractStabilizerCode = Z_minimum_distance_lower_bound(CSSTrait(T), S)
+Z_minimum_distance_lower_bound(::IsCSS, S::AbstractStabilizerCode) = S.l_bound_dz
+Z_minimum_distance_lower_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
+
+"""
+    Z_minimum_distance_upper_bound(S::AbstractStabilizerCode)
+Return the currently stored upper bound on the minimum `Z`-distance.
+"""
+Z_minimum_distance_upper_bound(S::T) where T <: AbstractStabilizerCode = Z_minimum_distance_upper_bound(CSSTrait(T), S)
+Z_minimum_distance_upper_bound(::IsCSS, S::AbstractStabilizerCode) = S.u_bound_dz
+Z_minimum_distance_upper_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
+
 #############################
       # setter functions
 #############################
+
+"""
+    set_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the minimum distance of the code to `d`.
+"""
+function set_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound)")
+    d < S.l_bound && (@warn "The distance set is less than the current lower bound of $(S.l_bound)")
+    S.d = d
+    S.l_bound = d
+    S.u_bound = d
+
+    if CSSTrait(typeof(S)) == IsCSS()
+        ismissing(S.dx) && (S.l_bound_dx = d;)
+        ismissing(S.dz) && (S.l_bound_dz = d;)
+    end
+    return nothing
+end
+
+"""
+    set_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the minimum `X`-distance of the code to `d`.
+"""
+set_X_minimum_distance!(S::T, d::Int) where T <: AbstractStabilizerCode = set_X_minimum_distance!(CSSTrait(T), S, d)
+function set_X_minimum_distance!(::IsCSS, S::AbstractStabilizerCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dx < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dx)")
+    d < S.l_bound_dx && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dx)")
+    S.dx = d
+    S.l_bound_dx = d
+    S.u_bound_dx = d
+
+    if !ismissing(S.dz)
+        S.d = min(S.dx, S.dz)
+        S.u_bound = S.d
+        S.l_bound = S.d
+    else
+        S.dx < S.u_bound && (S.u_bound = S.dx;)
+    end
+    return nothing
+end
+set_X_minimum_distance!(::IsNotCSS, S::AbstractStabilizerCode, d::Int) =
+    error("Only valid for CSS codes")
+
+"""
+    set_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+
+Set the minimum `Z`-distance of the code to `d`.
+"""
+set_Z_minimum_distance!(S::T, d::Int) where T <: AbstractStabilizerCode = set_Z_minimum_distance!(CSSTrait(T), S, d)
+function set_Z_minimum_distance!(::IsCSS, S::AbstractStabilizerCode, d::Int)
+    0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    S.u_bound_dz < d && (@warn "The distance set is greater than the current upper bound of $(S.u_bound_dz)")
+    d < S.l_bound_dz && (@warn "The distance set is less than the current lower bound of $(S.l_bound_dz)")
+    S.dz = d
+    S.l_bound_dz = d
+    S.u_bound_dz = d
+
+    if !ismissing(S.dx)
+        S.d = min(S.dx, S.dz)
+        S.u_bound = S.d
+        S.l_bound = S.d
+    else
+        S.dz < S.u_bound && (S.u_bound = S.dz;)
+    end
+    return nothing
+end
+set_Z_minimum_distance!(::IsNotCSS, S::AbstractStabilizerCode, d::Int) =
+    error("Only valid for CSS codes")
 
 #############################
      # general functions

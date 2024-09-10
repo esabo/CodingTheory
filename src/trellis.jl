@@ -14,14 +14,14 @@ mutable struct Vertex
     next::Int64
     value::Float64
     edge_loc::Int64
-    polynomial::Union{ZZMPolyRingElem, AbstractAlgebra.Generic.MPoly{nf_elem}, Missing}
+    polynomial::Union{ZZMPolyRingElem, AbsSimpleNumFieldElem, Missing}
 end
 
 # could redo this for classical to remove sign
 # for a trellis with 10 million edges, this would save 10 MB
 # to do this, make EdgeC and EdgeQ and change all following functions to Union both
 mutable struct Edge
-    label::Union{fqPolyRepFieldElem, fqPolyRepMatrix}
+    label::Union{FqFieldElem, fpFieldElem, fpMatrix, FqMatrix}
     weight::Float64
     out_vertex::Int64
     sign::Union{Missing, zzModRingElem}
@@ -34,7 +34,7 @@ mutable struct Trellis
     # complete weight enumerator
     CWE::Union{WeightEnumerator, Missing}
     # shifted::Bool
-    shift::fqPolyRepMatrix
+    shift::Union{FqMatrix, fpMatrix}
 end
 
 """
@@ -282,13 +282,13 @@ function is_equal(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}},
     return is_equal(V1, E1, V2, E2, verbose, rhs_sorted)
 end
 
-function _sort_by_left_index(A::fqPolyRepMatrix)
+function _sort_by_left_index(A::Union{FqMatrix, fpMatrix})
     nr, nc = size(A)
     arr = []
     for r in 1:nr
         for c in 1:nc
             if !iszero(A[r, c])
-                push!(arr, [c, A[r, :]])
+                push!(arr, [c, A[r:r, :]])
                 break
             end
         end
@@ -302,7 +302,7 @@ function _sort_by_left_index(A::fqPolyRepMatrix)
     return vcat([arr[i][2] for i in 1:nr]...)
 end
 
-function _sort_by_right_index(A::fqPolyRepMatrix)
+function _sort_by_right_index(A::Union{FqMatrix, fpMatrix})
     nr, nc = size(A)
     arr = []
     for r in 1:nr
@@ -318,7 +318,7 @@ function _sort_by_right_index(A::fqPolyRepMatrix)
     return vcat([arr[i][2] for i in 1:nr]...)
 end
 
-function _left_right_indices(A::fqPolyRepMatrix)
+function _left_right_indices(A::Union{FqMatrix, fpMatrix})
     # iseven(size(A, 2)) || error("Vectors in leftrightindices must have even length.")
     # n = div(size(A, 2), 2)
 
@@ -347,14 +347,14 @@ function _left_right_indices(A::fqPolyRepMatrix)
     return left, right
 end
 
-function _find_active(A::fqPolyRepMatrix, edges::Bool=false)
+function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
     # need to make sure quadratic extension
     nr, nc = size(A)
     left_right = [[0, 0] for _ in 1:nr]
     for r in 1:nr
         for c in 1:nc
             if !iszero(A[r, c])
-                left_right[r][c] = c
+                left_right[r][1] = c
                 break
             end
         end
@@ -363,7 +363,7 @@ function _find_active(A::fqPolyRepMatrix, edges::Bool=false)
     for r in 1:nr
         for c in nc:-1:1
             if !iszero(A[r, c])
-                left_right[i][2] = c
+                left_right[r][2] = c
                 break
             end
         end
@@ -388,7 +388,7 @@ function _find_active(A::fqPolyRepMatrix, edges::Bool=false)
         end
     else
         for c in 1:nc
-            arr_i = Vector{Int64}()
+            arr_c = Vector{Int64}()
             for r in 1:nr
                 if left_right[r][1] <= c < left_right[r][2]
                     push!(arr_c, r)
@@ -404,7 +404,7 @@ function _find_active(A::fqPolyRepMatrix, edges::Bool=false)
 end
 
 # finds all elements of B which have zero symplectic inner product with all of A
-function _kernel_inner_prod(A::fqPolyRepMatrix, B::fqPolyRepMatrix,
+function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpMatrix},
     inner_prod::String="Euclidean", return_ker::Bool=false)
 
     inner_prod ∈ ["Euclidean", "symplectic"] || error("Unsupported inner product type in _kernel_inner_prod; expected: `Euclidean`, `symplectic`, received: $inner_prod.")
@@ -473,7 +473,7 @@ function _kernel_inner_prod(A::fqPolyRepMatrix, B::fqPolyRepMatrix,
     end
 end
 
-function _past_future(A::fqPolyRepMatrix)
+function _past_future(A::Union{FqMatrix, fpMatrix})
     nr, nc = size(A)
     past = zeros(Int64, nc + 1)
     future = zeros(Int64, nc + 1)
@@ -511,19 +511,19 @@ function load_balanced_code(profiles::Vector{Vector{Int64}})
 end
 
 """
-    trellis_oriented_form_linear(A::fqPolyRepMatrix)
+    trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
 
 Return the trellis oriented form of the matrix `A` assuming the row space is
 linear.
 """
-function trellis_oriented_form_linear(A::fqPolyRepMatrix)
+function trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
     A = _sort_by_left_index(A)
     nc = ncols(A)
     for c in 1:nc
         left, right = _left_right_indices(A)
         rows = findall(x -> x == c, left)
         if length(rows) == 1
-            @views A[rows[1], :] *= inv(A[rows[1], c])
+            @views A[rows[1]:rows[1], :] *= inv(A[rows[1], c])
         elseif length(rows) > 1
             # edges = []
             # for row in rows
@@ -541,10 +541,10 @@ function trellis_oriented_form_linear(A::fqPolyRepMatrix)
             # end
 
             #take first row, normalize to 1
-            @views A[rows[1], :] *= inv(A[rows[1], c])
+            @views A[rows[1]:rows[1], :] *= inv(A[rows[1], c])
             # for rest of them, remove
             for i in 2:length(rows)
-                @views A[rows[i], :] -= A[rows[i], c] * A[rows[1], :]
+                @views A[rows[i]:rows[i], :] -= A[rows[i], c] * A[rows[1]:rows[1], :]
             end
         end
     end
@@ -554,7 +554,7 @@ function trellis_oriented_form_linear(A::fqPolyRepMatrix)
     for c in nc:-1:1
         rows = findall(x -> x == c, right)
         if length(rows) == 1
-            @views A[rows[1], :] *= inv(A[rows[1], c])
+            @views A[rows[1]:rows[1], :] *= inv(A[rows[1], c])
         elseif length(rows) > 1
             # edges = []
             # for row in rows
@@ -573,10 +573,10 @@ function trellis_oriented_form_linear(A::fqPolyRepMatrix)
             # end
 
             #take last row, normalize to 1
-            @views A[rows[end], :] *= inv(A[rows[end], c])
+            @views A[rows[end]:rows[end], :] *= inv(A[rows[end], c])
             # for rest of them, remove
             for i in length(rows) - 1:-1:1
-                @views A[rows[i], :] -= A[rows[i], c] * A[rows[end], :]
+                @views A[rows[i]:rows[i], :] -= A[rows[i], c] * A[rows[end]:rows[end], :]
             end
         end
         left, right = _left_right_indices(A)
@@ -588,7 +588,7 @@ end
 # can't check that it's quadratic directly so note this will fail if a higher degree
 # should work for degree 1 extensions given the way AbstractAlgebra stores coefficints?
 """
-    trellis_oriented_form_additive(A::fqPolyRepMatrix)
+    trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
 
 Return the trellis oriented form of the matrix `A` assuming the row space is
 additive.
@@ -596,7 +596,7 @@ additive.
 # Note
 * So far this is only implemented for quadratic extensions over a prime subfield, i.e., `GF(p^2)`.
 """
-function trellis_oriented_form_additive(A::fqPolyRepMatrix)
+function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
     E = base_ring(A)
     degree(E) == 2 || error("So far this is only implemented for quadratic extensions over a prime subfield.")
 
@@ -799,7 +799,7 @@ function trellis_oriented_form_additive(A::fqPolyRepMatrix)
 end
 
 # need to brainstorem parallel edges
-function trellis_profiles(wrt_V::fqPolyRepMatrix, wrt_E::fqPolyRepMatrix,
+function trellis_profiles(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatrix, fpMatrix},
     boundaries::Union{Vector{Int64}, Missing}, inner_prod::String="Euclidean")
 
     inner_prod ∈ ["Euclidean", "symplectic"] || error("Unsupported inner product type in _trellisprofiles; expected: `Euclidean`, `symplectic`, received: $inner_prod.")
@@ -1009,9 +1009,9 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
     for i in length(bds) - 1:-1:1
         verbose && println("Starting E[$i]")
         # seclen = bds[i + 1] - bds[i]
-        valid_edges = Vector{fqPolyRepMatrix}()
-        edge_contrib = Dict{fqPolyRepMatrix, Vector{Int64}}()
-        contrib_edge = Dict{Vector{Int64}, fqPolyRepMatrix}()
+        valid_edges = Vector{FqMatrix}()
+        edge_contrib = Dict{FqMatrix, Vector{Int64}}()
+        contrib_edge = Dict{Vector{Int64}, FqMatrix}()
 
         for a in active_temp[i]
             temp = wrt_E[a, bds[i] + 1:bds[i + 1]]
@@ -1238,7 +1238,7 @@ end
 #############################
 
 # only valid for quantum codes
-function optimal_sectionalization_Q(wrt_V::fqPolyRepMatrix, wrt_E::fqPolyRepMatrix)
+function optimal_sectionalization_Q(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatrix, fpMatrix})
     K = base_ring(wrt_E)
     base_ring(wrt_V) == K || error("Vertices and edges must have the same base ring.")
 
@@ -1294,7 +1294,7 @@ end
 # TODO: remove dictionaries, iterate once to find left, once for right
 # keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
 # function _syndrometrellisQ(profiles::Vector{Vector{T}}, boundaries::Union{Vector{Int64}, Missing},
-#     wrt_V::fqPolyRepMatrix, wrt_E::fqPolyRepMatrix, char_vec::Vector{Int64}, Pauli::Char=' ',
+#     wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatrix, fpMatrix}, char_vec::Vector{Int64}, Pauli::Char=' ',
 #     verbose=false) where T <: Integer
 #
 #     Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
@@ -1375,9 +1375,9 @@ end
 #     Threads.@threads for i = n:-1:1
 #         verbose && println("Starting E[$i]")
 #         seclen = bds[i + 1] - bds[i]
-#         valid_edges = Vector{fqPolyRepMatrix}()
-#         edge_contrib = Dict{fqPolyRepMatrix, Vector{Int64}}()
-#         contrib_edge = Dict{Vector{Int64}, fqPolyRepMatrix}()
+#         valid_edges = Vector{FqMatrix}()
+#         edge_contrib = Dict{FqMatrix, Vector{Int64}}()
+#         contrib_edge = Dict{Vector{Int64}, FqMatrix}()
 #
 #         for a in active_temp[i]
 #             temp = wrt_E[a, bds[i] + 1:bds[i + 1]]
@@ -1555,7 +1555,7 @@ end
 # Pauli == 'Z'
 # I -> I + Z
 # X -> X + Y
-function weight_Q!(T::Trellis, Ps::fqPolyRepMatrix, err_models::Vector{Dict{String, Float64}},
+function weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, err_models::Vector{Dict{String, Float64}},
     weight_type::String="additive")
 
     weight_type ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
@@ -1591,7 +1591,7 @@ end
 # I -> I + Z
 # X -> X + Y
 # remove wrt_V here
-function shift_and_weight_Q!(T::Trellis, Ps::fqPolyRepMatrix, boundaries::Union{Vector{Int64}, Missing},
+function shift_and_weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
     err_models::Vector{Dict{String, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
     weight_type::String="additive")
 
@@ -1651,8 +1651,8 @@ function shift_and_weight_Q!(T::Trellis, Ps::fqPolyRepMatrix, boundaries::Union{
 end
 
 # do I actually care about updating the signs here?
-function shift_and_decode_Q!!(T::Trellis, Ps::fqPolyRepMatrix, boundaries::Union{Vector{Int64}, Missing},
-    err_models::Vector{Dict{fqPolyRepFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
+function shift_and_decode_Q!!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
+    err_models::Vector{Dict{FqFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
     weight_type::String="additive")
 
     # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
@@ -1729,8 +1729,8 @@ function shift_and_decode_Q!!(T::Trellis, Ps::fqPolyRepMatrix, boundaries::Union
     return path
 end
 
-function shift!(T::Trellis, Ps::fqPolyRepMatrix, boundaries::Union{Vector{Int64}, Missing},
-    err_models::Vector{Dict{fqPolyRepFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
+function shift!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
+    err_models::Vector{Dict{FqFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
     weight_type::String="additive")
 
     # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
@@ -2114,21 +2114,21 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
     for i in length(bds) - 1:-1:1
         verbose && println("Starting E[$i]")
         
-        valid_edges = Vector{fqPolyRepMatrix}()
-        edge_contrib = Dict{fqPolyRepMatrix, Vector{Int64}}()
-        contrib_edge = Dict{Vector{Int64}, fqPolyRepMatrix}()
+        valid_edges = Vector{FqMatrix}()
+        edge_contrib = Dict{FqMatrix, Vector{Int64}}()
+        contrib_edge = Dict{Vector{Int64}, FqMatrix}()
 
         par_flag = false
         if !ismissing(parallel) && !isempty(parallel[i])
             par_flag = true
-            p_edges = Vector{fqPolyRepMatrix}()
+            p_edges = Vector{FqMatrix}()
             for a in parallel[i]
                 # should never be zero because the entire row is between this
                 # same argument says it's always unique
                 push!(p_edges, wrt_E[a, bds[i] + 1:bds[i + 1]])
             end
 
-            parallel_edges = Vector{fqPolyRepMatrix}()
+            parallel_edges = Vector{FqMatrix}()
             for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(p_edges))
                 e = K(iter[1]) * p_edges[1]
                 for r in 2:length(p_edges)
@@ -2227,7 +2227,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         # find fundamental edge configuration
         # find all v-e-0
         left_syn = right_syn = zeros(Int64, syn_len)
-        fundamental = Vector{Tuple{BigInt, Vector{Int}, Vector{fqPolyRepMatrix}, Vector{Int}, BigInt}}()
+        fundamental = Vector{Tuple{BigInt, Vector{Int}, Vector{FqMatrix}, Vector{Int}, BigInt}}()
         for lab in keys(edge_contrib)
             left_syn = (right_syn .- edge_contrib[lab] .+ p) .% p
             if i == 1 && iszero(left_syn)

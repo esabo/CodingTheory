@@ -28,7 +28,7 @@
     @test !is_self_dual(C)
     @test !is_self_orthogonal(C)
     cw = matrix(F, [1 0 0 0 0 1 1]);
-    @test encode(C, C.G[:, 1]) == cw
+    @test encode(C, C.G[:, 1:1]) == cw
     # these v's are C.G[:, 1], just testing different formats
     v = [1, 0, 0, 0];
     @test encode(C, v) == cw

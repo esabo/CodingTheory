@@ -90,8 +90,8 @@ function BaconShorCode(m::Int, n::Int)
     S.Z_stabs = Z_stabs
     # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
     set_logicals!(S, logs)
-    set_minimum_X_distance!(S, n)
-    set_minimum_Z_distance!(S, m)
+    set_dressed_X_minimum_distance!(S, n)
+    set_dressed_Z_minimum_distance!(S, m)
     return S
 end
 
@@ -191,8 +191,8 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     S = SubsystemCode(X_gauges ⊕ Z_gauges)
-    set_minimum_X_distance!(S, minimum(row_wts))
-    set_minimum_Z_distance!(S, minimum(col_wts))
+    set_dressed_X_minimum_distance!(S, minimum(row_wts))
+    set_dressed_Z_minimum_distance!(S, minimum(col_wts))
     return S
 end
 GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
@@ -307,8 +307,8 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     # return X_gauges, Z_gauges
     S = SubsystemCode(X_gauges ⊕ Z_gauges, logs_alg = :VS)
     # TODO same for this model?
-    # set_minimum_X_distance!(S, minimum(row_wts))
-    # set_minimum_Z_distance!(S, minimum(col_wts))
+    # set_dressed_X_minimum_distance!(S, minimum(row_wts))
+    # set_dressed_Z_minimum_distance!(S, minimum(col_wts))
     return S
 end
 AugmentedBravyiBaconShorCode(A::CTMatrixTypes) = LocalBravyiBaconShorCode(A)
@@ -361,8 +361,8 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     end
 
     S = SubsystemCode(gauges, logs_alg = :VS)
-    set_minimum_X_distance!(S, k)
-    set_minimum_Z_distance!(S, m * n)
+    set_dressed_X_minimum_distance!(S, k)
+    set_dressed_Z_minimum_distance!(S, m * n)
     return S
 end
 
@@ -562,8 +562,8 @@ function SubsystemToricCode(m::Int, n::Int)
     set_logicals!(S, logs)
     # TODO what to do here
     # set_minimum_distance!(S, min(m, n))
-    # set_minimum_X_distance!(S, min(m, n))
-    # set_minimum_Z_distance!(S, min(m, n))
+    # set_dressed_X_minimum_distance!(S, min(m, n))
+    # set_dressed_Z_minimum_distance!(S, min(m, n))
     return S
 end
 
@@ -1339,8 +1339,8 @@ function ToricCode(d::Int)
         X2[1, c] = F_one
     end
     set_logicals!(S, vcat(X1, Z1, X2, Z2))
-    set_minimum_X_distance!(S, d)
-    set_minimum_Z_distance!(S, d)
+    set_dressed_X_minimum_distance!(S, d)
+    set_dressed_Z_minimum_distance!(S, d)
     return S
 end
 
@@ -1409,8 +1409,8 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
         Z1[1, c + S.n] = F_one
     end
     set_logicals!(S, vcat(X1, Z1))
-    set_minimum_X_distance!(S, d_x)
-    set_minimum_Z_distance!(S, d_z)
+    set_dressed_X_minimum_distance!(S, d_x)
+    set_dressed_Z_minimum_distance!(S, d_z)
     return S
 end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
@@ -1500,8 +1500,8 @@ function XYSurfaceCode(d_x::Int, d_y::Int)
     #     Z1[1, c] = ω
     # end
     # set_logicals!(S, vcat(X1, Z1))
-    set_minimum_X_distance!(S, d_x)
-    set_minimum_Z_distance!(S, d_z)
+    set_dressed_X_minimum_distance!(S, d_x)
+    set_dressed_Z_minimum_distance!(S, d_z)
     return S
 end
 XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
@@ -1560,8 +1560,8 @@ XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
 #     display(M)
 #     return
 #     # Y distance is also 2 * d^2
-    # set_minimum_X_distance!(S, d)
-    # set_minimum_Z_distance!(S, 2 * d^2)
+    # set_dressed_X_minimum_distance!(S, d)
+    # set_dressed_Z_minimum_distance!(S, 2 * d^2)
 # end
 
 ################################

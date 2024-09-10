@@ -1107,7 +1107,7 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             cardinality(C)), :complete)
     elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
-        K, ζ = CyclotomicField(3, :ζ)
+        K, ζ = cyclotomic_field(3, :ζ)
         R, vars = polynomial_ring(K, 3)
         # might have to switch this here
         poly = divexact(W.polynomial(
@@ -1156,7 +1156,7 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
     else
         q = Int(order(C.F))
         if is_prime(q)
-            K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
+            K, ω = cyclotomic_field(Int(characteristic(C.F)), :ω)
             R, vars = polynomial_ring(K, q)
             elms = collect(C.F)
             func_args = []
@@ -1170,7 +1170,7 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             return WeightEnumerator(divexact(W.polynomial(func_args), cardinality(C)),
                 :complete)
         else
-            K, ω = CyclotomicField(Int(characteristic(C.F)), :ω)
+            K, ω = cyclotomic_field(Int(characteristic(C.F)), :ω)
             R, vars = polynomial_ring(K, q)
             prime_field = GF(Int(characteristic(C.F)))
             _, λ = primitivebasis(C.F, prime_field)

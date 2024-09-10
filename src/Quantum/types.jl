@@ -51,8 +51,12 @@ mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
       l_bound_dressed::Int # lower bound on d_dressed
       u_bound_dressed::Int # upper bound on d_dressed
       l_bound_dx_bare::Int # lower bound on dx_bare
-      u_bound_dx_dressed::Int # upper bound on dx_dressed
+      u_bound_dx_bare::Int # upper bound on dx_bare
       l_bound_dz_bare::Int # lower bound on dz_bare
+      u_bound_dz_bare::Int # upper bound on dz_bare
+      l_bound_dx_dressed::Int # lower bound on dz_dressed
+      u_bound_dx_dressed::Int # upper bound on dz_dressed
+      l_bound_dz_dressed::Int # lower bound on dz_dressed
       u_bound_dz_dressed::Int # upper bound on dz_dressed
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
@@ -111,8 +115,8 @@ mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
       n::Int
       k::Union{Int, Rational{BigInt}}
       d::Union{Int, Missing}
-      d_x::Union{Int, Missing}
-      d_z::Union{Int, Missing}
+      dx::Union{Int, Missing}
+      dz::Union{Int, Missing}
       l_bound::Int # lower bound on d
       u_bound::Int # upper bound on d
       l_bound_dx::Int # lower bound on dx
@@ -204,7 +208,7 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
       d_bare::Union{Int, Missing}
       d_dressed::Union{Int, Missing}
       dx_bare::Union{Int, Missing}
-      dz_dressed::Union{Int, Missing}
+      dx_dressed::Union{Int, Missing}
       dz_bare::Union{Int, Missing}
       dz_dressed::Union{Int, Missing}
       l_bound_bare::Int # lower bound on d_bare
@@ -212,8 +216,12 @@ mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
       l_bound_dressed::Int # lower bound on d_dressed
       u_bound_dressed::Int # upper bound on d_dressed
       l_bound_dx_bare::Int # lower bound on dx_bare
-      u_bound_dx_dressed::Int # upper bound on dx_dressed
+      u_bound_dx_bare::Int # upper bound on dx_bare
       l_bound_dz_bare::Int # lower bound on dz_bare
+      u_bound_dz_bare::Int # upper bound on dz_bare
+      l_bound_dx_dressed::Int # lower bound on dz_dressed
+      u_bound_dx_dressed::Int # upper bound on dz_dressed
+      l_bound_dz_dressed::Int # lower bound on dz_dressed
       u_bound_dz_dressed::Int # upper bound on dz_dressed
       stabs::CTMatrixTypes
       X_stabs::CTMatrixTypes
@@ -260,8 +268,8 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
       n::Int
       k::Int
       d::Union{Int, Missing}
-      d_x::Union{Int, Missing}
-      d_z::Union{Int, Missing}
+      dx::Union{Int, Missing}
+      dz::Union{Int, Missing}
       l_bound::Int # lower bound on d
       u_bound::Int # upper bound on d
       l_bound_dx::Int # lower bound on dx
@@ -298,8 +306,8 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
       n::Integer
       k::Union{Integer, Rational{BigInt}}
       d::Union{Integer, Missing}
-      d_x::Union{Integer, Missing}
-      d_z::Union{Integer, Missing}
+      dx::Union{Integer, Missing}
+      dz::Union{Integer, Missing}
       l_bound::Int # lower bound on d
       u_bound::Int # upper bound on d
       l_bound_dx::Int # lower bound on dx

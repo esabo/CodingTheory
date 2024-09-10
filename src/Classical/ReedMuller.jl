@@ -59,7 +59,7 @@ function ReedMullerCode(r::Int, m::Int, alt::Bool=false)
     d = 2^(m - r)
 
     if r == 1
-        R, vars = PolynomialRing(Nemo.ZZ, 2)
+        R, vars = polynomial_ring(Nemo.ZZ, 2)
         poly = vars[1]^(2^m) + (2^(m + 1) - 2) * vars[1]^(2^m - 2^(m - 1))*vars[2]^(2^(m - 1)) + vars[2]^(2^m)
         return ReedMullerCode(base_ring(G), ncols(G), nrows(G), d, d, d, r, m, G,
             H, G_stand, H_stand, P, WeightEnumerator(poly, :complete))

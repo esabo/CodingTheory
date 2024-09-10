@@ -11,7 +11,7 @@
 # TODO: test with other iterator
 # TODO: remove quadratic extension
 function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingElem},
-    R::Union{AbstractAlgebra.Generic.MPolyRing{nf_elem}, Missing})
+    R::Union{AbsSimpleNumFieldElem, Missing})
     # this should be the quadratic extension field
     E = base_ring(G)
     is_even(Int(degree(E))) || error("Matrix passed to weight enumerator does not appear to be over the quadratic extension.")
@@ -366,6 +366,71 @@ support(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabiliz
      # Minimum Distance
 #############################
 
+# TODO
+# use new system of bounds
+# functions for bare and dressed
+
+# TODO add graph states
+function minimum_distance_upper_bound!(S::AbstractSubsystemCode)
+    # subsystem code
+    if GaugeTrait(typeof(S)) == HasGauges()
+        if CSSTrait(typeof(S)) == IsCSS()
+            # bare
+            _, mat = rref(vcat(S.X_stabs, reduce(vcat, [log[1] for log in S.logicals])))
+            u_bound_dx_bare, _ = _min_wt_row(mat)
+            _, mat = rref(vcat(S.Z_stabs, reduce(vcat, [log[2] for log in S.logicals])))
+            u_bound_dz_bare, _ = _min_wt_row(mat)
+
+            S.u_bound_dx_bare = u_bound_dx_bare
+            S.u_bound_dz_bare = u_bound_dz_bare
+            S.u_bound_bare = min(u_bound_dx_bare, u_bound_dz_bare)
+
+            # dressed
+            dressed_logs = dressed_logicals(S)
+            _, mat = rref(vcat(S.X_stabs, reduce(vcat, [log[1] for log in dressed_logs])))
+            u_bound_dx_dressed, _ = _min_wt_row(mat)
+            _, mat = rref(vcat(S.Z_stabs, reduce(vcat, [log[2] for log in dressed_logs])))
+            u_bound_dz_dressed, _ = _min_wt_row(mat)
+
+            S.u_bound_dx_dressed = u_bound_dx_dressed
+            S.u_bound_dz_dressed = u_bound_dz_dressed
+            S.u_bound_dressed = minimum([u_bound_dx_dressed, u_bound_dz_dressed, S.u_bound_bare])
+        else
+            # bare
+            _, mat = _rref_symp_col_swap(vcat(S.stabs, S.logs_mat))
+            u_bound_bare, _ = _min_wt_row(mat)
+            S.u_bound_bare = u_bound_bare
+
+            # dressed
+            _, mat = _rref_symp_col_swap(vcat(S.stabs, S.logs_mat, S.g_ops_mat))
+            u_bound_dressed, _ = _min_wt_row(mat)
+            S.u_bound_dressed = u_bound_dressed
+        end
+    # stabilizer code
+    else
+        # is a CSS code
+        if CSSTrait(typeof(S)) == IsCSS()
+            _, mat = rref(vcat(S.X_stabs, reduce(vcat, [log[1] for log in S.logicals])))
+            u_bound_dx, _ = _min_wt_row(mat)
+
+            _, mat = rref(vcat(S.Z_stabs, reduce(vcat, [log[2] for log in S.logicals])))
+            u_bound_dz, _ = _min_wt_row(mat)
+
+            S.u_bound_dx = u_bound_dx
+            S.u_bound_dz = u_bound_dz
+            S.u_bound = min(u_bound_dx, u_bound_dz)
+        # is not a CSS code
+        else
+            _, mat = _rref_symp_col_swap(vcat(S.stabs, S.logs_mat))
+            u_bound, _ = _min_wt_row(mat)
+
+            S.u_bound = u_bound
+        end
+    end
+    return nothing
+end
+
+# TODO: need to add subsystem support throughout here
 """
     minimum_distance(Q::AbstractStabilizerCode; alg::Symbol = :auto, sect::Bool=false)
 
@@ -428,11 +493,11 @@ function minimum_distance(S::AbstractStabilizerCode; alg::Symbol = :auto, verbos
     return S.d
 end
 
-function minimum_distance_X_Z(S::AbstractStabilizerCodeCSS)
-    (!ismissing(S.d_z) && !ismissing(S.d_x)) && return S.d_z, S.d_x
+function XZ_minimum_distance(S::AbstractStabilizerCodeCSS)
+    (!ismissing(S.dz) && !ismissing(S.dx)) && return S.d_z, S.d_x
 
-    # d_z = min(CX^⟂ \ CZ)
-    # d_x = min(CZ^⟂ \ CX)
+    # dz = min(CX^⟂ \ CZ)
+    # dx = min(CZ^⟂ \ CX)
 
     # need to make these if they are missing
     if !ismissing(S.Z_orig_code)
@@ -448,14 +513,14 @@ function minimum_distance_X_Z(S::AbstractStabilizerCodeCSS)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C1_set_diff_C2_wt_enum = C1_dual_wt_enum.polynomial - C2_dual_wt_enum.polynomial
     C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.d_z = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
+    S.dz = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
         for i in 1:length(C1_set_diff_C2_wt_enum)]))
-    S.d_x = minimum(filter(x -> x != 0, [collect(exponent_vectors(
+    S.dx = minimum(filter(x -> x != 0, [collect(exponent_vectors(
         C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
         C2_dual_set_diff_C1_dual_wt_enum)]))
     # the above commands will set Ci.d
-    (S.d_x == C2.d && S.d_z == C1.d) ? (S.pure = true;) : (S.pure = false;)
-    return S.d_z, S.d_x
+    (S.dx == C2.d && S.d_z == C1.d) ? (S.pure = true;) : (S.pure = false;)
+    return S.dz, S.dx
 
     # some other paper has this as the formula
     # expsC1setdiffC2 = filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
@@ -463,12 +528,12 @@ function minimum_distance_X_Z(S::AbstractStabilizerCodeCSS)
     # expsC2dualsetdiffC2dual = filter(x -> x != 0, [collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1]
     #     for i in 1:length(C2_dual_set_diff_C1_dual_wt_enum)])
     # exps = vcat(expsC1setdiffC2, expsC2dualsetdiffC2dual)
-    # S.d_x = minimum(exps)
-    # S.d_z = maximum(exps)
+    # S.dx = minimum(exps)
+    # S.dz = maximum(exps)
 end
 
-function minimum_distance_X(S::AbstractStabilizerCodeCSS)
-    ismissing(S.d_x) || return S.d_x
+function X_minimum_distance(S::AbstractStabilizerCodeCSS)
+    ismissing(S.dx) || return S.dx
     
      # need to make these if they are missing
      if !ismissing(S.Z_orig_code)
@@ -483,13 +548,13 @@ function minimum_distance_X(S::AbstractStabilizerCodeCSS)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.d_x = minimum(filter(x -> x != 0, [collect(exponent_vectors(
+    S.dx = minimum(filter(x -> x != 0, [collect(exponent_vectors(
         C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
         C2_dual_set_diff_C1_dual_wt_enum)]))
-    return S.d_x
+    return S.dx
 end
 
-function minimum_distance_Z(S::AbstractStabilizerCodeCSS)
+function Z_minimum_distance(S::AbstractStabilizerCodeCSS)
     ismissing(S.d_z) || return S.d_z
 
     # need to make these if they are missing

@@ -127,6 +127,14 @@ end
 weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
+# TODO polish and export
+function row_wts_symplectic(A::CTMatrixTypes)
+    nc = size(A, 2)
+    iseven(nc) || throw(ArgumentError("Input does not have even length"))
+    n = div(nc, 2)
+    return [count(!iszero(A[i, j]) || !iszero(A[i, j + n]) for j in 1:n) for i in axes(A, 1)]
+end
+
 # Hamming_weight(v::Matrix{Int}) = return sum(v)
 
 # wt(v::Matrix{Int}) = count(x -> !iszero(x), v)
@@ -222,7 +230,7 @@ function Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
     length(u) == length(v) || throw(ArgumentError("Vectors must be the same length in Hermitian inner product."))
     base_ring(u) == base_ring(v) || throw(ArgumentError("Vectors must be over the same field in Hermitian inner product."))
     q2 = order(base_ring(u))
-    issquare(q2) || throw(ArgumentError("The Hermitian inner product is only defined over quadratic field extensions."))
+    is_square(q2) || throw(ArgumentError("The Hermitian inner product is only defined over quadratic field extensions."))
     
     q = Int(sqrt(q2, check = false))
     return sum(u[i] * v[i]^q for i in 1:length(u))
@@ -236,10 +244,11 @@ Return the Hermitian conjugate of the matrix `A`.
 function Hermitian_conjugate_matrix(A::CTMatrixTypes)
     R = base_ring(A)
     q2 = order(R)
-    issquare(q2) || throw(ArgumentError("The Hermitian conjugate is only defined over quadratic field extensions."))
+    is_square(q2) || throw(ArgumentError("The Hermitian conjugate is only defined over quadratic field extensions."))
 
     q = Int(sqrt(q2, check = false))
-    return matrix(R, A .^ q)
+    # return matrix(R, A .^ q)
+    return A .^ q
 end
 
 # TODO: entropy function is incomplete
@@ -543,7 +552,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
             else
                 # normalize pivot
                 if !isone(A[ind, j])
-                    A[ind, :] *= inv(A[ind, j])
+                    A[ind:ind, :] *= inv(A[ind, j])
                 end
 
                 # swap to put the pivot in the next row
@@ -744,6 +753,8 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
     end
     return rnk, P
 end
+_rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
+_rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
 
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
@@ -934,7 +945,7 @@ Returns a vector where the ith entry lists the indices of the nonzero
 entries of `M[i, :]`
 """
 function row_supports(M::Union{CTMatrixTypes,
-    MatElem{AbstractAlgebra.Generic.ResidueRingElem{fpPolyRingElem}}})
+    MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
 
     output = [Int[] for _ in axes(M, 1)]
     for j in axes(M, 2)
@@ -1317,14 +1328,14 @@ end
 function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldElem})
     m = div(degree(L), degree(K))
     L_elms = collect(L)
-    D = Dict{fqPolyRepFieldElem, fqPolyRepMatrix}()
+    D = Dict{FqFieldElem, FqMatrix}()
     for x in L_elms
         D[x] = matrix(L, 1, m, [tr(x * λi) for λi in λ])
     end
     return D
 end
 
-function _expand_matrix(M::CTMatrixTypes, D::Dict{fqPolyRepFieldElem, fqPolyRepMatrix}, m::Int)
+function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
     M_exp = zero_matrix(base_ring(M), nrows(M), ncols(M) * m)

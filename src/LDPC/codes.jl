@@ -192,7 +192,7 @@ check_degree_polynomial(C::AbstractLDPCCode) = C.ρ
 #############################
 
 function _degree_distribution(H::Union{CTMatrixTypes,
-    MatElem{AbstractAlgebra.Generic.ResidueRingElem{fpPolyRingElem}}})
+    MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
 
     nr, nc = size(H)
     cols = zeros(Int, 1, nc)

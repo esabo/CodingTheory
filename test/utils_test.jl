@@ -46,8 +46,8 @@
 
     ω = gen(GF4)
     hexacode = matrix(GF4, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
-    @test Hermitian_inner_product(hexacode[1, :], matrix(GF4, [1 0 0 1 1 0])) == ω
-    @test Hermitian_inner_product(hexacode[1, :], hexacode[2, :]) == 0
+    @test Hermitian_inner_product(hexacode[1:1, :], matrix(GF4, [1 0 0 1 1 0])) == ω
+    @test Hermitian_inner_product(hexacode[1:1, :], hexacode[2:2, :]) == 0
     @test iszero(Hermitian_conjugate_matrix(hexacode) * transpose(hexacode))
 
     # _remove_empty
@@ -260,9 +260,9 @@
     @test !flag
 
     F = GF(2)
-    S, x = PolynomialRing(F, :x)
+    S, x = polynomial_ring(F, :x)
     l = 3
-    R = residue_ring(S, x^l - 1)
+    R, _ = residue_ring(S, x^l - 1)
     A = matrix(R, 2, 3, [1, 0, 1 + x^2, 1 + x, 1 + x + x^2, x^2])
     @test lift(A) == matrix(F, 6, 9,
         [1, 0, 0, 0, 0, 0, 1, 1, 0,

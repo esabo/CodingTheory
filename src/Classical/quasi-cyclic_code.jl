@@ -70,8 +70,8 @@ function QuasiCyclicCode(v::Vector{T}, l::Int, circ_gens::Bool, parity::Bool=fal
             m == m2 || throw(ArgumentError("The input vectors must all be the same length."))
         end
 
-        S, x = PolynomialRing(F, :x)
-        R = residue_ring(S, x^m - 1)
+        S, x = polynomial_ring(F, :x)
+        R, _ = residue_ring(S, x^m - 1)
         A = zero_matrix(R, nr, l)
         for r in 1:nr
             for c in 1:l
@@ -94,8 +94,8 @@ function QuasiCyclicCode(v::Vector{T}, l::Int, circ_gens::Bool, parity::Bool=fal
             n == n2 || throw(ArgumentError("The input vectors must all be the same length."))
         end
         
-        S, x = PolynomialRing(F, :x)
-        R = residue_ring(S, x^m - 1)
+        S, x = polynomial_ring(F, :x)
+        R, _ = residue_ring(S, x^m - 1)
         A = zero_matrix(R, len_v, l)
         for k in 1:len_v
             for i in 1:l

@@ -26,7 +26,7 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, VectorSpace, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product, gens, dim, is_isomorphic
+    tensor_product, gens, dim, is_isomorphic, field
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
@@ -287,14 +287,25 @@ export SubsystemCode, field, length, num_qubits, dimension, cardinality,
     set_Z_stabilizers!, set_distance_lower_bound!, permute_code!, permute_code, set_stabilizers!,
     set_X_stabilizers!, standard_form_A, standard_form_A1, standard_form_A2, standard_form_B, standard_form_C1,
     standard_form_C2, standard_form_D, standard_form_E, logicals_standard_form, promote_gauges_to_logical!,
-    promote_gauges_to_logical, promote_logicals_to_gauge
+    promote_gauges_to_logical, promote_logicals_to_gauge, bare_minimum_distance_lower_bound,
+    bare_minimum_distance_upper_bound, dressed_minimum_distance_lower_bound,
+    dressed_minimum_distance_upper_bound, bare_X_minimum_distance_lower_bound,
+    bare_X_minimum_distance_upper_bound, dressed_X_minimum_distance_lower_bound,
+    bare_Z_minimum_distance_lower_bound, bare_Z_minimum_distance_upper_bound,
+    dressed_Z_minimum_distance_lower_bound, dressed_Z_minimum_distance_upper_bound,
+    X_minimum_distance, Z_minimum_distance, XZ_minimum_distance, set_bare_minimum_distance!,
+    set_bare_X_minimum_distance!, set_bare_Z_minimum_distance!, set_dressed_minimum_distance!,
+    set_dressed_X_minimum_distance!, set_dressed_Z_minimum_distance!
 
 #############################
  # Quantum/stabilizer_code.jl
 #############################
 
 include("Quantum/stabilizer_code.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code
+export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code,
+    minimum_distance_lower_bound, minimum_distance_upper_bound, X_minimum_distance_lower_bound,
+    X_minimum_distance_upper_bound, Z_minimum_distance_lower_bound, Z_minimum_distance_upper_bound,
+    set_X_minimum_distance!, set_Z_minimum_distance!
 
 #############################
    # Quantum/graphstate.jl
@@ -345,6 +356,7 @@ export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
 include("Quantum/weight_dist.jl")
 # export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
 #     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
+export minimum_distance_upper_bound!
 export QDistRndCSS
 
 #############################
