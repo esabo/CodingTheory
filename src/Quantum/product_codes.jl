@@ -377,9 +377,9 @@ function generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <:
     # b_coeffs[2:end] = reverse(b_coeffs[2:end])
     # B_tr = R(S(b_coeffs))
     B_tr = _CT_adjoint(matrix(R, 1, 1, [b]))[1, 1]
-    Mn = MatrixSpace(R, n, n)
+    Mn = matrix_space(R, n, n)
     H_Z = hcat(Mn(B_tr), A_tr)
-    Mm = MatrixSpace(R, m, m)
+    Mm = matrix_space(R, m, m)
     # TODO: check extending this function past F_2 makes sense
     # branch for speed
     if Int(order(F)) == 2
@@ -415,9 +415,9 @@ function generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <:
     A_tr = _CT_adjoint(A)
     B_tr = _CT_adjoint(matrix(FG, 1, 1, [b]))[1, 1]
     m, n = size(A)
-    Mn = MatrixSpace(FG, n, n)
+    Mn = matrix_space(FG, n, n)
     H_Z = hcat(Mn(B_tr), A_tr)
-    Mm = MatrixSpace(FG, m, m)
+    Mm = matrix_space(FG, m, m)
     F = base_ring(FG)
     # TODO: check extending this function past F_2 makes sense
     # branch for speed
@@ -910,8 +910,11 @@ end
     BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
 
 Return the bivariate bicycle code defined by the residue ring elements `a` and `b`.
+
+# Note
+- This is defined in https://arxiv.org/pdf/2308.07915
 """
-function BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
     R = parent(a)
     R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
     F = base_ring(base_ring(a))
@@ -958,7 +961,6 @@ function BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoR
             B += y^power
         end
     end
-    
-    C = CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
-    return C #, A, B
+
+    return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
 end

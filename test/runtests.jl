@@ -33,7 +33,7 @@ using CodingTheory
 # include("Quantum/stabilizer_code_test.jl")
 # BUG loading JLD2 problems
 # include("Quantum/misc_known_codes_test.jl")
-# include("Quantum/product_codes_test.jl")
+include("Quantum/product_codes_test.jl")
 # passed
 # include("Quantum/subsystem_code_test.jl")
 
