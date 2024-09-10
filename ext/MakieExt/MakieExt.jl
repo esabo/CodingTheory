@@ -2,7 +2,7 @@ module MakieExt
 
 import CodingTheory
 
-import CodingTheory:Tanner_graph_plot, weight_plot, EXIT_chart_plot, degree_distributions_plot, count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph, weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS
+import CodingTheory: Tanner_graph_plot, weight_plot, EXIT_chart_plot, degree_distributions_plot, count_short_cycles_plot, count_elementary_cycles_plot, ACE_spectrum_plot, computation_graph, weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS
 
 import Makie
 

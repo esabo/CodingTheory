@@ -2,7 +2,7 @@ module JLD2Ext
 
 import CodingTheory
 
-import CodingTheory: TriangularColorCode488, TriangularColorCode666, PlanarSurfaceCode3D, PlanarSurfaceCode3D_X, ToricCode3D, StabilizerCode, set_logicals!, Oscar
+import CodingTheory: TriangularColorCode488, TriangularColorCode666, PlanarSurfaceCode3D, PlanarSurfaceCode3D_X, ToricCode3D, StabilizerCode, set_logicals!
 
 import JLD2
 
