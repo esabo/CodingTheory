@@ -328,7 +328,7 @@ export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913
     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
     ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D,
-    Q832, SmallestInterestingColorCode #, PlanarSurfaceCode3D, ToricCode3D
+    Q832, SmallestInterestingColorCode, GrossCode #, PlanarSurfaceCode3D, ToricCode3D
 
 #############################
         # trellis.jl
@@ -370,7 +370,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
     Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code,
-    homological_product, ⊠
+    homological_product, ⊠, BivariateBicycleCode
 
 #############################
 #   Quantum/simulation.jl
