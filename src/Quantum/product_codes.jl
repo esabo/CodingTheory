@@ -911,54 +911,54 @@ end
 
 Return the bivariate bicycle code defined by the residue ring elements `a` and `b`.
 """
-# function BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
-#     R = parent(a)
-#     R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
-#     F = base_ring(base_ring(a))
-#     order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
-#     length(symbols(parent(a))) == 2 || throw(DomainError("Polynomials must be over two variables."))
-#     # x, y = symbols(parent(a))
-#     g = gens(modulus(R))
-#     length(g) == 2 || throw(DomainError("Residue rings must have only two generators."))
-#     for g1 in g
-#         exps = exponents(g1)
-#         length(exps) == 2 || throw(ArgumentError("Moduli of the incorrect form."))
-#         for e in exps
-#             if !iszero(e)
-#                 length(e)
-#     # single variate
-#     # get l amd m
+function BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+    R = parent(a)
+    R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
+    F = base_ring(base_ring(a))
+    order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
+    length(symbols(parent(a))) == 2 || throw(DomainError("Polynomials must be over two variables."))
+    g = gens(modulus(R))
+    length(g) == 2 || throw(DomainError("Residue rings must have only two generators."))
 
-
+    m = -1
+    l = -1
+    for g1 in g
+        exps = collect(exponents(g1))
+        length(exps) == 2 || throw(ArgumentError("Moduli of the incorrect form."))
+        iszero(exps[2]) || throw(ArgumentError("Moduli of the incorrect form."))
+        !iszero(exps[1][1]) && !iszero(exps[1][2]) && throw(ArgumentError("Moduli of the incorrect form."))
+        if iszero(exps[1][1])
+            m = exps[1][2]
+        else
+            l = exps[1][1]
+        end
+    end
     
+    x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
+    y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
+
+    A = zero_matrix(F, l * m, l * m)
+    for ex in exponents(lift(a))
+        iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `a` must not have any `xy` terms"))
+        power, which = findmax(ex)
+        if which == 1
+            A += x^power
+        elseif which == 2
+            A += y^power
+        end
+    end
+
+    B = zero_matrix(F, l * m, l * m)
+    for ex in exponents(lift(b))
+        iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
+        power, which = findmax(ex)
+        if which == 1
+            B += x^power
+        elseif which == 2
+            B += y^power
+        end
+    end
     
-
-#     x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
-#     y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
-
-#     A = zero_matrix(F, l * m, l * m)
-#     for ex in exponents(a)
-#         iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `a` must not have any `xy` terms"))
-#         power, which = findmax(ex)
-#         if which == 1
-#             A += x^power
-#         elseif which == 2
-#             A += y^power
-#         end
-#     end
-
-#     B = zero_matrix(F, l * m, l * m)
-#     for ex in exponents(b)
-#         iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
-#         power, which = findmax(ex)
-#         if which == 1
-#             B += x^power
-#         elseif which == 2
-#             B += y^power
-#         end
-#     end
-    
-#     C = CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
-
-#     return C, A, B
-# end
+    C = CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
+    return C #, A, B
+end
