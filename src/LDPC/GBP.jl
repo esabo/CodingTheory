@@ -154,7 +154,7 @@ function is_valid_region_graph(R::RegionGraph)
     for id in ids
         c_r = 0
         for r in R.regions
-            if id ∈ r.ids
+            if id ∈ r.id
                 c_r += r.overcounting_number
             end
         end

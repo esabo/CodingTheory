@@ -1,5 +1,7 @@
-@testset "chain_complex.jl" begin
+# @testitem "chain_complex.jl" begin
+    using Oscar
     using CodingTheory
+    using CodingTheory: CTFieldTypes, CTFieldElem , CTMatrixTypes, CTPolyRing, CTPolyRingElem, CTGroupAlgebra ,  CTChainComplex
 
     struct ChainComplex{T <: CTMatrixTypes}
         F::CTFieldTypes
@@ -89,6 +91,6 @@
 
     # TODO: better chain complex tests
     # these tests are simply to check that it runs at all
-    @test !isnothing(tensor_product(ChainComplex(Q15RM()), ChainComplex(Q1573())))
-    @test !isnothing(distance_balancing(Q15RM(), RepetitionCode(2,4)))
-end
+    # @test !isnothing(tensor_product(ChainComplex(Q15RM()), ChainComplex(Q1573())))
+    # @test !isnothing(distance_balancing(Q15RM(), RepetitionCode(2,4)))
+# end

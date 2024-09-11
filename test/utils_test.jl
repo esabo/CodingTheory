@@ -1,5 +1,5 @@
-@testset "utils.jl" begin
-    # using Oscar, CodingTheory
+@testitem "utils.jl" begin
+    using Oscar, CodingTheory
 
     # NOTE: circshift is currently commented out, might be deleted in the future
     # F = GF(2,1)
