@@ -1,5 +1,7 @@
-@testset "Classical/tilings.jl & Classical/Tanner.jl" begin
+#@testitem"Classical/tilings.jl & Classical/Tanner.jl" begin
     using Graphs
+    using Oscar
+    using CodingTheory
     CodingTheory.Oscar.GAP.Packages.load("LINS");
 
     min_index = 250;
@@ -91,4 +93,4 @@
     @test length(subgroups) == 3
     filter!(x -> is_fixed_point_free(x, g), subgroups)
     @test length(subgroups) == 0
-end
+#end

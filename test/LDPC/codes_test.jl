@@ -1,4 +1,4 @@
-@testset "LDPC/codes.jl" begin
+@testitem "LDPC/codes.jl" begin
     using Oscar, CodingTheory
 
     # example from Ryan & Lin
