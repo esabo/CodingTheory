@@ -348,7 +348,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 126
         @test dimension(Q) == 8
-    # @test minimum_distance(S) == 10
+        # @test minimum_distance(S) == 10
 
         # [[150, 16, 8]]
         l = 5
@@ -382,5 +382,61 @@
         @test length(Q) == 180
         @test dimension(Q) == 8
         # @test minimum_distance(S) == 16
+
+        # Table 1 of https://arxiv.org/pdf/2404.17676
+        # [[72, 8, 6]]
+        l = 12
+        m = 3
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^9 + y^1 + y^2)
+        b = R(1 + x^1 + x^11)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 72
+        @test dimension(Q) == 8
+        # @test minimum_distance(S) == 6
+
+        # [[90, 8, 6]]
+        l = 9
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^8 + y^4 + y^1)
+        b = R(y^5 + x^8 + x^7)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 90
+        @test dimension(Q) == 8
+        # @test minimum_distance(S) == 6
+
+        # [[120, 8, 8]]
+        l = 12
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^10 + y^4 + y^1)
+        b = R(1 + x^1 + x^2)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 120
+        @test dimension(Q) == 8
+        # @test minimum_distance(S) == 8
+
+        # [[150, 8, 8]]
+        l = 15
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^5 + y^2 + y^3)
+        b = R(y^2 + x^7 + x^6)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 150
+        @test dimension(Q) == 8
+        # @test minimum_distance(S) == 8
+
+        # [[196, 12, 8]]
+        l = 14
+        m = 7
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^6 + y^5 + y^6)
+        b = R(1 + x^4 + x^13)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 196
+        @test dimension(Q) == 12
+        # @test minimum_distance(S) == 8
     end
 end
