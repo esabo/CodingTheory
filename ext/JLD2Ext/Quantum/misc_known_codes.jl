@@ -40,6 +40,7 @@ function CodingTheory.TriangularColorCode488(d::Int)
     F = CodingTheory.Oscar.GF(2)
     Q = StabilizerCode(CodingTheory.Oscar.matrix(F, S))
     set_logicals!(Q, CodingTheory.Oscar.matrix(F, l))
+    set_minimum_distance!(Q, d)
     return Q
 end
 
@@ -82,6 +83,7 @@ function CodingTheory.TriangularColorCode666(d::Int)
     F = CodingTheory.Oscar.GF(2)
     Q = StabilizerCode(CodingTheory.Oscar.matrix(F, S))
     set_logicals!(Q, CodingTheory.Oscar.matrix(F, l))
+    set_minimum_distance!(Q, d)
     return Q
 end
 
@@ -133,7 +135,7 @@ function CodingTheory.PlanarSurfaceCode3D_X(d::Int)
         X_logs = load_alist(joinpath(path, "surface3D_9_lx.alist"))
         X_meta = load_alist(joinpath(path, "surface3D_9_mx.alist"))
     end
-    F = CodingTheory.Oscar.GF(2)
+    F = CodingTheory.Oscar.Nemo.Native.GF(2)
     return CodingTheory.Oscar.matrix(F, X_stabs), CodingTheory.Oscar.matrix(F, X_logs),
         CodingTheory.Oscar.matrix(F, X_meta)
 end
@@ -206,7 +208,7 @@ function CodingTheory.ToricCode3D_X(d::Int)
         X_logs = load_alist(joinpath(path, "toric3D_13_lx.alist"))
         X_meta = load_alist(joinpath(path, "toric3D_13_mx.alist"))
     end
-    F = CodingTheory.Oscar.GF(2)
+    F = CodingTheory.Oscar.Nemo.Native.GF(2)
     return CodingTheory.Oscar.matrix(F, X_stabs), CodingTheory.Oscar.matrix(F, X_logs),
         CodingTheory.Oscar.matrix(F, X_meta)
 end

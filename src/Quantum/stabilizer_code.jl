@@ -57,7 +57,7 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
         anti = _remove_empty(mat, :rows) * transpose(D2.G)
         u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         u_bound = min(u_bound_dx, u_bound_dz)
-        if !ismissing(C1.d) && is !ismissing(D2.d)
+        if !ismissing(C1.d) && !ismissing(D2.d)
             u_bound_classical = min(C1.d, D2.d)
             u_bound_classical < u_bound && (u_bound = u_bound_classical;)
         end

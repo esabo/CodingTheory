@@ -30,7 +30,7 @@
                 0 0 1 0 1 0 0 1 1 1 0 1 1 0 0 0;
                 0 0 0 1 1 1 1 0 1 1 1 0 1 1 1 1])
         @test generator_matrix(C) == G_final
-        #@test minimum_distance(C) == 7
+        @test_broken minimum_distance(C) == 7
 
         C = concatenate(C_Ham, C_Ham)
         G_final = matrix(F, 4, 16, [
@@ -39,7 +39,7 @@
                 0 0 1 0 1 1 0 1 1 1 0 1 0 0 1 0;
                 0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1])
         @test generator_matrix(C) == G_final
-        #@test minimum_distance(C) == 8
+        @test_broken minimum_distance(C) == 8
 
         G_out = matrix(F, 4, 12, [
                 1 0 0 0 0 0 1 1 0 1 1 0
@@ -56,7 +56,7 @@
                 0 0 1 0 1 1 0 1 1 1 0 0 1 1 0 0 1 0 0 0 0 1 1 1;
                 0 0 0 1 1 1 1 0 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1])
         @test generator_matrix(C) == G_final
-        #@test minimum_distance(C) == 8
+        @test_broken minimum_distance(C) == 8
 
         G_out = matrix(F, 4, 12, [
                 1 0 0 0 1 0 1 1 0 0 1 0;
@@ -73,7 +73,7 @@
                 0 0 1 0 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 0;
                 0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1])
         @test generator_matrix(C) == G_final
-        #@test minimum_distance(C) == 12
+        @test_broken minimum_distance(C) == 12
 
         # claims this is ExtendedGolayCode(2) but I can't find the equivalence
         G_in = matrix(F, 12, 24, [
@@ -97,7 +97,7 @@
                 0 0 1 0 1 1 1 1 0 1 1 1 0 0 1 1 0 1 0 0 0 1 0 0
                 0 0 0 1 1 1 1 0 1 1 1 0 1 0 0 1 0 0 0 1 1 0 1 0])
         @test generator_matrix(C) == G_final
-        #@test minimum_distance(C) == 8
+        @test_broken minimum_distance(C) == 8
 
         # Bossert example 9.2
         A1 = extend(HammingCode(2, 3))

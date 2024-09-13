@@ -32,7 +32,13 @@ import Combinatorics: powerset
 import DataStructures: capacity
 
 # tilings.jl
-Packages.load("LINS")
+LINS_flag_install = Packages.install("LINS")
+if LINS_flag_install
+    LINS_flag = Packages.load("LINS")
+    LINS_flag || @warn "Unable to load the GAP packages LINS."
+else
+    @warn "Unable to install the GAP packages LINS."
+end
 
 #############################
          # types.jl

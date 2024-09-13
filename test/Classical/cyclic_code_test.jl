@@ -7,27 +7,27 @@
         C = CyclicCode(2, 7, cosets)
         R = polynomial_ring(C)
         x = gen(R)
-        @test CodingTheory.dimension(C) == 1
+        @test dimension(C) == 1
         @test generator_polynomial(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
         @test idempotent(C) == 1 + x + x^2 + x^3 + x^4 + x^5 + x^6
         cosets = defining_set([0, 1, 2, 4], 2, 7, false)
         C = CyclicCode(2, 7, cosets)
-        @test CodingTheory.dimension(C) == 3
+        @test dimension(C) == 3
         @test generator_polynomial(C) == 1 + x^2 + x^3 + x^4
         @test idempotent(C) == 1 + x^3 + x^5 + x^6
         cosets = defining_set([0, 3, 5, 6], 2, 7, false)
         C = CyclicCode(2, 7, cosets)
-        @test CodingTheory.dimension(C) == 3
+        @test dimension(C) == 3
         @test generator_polynomial(C) == 1 + x + x^2 + x^4
         @test idempotent(C) == 1 + x + x^2 + x^4
         cosets = defining_set([1, 2, 4], 2, 7, false)
         C = CyclicCode(2, 7, cosets)
-        @test CodingTheory.dimension(C) == 4
+        @test dimension(C) == 4
         @test generator_polynomial(C) == 1 + x + x^3
         @test idempotent(C) == x + x^2 + x^4
         cosets = defining_set([3, 5, 6], 2, 7, false)
         C = CyclicCode(2, 7, cosets)
-        @test CodingTheory.dimension(C) == 4
+        @test dimension(C) == 4
         @test generator_polynomial(C) == 1 + x^2 + x^3
         @test idempotent(C) == x^3 + x^5 + x^6
     end
@@ -44,19 +44,19 @@
         R = polynomial_ring(C)
         x = gen(R)
         @test generator_polynomial(C) == 2 + x + x^2 + x^3
-        @test CodingTheory.dimension(C) == 10
-        # @test minimum_distance(C) == 3
+        @test dimension(C) == 10
+        @test_broken minimum_distance(C) == 3
         C = BCHCode(3, 13, 3, 1)
         @test defining_set(C) == [1, 2, 3, 5, 6, 9]
-        @test generator_polynomial(C) == 1 + 2*x + x^2 + 2*x^3 + 2*x^4 + 2*x^5 + x^6
-        @test CodingTheory.dimension(C) == 7
-        # @test minimum_distance(C) == 4
+        @test generator_polynomial(C) == 1 + 2x + x^2 + 2x^3 + 2x^4 + 2x^5 + x^6
+        @test dimension(C) == 7
+        @test_broken minimum_distance(C) == 4
         C = BCHCode(3, 13, 5, 1)
         @test defining_set(C) == [1, 2, 3, 4, 5, 6, 9, 10, 12]
-        @test generator_polynomial(C) == 2 + 2*x^2 + 2*x^3 + x^5 + 2*x^7 + x^8 + x^9
-        @test CodingTheory.dimension(C) == 4
-        # @test minimum_distance(C) == 7
-        @test CodingTheory.dimension(C) >= length(C) - ord(length(C), 3)*(5 - 1)
+        @test generator_polynomial(C) == 2 + 2x^2 + 2x^3 + x^5 + 2x^7 + x^8 + x^9
+        @test dimension(C) == 4
+        @test_broken minimum_distance(C) == 7
+        @test dimension(C) >= length(C) - ord(length(C), 3) * (5 - 1)
     end
 
     @testset "Misc known properties" begin
@@ -67,38 +67,38 @@
 
         # example: MacWilliams & Sloane
         C = BCHCode(2, 31, 5, 1)
-        @test CodingTheory.dimension(C) == 21
-        # @test minimum_distance(C) == 5
-        # @test polynomial(MacWilliams_identity(C, weight_enumerator(C, :Hamming))) == y^31 + 310*x^12*y^19 + 527*x^16*y^15 + 186*x^20*y^11
+        @test dimension(C) == 21
+        @test_broken minimum_distance(C) == 5
+        @test_broken polynomial(MacWilliams_identity(C, weight_enumerator(C, :Hamming))) == y^31 + 310x^12*y^19 + 527x^16*y^15 + 186x^20*y^11
 
         # example: Huffman & Pless
         C = ReedSolomonCode(13, 5, 1)
         @test length(C) == 12
-        @test CodingTheory.dimension(C) == 8
-        # @test minimum_distance(C) == 5
-        # @test isMDS(C) == true
+        @test dimension(C) == 8
+        @test minimum_distance(C) == 5
+        @test is_MDS(C) == true
         @test defining_set(C) == [1, 2, 3, 4]
         R = polynomial_ring(C)
         x = gen(R)
-        @test generator_polynomial(C) == 10 + 2*x + 7*x^2 + 9*x^3 + x^4
+        @test generator_polynomial(C) == 10 + 2x + 7x^2 + 9x^3 + x^4
         D = dual(C)
-        @test CodingTheory.dimension(D) == 4
-        # @test minimum_distance(D) == 9
-        # @test isMDS(D) == true
+        @test dimension(D) == 4
+        @test minimum_distance(D) == 9
+        @test is_MDS(D) == true
         @test defining_set(D) == [0, 1, 2, 3, 4, 5, 6, 7]
-        @test generator_polynomial(D) == 3 + 12*x + x^2 + 5*x^3 + 11*x^4 + 4*x^5 + 10*x^6 + 5*x^7 + x^8
+        @test generator_polynomial(D) == 3 + 12x + x^2 + 5x^3 + 11x^4 + 4x^5 + 10x^6 + 5x^7 + x^8
         Cc = complement(C)
         @test length(Cc) == 12
-        @test CodingTheory.dimension(Cc) == 4
-        # @test minimum_distance(Cc) == 9
+        @test dimension(Cc) == 4
+        @test_broken minimum_distance(Cc) == 9
         @test defining_set(Cc) == [0, 5, 6, 7, 8, 9, 10, 11]
-        @test generator_polynomial(Cc) == 9 + 6*x + 12*x^2 + 10*x^3 + 8*x^4 + 6*x^5 + 9*x^6 + 4*x^7 + x^8
+        @test generator_polynomial(Cc) == 9 + 6x + 12x^2 + 10x^3 + 8x^4 + 6x^5 + 9x^6 + 4x^7 + x^8
 
         # example: Huffman & Pless
         C = ReedSolomonCode(16, 7, 1)
         @test length(C) == 15
-        @test CodingTheory.dimension(C) == 9
-        # @test minimum_distance(C) == 7
+        @test dimension(C) == 9
+        @test minimum_distance(C) == 7
         @test defining_set(C) == [1, 2, 3, 4, 5, 6]
         R = polynomial_ring(C)
         x = gen(R)
@@ -108,18 +108,18 @@
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(5, 3, 1)
         z = gen(polynomial_ring(C))
-        @test generator_polynomial(C) == z^2 + 4*z + 3
+        @test generator_polynomial(C) == z^2 + 4z + 3
 
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(8, 6)
-        @test CodingTheory.dimension(C) == 2
+        @test dimension(C) == 2
         z = gen(polynomial_ring(C))
         α = primitive_root(C)
         @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
 
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(8, 3, 5)
-        @test CodingTheory.dimension(C) == 5
+        @test dimension(C) == 5
         z = gen(polynomial_ring(C))
         α = primitive_root(C)
         @test generator_polynomial(C) == α^4 + α*z + z^2

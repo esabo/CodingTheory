@@ -25,8 +25,7 @@
                 dimension(C), 1, reverse(digits(col, base=2, pad=7)))
         # should be [2^r - 1, 2^r - 1 - r, 3]
         @test length(C) == 2^7 - 1
-        # TODO: fix Oscar imports and remove all CodingTheory.'s here
-        @test CodingTheory.dimension(C) == 2^7 - 1 - 7
+        @test dimension(C) == 2^7 - 1 - 7
         C.d = missing
         #@test minimum_distance(C) == 3
         C = HammingCode(2, 3)
