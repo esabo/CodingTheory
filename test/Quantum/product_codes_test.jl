@@ -348,7 +348,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 126
         @test dimension(Q) == 8
-    # @test minimum_distance(S) == 10
+        # @test minimum_distance(S) == 10
 
         # [[150, 16, 8]]
         l = 5

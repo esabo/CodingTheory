@@ -50,17 +50,21 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
         dim_code = BigInt(order(C1.F))^C1.n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        # TODO check ordering of 1's and 2's here
         _, mat = rref(vcat(D2.H, C1.G))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dx, _ = _min_wt_row(mat)
+        anti = _remove_empty(mat, :rows) * transpose(C1.G)
+        u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         _, mat = rref(vcat(C1.H, D2.G))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dz, _ = _min_wt_row(mat)
+        anti = _remove_empty(mat, :rows) * transpose(D2.G)
+        u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+        u_bound = min(u_bound_dx, u_bound_dz)
+        if !ismissing(C1.d) && is !ismissing(D2.d)
+            u_bound_classical = min(C1.d, D2.d)
+            u_bound_classical < u_bound && (u_bound = u_bound_classical;)
+        end
         return StabilizerCodeCSS(C1.F, C1.n, dim_code, missing, missing, missing, 1,
-            min(u_bound_dx, u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, D2.H, C1.H,
-            C2, C1, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing,
-            false, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
+            u_bound, 1, u_bound_dx, 1, u_bound_dz, stabs, D2.H, C1.H, C2, C1, signs, X_signs,
+            Z_signs, logs, logs_mat, char_vec, missing, missing, missing, false, missing,
+            stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
         # graph state distance is defined to be smallest weight stabilizer
         # TODO check if d's are known already from classical
@@ -70,7 +74,13 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
         _, mat = rref(C1.H)
         mat = _remove_empty(mat, :rows)
         u_bound_dz, _ = _min_wt_row(Z_mat)
-        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, missing, missing, 1, u_bound_dx, 1, u_bound_dz, D2.d, C1.d, stabs, D2.H, C1.H, C2,
+        u_bound = min(u_bound_dx, u_bound_dz)
+        if !ismissing(C1.d) && is !ismissing(D2.d)
+            u_bound_classical = min(C1.d, D2.d)
+            u_bound_classical < u_bound && (u_bound = u_bound_classical;)
+        end
+        # TODO set upper bounds to distance if known
+        return GraphStateStabilizerCSS(C1.F, C1.n, 0, missing, D2.d, C1.d, 1, u_bound, 1, u_bound_dx, 1, u_bound_dz, stabs, D2.H, C1.H, C2,
             C1, signs, X_signs, Z_signs, char_vec, missing, false, stabs_stand, stand_r, stand_k,
             P_stand, missing, missing)
     end
@@ -123,12 +133,14 @@ function StabilizerCodeCSS(C::LinearCode; char_vec::Union{Vector{zzModRingElem},
         dim_code = BigInt(order(D.F))^D.n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        _, mat = rref(vcat(D.H, reduce(vcat, [[:, 1:n] for log in logs])))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dx, _ = _min_wt_row(mat)
-        _, mat = rref(vcat(D.H, reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dz, _ = _min_wt_row(mat)
+        X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+        Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+        _, mat = rref(vcat(D.H, X_logs))
+        anti = _remove_empty(mat, :rows) * transpose(Z_logs)
+        u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+        _, mat = rref(vcat(D.H, Z_logs))
+        anti = _remove_empty(mat, :rows) * transpose(X_logs)
+        u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         return StabilizerCodeCSS(D.F, D.n, dim_code, missing, missing, missing, 1,
             min(u_bound_dx, u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, D.H, D.H, C,
             D, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing, missing, false,
@@ -213,17 +225,20 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
         dim_code = BigInt(order(F))^n // BigInt(p)^rnk
         isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-        _, mat = rref(vcat(X_matrix, reduce(vcat, [log[1][:, 1:n] for log in logs])))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dx, _ = _min_wt_row(mat)
-        _, mat = rref(vcat(Z_matrix, reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dz, _ = _min_wt_row(mat)
+        X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+        Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+        _, mat = rref(vcat(X_matrix, X_logs))
+        anti = _remove_empty(mat, :rows) * transpose(Z_logs)
+        u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+        _, mat = rref(vcat(Z_matrix, Z_logs))
+        anti = _remove_empty(mat, :rows) * transpose(X_logs)
+        u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
             u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, X_matrix, Z_matrix,
             missing, missing, signs, X_signs, Z_signs, logs, logs_mat, char_vec, missing, missing,
             missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
+        # graph state distance is defined to be smallest weight stabilizer
         _, mat = rref(X_matrix)
         mat = _remove_empty(mat, :rows)
         u_bound_dx, _ = _min_wt_row(mat)
@@ -303,18 +318,21 @@ function StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingE
             dim_code = BigInt(order(F))^n // BigInt(p)^rnk
             isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
 
-            _, mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in logs])))
-            mat = _remove_empty(mat, :rows)
-            u_bound_dx, _ = _min_wt_row(mat)
-            _, mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in logs])))
-            mat = _remove_empty(mat, :rows)
-            u_bound_dz, _ = _min_wt_row(mat)
+            X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+            Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+            _, mat = rref(vcat(args[2], X_logs))
+            anti = _remove_empty(mat, :rows) * transpose(Z_logs)
+            u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+            _, mat = rref(vcat(args[4], Z_logs))
+            anti = _remove_empty(mat, :rows) * transpose(X_logs)
+            u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
             return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
                 u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2], args[4], missing,
                 missing, signs, args[3], args[5], logs, logs_mat, char_vec, missing, missing,
                 missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing,
                 missing)
         else
+            # graph state distance is defined to be smallest weight stabilizer
             _, mat = rref(args[2])
             mat = _remove_empty(mat, :rows)
             u_bound_dx, _ = _min_wt_row(mat)
@@ -440,18 +458,21 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
     args = _is_CSS_symplectic(stabs, signs, true)
     if args[1]
         if !iszero(stand_k)
-            _, mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in logs])))
-            mat = _remove_empty(mat, :rows)
-            u_bound_dx, _ = _min_wt_row(mat)
-            _, mat = rref(vcat(args[4], reduce(vcat, [log[2][:, 1:n] for log in logs])))
-            mat = _remove_empty(mat, :rows)
-            u_bound_dz, _ = _min_wt_row(mat)
+            X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+            Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+            _, mat = rref(vcat(args[2], X_logs))
+            anti = _remove_empty(mat, :rows) * transpose(Z_logs)
+            u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+            _, mat = rref(vcat(args[4], Z_logs))
+            anti = _remove_empty(mat, :rows) * transpose(X_logs)
+            u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
             return StabilizerCodeCSS(F, n, dim_code, missing, missing, missing, 1, min(u_bound_dx,
                 u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, args[2],  args[4], missing,
                 missing, signs, args[3], args[5], logs, logs_mat, char_vec, missing, missing,
                 missing, over_comp, missing, stabs_stand, stand_r, stand_k, P_stand, missing,
                 missing)
         else
+            # graph state distance is defined to be smallest weight stabilizer
             _, mat = rref(args[2])
             mat = _remove_empty(mat, :rows)
             u_bound_dx, _ = _min_wt_row(mat)
@@ -465,6 +486,7 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
         end
     else
         if !iszero(stand_k)
+            # TODO symplectic multiply here
             _, mat = rref(vcat(stabs, logs_mat))
             mat = _remove_empty(mat, :rows)
             u_bound, _ = _min_wt_row(mat)
@@ -472,6 +494,7 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
                 char_vec, signs, missing, missing, missing, over_comp, missing, stabs_stand,
                 stand_r, stand_k, P_stand, missing)
         else
+            # graph state distance is defined to be smallest weight stabilizer
             _, mat = rref(stabs)
             mat = _remove_empty(mat, :rows)
             u_bound, _ = _min_wt_row(mat)

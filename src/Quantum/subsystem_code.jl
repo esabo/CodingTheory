@@ -126,6 +126,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
             _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
             X_mat = _remove_empty(X_mat, :rows)
             u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+
             _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
             Z_mat = _remove_empty(Z_mat, :rows)
             u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
@@ -1834,8 +1835,12 @@ function show(io::IO, S::AbstractSubsystemCode)
     else
         print(io, "(($(S.n), $(S.k)")
     end
-    !(typeof(S) <: AbstractStabilizerCode) && print(io, ", $(S.r)")
-    !ismissing(S.d) && print(io, ", $(S.d)")
+    if typeof(S) <: AbstractStabilizerCode
+        !ismissing(S.d) && print(io, ", $(S.d)")
+    else
+        print(io, ", $(S.r)")
+        !ismissing(S.d_dressed) && print(io, ", $(S.d_dressed)")
+    end
     if isa(S.k, Integer)
         print(io, "]]_$(order(S.F))")
     else
