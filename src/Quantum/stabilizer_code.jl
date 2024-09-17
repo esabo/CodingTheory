@@ -486,10 +486,9 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
         end
     else
         if !iszero(stand_k)
-            # TODO symplectic multiply here
-            _, mat = rref(vcat(stabs, logs_mat))
-            mat = _remove_empty(mat, :rows)
-            u_bound, _ = _min_wt_row(mat)
+            _, mat = _rref_symp_col_swap(vcat(stabs, logs_mat))
+            anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
+            u_bound, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
             return StabilizerCode(F, n, dim_code, missing, 1, u_bound, stabs, logs, logs_mat, 
                 char_vec, signs, missing, missing, missing, over_comp, missing, stabs_stand,
                 stand_r, stand_k, P_stand, missing)
@@ -655,7 +654,7 @@ function _logicals(stabs::T, dual_gens::T, logs_alg::Symbol = :sys_eqs) where {T
     logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
     are_symplectic_orthogonal(stabs, logs_mat) || error("Computed logicals do not commute with the codespace.")
     prod = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(logs_mat)
-    sum(_Flint_matrix_to_Julia_int_matrix(prod), dims=1) == ones(Int, 1, size(prod, 1)) ||
+    sum(_Flint_matrix_to_Julia_int_matrix(prod), dims = 1) == ones(Int, 1, size(prod, 1)) ||
         error("Computed logicals do not have the right commutation relations.")
     return logs, logs_mat
 end

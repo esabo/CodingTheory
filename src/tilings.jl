@@ -147,10 +147,10 @@ cycle_tetrahedron_group(q::Int, r::Int, s::Int, t::Int) = simplex_group(CoxeterM
 Return all normal subgroups of `g` with index up to `max_index`.
 """
 function normal_subgroups(G::ReflectionGroup, max_index::Integer)
-    lins_search = Globals.LowIndexNormalSubgroupsSearchForAll(group(G), max_index)
-    # lins_search = Globals.LowIndexNormalSubgroups(group(G), max_index)
-    sbgrps = GapObj[Globals.Grp(H) for H in Globals.List(lins_search)]
-    return sbgrps
+    # lins_search = Globals.LowIndexNormalSubgroupsSearchForAll(group(G), max_index)
+    lins_search = Oscar.GAP.Globals.LowIndexNormalSubs(group(G), max_index)
+    # sbgrps = GapObj[Globals.Grp(H) for H in Globals.List(lins_search)]
+    return GapObj[H for H in Globals.List(lins_search)]
 end
 
 """

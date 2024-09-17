@@ -1297,7 +1297,7 @@ Return the relative trace of `x` from its base field to the field `K`.
 * If the optional parameter `verify` is set to `true`, the two fields are checked
   for compatibility.
 """
-function tr(x::CTFieldElem, K::CTFieldTypes, verify::Bool=false)
+function tr(x::CTFieldElem, K::CTFieldTypes; verify::Bool = false)
     L = parent(x)
     q = order(K)
     if verify
@@ -1330,7 +1330,7 @@ function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldE
     L_elms = collect(L)
     D = Dict{FqFieldElem, FqMatrix}()
     for x in L_elms
-        D[x] = matrix(L, 1, m, [tr(x * λi) for λi in λ])
+        D[x] = matrix(L, 1, m, [CodingTheory.tr(x * λi, K) for λi in λ])
     end
     return D
 end

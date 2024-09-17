@@ -102,7 +102,7 @@
         # Bossert example 9.2
         A1 = extend(HammingCode(2, 3))
         A2 = RepetitionCode(4, 8)
-        # A2_e = expanded_code(A2, GF(2), basis(A2.F, GF(2)))
+        # A2_e = expanded_code(A2, GF(2), primitive.basis(A2.F, GF(2)))
         # outers = [A1, A2_e]
         inners = [RepetitionCode(2, 4), SPCCode(2, 4)]
         # C = concatenate(outers, inners)
