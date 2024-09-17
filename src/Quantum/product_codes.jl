@@ -173,38 +173,20 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int; char_vec::Unio
         (k2, n2) == size(b[i]) || throw(ArgumentError("Second set of matrices must all have the same dimensions."))
     end
 
-    # Julia creates a new scope for every iteration of the for loop,
-    # so the else doesn't work without declaring these variables outside here
-    H1::T
-    H2::T
-    HT1::T
-    HT2::T
+    H1 = zero_matrix(F, c * k1, c * n1)
+    H2 = zero_matrix(F, c * k2, c * n2)
+    HT1 = zero_matrix(F, c * n1, c * k1)
+    HT2 = zero_matrix(F, c * n2, c * k2)
+    Ic = identity_matrix(F, c)
+    Sχ = Ic[mod1.(1:χ:c * χ, c), :]
     for i in 1:c
-        Sχi = zero_matrix(F, c, c)
-        Ii = zero_matrix(F, c, c)
-        for c1 in 1:c
-            for r in 1:c
-                if (c1 - r) % c == 1
-                    Ii[r, c1] = F(1)
-                end
-                if (c1 - r) % c == (r - 1) * (χ - 1) % c
-                    Sχi[r, c1] = F(1)
-                end
-            end
-        end
-        Iχi = Sχi * Ii
-        ITχi = transpose(Sχi) * transpose(Ii)
-        if i == 1
-            H1 = Iχi ⊗ a[i]
-            H2 = b[i] ⊗ Iχi
-            HT1 = ITχi ⊗ transpose(a[i])
-            HT2 = transpose(b[i]) ⊗ ITχi
-        else
-            H1 += Iχi ⊗ a[i]
-            H2 += b[i] ⊗ Iχi
-            HT1 += ITχi ⊗ transpose(a[i])
-            HT2 += transpose(b[i]) ⊗ ITχi
-        end
+        Ii = vcat(Ic[i:end, :], Ic[1:i - 1, :])
+        Iχi = Sχ * Ii
+        ITχi = transpose(Sχ) * transpose(Ii)
+        H1 += Iχi ⊗ a[i]
+        H2 += b[i] ⊗ Iχi
+        HT1 += ITχi ⊗ transpose(a[i])
+        HT2 += transpose(b[i]) ⊗ ITχi
     end
 
     Ek1 = identity_matrix(F, k1)
@@ -215,14 +197,12 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int; char_vec::Unio
     GX = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
     GZ = hcat(HT2 ⊗ En1, En2 ⊗ HT1)
     return CSSCode(GX, GZ, char_vec = char_vec, logs_alg = logs_alg)
-    # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
-    # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
     HyperBicycleCode(a::Vector{CTMatrixTypes}, b::Vector{CTMatrixTypes}, χ::Int; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-Return the hyperbicycle CSS code of `a` and `b` given `χ`.
+Return the hyperbicycle non-CSS code of `a` and `b` given `χ`.
 
 # Arguments
 - a: A vector of length `c` of binary matrices of the same dimensions.
@@ -249,35 +229,29 @@ function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int, char_vec::Union{V
         (k2, n2) == size(b[i]) || throw(ArgumentError("Second set of matrices must all have the same dimensions."))
     end
 
+    H1 = zero_matrix(F, c * k1, c * n1)
+    H2 = zero_matrix(F, c * k2, c * n2)
+    HT1 = zero_matrix(F, c * n1, c * k1)
+    HT2 = zero_matrix(F, c * n2, c * k2)
+    Ic = identity_matrix(F, c)
+    Sχ = Ic[mod1.(1:χ:c * χ, c), :]
     for i in 1:c
-        Sχi = zero_matrix(F, c, c)
-        Ii = zero_matrix(F, c, c)
-        for c1 in 1:c
-            for r in 1:c
-                if (c1 - r) % c == 1
-                    Ii[r, c1] = F(1)
-                end
-                if (c1 - r) % c == (r - 1) * (χ - 1) % c
-                    Sχi[r, c1] = F(1)
-                end
-            end
-        end
-        Iχi = Sχi * Ii
-        if i == 1
-            H1 = Iχi ⊗ a[i]
-            H2 = b[i] ⊗ Iχi
-        else
-            H1 += Iχi ⊗ a[i]
-            H2 += b[i] ⊗ Iχi
-        end
+        Ii = vcat(Ic[i:end, :], Ic[1:i - 1, :])
+        Iχi = Sχ * Ii
+        ITχi = transpose(Sχ) * transpose(Ii)
+        H1 += Iχi ⊗ a[i]
+        H2 += b[i] ⊗ Iχi
+        HT1 += ITχi ⊗ transpose(a[i])
+        HT2 += transpose(b[i]) ⊗ ITχi
     end
+
+    (H1 == HT1 && H2 == HT2) || throw(ArgumentError("H_i must equal H̃_i for i = 1, 2."))
 
     Ek1 = identity_matrix(F, k1)
     Ek2 = identity_matrix(F, k2)
+
     stabs = hcat(Ek2 ⊗ H1, H2 ⊗ Ek1)
     return StabilizerCode(stabs, char_vec = char_vec, logs_alg = logs_alg)
-    # equations 41 and 42 of the paper give matrices from which the logicals may be chosen
-    # not really worth it, just use standard technique from StabilizerCode.jl
 end
 
 """
