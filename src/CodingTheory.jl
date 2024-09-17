@@ -9,8 +9,6 @@ module CodingTheory
 using AutoHashEquals
 using Graphs
 import Graphs as Grphs
-# using Plots
-# import Grphs: nv, incidence_matrix, vertices, inneighbors, add_edge!, add_vertex!
 using Oscar
 using Combinatorics
 using .Threads
@@ -33,8 +31,14 @@ import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, 
 import Combinatorics: powerset
 import DataStructures: capacity
 
-# TODO: don't want this here
-# GAP.Packages.load("LINS");
+# tilings.jl
+LINS_flag_install = Packages.install("LINS")
+if LINS_flag_install
+    LINS_flag = Packages.load("LINS")
+    LINS_flag || @warn "Unable to load the GAP packages LINS."
+else
+    @warn "Unable to install the GAP packages LINS."
+end
 
 #############################
          # types.jl
@@ -42,7 +46,7 @@ import DataStructures: capacity
 
 const CTFieldTypes = FinField
 const CTFieldElem = FinFieldElem
-const CTMatrixTypes = MatElem{<:CTFieldElem}
+const CTMatrixTypes = Union{fpMatrix, FqMatrix} # MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}

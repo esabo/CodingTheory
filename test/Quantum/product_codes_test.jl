@@ -250,7 +250,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 72
         @test dimension(Q) == 12
-        # @test minimum_distance(S) == 6
+        @test_broken minimum_distance(S) == 6
 
         # [[90, 8, 10]]
         l = 15
@@ -261,7 +261,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 90
         @test dimension(Q) == 8
-        # @test minimum_distance(S) == 10
+        @test_broken minimum_distance(S) == 10
 
         # [[108, 8, 10]]
         l = 9
@@ -272,7 +272,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 108
         @test dimension(Q) == 8
-        # @test minimum_distance(S) == 10
+        @test_broken minimum_distance(S) == 10
 
         # [[144, 12, 12]]
         l = 12
@@ -283,7 +283,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 144
         @test dimension(Q) == 12
-        # @test minimum_distance(S) == 12
+        @test_broken minimum_distance(S) == 12
 
         # [[288, 12, 18]]
         l = 12
@@ -294,7 +294,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 288
         @test dimension(Q) == 12
-        # @test minimum_distance(S) == 18
+        @test_broken minimum_distance(S) == 18
 
         # [[360, 12, ≤24]]
         l = 30
@@ -326,7 +326,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 54
         @test dimension(Q) == 8
-        # @test minimum_distance(S) == 6
+        @test_broken minimum_distance(S) == 6
 
         # [[98, 6, 12]]
         l = 7
@@ -337,7 +337,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 98
         @test dimension(Q) == 6
-        # @test minimum_distance(S) == 12
+        @test_broken minimum_distance(S) == 12
 
         # [[126, 8, 10]]
         l = 3
@@ -348,7 +348,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 126
         @test dimension(Q) == 8
-    # @test minimum_distance(S) == 10
+        @test_broken minimum_distance(S) == 10
 
         # [[150, 16, 8]]
         l = 5
@@ -359,7 +359,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 150
         @test dimension(Q) == 16
-        # @test minimum_distance(S) == 8
+        @test_broken minimum_distance(S) == 8
 
         # [[162, 8, 14]]
         l = 3
@@ -370,7 +370,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 162
         @test dimension(Q) == 8
-        # @test minimum_distance(S) == 14
+        @test_broken minimum_distance(S) == 14
 
         # [[180, 8, 16]]
         l = 6
@@ -381,6 +381,6 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 180
         @test dimension(Q) == 8
-        # @test minimum_distance(S) == 16
+        @test_broken minimum_distance(S) == 16
     end
 end

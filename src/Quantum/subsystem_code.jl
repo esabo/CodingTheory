@@ -126,6 +126,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
             _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
             X_mat = _remove_empty(X_mat, :rows)
             u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+
             _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
             Z_mat = _remove_empty(Z_mat, :rows)
             u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
@@ -136,20 +137,22 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
                 gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         else
             # bare
-            _, X_mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in bare_logs])))
-            X_mat = _remove_empty(X_mat, :rows)
-            u_bound_dx_bare, _ = _min_wt_row(X_mat)
-            _, Z_mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in bare_logs])))
-            Z_mat = _remove_empty(Z_mat, :rows)
-            u_bound_dz_bare, _ = _min_wt_row(Z_mat)
+            X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+            Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+            _, X_mat = rref(vcat(args[2], X_logs))
+            anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
+            u_bound_dx_bare, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+            _, Z_mat = rref(vcat(args[4], Z_logs))
+            anti = _remove_empty(Z_mat, :rows) * transpose(X_logs)
+            u_bound_dz_bare, _ = _min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
 
             # dressed
             _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
-            X_mat = _remove_empty(X_mat, :rows)
-            u_bound_dx_dressed, _ = _min_wt_row(X_mat)
+            anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
+            u_bound_dx_dressed, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
             _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
-            Z_mat = _remove_empty(Z_mat, :rows)
-            u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
+            anti = _remove_empty(Z_mat, :rows) * transpose(X_logs)
+            u_bound_dz_dressed, _ =_min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
             return SubsystemCodeCSS(F, n, k, r, missing, missing, missing, missing, missing,
                 missing, 1, min(u_bound_dx_bare, u_bound_dz_bare), 1, min(u_bound_dx_dressed,
                 u_bound_dz_dressed), 1, u_bound_dx_bare, 1, u_bound_dz_bare, 1, u_bound_dx_dressed, 1, u_bound_dz_dressed, stabs, args[2],
@@ -175,12 +178,13 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
         else
             # bare
             _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
-            u_bound_bare, _ = _min_wt_row(mat)
+            anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
+            u_bound_bare, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
 
             # dressed
-            _, mat = _rref_symp_col_swap(vcat(mat, gauge_ops_mat))
-            mat = _remove_empty(mat, :rows)
-            u_bound_dressed, _ = _min_wt_row(mat)
+            _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+            anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
+            u_bound_dressed, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
             return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, 
                 stabs, signs, bare_logs, bare_logs_mat, char_vec, gauge_ops, gauge_ops_mat, false,
                 stabs_stand, stand_r, stand_k, P_stand, missing)
@@ -277,20 +281,22 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     args = _is_CSS_symplectic(S, signs, true)
     if args[1]
         # bare
-        _, X_mat = rref(vcat(args[2], reduce(vcat, [log[1][:, 1:n] for log in log_pairs])))
-        X_mat = _remove_empty(X_mat, :rows)
-        u_bound_dx_bare, _ = _min_wt_row(X_mat)
-        _, Z_mat = rref(vcat(args[4], reduce(vcat, [log[2][:, n + 1:end] for log in log_pairs])))
-        Z_mat = _remove_empty(Z_mat, :rows)
-        u_bound_dz_bare, _ = _min_wt_row(Z_mat)
+        X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+        Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+        _, X_mat = rref(vcat(args[2], X_logs))
+        anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
+        u_bound_dx_bare, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+        _, Z_mat = rref(vcat(args[4], Z_logs))
+        anti = _remove_empty(Z_mat, :rows) * transpose(X_logs)
+        u_bound_dz_bare, _ = _min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
 
         # dressed
-        _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in g_ops_pairs])))
-        X_mat = _remove_empty(X_mat, :rows)
-        u_bound_dx_dressed, _ = _min_wt_row(X_mat)
-        _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in g_ops_pairs])))
-        Z_mat = _remove_empty(Z_mat, :rows)
-        u_bound_dz_dressed, _ = _min_wt_row(Z_mat)
+        _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
+        anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
+        u_bound_dx_dressed, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+        _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
+        anti = _remove_empty(Z_mat, :rows) * transpose(X_logs)
+        u_bound_dz_dressed, _ =_min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         return SubsystemCodeCSS(F, n, k, r, missing, missing, missing, missing, missing,
             missing, 1, min(u_bound_dx_bare, u_bound_dz_bare), 1, min(u_bound_dx_dressed,
             u_bound_dz_dressed), 1, u_bound_dx_bare, 1, u_bound_dz_bare, 1, u_bound_dx_dressed, 1, u_bound_dz_dressed, S, args[2], args[4], missing, missing, signs,
@@ -298,14 +304,14 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
             stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
         # bare
-        _, mat = _rref_symp_col_swap(vcat(stabs, logs_mat))
-        mat = _remove_empty(mat, :rows)
-        u_bound_bare, _ = _min_wt_row(mat)
+        _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
+        anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
+        u_bound_bare, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
 
         # dressed
-        _, mat = _rref_symp_col_swap(vcat(mat, g_ops_mat))
-        mat = _remove_empty(mat, :rows)
-        u_bound_dressed, _ = _min_wt_row(mat)
+        _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+        anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
+        u_bound_dressed, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
         return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, S,
             signs, log_pairs, logs_mat, char_vec, g_ops_pairs, g_ops_mat, false, stabs_stand,
             stand_r, stand_k, P_stand, missing)
@@ -1834,8 +1840,12 @@ function show(io::IO, S::AbstractSubsystemCode)
     else
         print(io, "(($(S.n), $(S.k)")
     end
-    !(typeof(S) <: AbstractStabilizerCode) && print(io, ", $(S.r)")
-    !ismissing(S.d) && print(io, ", $(S.d)")
+    if typeof(S) <: AbstractStabilizerCode
+        !ismissing(S.d) && print(io, ", $(S.d)")
+    else
+        print(io, ", $(S.r)")
+        !ismissing(S.d_dressed) && print(io, ", $(S.d_dressed)")
+    end
     if isa(S.k, Integer)
         print(io, "]]_$(order(S.F))")
     else

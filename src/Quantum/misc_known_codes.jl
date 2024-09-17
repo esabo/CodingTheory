@@ -786,7 +786,11 @@ function ShorCode()
 end
 Q913() = ShorCode()
 
-Q412() = CSSCode(["XXXX", "ZZII", "IIZZ"])
+function Q412()
+    S = CSSCode(["XXXX", "ZZII", "IIZZ"])
+    set_minimum_distance!(S, 2)
+    return S
+end
 
 """
     QC4()

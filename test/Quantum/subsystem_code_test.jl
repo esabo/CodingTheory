@@ -13,7 +13,7 @@
         @test length(Q) == 9
         @test dimension(Q) == 1
         @test Q.r == 4
-        # @test minimum_distance(Q) == 3
+        @test_broken minimum_distance(Q) == 3
         @test LogicalTrait(typeof(Q)) == HasLogicals()
         @test GaugeTrait(typeof(Q)) == HasGauges()
 
