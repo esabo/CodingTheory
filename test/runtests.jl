@@ -7,30 +7,30 @@ if get(ENV, "GPU_TESTS", "") != "true"
 end
 
 # filter for the test
-testfilter = ti -> begin
-  exclude = Symbol[]
-  if get(ENV,"JET_TEST","")!="true"
-    push!(exclude, :jet)
-  end
-  if !(VERSION >= v"1.10")
-    push!(exclude, :doctests)
-    push!(exclude, :aqua)
-  end
+test_filter = ti -> begin
+    exclude = Symbol[]
+    if get(ENV, "JET_TEST", "") != "true"
+        push!(exclude, :jet)
+    end
+    if !(VERSION >= v"1.10")
+        push!(exclude, :doctests)
+        push!(exclude, :aqua)
+    end
 
-  if get(ENV, "GPU_TESTS", "")!="true"
-    push!(exclude, :gpu)
-  end
+    if get(ENV, "GPU_TESTS", "") != "true"
+        push!(exclude, :gpu)
+    end
 
-  if !(Base.Sys.islinux() & (Int===Int64))
-    push!(exclude, :bitpack)
-  end
+    if !(Base.Sys.islinux() & (Int === Int64))
+        push!(exclude, :bitpack)
+    end
 
-  return all(!in(exclude), ti.tags)
+    return all(!in(exclude), ti.tags)
 end
 
 println("Starting tests with $(Threads.nthreads()) threads out of `Sys.CPU_THREADS = $(Sys.CPU_THREADS)`...")
 
-@run_package_tests filter=testfilter
+@run_package_tests filter = test_filter
 
 # TODO: should setup test for traits
 # TODO: add tests for _standardformstabilizer
@@ -61,8 +61,10 @@ println("Starting tests with $(Threads.nthreads()) threads out of `Sys.CPU_THREA
 
 # passes
 # include("Quantum/stabilizer_code_test.jl")
+# passes up to distances
 # include("Quantum/misc_known_codes_test.jl")
-# include("Quantum/product_codes_test.jl")
+# BB tests passed
+# # include("Quantum/product_codes_test.jl")
 # passed
 # include("Quantum/subsystem_code_test.jl")
 
