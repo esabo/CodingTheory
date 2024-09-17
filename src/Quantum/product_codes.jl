@@ -16,7 +16,7 @@ Return the hypergraph product code of matrices `A` and `B`.
 function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem},
     Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
     F == base_ring(B) || throw(ArgumentError("Matrices need to be over the same base ring"))
 
@@ -70,7 +70,14 @@ function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Uni
     isinteger(k) && (k = round(Int, log(BigInt(p), k));)
     # TODO is this distance formula not correct?
     # (ismissing(C1.d) || ismissing(C2.d)) ? d = missing : d = minimum([C1.d, C2.d])
-    u_bound_dx, u_bound_dz = upper_bound_CSS(logs)
+    X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
+    Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+    _, mat = rref(vcat(H_X, X_logs))
+    anti = _remove_empty(mat, :rows) * transpose(Z_logs)
+    u_bound_dx, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
+    _, mat = rref(vcat(H_Z, Z_logs))
+    anti = _remove_empty(mat, :rows) * transpose(X_logs)
+    u_bound_dz, _ = _min_wt_row(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
     return HypergraphProductCode(F, n, k, missing, missing, missing, 1, min(u_bound_dx,
         u_bound_dz), 1, u_bound_dx, 1, u_bound_dz, stabs, H_X, H_Z, missing, missing, signs,
         X_signs, Z_signs, logs, logs_mat, char_vec, over_comp, stabs_stand, stand_r, stand_k,
