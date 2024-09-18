@@ -1,9 +1,9 @@
 # Product Codes
 
-- Hypergraph product: [tillich2009quantum](@cite)
-- Generalized Shor: [bacon2006quantum](@cite)
+- [Hypergraph product](https://errorcorrectionzoo.org/c/hypergraph_product): [Tillich_2014](@cite)
+- [Generalized Shor](https://errorcorrectionzoo.org/c/generalized_shor): [bacon2006quantum](@cite)
 - Hyperbicycle: [pryadko2013quantum](@cite)
-- Generealized bicycle: [pryadko2013quantum](@cite), [kovalev2013quantum](@cite), [kovalev1212quantum](@cite), [panteleev2021degenerate](@cite)
+- [Generealized bicycle](https://errorcorrectionzoo.org/c/generalized_bicycle): [pryadko2013quantum](@cite), [Kovalev_2013](@cite), [panteleev2021degenerate](@cite)
 - Generalized hypergraph product: [panteleev2021degenerate](@cite)
 - Bias-tailored lifted product: [roffe2023bias](@cite)
 
