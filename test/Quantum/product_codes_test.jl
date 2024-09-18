@@ -11,25 +11,111 @@
         R, _ = residue_ring(S, x^l - 1)
         a = 1 + x^15 + x^20 + x^28 + x^66
         b = 1 + x^58 + x^59 + x^100 + x^121
-        g = gcd(a, b, x^l - 1)
-        aR = R(a)
-        bR = R(b)
-        Q = GeneralizedBicycleCode(aR, bR)
+        # g = gcd(a, b, x^l - 1)
+        Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 254
-        @test CodingTheory.dimension(Q) == 28
+        @test dimension(Q) == 28
         @test LogicalTrait(typeof(Q)) == HasLogicals()
         @test GaugeTrait(typeof(Q)) == HasNoGauges()
 
-        # # Example A2
+        # Example A2
+        l = 63
+        R = ResidueRing(S, x^l - 1)
+        a = 1 + x + x^14 + x^16 + x^22
+        b = 1 + x^3 + x^13 + x^20 + x^42
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 126
+        @test dimension(Q) == 28
+
+        # Example A3
         l = 24
-        R, _ = residue_ring(S, x^l - 1)
+        R = ResidueRing(S, x^l - 1)
         a = 1 + x^2 + x^8 + x^15
         b = 1 + x^2 + x^12 + x^17
         Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 48
-        @test CodingTheory.dimension(Q) == 6
-        @test LogicalTrait(typeof(Q)) == HasLogicals()
-        @test GaugeTrait(typeof(Q)) == HasNoGauges()
+        @test dimension(Q) == 6
+
+        # Example A4
+        l = 23
+        R = ResidueRing(S, x^l - 1)
+        a = 1 + x^5 + x^8 + x^12
+        b = 1 + x + x^5 + x^7
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 46
+        @test dimension(Q) == 2
+
+        # Example A5
+        l = 90
+        R = ResidueRing(S, x^l - 1)
+        a = 1 + x^28 + x^80 + x^89
+        b = 1 + x^2 + x^21 + x^25
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 180
+        @test dimension(Q) == 10
+
+        # Example A6
+        l = 450
+        R = ResidueRing(S, x^l - 1)
+        a = 1 + x^97 + x^372 + x^425
+        b = 1 + x^50 + x^265 + x^390
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 900
+        @test dimension(Q) == 50
+        # d = 15
+
+        # Figure 9
+        # [[126, 12, d < 11]]
+        l = 63
+        R = ResidueRing(S, x^l - 1)
+        a(x) = 1 + x^43 + x^37
+        b(x) = 1 + x^59 + x^31
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 126
+        @test dimension(Q) == 12
+
+        # Figure 9
+        # [[254, 14, d < 17]]
+        l = 127
+        R = ResidueRing(S, x^l - 1)
+        a(x) = 1 + x^18 +x^53
+        b(x) = 1 + x^12 + x^125
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 254
+        @test dimension(Q) == 14
+
+
+        # Figure 9
+        # [[510, 16, d < 19]]
+        l = 255
+        R = ResidueRing(S, x^l - 1)
+        a(x) = 1 + x^250 + x^133
+        b(x) = 1 + x^41 + x^157
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 510
+        @test dimension(Q) == 16
+
+
+        # Figure 9
+        # [[1022, 18]]
+        l = 511
+        R = ResidueRing(S, x^l - 1)
+        a(x) = 1 + x^244 + x^157
+        b(x) = 1 + x^51 + x^454
+        Q = GeneralizedBicycleCode(R(a), R(b))
+        @test length(Q) == 1022
+        @test dimension(Q) == 18
+
+        # probably takes too long to compute
+        # # Figure 9
+        # # [[8190, 24]]
+        # l = 4095
+        # R = ResidueRing(S, x^l - 1)
+        # a(x) = 1 + x^2083 + x^2212
+        # b(x) = 1 + x^1802 + x^3220
+        # Q = GeneralizedBicycleCode(R(a), R(b))
+        # @test length(Q) == 8190
+        # @test dimension(Q) == 24
     end
 
     @testset "LiftedProductCode" begin
@@ -40,203 +126,286 @@
         l = 63
         R, _ = residue_ring(S, x^l - 1)
         A = matrix(R, 7, 7,
-	        [x^27, 0, 0, 1, x^18, x^27, 1,
-	         1, x^27, 0, 0, 1, x^18, x^27,
-	         x^27, 1, x^27, 0, 0, 1, x^18,
-	         x^18, x^27, 1, x^27, 0, 0, 1,
-	         1, x^18, x^27, 1, x^27, 0, 0,
-	         0, 1, x^18, x^27, 1, x^27, 0,
-	         0, 0, 1, x^18, x^27, 1, x^27])
+            [x^27, 0, 0, 0, 0, 1, x^54,
+             x^54, x^27, 0, 0, 0, 0, 1,
+             1, x^54, x^27, 0, 0, 0, 0,
+             0, 1, x^54, x^27, 0, 0, 0,
+             0, 0, 1, x^54, x^27, 0, 0,
+             0, 0, 0, 1, x^54, x^27, 0,
+             0, 0, 0, 0, 1, x^54, x^27])
         b = R(1 + x + x^6)
         Q = LiftedProductCode(A, b)
         @test length(Q) == 882
-        @test CodingTheory.dimension(Q) == 48
+        @test dimension(Q) == 24
         @test LogicalTrait(typeof(Q)) == HasLogicals()
         @test GaugeTrait(typeof(Q)) == HasNoGauges()
+
+        # Example B2
+        A = matrix(R, 7, 7,
+            [x^27, 0, 0, 1, x^18, x^27, 1,
+             1, x^27, 0, 0, 1, x^18, x^27,
+             x^27, 1, x^27, 0, 0, 1, x^18,
+             x^18, x^27, 1, x^27, 0, 0, 1,
+             1, x^18, x^27, 1, x^27, 0, 0,
+             0, 1, x^18, x^27, 1, x^27, 0,
+             0, 0, 1, x^18, x^27, 1, x^27])
+        Q = LiftedProductCode(A, b)
+        @test length(Q) == 882
+        @test dimension(Q) == 48
+
+        # Example B3
+        l = 127
+        R = ResidueRing(S, x^l - 1)
+        A = matrix(R, 5, 5,
+            [1, 0, x^51, x^52, 0,
+             0, 1, 0, x^111, x^20,
+             1, 0, x^98, 0, x^122,
+             1, x^80, 0, x^119, 0,
+             0, 1, x^5, 0, x^106])
+        b = R(1 + x + x^7)
+        Q = LiftedProductCode(A, b)
+        @test length(Q) == 1270
+        @test dimension(Q) == 28
     end
 
-    # @testset "HypergraphProductCode" begin
-        # # HGP codes are (l, q)-QLDPC code
-        # l, q = columnrowweights(Sq2)
+    @testset "HypergraphProductCode" begin
+        # HGP codes are (l, q)-QLDPC code
+        # l, q = column_row_weights(Sq2)
 
-        # # single code HGP tests
-        # # length C.n^2 + (n^T)^2
-        # # dimension C.k^2 + (k^T)^2,
-        # # minimum distance min(d, d^T)
-        # # stabilizers have row weights of the form i + j, where i and j are the
-        # # row and column weights of the H, respecitvely
+        # single code HGP tests
+        # length C.n^2 + (n^T)^2
+        # dimension C.k^2 + (k^T)^2,
+        # minimum distance min(d, d^T)
+        # stabilizers have row weights of the form i + j, where i and j are the
+        # row and column weights of the H, respecitvely
 
-        # # two code HGP tests
-        # # [[(C1.n)^2 + (C2^T.n)^2, (C1.k)^2 + (C2^T.k)^2, min(d, d^T)]]
-        # # dX = min(d^T_1, d_2), dZ = min(d1, d^T_2), d = min(dX, dZ)
+        # two code HGP tests
+        # [[(C1.n)^2 + (C2^T.n)^2, (C1.k)^2 + (C2^T.k)^2, min(d, d^T)]]
+        # dX = min(d^T_1, d_2), dZ = min(d1, d^T_2), d = min(dX, dZ)
 
-        # # GeneralizedShorCode
-        # # [[n1 * n2, k1 * k2, min(d1, d2)]]
+        # GeneralizedShorCode
+        # [[n1 * n2, k1 * k2, min(d1, d2)]]
 
-        # # Quintavalle_basis
-        # Fone = F(1)
-        # for r in 2:4
-        #     C = HammingCode(2, r)
-        #     F = C.F
-        #     Fone = F(1)
-        #     H = parity_check_matrix(C)
-        #     nr_H = nrows(H)
+        # Degenerate Quantum LDPC Codes With Good Finite Length Performance
+        # # Example C1
+        # l = 63
+        # R = ResidueRing(S, x^l - 1)
+        # h = R(1 + x^3 + x^34 + x^41 + x^57)
+        # A = residue_polynomial_to_circulant_matrix(h)
+        # Q = HypergraphProductCode(A, A)
+        # @test length(Q) == 7938
+        # @test dimension(Q) == 578
+        # takes awhile to run
 
-        #     # Add some degerate rows so the dual code has k > 0
-        #     rand1 = rand(1:nr_H)
-        #     rand2 = rand(1:nr_H)
-        #     rand3 = rand(1:nr_H)
-        #     rand4 = rand(1:nr_H)
-        #     H = vcat(H, H[rand1:rand1, :] + H[rand2:rand2, :],
-        #              H[rand3:rand3, :] + H[rand4:rand4, :])
-        #     HGP = HypergraphProductCode(LinearCode(H, true))
+        # Example C2
+        F = Oscar.Nemo.Native.GF(2)
+        S, x = polynomial_ring(F, :x)
+        l = 31
+        R = ResidueRing(S, x^l - 1)
+        h = R(1 + x^2 + x^5)
+        A = residue_polynomial_to_circulant_matrix(h)
+        Q = HypergraphProductCode(A, A)
+        @test length(Q) == 1922
+        @test dimension(Q) == 50
+        # [[1922, 50]]_2 subsystem code
 
-        #     lx, lz = Quintavalle_basis(HGP)
-        #     # Check the logical operators commute with the stabilizers
-        #     @test iszero(HGP.X_stabs * transpose(lz))
-        #     @test iszero(HGP.Z_stabs * transpose(lx))
+        # Quintavalle_basis
+        Fone = F(1)
+        for r in 2:4
+            C = HammingCode(2, r)
+            Fone = F(1)
+            H = parity_check_matrix(C)
+            nr_H = nrows(H)
 
-        #     # Overlap should be zero in all cases except i == ii
-        #     zero_sum_flag = true
-        #     one_sum_flag = true
-        #     count_zero_flag = true
-        #     count_one_flag = true
-        #     for i in 1:nrows(lx)
-        #         for ii in 1:nrows(lz)
-        #             if i != ii
-        #                 iszero(sum(lx[i:i, :] .* lz[ii:ii, :])) || (zero_sum_flag = false)
-        #                 iszero(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_zero_flag = false;)
-        #             else
-        #                 isone(sum(lx[i:i, :] .* lz[ii:ii, :])) || (one_sum_flag = false;)
-        #                 isone(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_one_flag = false;)
-        #             end
-        #         end
-        #     end
-        #     @test zero_sum_flag
-        #     @test one_sum_flag
-        #     @test count_zero_flag
-        #     @test count_one_flag
+            # Add some degerate rows so the dual code has k > 0
+            rand1 = rand(1:nr_H)
+            rand2 = rand(1:nr_H)
+            rand3 = rand(1:nr_H)
+            rand4 = rand(1:nr_H)
+            H = vcat(H, H[rand1:rand1, :] + H[rand2:rand2, :],
+                     H[rand3:rand3, :] + H[rand4:rand4, :])
+            HGP = HypergraphProductCode(LinearCode(H, true))
 
-        #     # Check the logical operators have weight >= code distance
-              # weight_flag = true
-              # for i in 1:HGP.k
-              #    (wt(lx[i:i, :]) < HGP.d || wt(lz[i:i, :]) < HGP.d) && (weight_flag = false;)
-              # end
-              # @test weight_flag
-        # end
+            lx, lz = Quintavalle_basis(HGP)
+            # Check the logical operators commute with the stabilizers
+            @test iszero(HGP.X_stabs * transpose(lz))
+            @test iszero(HGP.Z_stabs * transpose(lx))
 
-        # H1 = parity_check_matrix(HammingCode(2, 2))
-        # H2 = parity_check_matrix(HammingCode(2, 3))
-        # H1 = vcat(H1, H1[1:1, :] + H1[2:2, :])
-        # H2 = vcat(H2, H2[1:1, :] + H2[2:2, :])
-        # HGP = HypergraphProductCode(LinearCode(H1, true), LinearCode(H2, true))
+            # Overlap should be zero in all cases except i == ii
+            zero_sum_flag = true
+            one_sum_flag = true
+            count_zero_flag = true
+            count_one_flag = true
+            for i in 1:nrows(lx)
+                for ii in 1:nrows(lz)
+                    if i != ii
+                        iszero(sum(lx[i:i, :] .* lz[ii:ii, :])) || (zero_sum_flag = false)
+                        iszero(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_zero_flag = false;)
+                    else
+                        isone(sum(lx[i:i, :] .* lz[ii:ii, :])) || (one_sum_flag = false;)
+                        isone(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_one_flag = false;)
+                    end
+                end
+            end
+            @test zero_sum_flag
+            @test one_sum_flag
+            @test count_zero_flag
+            @test count_one_flag
 
-        # lx, lz = Quintavalle_basis(HGP)
+            # Check the logical operators have weight >= code distance
+              weight_flag = true
+              for i in 1:HGP.k
+                 (wt(lx[i:i, :]) < HGP.d || wt(lz[i:i, :]) < HGP.d) && (weight_flag = false;)
+              end
+              @test weight_flag
+        end
+
+        H1 = parity_check_matrix(HammingCode(2, 2))
+        H2 = parity_check_matrix(HammingCode(2, 3))
+        H1 = vcat(H1, H1[1:1, :] + H1[2:2, :])
+        H2 = vcat(H2, H2[1:1, :] + H2[2:2, :])
+        HGP = HypergraphProductCode(LinearCode(H1, true), LinearCode(H2, true))
+
+        lx, lz = Quintavalle_basis(HGP)
         # Check the logical operators commute with the stabilizers
-        # @test iszero(HGP.X_stabs * transpose(lz))
-        # @test iszero(HGP.Z_stabs * transpose(lx))
+        @test iszero(HGP.X_stabs * transpose(lz))
+        @test iszero(HGP.Z_stabs * transpose(lx))
 
         # Overlap should be zero in all cases except i == ii
-        # zero_sum_flag = true
-        # one_sum_flag = true
-        # count_zero_flag = true
-        # count_one_flag = true
-        # for i in 1:nrows(lx)
-        #     for ii in 1:nrows(lz)
-        #         if i != ii
-        #             iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
-        #             iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false)
-        #         else
-        #             isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false)
-        #             isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false)
-        #         end
-        #     end
-        # end
-        # @test zero_sum_flag
-        # @test one_sum_flag
-        # @test count_zero_flag
-        # @test count_one_flag
+        zero_sum_flag = true
+        one_sum_flag = true
+        count_zero_flag = true
+        count_one_flag = true
+        for i in 1:nrows(lx)
+            for ii in 1:nrows(lz)
+                if i != ii
+                    iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
+                    iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false)
+                else
+                    isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false)
+                    isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false)
+                end
+            end
+        end
+        @test zero_sum_flag
+        @test one_sum_flag
+        @test count_zero_flag
+        @test count_one_flag
 
-        # # Check the logical operators have weight >= code distance
-        # weight_flag = true
-        # for i in 1:HGP.k
-        #     (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
-        # end
-        # @test weight_flag
+        # Check the logical operators have weight >= code distance
+        weight_flag = true
+        for i in 1:HGP.k
+            (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
+        end
+        @test weight_flag
 
-        # # [[400,16,6]] code from Table 1 of https://doi.org/10.1103/PhysRevResearch.2.043423
-        # H = matrix(
-        #         Oscar.Nemo.Native.GF(2),
-        #         [
-        #                 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0;
-        #                 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0;
-        #                 0 0 0 1 1 0 1 0 0 0 0 0 0 1 0 0;
-        #                 0 0 0 0 0 1 0 0 1 1 0 0 0 0 0 1;
-        #                 0 1 0 0 0 0 0 1 1 0 0 1 0 0 0 0;
-        #                 0 0 0 0 0 0 0 0 1 0 0 0 1 1 1 0;
-        #                 1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 1;
-        #                 0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 0;
-        #                 0 0 1 1 0 0 0 0 0 0 0 1 0 0 0 1;
-        #                 0 0 0 0 1 0 0 0 0 1 1 1 0 0 0 0;
-        #                 0 1 0 0 0 0 1 0 0 0 1 0 0 0 1 0;
-        #                 1 0 1 0 0 0 0 0 0 1 0 0 0 0 1 0
-        #         ]
-        # )
-        # HGP = HypergraphProductCode(LinearCode(H, true))
+        # [[400,16,6]] code from Table 1 of https://doi.org/10.1103/PhysRevResearch.2.043423
+        H = matrix(F, 12, 16, 
+            [1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0;
+             0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0;
+             0 0 0 1 1 0 1 0 0 0 0 0 0 1 0 0;
+             0 0 0 0 0 1 0 0 1 1 0 0 0 0 0 1;
+             0 1 0 0 0 0 0 1 1 0 0 1 0 0 0 0;
+             0 0 0 0 0 0 0 0 1 0 0 0 1 1 1 0;
+             1 0 0 0 0 0 0 1 0 0 0 0 0 1 0 1;
+             0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 0;
+             0 0 1 1 0 0 0 0 0 0 0 1 0 0 0 1;
+             0 0 0 0 1 0 0 0 0 1 1 1 0 0 0 0;
+             0 1 0 0 0 0 1 0 0 0 1 0 0 0 1 0;
+             1 0 1 0 0 0 0 0 0 1 0 0 0 0 1 0])
+        HGP = HypergraphProductCode(LinearCode(H, true))
 
-        # lx, lz = Quintavalle_basis(HGP)
-        # # Check the logical operators commute with the stabilizers
-        # @test iszero(HGP.X_stabs * transpose(lz))
-        # @test iszero(HGP.Z_stabs * transpose(lx))
+        lx, lz = Quintavalle_basis(HGP)
+        # Check the logical operators commute with the stabilizers
+        @test iszero(HGP.X_stabs * transpose(lz))
+        @test iszero(HGP.Z_stabs * transpose(lx))
 
-        # # Overlap should be zero in all cases except i == ii
-        # zero_sum_flag = true
-        # one_sum_flag = true
-        # count_zero_flag = true
-        # count_one_flag = true
-        # for i in 1:nrows(lx)
-        #     for ii in 1:nrows(lz)
-        #         if i != ii
-        #             iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
-        #             iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false)
-        #         else
-        #             isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false)
-        #             isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false)
-        #         end
-        #     end
-        # end
-        # @test zero_sum_flag
-        # @test one_sum_flag
-        # @test count_zero_flag
-        # @test count_one_flag
+        # Overlap should be zero in all cases except i == ii
+        zero_sum_flag = true
+        one_sum_flag = true
+        count_zero_flag = true
+        count_one_flag = true
+        for i in 1:nrows(lx)
+            for ii in 1:nrows(lz)
+                if i != ii
+                    iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
+                    iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false)
+                else
+                    isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false)
+                    isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false)
+                end
+            end
+        end
+        @test zero_sum_flag
+        @test one_sum_flag
+        @test count_zero_flag
+        @test count_one_flag
 
-        # # Check the logical operators have weight >= code distance
-        # weight_flag = true
-        # for i in 1:HGP.k
-        #     (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
-        # end
-        # @test weight_flag
+        # Check the logical operators have weight >= code distance
+        weight_flag = true
+        for i in 1:HGP.k
+            (wt(lx[i, :]) < HGP.d || wt(lz[i, :]) < HGP.d) && (weight_flag = false)
+        end
+        @test weight_flag
 
-        # # product codes
-        # F = Oscar.Nemo.Native.GF(2)
-        # h = matrix(F, [1 1])
-        # id = identity_matrix(F, 2)
-        # H_X = vcat(
-        #     h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id,
-        #     id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id,
-        #     id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h)
-        # H_Z = vcat(
-        #     h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
-        #     id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
-        #     id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h)
-        # SPCtest = CodingTheory.SPCDFoldProductCode(3)
-        # @test length(SPCtest) == 512
-        # @test dimension(SPCtest) == 174
-        # @test H_X == SPCtest.X_stabs
-        # @test H_Z == SPCtest.Z_stabs
-    # end
+        # TODO codes from "LRESC" paper, make tests (long range _ surface code?)
+        # # the dual of any [3, 2, 2] code is a [3, 1, 3] repetition code
+        # # but we'll build this the GAP way anyway
+        # C_GAP = GAP.Globals.BestKnownLinearCode(3, 2, GAP.Globals.GF(2));
+        # G = GAP.Globals.GeneratorMat(C_GAP);
+        # y = [GAP.Globals.Int(G[i, j]) for i in 1:2, j in 1:3];
+        # C32 = LinearCode(y, 2);
+        # R4 = RepetitionCode(2, 4);
+        # seed1 = concatenate(C32, R4)
+        # LRESC1 = HypergraphProductCode(parity_check_matrix(seed1), parity_check_matrix(seed1))
 
-    @testset "BivariateBicycle Code" begin
+        # # unclear as to which [6, 2, 4] code they used here
+        # C_GAP = GAP.Globals.BestKnownLinearCode(6, 2, GAP.Globals.GF(2));
+        # G = GAP.Globals.GeneratorMat(C_GAP);
+        # y = [GAP.Globals.Int(G[i, j]) for i in 1:2, j in 1:6];
+        # C62 = LinearCode(y, 2)
+        # R2 = RepetitionCode(2, 2);
+        # seed2 = concatenate(C62, R2)
+        # LRESC2 = HypergraphProductCode(parity_check_matrix(seed2), parity_check_matrix(seed2))
+
+        # # they either could have used this code or the extended Hamming code below
+        # C_GAP = GAP.Globals.BestKnownLinearCode(8, 4, GAP.Globals.GF(2));
+        # G = GAP.Globals.GeneratorMat(C_GAP);
+        # y = [GAP.Globals.Int(G[i, j]) for i in 1:4, j in 1:8];
+        # C84 = LinearCode(y, 2)
+        # R3 = RepetitionCode(2, 3);
+        # seed3 = concatenate(C84, R3)
+        # LRESC3 = HypergraphProductCode(parity_check_matrix(seed3), parity_check_matrix(seed3))
+
+        # ext_Ham = extend(HammingCode(2, 3))
+        # seed3_alt = concatenate(ext_Ham, R3)
+        # LRESC3_alt = HypergraphProductCode(parity_check_matrix(seed3_alt), parity_check_matrix(seed3_alt))
+
+        # julia> are_permutation_equivalent(C84, ext_Ham)
+        # (false, missing)
+    end
+
+    @testset "Product Codes" begin
+        # should list that paper here
+        F = Oscar.Nemo.Native.GF(2)
+        h = matrix(F, [1 1])
+        id = identity_matrix(F, 2)
+        H_X = vcat(
+            h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id,
+            id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id,
+            id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h)
+        H_Z = vcat(
+            h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
+            id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
+            id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h)
+        SPCtest = CodingTheory.SPCDFoldProductCode(3)
+        @test length(SPCtest) == 512
+        @test dimension(SPCtest) == 174
+        @test H_X == SPCtest.X_stabs
+        @test H_Z == SPCtest.Z_stabs
+    end
+
+    @testset "BivariateBicycleCode" begin
         # bivariate bicycle codes
         S, (x, y) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:x, :y])
 
@@ -382,5 +551,57 @@
         @test length(Q) == 180
         @test dimension(Q) == 8
         @test_broken minimum_distance(S) == 16
+    end
+
+    @testset "HyperBicycleCode" begin
+        # Quantum ``hyperbicycle'' low-density parity check codes with finite rate
+        
+        # Odd-distance rotated CSS toric codes
+        # f1 = 1 + x^(2 * t^2 + 1)
+        # f2 = x * (1 + x^(2 * t^2 - 1))
+        # t - # errors
+        # [[2t^2 + 2(t + 1)^2, 2, 2t + 1]]
+        # [[10, 2, 3]]
+        # [[26, 2, 5]]
+        # [[50, 2, 7]]
+        # [[82, 2, 9]]
+        # ...
+
+        # Figure 2
+        F = Oscar.Nemo.Native.GF(2)
+        S, x = polynomial_ring(F, :x)
+        l = 21
+        R = ResidueRing(S, x^l - 1)
+        h = R(1 + x + x^3)
+        A = residue_polynomial_to_circulant_matrix(h)
+        a1 = A[1:7, 1:7]
+        a2 = A[1:7, 8:14]
+        a3 = A[1:7, 15:21]
+        χ = 1
+        Q = HyperBicycleCodeCSS([a1, a2, a3], [a1, a2, a3], χ)
+        @test length(Q) == 294
+        @test dimension(Q) == 18
+
+        # Example 6
+        l = 30
+        R = ResidueRing(S, x^l - 1)
+        h = R(1 + x + x^3 + x^5)
+        A = residue_polynomial_to_circulant_matrix(h)
+        a1 = A[1:15, 1:15]
+        a2 = A[1:15, 16:30]
+        χ = 1
+        Q = HyperBicycleCodeCSS([a1, a2], [a1, a2], χ)
+        @test length(Q) == 900
+        @test dimension(Q) == 50
+
+        # Example 13
+        l = 17
+        R = ResidueRing(S, x^l - 1)
+        h = R(x^(div(17 - 9, 2)) * (1 + x + x^3 + x^6 + x^8 + x^9))
+        A = residue_polynomial_to_circulant_matrix(h)
+        χ = 1
+        Q = HyperBicycleCode([A], [A], χ)
+        @test length(Q) == 289
+        @test dimension(Q) == 81
     end
 end
