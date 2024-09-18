@@ -286,26 +286,10 @@ end
 _Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
     Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
 
-_Flint_matrix_element_to_Julia_int(x::FqMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
-    Oscar.Nemo.libflint), Int, (Ref{FqMatrix}, Int, Int), x, i - 1 , j - 1)
-
 _Flint_matrix_to_Julia_int_matrix(A) = [ _Flint_matrix_element_to_Julia_int(A, i, j) for i in
     1:nrows(A), j in 1:ncols(A)]
 
-# function _Flint_matrix_to_Julia_int_vector(A)
-#     # (nr == 1 || nc == 1) || throw(ArgumentError("Cannot cast matrix to vector"))
-#     return _Flint_matrix_element_to_Julia_int(A, 1, 1)
-# end
 _Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
-
-_Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
-    Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
-
-_Flint_matrix_element_to_Julia_int(x::FqMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
-    Oscar.Nemo.libflint), Int, (Ref{FqMatrix}, Int, Int), x, i - 1 , j - 1)
-
-_Flint_matrix_to_Julia_int_matrix(A) = [ _Flint_matrix_element_to_Julia_int(A, i, j) for i in
-    1:nrows(A), j in 1:ncols(A)]
 
 function _Flint_matrix_to_Julia_bit_matrix(A::CTMatrixTypes)
     order(base_ring(A)) == 2 || throw(DomainError(A, "Only works for binary matrices"))
@@ -1147,6 +1131,24 @@ function load_alist(file::String)
     end
     return mat
 end
+
+# TODO polish this and add/export
+# function save_mtx(h, path, info)
+#     m, n = size(h)
+#     num_nonzero = sum(count(!=(0), h, dims=2))
+#     open(path, "w") do io
+#         write(io, "%%MatrixMarket matrix coordinate integer general\n")
+#         write(io, "%%$(info)")
+#         write(io, "\n$m $n $(num_nonzero)\n")
+#         for i in 1:m
+#             for j in 1:n
+#                 if h[i, j] == 1
+#                     write(io, "$i $j 1\n")
+#                 end
+#             end
+#         end
+#     end
+# end
 
 #############################
   # Quantum Helper Functions
