@@ -550,58 +550,61 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 180
         @test dimension(Q) == 8
-        @test_broken minimum_distance(S) == 16
-    end
 
-    @testset "HyperBicycleCode" begin
-        # Quantum ``hyperbicycle'' low-density parity check codes with finite rate
-        
-        # Odd-distance rotated CSS toric codes
-        # f1 = 1 + x^(2 * t^2 + 1)
-        # f2 = x * (1 + x^(2 * t^2 - 1))
-        # t - # errors
-        # [[2t^2 + 2(t + 1)^2, 2, 2t + 1]]
-        # [[10, 2, 3]]
-        # [[26, 2, 5]]
-        # [[50, 2, 7]]
-        # [[82, 2, 9]]
-        # ...
+        # Table 1 of https://arxiv.org/pdf/2404.17676
+        # [[72, 8, 6]]
+        l = 12
+        m = 3
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^9 + y^1 + y^2)
+        b = R(1 + x^1 + x^11)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 72
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 6
 
-        # Figure 2
-        F = Oscar.Nemo.Native.GF(2)
-        S, x = polynomial_ring(F, :x)
-        l = 21
-        R = ResidueRing(S, x^l - 1)
-        h = R(1 + x + x^3)
-        A = residue_polynomial_to_circulant_matrix(h)
-        a1 = A[1:7, 1:7]
-        a2 = A[1:7, 8:14]
-        a3 = A[1:7, 15:21]
-        χ = 1
-        Q = HyperBicycleCodeCSS([a1, a2, a3], [a1, a2, a3], χ)
-        @test length(Q) == 294
-        @test dimension(Q) == 18
+        # [[90, 8, 6]]
+        l = 9
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^8 + y^4 + y^1)
+        b = R(y^5 + x^8 + x^7)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 90
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 6
 
-        # Example 6
-        l = 30
-        R = ResidueRing(S, x^l - 1)
-        h = R(1 + x + x^3 + x^5)
-        A = residue_polynomial_to_circulant_matrix(h)
-        a1 = A[1:15, 1:15]
-        a2 = A[1:15, 16:30]
-        χ = 1
-        Q = HyperBicycleCodeCSS([a1, a2], [a1, a2], χ)
-        @test length(Q) == 900
-        @test dimension(Q) == 50
+        # [[120, 8, 8]]
+        l = 12
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^10 + y^4 + y^1)
+        b = R(1 + x^1 + x^2)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 120
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 8
 
-        # Example 13
-        l = 17
-        R = ResidueRing(S, x^l - 1)
-        h = R(x^(div(17 - 9, 2)) * (1 + x + x^3 + x^6 + x^8 + x^9))
-        A = residue_polynomial_to_circulant_matrix(h)
-        χ = 1
-        Q = HyperBicycleCode([A], [A], χ)
-        @test length(Q) == 289
-        @test dimension(Q) == 81
+        # [[150, 8, 8]]
+        l = 15
+        m = 5
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^5 + y^2 + y^3)
+        b = R(y^2 + x^7 + x^6)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 150
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 8
+
+        # [[196, 12, 8]]
+        l = 14
+        m = 7
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^6 + y^5 + y^6)
+        b = R(1 + x^4 + x^13)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 196
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(S) == 8
     end
 end
