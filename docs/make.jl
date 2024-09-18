@@ -1,6 +1,6 @@
 using DocumenterCitations, Documenter, CodingTheory
 
-bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style = :numeric)
+bib = CitationBibliography(joinpath(@__DIR__, "src", "references.bib"); style = :numeric)
 
 Documenter.makedocs(;
 	plugins=[bib],
