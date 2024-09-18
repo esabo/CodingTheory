@@ -1,5 +1,5 @@
 * `char_vec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `chracteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
+  `characteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
   specify the exponents of the `X` phases and second `n` the exponents of the
   `Z` phases; a missing argument will be set to the all-zero vector
 
