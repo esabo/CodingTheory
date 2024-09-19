@@ -396,6 +396,19 @@ end
 #############################
      # general functions
 #############################
+function information_set(C::AbstractLinearCode)
+    """
+    Returns the indexs of the pivot columns and an information set which 
+    is the submatrix of G given by these columns.
+    """
+    if C.G == C.G_stand
+        pivot_inds=[x for x ∈ 1:C.n]
+    else
+        nonpivot_inds = _non_pivot_cols(C.G, :nsp) 
+        pivot_inds = [x for x ∈ 1:C.n if x ∉ nonpivot_inds]
+    end
+    return pivot_inds, C.G[:, pivot_inds]
+end
 
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))

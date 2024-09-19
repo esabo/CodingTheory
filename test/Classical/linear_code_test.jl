@@ -51,6 +51,30 @@
         C_G_and_G = LinearCode(G);
         @test rank(G_and_G) == dimension(C_G_and_G)
         @test G == generator_matrix(C_G_and_G)
+
+        # information set tests:
+        F = Oscar.Nemo.Native.GF(2)
+
+        # a code with G in standard form 
+        Gstd = matrix(F, [1 0; 0 1])
+        Cstd = LinearCode(Gstd);
+        pivs, info_mat=information_set(Cstd)
+        @test pivs==[1,2]
+        @test info_mat==identity_matrix(F, 2)
+
+        # a code with nontrivial pivots:
+        G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
+        C = LinearCode(G);
+        pivs, info_mat=information_set(C)
+        @test pivs==[1,3]
+        @test info_mat==identity_matrix(F, 2)
+
+        # a code with non-identity information set
+        C_ham = HammingCode(2, 3)
+        pivs, info_mat=information_set(C_ham)
+        expected_info_mat=matrix(F, [1 0 0 0; 1 1 0 0; 0 1 1 0; 1 1 0 1])
+        @test pivs==[1, 4, 6, 7]
+        @test info_mat==expected_info_mat
     end
 
     @testset "Puncturing examples" begin
