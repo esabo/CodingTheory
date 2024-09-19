@@ -177,6 +177,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
                 stabs_stand, stand_r, stand_k, P_stand, missing)
         else
             # bare
+            # TODO use ! versions throughout after vcats
             _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
             anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
             u_bound_bare, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))

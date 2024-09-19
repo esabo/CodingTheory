@@ -865,12 +865,15 @@ end
 Return the `[[144, 12, 12]]` gross code.
 """
 function GrossCode()
+    S, (x, y) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:x, :y])
     l = 12
     m = 6
     R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
     a = R(x^3 + y + y^2)
     b = R(y^3 + x + x^2)
-    return BivariateBicycleCode(a, b)
+    S = BivariateBicycleCode(a, b)
+    # set_minimum_distance!(S, 12)
+    return S
 end
 
 #############################

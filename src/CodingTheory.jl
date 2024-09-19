@@ -70,7 +70,8 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
 # misc
-export LogicalTrait, GaugeTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges, copy, ChainComplex
+export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
+    IsCSS, IsNotCSS, copy, ChainComplex
 
 #############################
          # utils.jl
@@ -360,8 +361,8 @@ export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
 include("Quantum/weight_dist.jl")
 # export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
 #     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
-export minimum_distance_upper_bound!
-export QDistRndCSS
+export minimum_distance_upper_bound!, random_information_set_minimum_distance_bound!,
+    QDistRand
 
 #############################
 #  Quantum/product_codes.jl
