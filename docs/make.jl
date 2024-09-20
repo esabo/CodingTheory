@@ -11,7 +11,7 @@ Documenter.makedocs(;
 	highlightsig = true,
 	sitename = "Coding Theory Documentation",
 	expandfirst = [],
-	checkdocs = :none,
+	warnonly = [:missing_docs],
     pages = ["Introduction" => "index.md",
 		"Tutorials" => [
 			"Tutorials/Linear Codes.md",
