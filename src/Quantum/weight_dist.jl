@@ -981,9 +981,10 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
     uppers = [curr_u_bound for _ in 1:num_thrds]
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
+    remaining = max_iters - thread_load * num_thrds
     Threads.@threads for t in 1:num_thrds
         log_test = zeros(Int, size(operators_to_reduce, 1), size(check_against, 2))
-        for _ in 1:thread_load
+        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
             if flag[]
                 perm = shuffle(1:n)
                 perm2 = [perm; perm .+ n]
@@ -1016,45 +1017,5 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
         end
     end
 
-    # finish up the final couple
-    remaining = max_iters - thread_load * num_thrds
-    if !iszero(remaining)
-        upper_temp = n
-        found_temp::Vector{Int}
-        flag = true
-        log_test = zeros(Int, size(check_against, 2))
-        for _ in 1:remaining
-            if flag
-                perm = shuffle(1:n)
-                perm2 = [perm; perm .+ n]
-                perm_ops = operators_to_reduce[:, perm2]
-                _rref_no_col_swap_binary!(perm_ops)
-                ops = perm_ops[:, invperm(perm2)]
-                LinearAlgebra.mul!(log_test, ops, check_against)
-                for i in axes(log_test, 1)
-                    # then ops[i, :] is a logical
-                    if any(isodd, log_test[i, :])
-                        w = 0
-                        @inbounds for j in 1:n
-                            (isodd(ops[i, j]) || isodd(ops[i, j + n])) && (w += 1;)
-                        end
-                        
-                        if upper_temp > w
-                            upper_temp = w
-                            found_temp .= ops[i, :]
-                            verbose && println("Adjusting (thread's local) upper bound: $w")
-                            if curr_l_bound == w
-                                verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
-                                flag = false
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return [uppers; upper_temp], [founds; found_temp]
-    else
-        return uppers, founds
-    end
+    return uppers, founds
 end
