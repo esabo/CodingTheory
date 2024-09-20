@@ -9,7 +9,7 @@
 
 Return the graph state defined by the graph `G`.
 """
-function GraphState(G::SimpleGraph{Int64})
+function GraphState(G::SimpleGraph{Int})
     # probably need some checks on G here but maybe the function args are good enough
     A = adjacency_matrix(G)
     _, nc = size(A)
@@ -17,7 +17,7 @@ function GraphState(G::SimpleGraph{Int64})
         iszero(A[i, i]) || throw(ArgumentError("Graph cannot have self-loops."))
     end
     # are there non-binary graph states?
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     Fone = F(1)
     sym_stabs = zero_matrix(F, nc, 2 * nc)
     for r in 1:nc
@@ -38,6 +38,7 @@ Return the cluster state (graph state) on the rectangular lattice with width `w`
 function ClusterState(w::Int, h::Int)
     (0 <= w && 0 <= h) || throw(ArgumentError("Rectangle dimensions must be positive."))
 
+    # BUG this function has never been updated from the quadratic form
     E = GF(2, 2, :ω)
     ω = gen(E)
     Eone = E(1)

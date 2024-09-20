@@ -595,6 +595,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false
 
                             if uppers[m] > w
                                 uppers[m] = w
+                                # TODO maybe so .= here
                                 founds[m] = c
                                 perms[m] = i
                                 # verbose && println("Adjusting upper bound: $upperlocal")
