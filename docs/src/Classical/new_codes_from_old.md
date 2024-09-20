@@ -23,13 +23,25 @@ construction_X3
 
 The direct sum code has generator matrix `G1 ⊕ G2` and parity-check matrix `H1 ⊕ H2`.
 
+```@docs
+⊕
+```
+
 The generator matrix of the (direct) product code is the kronecker product of the generator matrices of the inputs.
+
+```@docs
+×
+```
 
 The parity-check matrix of the tensor product code is the kronecker product of the parity-check matrices of the inputs.
 
 There is some debate on how to define this product. This is known to often be the full ambient space.
 ```@docs
 entrywise_product_code
+```
+
+```@docs
+/
 ```
 
 `juxtaposition` is representation dependent and therefore works on the potentially over-complete generator matrices, not on the standard form.
