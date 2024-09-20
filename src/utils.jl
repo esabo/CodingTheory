@@ -127,8 +127,8 @@ end
 weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
-# TODO polish and export
-function row_wts_symplectic(A::CTMatrixTypes)
+# TODO polish and export?
+function row_wts_symplectic(A::Union{CTMatrixTypes, Matrix{<: Integer}, Matrix{Bool}})
     nc = size(A, 2)
     iseven(nc) || throw(ArgumentError("Input does not have even length"))
     n = div(nc, 2)
@@ -311,11 +311,12 @@ end
 # end
 _Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
 
-function _non_pivot_cols(A::CTMatrixTypes, type::Symbol=:nsp)
-    type ∈ [:sp, :nsp]
+function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
+    type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
+
     if type == :sp
         return setdiff(collect(1:ncols(A)), [x.pos[1] for x in A])
-    else #if type == :nsp - not sparse
+    else
         nonpivots = Vector{Int}()
         i = 1
         j = 1
@@ -391,7 +392,9 @@ end
 #     return maxlen
 # end
 
-function _remove_empty(A::Union{CTMatrixTypes, Matrix{<:Number}, BitMatrix}, type::Symbol)
+function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
+    type::Symbol)
+    
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
     
     del = Vector{Int}()
@@ -430,12 +433,12 @@ end
 _rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_no_col_swap(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRange{Int} = 1:size(A, 1),
-        col_range::UnitRange{Int} = 1:size(A, 2))
+function _rref_no_col_swap(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+    row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
 
     B = copy(A)
     _rref_no_col_swap!(B, row_range, col_range)
-    B
+    return B
 end
 
 function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
@@ -519,8 +522,8 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_ran
     return nothing
 end
 
-function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRange{Int} = 1:size(A, 1),
-        col_range::UnitRange{Int} = 1:size(A, 2))
+function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+    row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
 
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
@@ -532,7 +535,7 @@ function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRa
         # find first pivot
         ind = 0
         for k in i:nr
-            if A[k, j]
+            if !iszero(A[k, j])
                 ind = k
                 break
             end
@@ -547,10 +550,11 @@ function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRa
             # eliminate
             for k in row_range
                 if k != i
-                    if A[k, j]
+                    if !iszero(A[k, j])
                         # do a manual loop here to reduce allocations
                         @simd for l in axes(A, 2)
-                            A[k, l] ⊻= A[i, l]
+                            # A[k, l] ⊻= A[i, l]
+                            A[k, l] = (A[k, l] + A[i, l]) % 2
                         end
                     end
                 end
