@@ -51,7 +51,7 @@ juxtaposition
 
 ## Methods
 
-If `C` is a quasi-cyclic code, `permute_code` returns a `LinearCode` object.
+If `C` is a quasi-cyclic code, `permute_code` returns a `LinearCode` object. See: `permute_code`
 
 The most common way to extend a code is to add an extra column to the generator matrix whose values make the sum of the rows zero. This is called an even extension and is the default for `extend(C)`. Alternatively, this new column may be inserted at any index `c` in the matrix, e.g. `extend(C, c)`. In the most general case, one may provide a vector `a` and define the values of the new column to be `-a` dot the row. The standard definition is clearly just the special case that `a` is the all-ones vector.
 ```@docs

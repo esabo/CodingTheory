@@ -38,6 +38,8 @@ multiplicative_gap_lower_bound
 density_lower_bound
 ```
 
+See also: `plot_EXIT_chart`, `multiplicative_gap`
+
 ## Comments
 
 (these are just temporary notes)
