@@ -22,27 +22,14 @@ construction_X3
 ```
 
 The direct sum code has generator matrix `G1 ⊕ G2` and parity-check matrix `H1 ⊕ H2`.
-```@docs
-CodingTheory.⊕
-```
 
 The generator matrix of the (direct) product code is the kronecker product of the generator matrices of the inputs.
-```@docs
-CodingTheory.×
-```
 
 The parity-check matrix of the tensor product code is the kronecker product of the parity-check matrices of the inputs.
-```@docs
-CodingTheory.⊗
-```
 
 There is some debate on how to define this product. This is known to often be the full ambient space.
 ```@docs
 entrywise_product_code
-```
-
-```@docs
-CodingTheory./
 ```
 
 `juxtaposition` is representation dependent and therefore works on the potentially over-complete generator matrices, not on the standard form.
@@ -53,9 +40,6 @@ juxtaposition
 ## Methods
 
 If `C` is a quasi-cyclic code, `permute_code` returns a `LinearCode` object.
-```@docs
-permute_code
-```
 
 The most common way to extend a code is to add an extra column to the generator matrix whose values make the sum of the rows zero. This is called an even extension and is the default for `extend(C)`. Alternatively, this new column may be inserted at any index `c` in the matrix, e.g. `extend(C, c)`. In the most general case, one may provide a vector `a` and define the values of the new column to be `-a` dot the row. The standard definition is clearly just the special case that `a` is the all-ones vector.
 ```@docs

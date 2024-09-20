@@ -79,10 +79,6 @@ set_distance_lower_bound!
 ```
 
 ```@docs
-set_distance_upper_bound!
-```
-
-```@docs
 set_minimum_distance!
 ```
 
@@ -90,10 +86,6 @@ set_minimum_distance!
 
 ```@docs
 Singleton_bound
-```
-
-```@docs
-encode
 ```
 
 ```@docs

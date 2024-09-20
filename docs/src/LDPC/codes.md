@@ -31,14 +31,7 @@ Parity-check matrix: 6 × 9
         1 1 0 0 0 0 1 1 1
 ```
 
-Random regular LDPC codes maybe be constructed via
-```@docs
-regular_LDPC_code
-```
-and irregular LDPC codes via
-```@docs
-irregular_LDPC_code
-```
+Random regular LDPC codes maybe be constructed via `regular_LDPC_code` and `irregular_LDPC_code`
 
 ## Attributes
 The polynomials ``\lambda(x)`` and ``\rho(x)`` as well as the degrees of each variable and check nodes are computed upon construction.
@@ -114,10 +107,6 @@ girth
 To count or explicitly enumerate the short cycles of the Tanner graph, use
 ```@docs
 count_short_cycles
-```
-
-```@docs
-shortest_cycles
 ```
 
 Various information about the ACE values of cycles in the Tanner graph may be computed with the following functions.
