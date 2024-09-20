@@ -817,9 +817,10 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
         mat = _rref_no_col_swap(operators_to_reduce)
-        anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-        found = operators_to_reduce[index, :]
+        anti = mat * check_against .% order(field(S))
+        log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
+        curr_u_bound, index = findmin(row_wts_symplectic(mat[log_locations, :]))
+        found = mat[log_locations[index], :]
         verbose && println("Starting upper bound: $curr_u_bound")
     elseif which == :X
         verbose && println("Bounding the X-distance")
@@ -984,19 +985,21 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
                 perm2 = [perm; perm .+ n]
                 perm_ops = operators_to_reduce[:, perm2]
                 _rref_no_col_swap!(perm_ops)
-                LinearAlgebra.mul!(log_test, perm_ops, check_against[perm2, :])
+                ops = perm_ops[:, invperm(perm2)]
+                LinearAlgebra.mul!(log_test, ops, check_against)
+                log_test .%= 2
                 for i in axes(log_test, 1)
                     # then perm_ops[i, :] is a logical
                     if any(!iszero, log_test[i, :])
                         w = 0
                         @inbounds for j in 1:n
-                            iszero(perm_ops[i, j] % 2) && iszero(perm_ops[i, j + n] % 2) || (w += 1;)
+                            !iszero(ops[i, j] % 2) && !iszero(ops[i, j + n] % 2) || (w += 1;)
                         end
                         
                         if uppers[t] > w
                             uppers[t] = w
                             # maybe use invpermute! here?
-                            founds[t] .= perm_ops[i, invperm(perm2)]
+                            founds[t] .= ops[i, :]
                             verbose && println("Adjusting upper bound: $w")
                             if curr_l_bound == w
                                 verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
@@ -1023,18 +1026,19 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
                 perm2 = [perm; perm .+ n]
                 perm_ops = operators_to_reduce[:, perm2]
                 _rref_no_col_swap!(perm_ops)
-                LinearAlgebra.mul!(log_test, perm_ops, check_against[perm2, :])
+                LinearAlgebra.mul!(log_test, ops, check_against)
+                log_test .%= 2
                 for i in axes(log_test, 1)
                     # then perm_ops[i, :] is a logical
                     if any(!iszero, log_test[i, :])
                         w = 0
                         @inbounds for j in 1:n
-                            iszero(perm_ops[i. j]) && iszero(perm_ops[i, j + n]) || (w += 1;)
+                            !iszero(ops[i, j] % 2) && !iszero(ops[i, j + n] % 2) || (w += 1;)
                         end
                         
                         if upper_temp > w
                             upper_temp = w
-                            found_temp = perm_ops[i, invperm!(perm2)]
+                            found_temp = ops[i, :]
                             verbose && println("Adjusting upper bound: $w")
                             if curr_l_bound == w
                                 verbose && println("Found a logical that matched the lower bound of $curr_l_bound")

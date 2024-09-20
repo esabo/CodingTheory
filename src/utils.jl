@@ -1311,7 +1311,7 @@ end
 function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Char}}
     n = length(str)
     # F = GF(2, 1, :ω)
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     sym = zero_matrix(F, 1, 2 * n)
     for (i, c) in enumerate(str)
         if c == 'X'
