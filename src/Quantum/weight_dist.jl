@@ -637,19 +637,22 @@ is returned, and if `dressed = false` then the bound is for the bare distance. R
 iterations and stops early if a logical of weight `d_lower_bound` is found.
 """
 # here want to branch for graph states
-function random_information_set_minimum_distance_bound(S::T, which::Symbol = :full;
+function random_information_set_minimum_distance_bound!(S::T, which::Symbol = :full;
         dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false) where T <: AbstractSubsystemCode
 
     which ∈ (:full, :X, :Z) || throw(DomainError(which, "Must choose `:full`, `:X` or `:Z`."))
     # order(field(S)) == 2 || throw(DomainError(S, "Currently only implemented for binary codes."))
     is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
 
-    return random_information_set_minimum_distance_bound(GaugeTrait(T), CSSTrait(T),
+    return random_information_set_minimum_distance_bound!(GaugeTrait(T), CSSTrait(T),
         LogicalTrait(T), S, which, dressed, max_iters, verbose)
 end
-QDistRand(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false) where T <: AbstractSubsystemCode = random_information_set_minimum_distance_bound(S, which; dressed = dressed, max_iters = max_iters, verbose = verbose)
+QDistRand!(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000,
+    verbose::Bool = false) where T <: AbstractSubsystemCode =
+    random_information_set_minimum_distance_bound!(S, which; dressed = dressed, max_iters =
+    max_iters, verbose = verbose)
 
-function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::HasLogicals,
+function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::HasLogicals,
     S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
     # this is a CSS subsystem code
 
@@ -752,7 +755,7 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::H
         end
     end
 
-    uppers, founds = _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iterst, n, verbose)
     loc = argmin(uppers)
     if dressed
@@ -775,25 +778,30 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::H
     return uppers[loc], founds[loc]
 end
 
-function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int)
+function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, ::HasLogicals,
+    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
     # CSS stabilizer code
 
+    n = S.n
     if which == :full
         verbose && println("Bounding the full distance")
-        stabs = _remove_empty(_rref_no_col_swap!(_Flint_matrix_to_Julia_T_matrix(
-            stabilizers(S), UInt8)), :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
+        # println(_rref_no_col_swap!(_Flint_matrix_to_Julia_T_matrix(stabilizers(S), Bool)))
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
+        _rref_no_col_swap!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
         operators_to_reduce = vcat(stabs, logs)
         check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-        curr_l_bound = S.l_bound_bare
+        curr_l_bound = S.l_bound
+        verbose && println("Starting lower bound: $curr_l_bound")
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
-        _, mat = _rref_no_col_swap!(operators_to_reduce)
+        mat = _rref_no_col_swap(operators_to_reduce)
         anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
+        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
         found = operators_to_reduce[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
     elseif which == :X
         verbose && println("Bounding the X-distance")
         stabs = _remove_empty(_rref_no_col_swap!(_Flint_matrix_to_Julia_T_matrix(
@@ -801,7 +809,7 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
         logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]), UInt8)
         operators_to_reduce = vcat(stabs, logs)
         check_against = permutedims(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals])[:, [n + 1:2n; 1:n]])
-        curr_l_bound = S.l_bound_dx_bare
+        curr_l_bound = S.l_bound_dx
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
@@ -816,7 +824,7 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
         logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals]), UInt8)
         operators_to_reduce = vcat(stabs, logs)
         check_against = permutedims(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]))
-        curr_l_bound = S.l_bound_dx_bare
+        curr_l_bound = S.l_bound_dx
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
@@ -826,8 +834,8 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
         found = operators_to_reduce[index, :]
     end
 
-    uppers, founds = _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iterst, n, verbose)
+    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+        curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if which == :full
         S.u_bound = uppers[loc]
@@ -839,8 +847,8 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
     return uppers[loc], founds[loc]
 end
 
-function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int)
+function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS, ::HasLogicals,
+    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
     # subsystem code
 
     which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
@@ -859,7 +867,7 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, 
         # so must redo here
         _, mat = _rref_no_col_swap!(operators_to_reduce)
         anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
+        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
         found = operators_to_reduce[index, :]
     else
         verbose && println("Bounding the full bare distance")
@@ -874,11 +882,11 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, 
         # so must redo here
         _, mat = _rref_no_col_swap!(operators_to_reduce)
         anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
+        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
         found = operators_to_reduce[index, :]
     end
 
-    uppers, founds = _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iterst, n, verbose)
     loc = argmin(uppers)
     if dressed
@@ -889,8 +897,8 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, 
     return uppers[loc], founds[loc]
 end
 
-function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int)
+function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCSS, ::HasLogicals,
+    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
     # stabilizer code
 
     which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
@@ -902,6 +910,7 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS
     operators_to_reduce = vcat(stabs, logs)
     check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
     curr_l_bound = S.l_bound
+    verbose && println("Starting lower bound: $curr_l_bound")
 
     # this is done in the constructor but the logical is not stored at the time
     # so must redo here
@@ -909,9 +918,10 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS
     anti = mat * check_against
     curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
     found = operators_to_reduce[index, :]
+    verbose && println("Starting upper bound: $curr_u_bound")
 
-    uppers, founds = _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iterst, n, verbose)
+    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+        curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
     return uppers[loc], founds[loc]
@@ -919,12 +929,12 @@ end
 
 # TODO rewrite all for graph states
 # function random_information_set_minimum_distance_bound(::Union{HasGauges, HasNoGauges},
-#     ::Union{IsCSS, IsNotCSS}, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int)
+#     ::Union{IsCSS, IsNotCSS}, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
 #     # graph state
 
 # end
 
-function _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
+function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
 
@@ -933,7 +943,7 @@ function _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound::Int, 
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     Threads.@threads for t in 1:num_thrds
-        log_test = zeros(Int, size(check_against, 2))
+        log_test = zeros(Int, size(operators_to_reduce, 1), size(check_against, 2))
         for _ in 1:thread_load
             if flag[]
                 perm = shuffle(1:n)
@@ -946,12 +956,13 @@ function _RIS_bound_loop(operators_to_reduce, check_against, curr_l_bound::Int, 
                     if any(!iszero, log_test[i, :])
                         w = 0
                         @inbounds for j in 1:n
-                            iszero(perm_ops[i. j]) && iszero(perm_ops[i, j + n]) || (w += 1;)
+                            iszero(perm_ops[i, j] % 2) && iszero(perm_ops[i, j + n] % 2) || (w += 1;)
                         end
                         
                         if uppers[t] > w
                             uppers[t] = w
-                            founds[t] .= perm_ops[i, invperm!(perm2)]
+                            # maybe use invpermute! here?
+                            founds[t] .= perm_ops[i, invperm(perm2)]
                             verbose && println("Adjusting upper bound: $w")
                             if curr_l_bound == w
                                 verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
