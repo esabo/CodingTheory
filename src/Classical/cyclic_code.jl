@@ -433,11 +433,7 @@ Return the set of representatives for the q-cyclotomic cosets of the cyclic code
 """
 qcosets_reps(C::AbstractCyclicCode) = C.qcosets_reps
 
-"""
-    defining_set(C::AbstractCyclicCode)
 
-Return the defining set of the cyclic code.
-"""
 defining_set(C::AbstractCyclicCode) = C.def_set
 
 """

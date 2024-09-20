@@ -50,9 +50,6 @@ standard_form_permutation
 ```
 
 The minimum distance of some code families are known and are set during construction. The minimum distance is automatically computed in the constructor for codes which are deemed "small enough". Otherwise, the minimum distance is `missing`. Primitive bounds on the minimum distance are given by
-```@docs
-minimum_distance_lower_bound
-```
 
 ```@docs
 minimum_distance_upper_bound

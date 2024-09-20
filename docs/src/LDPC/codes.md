@@ -121,28 +121,6 @@ shortest_cycles
 ```
 
 Various information about the ACE values of cycles in the Tanner graph may be computed with the following functions.
-```@docs
-ACE_spectrum
-```
 
-```@docs
-shortest_cycle_ACE
-```
-
-```@docs
-ACE_distribution
-```
-
-```@docs
-average_ACE_distribution
-```
-
-```@docs
-median_ACE_distribution
-```
-
-```@docs
-mode_ACE_distribution
-```
 
 ## Greedy Construction Algorithms
