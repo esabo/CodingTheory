@@ -1019,6 +1019,17 @@ function minimum_words(C::AbstractLinearCode)
     end
 end
 
+
+# classical version of QDistRnd here
+
+
+
+
+
+
+
+
+
 #############################
     # Weight Enumerators
 #############################

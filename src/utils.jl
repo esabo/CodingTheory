@@ -436,7 +436,7 @@ _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2
 function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
     row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
 
-    B = copy(A)
+    B = deepcopy(A)
     _rref_no_col_swap_binary!(B, row_range, col_range)
     return B
 end

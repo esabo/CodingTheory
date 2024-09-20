@@ -647,7 +647,7 @@ function random_information_set_minimum_distance_bound!(S::T, which::Symbol = :f
     return random_information_set_minimum_distance_bound!(GaugeTrait(T), CSSTrait(T),
         LogicalTrait(T), S, which, dressed, max_iters, verbose)
 end
-QDistRand!(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000,
+QDistRnd!(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000,
     verbose::Bool = false) where T <: AbstractSubsystemCode =
     random_information_set_minimum_distance_bound!(S, which; dressed = dressed, max_iters =
     max_iters, verbose = verbose)
@@ -775,7 +775,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
     end
 
     uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iterst, n, verbose)
+        curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if dressed
         if which == :full
@@ -794,6 +794,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
             S.u_bound_dz_bare = uppers[loc]
         end
     end
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], founds[loc]
 end
 
@@ -870,6 +871,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
     else
         S.u_bound_dz = uppers[loc]
     end
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], founds[loc]
 end
 
@@ -920,13 +922,14 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
     end
 
     uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iterst, n, verbose)
+        curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if dressed
         S.u_bound_dressed = uppers[loc]
     else
         S.u_bound_bare = uppers[loc]
     end
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], founds[loc]
 end
 
@@ -959,6 +962,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
         curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], founds[loc]
 end
 
@@ -977,15 +981,15 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
     uppers = [curr_u_bound for _ in 1:num_thrds]
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
-    # Threads.@threads for t in 1:num_thrds
-    for t in 1:num_thrds
+    Threads.@threads for t in 1:num_thrds
         log_test = zeros(Int, size(operators_to_reduce, 1), size(check_against, 2))
         for _ in 1:thread_load
             if flag[]
                 perm = shuffle(1:n)
                 perm2 = [perm; perm .+ n]
                 perm_ops = operators_to_reduce[:, perm2]
-                _rref_no_col_swap_binary!(perm_ops)
+                # modifying this in place is not thread safe (apparently)
+                perm_ops = _rref_no_col_swap_binary(perm_ops)
                 ops = perm_ops[:, invperm(perm2)]
                 LinearAlgebra.mul!(log_test, ops, check_against)
                 for i in axes(log_test, 1)
@@ -998,12 +1002,11 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
 
                         if uppers[t] > w
                             uppers[t] = w
-                            # maybe use invpermute! here?
                             founds[t] .= ops[i, :]
-                            verbose && println("Adjusting upper bound: $w")
+                            verbose && println("Adjusting (thread's local) upper bound: $w")
                             if curr_l_bound == w
                                 verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
-                                # Threads.atomic_cas!(flag, true, false)
+                                Threads.atomic_cas!(flag, true, false)
                                 break
                             end
                         end
@@ -1039,7 +1042,7 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
                         if upper_temp > w
                             upper_temp = w
                             found_temp .= ops[i, :]
-                            verbose && println("Adjusting upper bound: $w")
+                            verbose && println("Adjusting (thread's local) upper bound: $w")
                             if curr_l_bound == w
                                 verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
                                 flag = false
