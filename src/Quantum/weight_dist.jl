@@ -825,8 +825,10 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
         upperx, foundx = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :X, dressed, max_iters, verbose)
         upperz, foundz = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :Z, dressed, max_iters, verbose)
         if upperx <= upperz
+            S.u_bound = upperx
             return upperx, foundx
         else
+            S.u_bound = upperz
             return upperz, foundz
         end
     else
