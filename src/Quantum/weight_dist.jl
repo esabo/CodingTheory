@@ -657,124 +657,49 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
     # this is a CSS subsystem code
 
     n = S.n
-    if dressed
-        if which == :full
-            verbose && println("Bounding the full dressed distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            gauges = _Flint_matrix_to_Julia_T_matrix(gauges_matrix(S), Int)
-            logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
-            operators_to_reduce = vcat(stabs, gauges, logs)
-            check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-            curr_l_bound = S.l_bound_dressed
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
-        elseif which == :X
-            verbose && println("Bounding the dressed X-distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            gauges = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[1][:, 1:n] for log in S.gauge_ops]), Int)
-            logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]), Int)
-            operators_to_reduce = vcat(stabs, gauges, logs)
-            check_against = permutedims(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals])[:, [n + 1:2n; 1:n]])
-            curr_l_bound = S.l_bound_dx_dressed
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
+    if which == :full
+        upperx, foundx = random_information_set_minimum_distance_bound!(HasGauges(), IsCSS(), HasLogicals(), S, :X, dressed, max_iters, verbose)
+        upperz, foundz = random_information_set_minimum_distance_bound!(HasGauges(), IsCSS(), HasLogicals(), S, :Z, dressed, max_iters, verbose)
+        if upperx <= upperz
+            if dressed
+                S.u_bound_dressed = min(upperx, S.u_bound_dressed)
+            else
+                S.u_bound_bare = min(upperx, S.u_bound_bare)
+            end
+            return upperx, foundx
         else
-            verbose && println("Bounding the dressed Z-distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            gauges = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[2][:, n + 1:end] for log in S.gauge_ops]), Int)
-            logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals]), Int)
-            operators_to_reduce = vcat(stabs, gauges, logs)
-            check_against = permutedims(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]))
-            curr_l_bound = S.l_bound_dz_dressed
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
+            if dressed
+                S.u_bound_dressed = min(upperz, S.u_bound_dressed)
+            else
+                S.u_bound_bare = min(upperz, S.u_bound_bare)
+            end
+            return upperz, foundz
         end
     else
-        if which == :full
-            verbose && println("Bounding the full bare distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
-            operators_to_reduce = vcat(stabs, logs)
-            check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-            curr_l_bound = S.l_bound_bare
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
-        elseif which == :X
-            verbose && println("Bounding the bare X-distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]), Int)
-            operators_to_reduce = vcat(stabs, logs)
-            check_against = permutedims(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals])[:, [n + 1:2n; 1:n]])
-            curr_l_bound = S.l_bound_dx_bare
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
-        else
-            verbose && println("Bounding the bare Z-distance")
-            stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-            _rref_no_col_swap_binary!(stabs)
-            stabs = _remove_empty(stabs, :rows)
-            logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals]), Int)
-            operators_to_reduce = vcat(stabs, logs)
-            check_against = permutedims(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]))
-            curr_l_bound = S.l_bound_dx_bare
-            verbose && println("Starting lower bound: $curr_l_bound")
-
-            # this is done in the constructor but the logical is not stored at the time
-            # so must redo here
-            mat = _rref_no_col_swap_binary(operators_to_reduce)
-            anti = mat * check_against
-            curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-            found = operators_to_reduce[index, :]
-            verbose && println("Starting upper bound: $curr_u_bound")
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        if dressed
+            gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+            stabs = [stabs; gauges]
         end
+        _rref_no_col_swap_binary!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        logs = _remove_empty(logs, :rows)
+        operators_to_reduce = vcat(stabs, logs)
+        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], UInt8)
+        check_against = permutedims(_remove_empty(check_against, :rows))
+        curr_l_bound = if dressed
+            which == :X ? S.l_bound_dx_dressed : S.l_bound_dz_dressed
+        else
+            which == :X ? S.l_bound_dx_bare : S.l_bound_dz_bare
+        end
+        verbose && println("Starting lower bound: $curr_l_bound")
+        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i in 1:size(logs, 1))
+        found = logs[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
     end
 
-    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if dressed
@@ -795,7 +720,14 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
         end
     end
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
-    return uppers[loc], founds[loc]
+    flint_mat_found = if which == :full
+        matrix(field(S), permutedims(founds[loc]))
+    elseif which == :X
+        matrix(field(S), [permutedims(founds[loc]) zeros(Int, 1, n)])
+    else
+        matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
+    end
+    return uppers[loc], flint_mat_found
 end
 
 function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, ::HasLogicals,
@@ -979,7 +911,8 @@ function _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound:
                 shuffle!(perm)
                 _col_permutation_symp!(perm_ops, orig_ops, perm)
                 # modifying this in place is not thread safe (apparently)
-                perm_ops = _rref_no_col_swap_binary(perm_ops)
+                # perm_ops = _rref_no_col_swap_binary(perm_ops)
+                _rref_no_col_swap_binary!(perm_ops)
                 _col_permutation_symp!(ops, perm_ops, invperm(perm))
                 LinearAlgebra.mul!(log_test, ops, check_against)
                 for i in axes(log_test, 1)
