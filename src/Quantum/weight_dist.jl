@@ -774,7 +774,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
         end
     end
 
-    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if dressed
@@ -804,65 +804,61 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
 
     n = S.n
     if which == :full
-        verbose && println("Bounding the full distance")
-        # println(_rref_no_col_swap_binary!(_Flint_matrix_to_Julia_T_matrix(stabilizers(S), Bool)))
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-        _rref_no_col_swap_binary!(stabs)
-        stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
-        operators_to_reduce = vcat(stabs, logs)
-        check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-        curr_l_bound = S.l_bound
-        verbose && println("Starting lower bound: $curr_l_bound")
+        # verbose && println("Bounding the full distance")
+        # stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
+        # _rref_no_col_swap_binary!(stabs)
+        # stabs = _remove_empty(stabs, :rows)
+        # logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
+        # operators_to_reduce = vcat(stabs, logs)
+        # check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
+        # curr_l_bound = S.l_bound
+        # verbose && println("Starting lower bound: $curr_l_bound")
 
-        # this is done in the constructor but the logical is not stored at the time
-        # so must redo here
-        mat = _rref_no_col_swap_binary(operators_to_reduce)
-        anti = mat * check_against .% order(field(S))
-        log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[log_locations, :]))
-        found = mat[log_locations[index], :]
-        verbose && println("Starting upper bound: $curr_u_bound")
-    elseif which == :X
-        verbose && println("Bounding the X-distance")
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-        _rref_no_col_swap_binary!(stabs)
-        stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]), Int)
-        operators_to_reduce = vcat(stabs, logs)
-        check_against = permutedims(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals])[:, [n + 1:2n; 1:n]])
-        curr_l_bound = S.l_bound_dx
-        verbose && println("Starting lower bound: $curr_l_bound")
-
-        # this is done in the constructor but the logical is not stored at the time
-        # so must redo here
-        mat = _rref_no_col_swap_binary(operators_to_reduce)
-        anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-        found = operators_to_reduce[index, :]
-        verbose && println("Starting upper bound: $curr_u_bound")
+        # # this is done in the constructor but the logical is not stored at the time
+        # # so must redo here
+        # mat = _rref_no_col_swap_binary(operators_to_reduce)
+        # anti = mat * check_against .% order(field(S))
+        # log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
+        # curr_u_bound, index = findmin(row_wts_symplectic(mat[log_locations, :]))
+        # found = mat[log_locations[index], :]
+        # verbose && println("Starting upper bound: $curr_u_bound")
+        upperx, foundx = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :X, dressed, max_iters, verbose)
+        upperz, foundz = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :Z, dressed, max_iters, verbose)
+        if upperx <= upperz
+            return upperx, foundx
+        else
+            return upperz, foundz
+        end
     else
-        verbose && println("Bounding the Z-distance")
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
+        verbose && println("Bounding the X-distance")
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], Int)
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(reduce(vcat, [log[2][:, n + 1:end] for log in S.logicals]), Int)
+        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], Int)
+        logs = _remove_empty(logs, :rows)
         operators_to_reduce = vcat(stabs, logs)
-        check_against = permutedims(reduce(vcat, [log[1][:, 1:n] for log in S.logicals]))
+        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], Int)
+        check_against = permutedims(_remove_empty(check_against, :rows))
         curr_l_bound = S.l_bound_dx
         verbose && println("Starting lower bound: $curr_l_bound")
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
         mat = _rref_no_col_swap_binary(operators_to_reduce)
-        anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
-        found = operators_to_reduce[index, :]
+        anti = mat * check_against .% 2
+        log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
+        curr_u_bound, index = findmin(count(!iszero, mat[log_locations[i], :]) for i in eachindex(log_locations))
+        found = mat[log_locations[index], :]
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
-    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iters, n, verbose)
+    uppers, founds = if which == :full
+        _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
+            curr_u_bound, found, max_iters, n, verbose)
+    else
+        _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+            curr_u_bound, found, max_iters, n, verbose)
+    end
     loc = argmin(uppers)
     if which == :full
         S.u_bound = uppers[loc]
@@ -921,7 +917,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
-    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     if dressed
@@ -958,7 +954,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     found = operators_to_reduce[index, :]
     verbose && println("Starting upper bound: $curr_u_bound")
 
-    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
+    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
         curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
@@ -973,6 +969,57 @@ end
 
 # end
 
+function _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
+    num_thrds = Threads.nthreads()
+    verbose && println("Detected $num_thrds threads.")
+
+    flag = Threads.Atomic{Bool}(true)
+    uppers = [curr_u_bound for _ in 1:num_thrds]
+    founds = [found for _ in 1:num_thrds]
+    thread_load = Int(floor(max_iters / num_thrds))
+    remaining = max_iters - thread_load * num_thrds
+    # Threads.@threads for t in 1:num_thrds
+    for t in 1:num_thrds
+        orig_ops = deepcopy(operators_to_reduce)
+        log_test = zeros(Int, size(orig_ops, 1), size(check_against, 2))
+        perm_ops = similar(orig_ops)
+        ops = similar(orig_ops)
+        perm = collect(1:n)
+        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
+            if flag[]
+                shuffle!(perm)
+                _col_permutation_symp!(perm_ops, orig_ops, perm)
+                # modifying this in place is not thread safe (apparently)
+                perm_ops = _rref_no_col_swap_binary(perm_ops)
+                _col_permutation_symp!(ops, perm_ops, invperm(perm))
+                LinearAlgebra.mul!(log_test, ops, check_against)
+                for i in axes(log_test, 1)
+                    # then ops[i, :] is a logical
+                    if any(isodd, log_test[i, :])
+                        w = 0
+                        @inbounds for j in 1:n
+                            (isodd(ops[i, j]) || isodd(ops[i, j + n])) && (w += 1;)
+                        end
+
+                        if uppers[t] > w
+                            uppers[t] = w
+                            founds[t] .= ops[i, :]
+                            verbose && println("Adjusting (thread's local) upper bound: $w")
+                            if curr_l_bound == w
+                                verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
+                                Threads.atomic_cas!(flag, true, false)
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return uppers, founds
+end
+
 function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
@@ -983,22 +1030,25 @@ function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int,
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
     Threads.@threads for t in 1:num_thrds
-        log_test = zeros(Int, size(operators_to_reduce, 1), size(check_against, 2))
+        orig_ops = deepcopy(operators_to_reduce)
+        log_test = zeros(Int, size(orig_ops, 1), size(check_against, 2))
+        perm_ops = similar(orig_ops)
+        ops = similar(orig_ops)
+        perm = collect(1:n)
         for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
             if flag[]
-                perm = shuffle(1:n)
-                perm2 = [perm; perm .+ n]
-                perm_ops = operators_to_reduce[:, perm2]
+                shuffle!(perm)
+                _col_permutation!(perm_ops, orig_ops, perm)
                 # modifying this in place is not thread safe (apparently)
-                perm_ops = _rref_no_col_swap_binary(perm_ops)
-                ops = perm_ops[:, invperm(perm2)]
+                _rref_no_col_swap_binary!(perm_ops)
+                _col_permutation!(ops, perm_ops, invperm(perm))
                 LinearAlgebra.mul!(log_test, ops, check_against)
                 for i in axes(log_test, 1)
                     # then ops[i, :] is a logical
                     if any(isodd, log_test[i, :])
                         w = 0
                         @inbounds for j in 1:n
-                            (isodd(ops[i, j]) || isodd(ops[i, j + n])) && (w += 1;)
+                            isodd(ops[i, j]) && (w += 1;)
                         end
 
                         if uppers[t] > w

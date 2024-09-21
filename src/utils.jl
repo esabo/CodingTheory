@@ -823,6 +823,29 @@ end
 _rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
 _rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
 
+function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    length(p) == size(A, 2) || error()
+    size(X) == size(A) || error()
+    for i in axes(X, 1)
+        for j in axes(X, 2)
+            X[i, j] = A[i, p[j]]
+        end
+    end
+    return nothing
+end
+
+function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    n = length(p)
+    2n == size(A, 2) || error()
+    size(X) == size(A) || error()
+    for i in axes(X, 1)
+        for j in axes(X, 2)
+            X[i, j] = A[i, p[mod1(j, n)]]
+        end
+    end
+    return nothing
+end
+
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
     for digit in x
