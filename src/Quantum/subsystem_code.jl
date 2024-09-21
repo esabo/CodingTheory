@@ -282,8 +282,8 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     args = _is_CSS_symplectic(S, signs, true)
     if args[1]
         # bare
-        X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
-        Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+        X_logs = reduce(vcat, [log[1][:, 1:n] for log in log_pairs])
+        Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in log_pairs])
         _, X_mat = rref(vcat(args[2], X_logs))
         anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
         u_bound_dx_bare, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
@@ -292,10 +292,10 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
         u_bound_dz_bare, _ = _min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
 
         # dressed
-        _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in gauge_ops])))
+        _, X_mat = rref(vcat(X_mat, reduce(vcat, [log[1][:, 1:n] for log in g_ops_pairs])))
         anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
         u_bound_dx_dressed, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
-        _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in gauge_ops])))
+        _, Z_mat = rref(vcat(Z_mat, reduce(vcat, [log[2][:, n + 1:end] for log in g_ops_pairs])))
         anti = _remove_empty(Z_mat, :rows) * transpose(X_logs)
         u_bound_dz_dressed, _ =_min_wt_row(Z_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
         return SubsystemCodeCSS(F, n, k, r, missing, missing, missing, missing, missing,
