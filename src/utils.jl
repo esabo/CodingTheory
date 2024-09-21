@@ -425,31 +425,31 @@ function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Mat
     end
 end
 
-function _rref_no_col_swap(M::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
     A = deepcopy(M)
     _rref_no_col_swap!(A, row_range, col_range)
     return A
 end
-_rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
+_rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
+    row_range::AbstractUnitRange{Int} = 1:size(A, 1), col_range::AbstractUnitRange{Int} = 1:size(A, 2))
 
     B = deepcopy(A)
     _rref_no_col_swap_binary!(B, row_range, col_range)
     return B
 end
 
-function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
     # don't do anything to A if the range is empty
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
 
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -523,14 +523,14 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_ran
 end
 
 function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
+    row_range::AbstractUnitRange{Int} = 1:size(A, 1), col_range::AbstractUnitRange{Int} = 1:size(A, 2))
 
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     while i <= nr && j <= nc
         # find first pivot
         ind = 0
@@ -565,15 +565,15 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
     return rnk, A, P
 end
-_rref_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
+_rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -583,10 +583,10 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
     nc_A = ncols(A)
 
     rnk = 0
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -626,7 +626,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         # do a manual loop here to reduce allocations
                         d = A[k, j]
@@ -674,7 +674,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
                 ind != i && swap_rows!(A, ind, i)
     
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         if isone(A[k, j])
                             # do a manual loop here to reduce allocations
@@ -693,7 +693,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
     return rnk, P
 end
 
-function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -703,10 +703,10 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
     nc_A = ncols(A)
 
     rnk = 0
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -750,7 +750,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         # do a manual loop here to reduce allocations
                         d = A[k, j]
@@ -802,7 +802,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         if isone(A[k, j])
                             # do a manual loop here to reduce allocations
@@ -824,10 +824,10 @@ _rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axe
 _rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
 
 function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
-    length(p) == size(A, 2) || error()
-    size(X) == size(A) || error()
-    for i in axes(X, 1)
-        for j in axes(X, 2)
+    length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
+    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in axes(X, 2)
+        for i in axes(X, 1)
             X[i, j] = A[i, p[j]]
         end
     end
@@ -836,11 +836,16 @@ end
 
 function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
     n = length(p)
-    2n == size(A, 2) || error()
-    size(X) == size(A) || error()
-    for i in axes(X, 1)
-        for j in axes(X, 2)
+    2n == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)/2`."))
+    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in 1:n
+        for i in axes(X, 1)
             X[i, j] = A[i, p[mod1(j, n)]]
+        end
+    end
+    for j in 1:n
+        for i in axes(X, 1)
+            X[i, j + n] = A[i, p[n] + n]
         end
     end
     return nothing
