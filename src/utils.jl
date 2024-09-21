@@ -626,7 +626,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, co
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         # do a manual loop here to reduce allocations
                         d = A[k, j]
@@ -674,7 +674,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, co
                 ind != i && swap_rows!(A, ind, i)
     
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         if isone(A[k, j])
                             # do a manual loop here to reduce allocations
