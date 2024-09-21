@@ -362,7 +362,7 @@ include("Quantum/weight_dist.jl")
 # export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
 #     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
 export minimum_distance_upper_bound!, random_information_set_minimum_distance_bound!,
-    QDistRand!
+    QDistRnd!
 
 #############################
 #  Quantum/product_codes.jl

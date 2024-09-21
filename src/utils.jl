@@ -433,11 +433,11 @@ end
 _rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_no_col_swap(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
     row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
 
-    B = copy(A)
-    _rref_no_col_swap!(B, row_range, col_range)
+    B = deepcopy(A)
+    _rref_no_col_swap_binary!(B, row_range, col_range)
     return B
 end
 
@@ -522,7 +522,7 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_ran
     return nothing
 end
 
-function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
     row_range::UnitRange{Int} = 1:size(A, 1), col_range::UnitRange{Int} = 1:size(A, 2))
 
     isempty(row_range) && return nothing
@@ -553,8 +553,7 @@ function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}
                     if !iszero(A[k, j])
                         # do a manual loop here to reduce allocations
                         @simd for l in axes(A, 2)
-                            # A[k, l] ⊻= A[i, l]
-                            A[k, l] = (A[k, l] + A[i, l]) % 2
+                            A[k, l] ⊻= A[i, l]
                         end
                     end
                 end
@@ -823,6 +822,29 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
 end
 _rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
 _rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
+
+function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    length(p) == size(A, 2) || error()
+    size(X) == size(A) || error()
+    for i in axes(X, 1)
+        for j in axes(X, 2)
+            X[i, j] = A[i, p[j]]
+        end
+    end
+    return nothing
+end
+
+function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    n = length(p)
+    2n == size(A, 2) || error()
+    size(X) == size(A) || error()
+    for i in axes(X, 1)
+        for j in axes(X, 2)
+            X[i, j] = A[i, p[mod1(j, n)]]
+        end
+    end
+    return nothing
+end
 
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
