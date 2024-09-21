@@ -804,24 +804,6 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
 
     n = S.n
     if which == :full
-        # verbose && println("Bounding the full distance")
-        # stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
-        # _rref_no_col_swap_binary!(stabs)
-        # stabs = _remove_empty(stabs, :rows)
-        # logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
-        # operators_to_reduce = vcat(stabs, logs)
-        # check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-        # curr_l_bound = S.l_bound
-        # verbose && println("Starting lower bound: $curr_l_bound")
-
-        # # this is done in the constructor but the logical is not stored at the time
-        # # so must redo here
-        # mat = _rref_no_col_swap_binary(operators_to_reduce)
-        # anti = mat * check_against .% order(field(S))
-        # log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
-        # curr_u_bound, index = findmin(row_wts_symplectic(mat[log_locations, :]))
-        # found = mat[log_locations[index], :]
-        # verbose && println("Starting upper bound: $curr_u_bound")
         upperx, foundx = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :X, dressed, max_iters, verbose)
         upperz, foundz = random_information_set_minimum_distance_bound!(HasNoGauges(), IsCSS(), HasLogicals(), S, :Z, dressed, max_iters, verbose)
         if upperx <= upperz
@@ -832,25 +814,23 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
             return upperz, foundz
         end
     else
-        verbose && println("Bounding the X-distance")
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], Int)
+        if verbose && which == :X
+            verbose && println("Bounding the X-distance")
+        elseif verbose && which == :Z
+            verbose && println("Bounding the Z-distance")
+        end
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], Int)
+        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
         logs = _remove_empty(logs, :rows)
         operators_to_reduce = vcat(stabs, logs)
-        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], Int)
+        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], UInt8)
         check_against = permutedims(_remove_empty(check_against, :rows))
         curr_l_bound = S.l_bound_dx
         verbose && println("Starting lower bound: $curr_l_bound")
-
-        # this is done in the constructor but the logical is not stored at the time
-        # so must redo here
-        mat = _rref_no_col_swap_binary(operators_to_reduce)
-        anti = mat * check_against .% 2
-        log_locations = findall(!iszero(anti[i, :]) for i in axes(anti, 1))
-        curr_u_bound, index = findmin(count(!iszero, mat[log_locations[i], :]) for i in eachindex(log_locations))
-        found = mat[log_locations[index], :]
+        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i in 1:size(logs, 1))
+        found = logs[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
@@ -870,7 +850,14 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
         S.u_bound_dz = uppers[loc]
     end
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
-    return uppers[loc], founds[loc]
+    flint_mat_found = if which == :full
+        matrix(field(S), permutedims(founds[loc]))
+    elseif which == :X
+        matrix(field(S), [permutedims(founds[loc]) zeros(Int, 1, n)])
+    else
+        matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
+    end
+    return uppers[loc], flint_mat_found
 end
 
 function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS, ::HasLogicals,
