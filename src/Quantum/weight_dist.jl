@@ -815,7 +815,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
 
     n = S.n
     !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
-    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
+    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
     _rref_no_col_swap_binary!(stabs)
     stabs = _remove_empty(stabs, :rows)
     if dressed
@@ -825,7 +825,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
     else
         verbose && println("Bounding the full bare distance")
     end
-    logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
+    logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
     operators_to_reduce = vcat(stabs, logs)
     check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
     curr_l_bound = if dressed
@@ -864,11 +864,15 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     n = S.n
     !ismissing(S.d) && (println("Distance already known"); return S.d;)
     verbose && println("Bounding the full distance")
-    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), Int)
+    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
     _rref_no_col_swap_binary!(stabs)
+    # display(stabs)
     stabs = _remove_empty(stabs, :rows)
-    logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), Int)
+    logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
     operators_to_reduce = vcat(stabs, logs)
+    # println(" ")
+    # display(operators_to_reduce)
+    # println(" ")
     check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
     curr_l_bound = S.l_bound
     verbose && println("Starting lower bound: $curr_l_bound")
@@ -886,7 +890,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
-    return uppers[loc], founds[loc]
+    return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
 # TODO rewrite all for graph states
@@ -896,7 +900,9 @@ end
 
 # end
 
-function _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
+function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Matrix{T},
+    curr_l_bound::Int, curr_u_bound::Int, found::Vector{T}, max_iters::Int, n::Int,
+    verbose::Bool) where T <: Integer
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
@@ -913,15 +919,16 @@ function _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound:
         perm_ops = similar(orig_ops)
         ops = similar(orig_ops)
         perm = collect(1:n)
-        # perm2 = [perm; perm]
         for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
             if flag[]
                 shuffle!(perm)
-                # perm2[1:n] .= perm
-                # perm2[n + 1:end] .= (perm .+ n)
+                # println("original")
+                # display(orig_ops)
+                # display(perm)
                 _col_permutation_symp!(perm_ops, orig_ops, perm)
-                # modifying this in place is not thread safe (apparently)
-                # perm_ops = _rref_no_col_swap_binary(perm_ops)
+                # println("permuted")
+                # display(perm_ops)
+                # return
                 _rref_no_col_swap_binary!(perm_ops)
                 _col_permutation_symp!(ops, perm_ops, invperm(perm))
                 LinearAlgebra.mul!(log_test, ops, check_against)
@@ -952,7 +959,9 @@ function _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound:
     return uppers, founds
 end
 
-function _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound::Int, curr_u_bound::Int, found, max_iters::Int, n::Int, verbose::Bool)
+function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{T},
+    curr_l_bound::Int, curr_u_bound::Int, found::Vector{T}, max_iters::Int, n::Int,
+    verbose::Bool) where T <: Integer
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")

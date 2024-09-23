@@ -265,24 +265,6 @@ end
 #     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
 # end
 
-# """
-#     FpmattoJulia(M::CTMatrixTypes)
-
-# Return the `CTMatrixTypes` matrix `M` as a Julia Int matrix.
-# """
-# function FpmattoJulia(M::CTMatrixTypes)
-#     degree(base_ring(M)) == 1 || throw(ArgumentError("Cannot promote higher order elements to the Ints."))
-
-#     A = zeros(Int, size(M))
-#     for c in 1:ncols(M)
-#         for r in 1:nrows(M)
-#             A[r, c] = coeff(M[r, c], 0)
-#         end
-#     end
-#     return A
-# end
-# FpmattoJulia(M::fpMatrix) = data.(M)
-
 _Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
     Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
 
@@ -304,12 +286,6 @@ end
 function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <: Number
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
-
-# function _Flint_matrix_to_Julia_int_vector(A)
-#     # (nr == 1 || nc == 1) || throw(ArgumentError("Cannot cast matrix to vector"))
-#     return _Flint_matrix_element_to_Julia_int(A, 1, 1)
-# end
-_Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
 
 function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
@@ -425,11 +401,14 @@ function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Mat
     end
 end
 
-function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int},
+    col_range::AbstractUnitRange{Int})
+
     A = deepcopy(M)
     _rref_no_col_swap!(A, row_range, col_range)
     return A
 end
+# TODO repeated signature
 _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
@@ -566,14 +545,16 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
 end
 
 function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
     return rnk, A, P
 end
-_rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
+_rref_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int64}, col_range::Base.OneTo{Int64}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -838,16 +819,16 @@ end
 
 function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
     n = length(p)
-    2n == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)/2`."))
-    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    # 2n == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)/2`."))
+    # size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
     for j in 1:n
         for i in axes(X, 1)
-            X[i, j] = A[i, p[mod1(j, n)]]
+            X[i, j] = A[i, p[j]]
         end
     end
     for j in 1:n
         for i in axes(X, 1)
-            X[i, j + n] = A[i, p[n] + n]
+            X[i, j + n] = A[i, p[j] + n]
         end
     end
     return nothing

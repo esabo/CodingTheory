@@ -2,7 +2,7 @@
 
 julia_version = "1.10.5"
 manifest_format = "2.0"
-project_hash = "ba220f86c22c8d12de7c0e641c76d64b2e51180c"
+project_hash = "26354b5f3440d58ba825c3a08bb43d55c1f95c59"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -12,9 +12,9 @@ version = "0.1.3+0"
 
 [[deps.AbstractAlgebra]]
 deps = ["InteractiveUtils", "LinearAlgebra", "MacroTools", "Preferences", "Random", "RandomExtensions", "SparseArrays", "Test"]
-git-tree-sha1 = "420d38fe3940615fdba29fcf9cbcb41403e7ed5e"
+git-tree-sha1 = "45e46834b8fcfd59389939445267047577b19df5"
 uuid = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
-version = "0.42.6"
+version = "0.43.1"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -32,9 +32,9 @@ version = "1.5.0"
 
 [[deps.AlgebraicSolving]]
 deps = ["LinearAlgebra", "Logging", "Markdown", "Nemo", "Printf", "Random", "StaticArrays", "Test", "msolve_jll"]
-git-tree-sha1 = "62f48f1110bcdfc7d7b99e4e8159959d071e13d1"
+git-tree-sha1 = "59b14f801f508a03b0643713b22c4696bc52e445"
 uuid = "66b61cbe-0446-4d5d-9090-1ff510639f9d"
-version = "0.5.1"
+version = "0.7.0"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -195,9 +195,9 @@ weakdeps = ["PDMats", "SparseArrays", "Statistics"]
 
 [[deps.GAP]]
 deps = ["AbstractAlgebra", "Artifacts", "Compat", "Downloads", "GAP_jll", "GAP_lib_jll", "GAP_pkg_juliainterface_jll", "InteractiveUtils", "Libdl", "MacroTools", "Markdown", "Ncurses_jll", "Pidfile", "Pkg", "REPL", "Random", "Scratch"]
-git-tree-sha1 = "b61baecbdc18c8e3bd4e3e0d97e776816ffb2860"
+git-tree-sha1 = "b045754f9aae9f79df4b18b2e4df84887897105d"
 uuid = "c863536a-3901-11e9-33e7-d5cd0df7b904"
-version = "0.11.3"
+version = "0.11.4"
 
 [[deps.GAP_jll]]
 deps = ["Artifacts", "GMP_jll", "JLLWrappers", "Libdl", "Readline_jll", "Zlib_jll"]
@@ -236,9 +236,9 @@ version = "1.11.2"
 
 [[deps.Hecke]]
 deps = ["AbstractAlgebra", "Dates", "Distributed", "InteractiveUtils", "LazyArtifacts", "Libdl", "LinearAlgebra", "Markdown", "Nemo", "Pkg", "Printf", "Random", "RandomExtensions", "Serialization", "SparseArrays"]
-git-tree-sha1 = "623437095815b94fc796187c62c82f7c84b21f32"
+git-tree-sha1 = "9257286b6ada9e8d0ae2a629bf13c51a149c5562"
 uuid = "3e1990a7-5d81-5526-99ce-9ba3ff248f21"
-version = "0.33.8"
+version = "0.34.3"
 weakdeps = ["GAP", "Polymake"]
 
     [deps.Hecke.extensions]
@@ -450,9 +450,9 @@ version = "6.5.0+0"
 
 [[deps.Nemo]]
 deps = ["AbstractAlgebra", "FLINT_jll", "Libdl", "LinearAlgebra", "Pkg", "Random", "RandomExtensions", "SHA"]
-git-tree-sha1 = "71cff3f853e1cb2c6d5d75ab5e0092058936c460"
+git-tree-sha1 = "a644b4943424d9f1ffe7a7a1cdda617053bac5c0"
 uuid = "2edaba10-b0f1-5616-af89-8c11ac63239a"
-version = "0.46.2"
+version = "0.47.1"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -482,9 +482,9 @@ version = "0.8.1+2"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "a12e56c72edee3ce6b96667745e6cbbe5498f200"
+git-tree-sha1 = "ad31332567b189f508a3ea8957a2640b1147ab00"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.23+0"
+version = "1.1.23+1"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -499,7 +499,7 @@ version = "1.6.3"
 
 [[deps.Oscar]]
 deps = ["AbstractAlgebra", "AlgebraicSolving", "Distributed", "GAP", "Hecke", "JSON", "JSON3", "LazyArtifacts", "Markdown", "Nemo", "Pkg", "Polymake", "Random", "RandomExtensions", "Serialization", "Singular", "TOPCOM_jll", "UUIDs", "cohomCalg_jll"]
-git-tree-sha1 = "43d564762b225a95ea1eb26e18b52f7e9d2fbcbc"
+git-tree-sha1 = "6e9ad54815c837a1a27d19280dddfca5f0f5bf03"
 repo-rev = "master"
 repo-url = "https://github.com/oscar-system/Oscar.jl.git"
 uuid = "f1435218-dba5-11e9-1e4d-f1a5fab5fc13"
@@ -542,9 +542,9 @@ version = "1.10.0"
 
 [[deps.Polymake]]
 deps = ["AbstractAlgebra", "BinaryWrappers", "CxxWrap", "Downloads", "JSON", "Libdl", "Mongoc", "NetworkOptions", "Ninja_jll", "Perl_jll", "Pidfile", "Pkg", "REPL", "Scratch", "SparseArrays", "TOPCOM_jll", "lib4ti2_jll", "libpolymake_julia_jll", "polymake_jll", "polymake_oscarnumber_jll"]
-git-tree-sha1 = "a2a6d388848beba30834c45192e7318098e96f99"
+git-tree-sha1 = "fa518c47ef32714e99cb0915c45b564fb91fe5bc"
 uuid = "d720cf60-89b5-51f5-aff5-213f193123e7"
-version = "0.11.20"
+version = "0.11.21"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
@@ -569,9 +569,9 @@ version = "1.2.1"
 
 [[deps.QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "1d587203cf851a51bf1ea31ad7ff89eff8d625ea"
+git-tree-sha1 = "cda3b045cf9ef07a08ad46731f5a3165e56cf3da"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.11.0"
+version = "2.11.1"
 
     [deps.QuadGK.extensions]
     QuadGKEnzymeExt = "Enzyme"
@@ -653,15 +653,15 @@ version = "0.9.4"
 
 [[deps.Singular]]
 deps = ["AbstractAlgebra", "BinaryWrappers", "CxxWrap", "Libdl", "LinearAlgebra", "Nemo", "Pidfile", "Pkg", "Random", "RandomExtensions", "Singular_jll", "Statistics", "lib4ti2_jll", "libsingular_julia_jll"]
-git-tree-sha1 = "1490e197db038b23960cef430c56fb277fdf29a6"
+git-tree-sha1 = "9b6135b5c8081f83eb2c334d7a7b903c2076aef7"
 uuid = "bcd08a7b-43d2-5ff7-b6d4-c458787f915c"
-version = "0.23.5"
+version = "0.23.7"
 
 [[deps.Singular_jll]]
 deps = ["Artifacts", "FLINT_jll", "GMP_jll", "JLLWrappers", "Libdl", "MPFR_jll", "cddlib_jll"]
-git-tree-sha1 = "08aa95d0abd0218afaffe2d41ec93194c131128e"
+git-tree-sha1 = "052417021e25f7aca4e81e17f5e12feb53f7ef00"
 uuid = "43d676ae-4934-50ba-8046-7a96366d613b"
-version = "404.0.504+0"
+version = "404.0.605+0"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
@@ -864,9 +864,9 @@ version = "0.3.3+0"
 
 [[deps.msolve_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "FLINT_jll", "GMP_jll", "JLLWrappers", "LLVMOpenMP_jll", "Libdl", "MPFR_jll"]
-git-tree-sha1 = "0b408d2693c1389e2817f1a3468d02783161cd33"
+git-tree-sha1 = "7324fd011ebc4b9e43d9aa365c79797860459d0a"
 uuid = "6d01cc9a-e8f6-580e-8c54-544227e08205"
-version = "0.600.800+0"
+version = "0.700.200+0"
 
 [[deps.nauty_jll]]
 deps = ["Artifacts", "GMP_jll", "JLLWrappers", "Libdl", "Pkg"]
