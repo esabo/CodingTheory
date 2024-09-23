@@ -486,9 +486,9 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
         end
     else
         if !iszero(stand_k)
-            _, mat = _rref_symp_col_swap(vcat(stabs, logs_mat))
+            mat = _rref_symp_col_swap(vcat(stabs, logs_mat))
             anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
-            u_bound, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
+            u_bound = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
             return StabilizerCode(F, n, dim_code, missing, 1, u_bound, stabs, logs, logs_mat, 
                 char_vec, signs, missing, missing, missing, over_comp, missing, stabs_stand,
                 stand_r, stand_k, P_stand, missing)

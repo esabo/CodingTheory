@@ -694,6 +694,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, co
 end
 
 function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -821,7 +822,8 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 _rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
-_rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
+_rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); _rref_symp_col_swap!(B, axes(B, 1),
+    axes(B, 2)); return B;)
 
 function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
