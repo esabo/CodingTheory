@@ -70,7 +70,7 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
     Random.seed!(seed)
     m = divexact(n * l, r)
     F = if is_prime(q)
-        GF(q)
+        Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))

@@ -1022,6 +1022,7 @@ end
 
 function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
 
+    println("here")
     order(field(C)) == 2 || throw(DomainError(C, "Currently only implemented for binary codes."))
     is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
 

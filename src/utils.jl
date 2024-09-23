@@ -409,7 +409,7 @@ function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int},
     return A
 end
 # TODO repeated signature
-_rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
+_rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
 _rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
