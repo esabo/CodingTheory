@@ -2,7 +2,7 @@
 
 julia_version = "1.10.5"
 manifest_format = "2.0"
-project_hash = "26354b5f3440d58ba825c3a08bb43d55c1f95c59"
+project_hash = "2d6645f27d1e47bd5cddd8a51982054007baf2cb"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -561,6 +561,12 @@ version = "1.4.3"
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.ProgressMeter]]
+deps = ["Distributed", "Printf"]
+git-tree-sha1 = "8f6bc219586aef8baf0ff9a5fe16ee9c70cb65e4"
+uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
+version = "1.10.2"
 
 [[deps.PtrArrays]]
 git-tree-sha1 = "77a42d78b6a92df47ab37e177b2deac405e1c88f"

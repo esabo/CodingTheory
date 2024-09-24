@@ -627,16 +627,20 @@ function _QDistRndCSS_GAP(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int; min_dist
 end
 
 """
-    random_information_set_minimum_distance_bound(S::AbstractSubsystemCode, type::Symbol = :both; dressed::Bool = true, iters::Int = 100,
-        d_lower_bound::Int = 1)
+    random_information_set_minimum_distance_bound!(S::AbstractSubsystemCode, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false)
+    QDistRnd!(S::AbstractSubsystemCode, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false)
 
-Use the QDistRnd algorithm to find an upper bound on the distance of the code `S`. If `type` is `:X`
-then this is applied to the X-distance, and similarly for `:Z` (default `:both`). If the given code
-is a subsystem code, then if `dressed = true` (default) then an upper bound for the dressed distance
-is returned, and if `dressed = false` then the bound is for the bare distance. Runs for `iters`
-iterations and stops early if a logical of weight `d_lower_bound` is found.
+Return an upper bound on the minimum distance of `S` and a logical of that weight using
+`max_iters` random information sets. Terminates early if a logical of weight equal to the code's
+currently stored lower bound is found. The current bounds on the distance are updated if the
+algorithm finishes normally.
+
+# Arguments
+- `which` - either `:full`, `:X`, or `:Z` selecting which distance to bound; this parameter is
+  ignored for non-CSS codes
+- `dressed` - set to `true` to bound the dressed distance and `false` to bound the bare distance; this parameter is ignored for stabilizer codes
+- `max_iters` - the number of random iterations
 """
-# here want to branch for graph states
 function random_information_set_minimum_distance_bound!(S::T, which::Symbol = :full;
         dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false) where T <: AbstractSubsystemCode
 
@@ -654,28 +658,35 @@ QDistRnd!(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10
 
 function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::HasLogicals,
     S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
-    # this is a CSS subsystem code
+    # CSS subsystem code
 
     n = S.n
     if which == :full
-        !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
-        verbose && println("Bounding the full dressed distance")
+        if dressed && !ismissing(S.d_dressed)
+            println("Dressed distance already known")
+            return S.d_dressed
+        elseif !dressed && !ismissing(S.d_bare)
+            println("Bare distance already known")
+            return S.d_bare
+        end
+        
         stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
         if dressed
+            verbose && println("Bounding the full dressed distance")
             gauges = _Flint_matrix_to_Julia_T_matrix(gauges_matrix(S), UInt8)
             stabs = vcat(stabs, gauges)
+            curr_l_bound = S.l_bound_dressed
+        else
+            verbose && println("Bounding the full bare distance")
+            curr_l_bound = S.l_bound_bare
         end
+        verbose && println("Starting lower bound: $curr_l_bound")
+
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
         logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
         operators_to_reduce = vcat(stabs, logs)
         check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-        curr_l_bound = if dressed
-            S.l_bound_dressed
-        else
-            S.l_bound_bare
-        end
-        verbose && println("Starting lower bound: $curr_l_bound")
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
@@ -685,6 +696,24 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
         found = operators_to_reduce[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     else
+        if which == :X
+            if dressed && !ismissing(S.dx_dressed)
+                println("Dressed X-distance already known")
+                return S.dx_dressed
+            elseif !dressed && !ismissing(S.dx_bare)
+                println("Bare X-distance already known")
+                return S.dx_bare
+            end
+        else
+            if dressed && !ismissing(S.dz_dressed)
+                println("Dressed Z-distance already known")
+                return S.dz_dressed
+            elseif !dressed && !ismissing(S.dz_bare)
+                println("Bare Z-distance already known")
+                return S.dz_bare
+            end
+        end
+
         stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
         if dressed
             gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
@@ -739,9 +768,6 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
     return uppers[loc], flint_mat_found
 end
 
-# TODO
-# 2. check changes to other cases
-
 function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, ::HasLogicals,
     S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
     # CSS stabilizer code
@@ -749,12 +775,12 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
     n = S.n
     if which == :full
         !ismissing(S.d) && (println("Distance already known"); return S.d;)
+
         stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
         logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
         operators_to_reduce = vcat(stabs, logs)
-        println(size(operators_to_reduce))
         check_against = permutedims(logs)
         curr_l_bound = S.l_bound
         verbose && println("Starting lower bound: $curr_l_bound")
@@ -809,12 +835,19 @@ end
 
 function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS, ::HasLogicals,
     S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
-    # subsystem code
+    # non-CSS subsystem code
 
     which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
     n = S.n
-    !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
+    if dressed && !ismissing(S.d_dressed)
+        println("Dressed distance already known")
+        return S.d_dressed
+    elseif !dressed && !ismissing(S.d_bare)
+        println("Bare distance already known")
+        return S.d_bare
+    end
+
     stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
     _rref_no_col_swap_binary!(stabs)
     stabs = _remove_empty(stabs, :rows)
@@ -822,18 +855,15 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
         verbose && println("Bounding the full dressed distance")
         gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S), UInt8)
         stabs = vcat(stabs, gauges)
+        curr_l_bound = S.l_bound_dressed
     else
         verbose && println("Bounding the full bare distance")
+        curr_l_bound = S.l_bound_bare
     end
+    verbose && println("Starting lower bound: $curr_l_bound")
     logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
     operators_to_reduce = vcat(stabs, logs)
     check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
-    curr_l_bound = if dressed
-        S.l_bound_dressed
-    else
-        S.l_bound_bare
-    end
-    verbose && println("Starting lower bound: $curr_l_bound")
 
     # this is done in the constructor but the logical is not stored at the time
     # so must redo here
@@ -857,7 +887,7 @@ end
 
 function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCSS, ::HasLogicals,
     S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
-    # stabilizer code
+    # non-CSS stabilizer code
 
     which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
@@ -893,12 +923,209 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
-# TODO rewrite all for graph states
-# function random_information_set_minimum_distance_bound(::Union{HasGauges, HasNoGauges},
-#     ::Union{IsCSS, IsNotCSS}, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
-#     # graph state
+function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+    # non-CSS subsystem graph state
 
-# end
+    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+
+    n = S.n
+    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
+    _rref_no_col_swap_binary!(stabs)
+    stabs = _remove_empty(stabs, :rows)
+    if dressed
+        !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
+        verbose && println("Bounding the full dressed distance")
+        gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S), UInt8)
+        stabs = vcat(stabs, gauges)
+    else
+        verbose && println("Bounding the full bare distance")
+    end
+    curr_l_bound = if dressed
+        S.l_bound_dressed
+    else
+        S.l_bound_bare
+    end
+    verbose && println("Starting lower bound: $curr_l_bound")
+
+    # this is done in the constructor but the logical is not stored at the time
+    # so must redo here
+    curr_u_bound, index = findmin(row_wts_symplectic(stabs))
+    found = stabs[index, :]
+    verbose && println("Starting upper bound: $curr_u_bound")
+
+    uppers, founds = _RIS_bound_loop_symp!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n,
+        verbose)
+    loc = argmin(uppers)
+    if dressed
+        S.u_bound_dressed = uppers[loc]
+    else
+        S.u_bound_bare = uppers[loc]
+    end
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
+    return uppers[loc], matrix(field(S), permutedims(founds[loc]))
+end
+
+function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+    # CSS subsystem graph state
+
+    n = S.n
+    if which == :full
+        !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
+        verbose && println("Bounding the full dressed distance")
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
+        if dressed
+            gauges = _Flint_matrix_to_Julia_T_matrix(gauges_matrix(S), UInt8)
+            stabs = vcat(stabs, gauges)
+        end
+        _rref_no_col_swap_binary!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        curr_l_bound = if dressed
+            S.l_bound_dressed
+        else
+            S.l_bound_bare
+        end
+        verbose && println("Starting lower bound: $curr_l_bound")
+
+        # this is done in the constructor but the logical is not stored at the time
+        # so must redo here
+        curr_u_bound, index = findmin(row_wts_symplectic(stabs))
+        found = stabs[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
+    else
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        if dressed
+            gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+            stabs = vcat(stabs, gauges)
+        end
+        _rref_no_col_swap_binary!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        curr_l_bound = if dressed
+            which == :X ? S.l_bound_dx_dressed : S.l_bound_dz_dressed
+        else
+            which == :X ? S.l_bound_dx_bare : S.l_bound_dz_bare
+        end
+        verbose && println("Starting lower bound: $curr_l_bound")
+        curr_u_bound, index = _min_wt_row(stabs)
+        found = stabs[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
+    end
+
+    uppers, founds = _RIS_bound_loop!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n,
+        verbose)
+    loc = argmin(uppers)
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
+    if dressed
+        if which == :full
+            S.u_bound_dressed = uppers[loc]
+            flint_mat_found = matrix(field(S), permutedims(founds[loc]))
+        elseif which == :X
+            S.u_bound_dx_dressed = uppers[loc]
+            flint_mat_found = matrix(field(S), [permutedims(founds[loc]) zeros(Int, 1, n)])
+        else
+            S.u_bound_dz_dressed = uppers[loc]
+            flint_mat_found = matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
+        end
+    else
+        if which == :full
+            S.u_bound_bare = uppers[loc]
+            flint_mat_found = matrix(field(S), permutedims(founds[loc]))
+        elseif which == :X
+            S.u_bound_dx_bare = uppers[loc]
+            flint_mat_found = matrix(field(S), [permutedims(founds[loc]) zeros(Int, 1, n)])
+        else
+            S.u_bound_dz_bare = uppers[loc]
+            flint_mat_found = matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
+        end
+    end
+    
+    return uppers[loc], flint_mat_found
+end
+
+function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+    # non-CSS stabilizer graph state
+
+    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+
+    n = S.n
+    !ismissing(S.d) && (println("Distance already known"); return S.d;)
+    verbose && println("Bounding the full distance")
+    curr_l_bound = S.l_bound
+    verbose && println("Starting lower bound: $curr_l_bound")
+
+    # this is done in the constructor but the logical is not stored at the time
+    # so must redo here
+    stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
+    _rref_no_col_swap_binary!(stabs)
+    stabs = _remove_empty(stabs, :rows)
+    curr_u_bound, index = findmin(row_wts_symplectic(stabs))
+    found = stabs[index, :]
+    verbose && println("Starting upper bound: $curr_u_bound")
+
+    # TODO write
+    uppers, founds = _RIS_bound_loop_symp!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n, 
+        verbose)
+    loc = argmin(uppers)
+    S.u_bound = uppers[loc]
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
+    return uppers[loc], matrix(field(S), permutedims(founds[loc]))
+end
+
+function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+    # CSS stabilizer graph state
+
+    n = S.n
+    if which == :full
+        !ismissing(S.d) && (println("Distance already known"); return S.d;)
+        verbose && println("Bounding the full distance")
+        curr_l_bound = S.l_bound
+        verbose && println("Starting lower bound: $curr_l_bound")
+
+        # this is done in the constructor but the logical is not stored at the time
+        # so must redo here
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
+        _rref_no_col_swap_binary!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        curr_u_bound, index = findmin(row_wts_symplectic(stabs))
+        found = stabs[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
+    else
+        if verbose && which == :X
+            verbose && println("Bounding the X-distance")
+        elseif verbose && which == :Z
+            verbose && println("Bounding the Z-distance")
+        end
+        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        _rref_no_col_swap_binary!(stabs)
+        stabs = _remove_empty(stabs, :rows)
+        which == :X ? (curr_l_bound = S.l_bound_dx;) : (curr_l_bound = S.l_bound_dz;)
+        verbose && println("Starting lower bound: $curr_l_bound")
+        curr_u_bound, index = _min_wt_row(stabs)
+        found = stabs[index, :]
+        verbose && println("Starting upper bound: $curr_u_bound")
+    end
+
+    uppers, founds = if which == :full
+        _RIS_bound_loop_symp!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n, verbose)
+    else
+        _RIS_bound_loop!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n, verbose)
+    end
+    loc = argmin(uppers)
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
+    if which == :full
+        S.u_bound = uppers[loc]
+        flint_mat_found = matrix(field(S), permutedims(founds[loc]))
+    elseif which == :X
+        S.u_bound_dx = uppers[loc]
+        S.u_bound = min(S.u_bound_dx, S.u_bound_dz)
+        flint_mat_found = matrix(field(S), [permutedims(founds[loc]) zeros(Int, 1, n)])
+    else
+        S.u_bound_dz = uppers[loc]
+        S.u_bound = min(S.u_bound_dx, S.u_bound_dz)
+        flint_mat_found = matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
+    end
+
+    return uppers[loc], flint_mat_found
+end
 
 function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Matrix{T},
     curr_l_bound::Int, curr_u_bound::Int, found::Vector{T}, max_iters::Int, n::Int,
@@ -912,6 +1139,7 @@ function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Ma
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
+    verbose && (prog_meter = Progress(max_iters);)
     # Threads.@threads for t in 1:num_thrds
     for t in 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
@@ -953,8 +1181,10 @@ function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Ma
                     end
                 end
             end
+            verbose && next!(prog_meter)
         end
     end
+    verbose && finish!(prog_meter)
 
     return uppers, founds
 end
@@ -971,6 +1201,7 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
+    verbose && (prog_meter = Progress(max_iters);)
     Threads.@threads for t in 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         log_test = zeros(Int, size(orig_ops, 1), size(check_against, 2))
@@ -1006,8 +1237,10 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{
                     end
                 end
             end
+            verbose && next!(prog_meter)
         end
     end
+    verbose && finish!(prog_meter)
 
     return uppers, founds
 end

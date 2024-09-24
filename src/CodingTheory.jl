@@ -18,6 +18,7 @@ using Random
 using DataStructures
 using StatsBase
 using Distributions
+using ProgressMeter
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,

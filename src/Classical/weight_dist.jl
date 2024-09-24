@@ -1019,18 +1019,23 @@ function minimum_words(C::AbstractLinearCode)
     end
 end
 
+"""
+    random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
 
+Return an upper bound on the minimum distance of `C` and a codeword of that weight using
+`max_iters` random information sets.
+"""
 function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
 
-    println("here")
     order(field(C)) == 2 || throw(DomainError(C, "Currently only implemented for binary codes."))
     is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
 
     !ismissing(C.d) && (println("Distance already known"); return C.d;)
     verbose && println("Bounding the distance")
     G = _Flint_matrix_to_Julia_T_matrix(_rref_no_col_swap(C.G), UInt8)
+    G = _remove_empty(G, :rows)
     upper, ind  = _min_wt_row(G)
-    found = _Flint_matrix_to_Julia_T_matrix(G[ind:ind, :], UInt8)
+    found = G[ind, :]
     # TODO this can contradict C.u_bound cause that requires a different found
     verbose && println("Starting lower bound: $(C.l_bound)")
     verbose && println("Starting upper bound: $upper")
@@ -1042,7 +1047,7 @@ function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; m
     return uppers[loc], matrix(field(C), permutedims(founds[loc]))
 end
 
-function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr_u_bound::Int,
+function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr_u_bound::Int,
     found::Vector{T}, max_iters::Int, n::Int, verbose::Bool) where T <: Integer
 
     num_thrds = Threads.nthreads()
@@ -1053,6 +1058,7 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, curr_l_bound::Int, cur
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
+    prog_meter = Progress(max_iters)
     Threads.@threads for t in 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         perm_ops = similar(orig_ops)
@@ -1083,8 +1089,10 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, curr_l_bound::Int, cur
                     end
                 end
             end
+            next!(prog_meter)
         end
     end
+    finish!(prog_meter)
 
     return uppers, founds
 end
@@ -1146,13 +1154,13 @@ function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
     return T.CWE
 end
 
+# TODO: remove C from this, store in WE struct
 """
     MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
 
 Return the weight enumerator of the dual (`:Euclidean` or `:Hermitian`) of `C` obtained
 by applying the MacWilliams identities to `W`.
 """
-# TODO: remove C from this, store in WE struct
 function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
     dual ∈ (:Euclidean, :Hermitian) ||
         throw(ArgumentError("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals."))
