@@ -148,6 +148,24 @@
         flag, P = are_permutation_equivalent(C1, C2)
         @test flag
         @test are_equivalent(permute_code(C1, P), C2)
+
+        # Huffman and Pless Ex 1.6.1
+        F = Oscar.Nemo.Native.GF(2)
+        G1 = matrix(F, [1 1 0 0 0 0; 0 0 1 1 0 0; 0 0 0 0 1 1])
+        print(typeof(G1))
+        nc=ncols(G1)
+        C1 = LinearCode(G1)
+        G2 = matrix(F, [1 0 0 0 0 1; 0 0 1 1 0 0; 0 1 0 0 1 0])
+        C2 = LinearCode(G2)
+        G3 = matrix(F, [1 1 0 0 0 0; 1 0 1 0 0 0; 1 1 1 1 1 1])
+        C3 = LinearCode(G3)
+        LinearCode(words(C1))
+        @test is_self_dual(C1)
+        @test is_self_dual(C2)
+        @test !is_self_dual(C3)
+        @test are_perm_equivalent(G1, G2, F)
+        @test !are_perm_equivalent(G1, G3, F)
+ 
     end
         # "On the Schur Product of Vector Spaces over Finite Fields"
         # Christiaan Koster
@@ -155,4 +173,7 @@
 
         # simplex code itself has dimension k(k + 1)/2
         #
+
+       
+
 end

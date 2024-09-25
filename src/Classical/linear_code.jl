@@ -401,13 +401,10 @@ function information_set(C::AbstractLinearCode)
     Returns the indexs of the pivot columns and an information set which 
     is the submatrix of G given by these columns.
     """
-    if C.G == C.G_stand
-        pivot_inds=[x for x ∈ 1:C.n]
-    else
-        nonpivot_inds = _non_pivot_cols(C.G, :nsp) 
-        pivot_inds = [x for x ∈ 1:C.n if x ∉ nonpivot_inds]
-    end
-    return pivot_inds, C.G[:, pivot_inds]
+    _, rref_sol = rref(C.G)
+    nonpivot_inds = _non_pivot_cols(rref_sol, :nsp) 
+    pivot_inds = [x for x in 1:C.n if !(x in nonpivot_inds)]
+    return pivot_inds
 end
 
 function _standard_form(G::CTMatrixTypes)
@@ -996,4 +993,19 @@ function contains_self_dual_subcode(C::AbstractLinearCode)
     else
         error("Unknown case for finite field of order $p^$t")
     end
+end
+
+"""
+Checks permutation equivalence by brute force for the purpose of doing small tests. 
+"""
+function _are_perm_equivalent(mat0::CodingTheory.CTMatrixTypes, mat1::CodingTheory.CTMatrixTypes, field::CodingTheory.CTFieldTypes)
+    nc = ncols(mat0)
+    sym=symmetric_group(nc)
+    for e in collect(sym) 
+        s = permutation_matrix(field, e)
+        if mat0*s == mat1
+            return true 
+        end
+    end
+    return false
 end
