@@ -401,26 +401,25 @@ function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Mat
     end
 end
 
-function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int},
-    col_range::AbstractUnitRange{Int})
+function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2))
 
     A = deepcopy(M)
     _rref_no_col_swap!(A, row_range, col_range)
     return A
 end
-# TODO repeated signature
-_rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
-_rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
 function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::AbstractUnitRange{Int} = 1:size(A, 1), col_range::AbstractUnitRange{Int} = 1:size(A, 2))
+    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     B = deepcopy(A)
     _rref_no_col_swap_binary!(B, row_range, col_range)
     return B
 end
 
-function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
     # don't do anything to A if the range is empty
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
@@ -502,7 +501,7 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int},
 end
 
 function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::AbstractUnitRange{Int} = 1:size(A, 1), col_range::AbstractUnitRange{Int} = 1:size(A, 2))
+    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
@@ -544,16 +543,16 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
     return rnk, A, P
 end
-_rref_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int64}, col_range::Base.OneTo{Int64}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
-_rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
@@ -674,7 +673,15 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, co
     return rnk, P
 end
 
-function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int}, col_range::AbstractUnitRange{Int})
+function _rref_symp_col_swap(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+    B = deepcopy(A)
+    _rref_symp_col_swap!(B, row_range, col_range)
+    return B
+end
+
+function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
@@ -802,9 +809,6 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     end
     return rnk, P
 end
-_rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
-_rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); _rref_symp_col_swap!(B, axes(B, 1),
-    axes(B, 2)); return B;)
 
 function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
