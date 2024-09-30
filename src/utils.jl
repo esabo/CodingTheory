@@ -127,8 +127,8 @@ end
 weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
-# TODO polish and export
-function row_wts_symplectic(A::CTMatrixTypes)
+# TODO polish and export?
+function row_wts_symplectic(A::Union{CTMatrixTypes, Matrix{<: Integer}, Matrix{Bool}})
     nc = size(A, 2)
     iseven(nc) || throw(ArgumentError("Input does not have even length"))
     n = div(nc, 2)
@@ -265,24 +265,6 @@ end
 #     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
 # end
 
-# """
-#     FpmattoJulia(M::CTMatrixTypes)
-
-# Return the `CTMatrixTypes` matrix `M` as a Julia Int matrix.
-# """
-# function FpmattoJulia(M::CTMatrixTypes)
-#     degree(base_ring(M)) == 1 || throw(ArgumentError("Cannot promote higher order elements to the Ints."))
-
-#     A = zeros(Int, size(M))
-#     for c in 1:ncols(M)
-#         for r in 1:nrows(M)
-#             A[r, c] = coeff(M[r, c], 0)
-#         end
-#     end
-#     return A
-# end
-# FpmattoJulia(M::fpMatrix) = data.(M)
-
 _Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
     Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
 
@@ -305,17 +287,12 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
-# function _Flint_matrix_to_Julia_int_vector(A)
-#     # (nr == 1 || nc == 1) || throw(ArgumentError("Cannot cast matrix to vector"))
-#     return _Flint_matrix_element_to_Julia_int(A, 1, 1)
-# end
-_Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
+function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
+    type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
 
-function _non_pivot_cols(A::CTMatrixTypes, type::Symbol=:nsp)
-    type ∈ [:sp, :nsp]
     if type == :sp
         return setdiff(collect(1:ncols(A)), [x.pos[1] for x in A])
-    else #if type == :nsp - not sparse
+    else
         nonpivots = Vector{Int}()
         i = 1
         j = 1
@@ -391,7 +368,9 @@ end
 #     return maxlen
 # end
 
-function _remove_empty(A::Union{CTMatrixTypes, Matrix{<:Number}, BitMatrix}, type::Symbol)
+function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
+    type::Symbol)
+    
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
     
     del = Vector{Int}()
@@ -422,31 +401,33 @@ function _remove_empty(A::Union{CTMatrixTypes, Matrix{<:Number}, BitMatrix}, typ
     end
 end
 
-function _rref_no_col_swap(M::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2))
+
     A = deepcopy(M)
     _rref_no_col_swap!(A, row_range, col_range)
     return A
 end
-_rref_no_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_no_col_swap(M, 1:row_range.stop, 1:col_range.stop)
-_rref_no_col_swap(M::CTMatrixTypes) = _rref_no_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_no_col_swap(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRange{Int} = 1:size(A, 1),
-        col_range::UnitRange{Int} = 1:size(A, 2))
+function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
 
-    B = copy(A)
-    _rref_no_col_swap!(B, row_range, col_range)
-    B
+    B = deepcopy(A)
+    _rref_no_col_swap_binary!(B, row_range, col_range)
+    return B
 end
 
-function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
     # don't do anything to A if the range is empty
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
 
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -519,20 +500,20 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_ran
     return nothing
 end
 
-function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRange{Int} = 1:size(A, 1),
-        col_range::UnitRange{Int} = 1:size(A, 2))
+function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
+    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
 
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     while i <= nr && j <= nc
         # find first pivot
         ind = 0
         for k in i:nr
-            if A[k, j]
+            if !iszero(A[k, j])
                 ind = k
                 break
             end
@@ -547,7 +528,7 @@ function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRa
             # eliminate
             for k in row_range
                 if k != i
-                    if A[k, j]
+                    if !iszero(A[k, j])
                         # do a manual loop here to reduce allocations
                         @simd for l in axes(A, 2)
                             A[k, l] ⊻= A[i, l]
@@ -562,15 +543,17 @@ function _rref_no_col_swap!(A::Union{BitMatrix, Matrix{Bool}}, row_range::UnitRa
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
     return rnk, A, P
 end
-_rref_col_swap(M::CTMatrixTypes, row_range::Base.OneTo{Int}, col_range::Base.OneTo{Int}) = _rref_col_swap(M, 1:row_range.stop, 1:col_range.stop)
-_rref_col_swap(M::CTMatrixTypes) = _rref_col_swap(M, axes(M, 1), axes(M, 2))
 
-function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -580,10 +563,10 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
     nc_A = ncols(A)
 
     rnk = 0
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -623,7 +606,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         # do a manual loop here to reduce allocations
                         d = A[k, j]
@@ -671,7 +654,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
                 ind != i && swap_rows!(A, ind, i)
     
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         if isone(A[k, j])
                             # do a manual loop here to reduce allocations
@@ -690,7 +673,16 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range:
     return rnk, P
 end
 
-function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_range::UnitRange{Int})
+function _rref_symp_col_swap(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+    B = deepcopy(A)
+    _rref_symp_col_swap!(B, row_range, col_range)
+    return B
+end
+
+function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
@@ -700,10 +692,10 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
     nc_A = ncols(A)
 
     rnk = 0
-    i = row_range.start
-    j = col_range.start
-    nr = row_range.stop
-    nc = col_range.stop
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -747,7 +739,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         # do a manual loop here to reduce allocations
                         d = A[k, j]
@@ -799,7 +791,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
                 ind != i && swap_rows!(A, ind, i)
 
                 # eliminate
-                for k = row_range.start:nr
+                for k = first(row_range):nr
                     if k != i
                         if isone(A[k, j])
                             # do a manual loop here to reduce allocations
@@ -817,8 +809,34 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::UnitRange{Int}, col_r
     end
     return rnk, P
 end
-_rref_symp_col_swap!(A::CTMatrixTypes) = _rref_symp_col_swap!(A, axes(A, 1), axes(A, 2))
-_rref_symp_col_swap(A::CTMatrixTypes) = (B = deepcopy(A); return _rref_symp_col_swap!(B);)
+
+function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
+    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in axes(X, 2)
+        for i in axes(X, 1)
+            X[i, j] = A[i, p[j]]
+        end
+    end
+    return nothing
+end
+
+function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+    n = length(p)
+    # 2n == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)/2`."))
+    # size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in 1:n
+        for i in axes(X, 1)
+            X[i, j] = A[i, p[j]]
+        end
+    end
+    for j in 1:n
+        for i in axes(X, 1)
+            X[i, j + n] = A[i, p[j] + n]
+        end
+    end
+    return nothing
+end
 
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
@@ -1307,7 +1325,7 @@ end
 function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Char}}
     n = length(str)
     # F = GF(2, 1, :ω)
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     sym = zero_matrix(F, 1, 2 * n)
     for (i, c) in enumerate(str)
         if c == 'X'

@@ -63,14 +63,14 @@ LDPCCode(C::AbstractLinearCode) = LDPCCode(parity_check_matrix(C))
 Return a random regular LDPC code over `GF(q)` of length `n` with column degree `l`
 and row degree `r`.
 
-If a seed is given, i.e. `regulardLDPCCode(4, 1200, 3, 6, seed=123)`, the
+If a seed is given, i.e. `regular_LDPC_Code(4, 1200, 3, 6, seed=123)`, the
 results are reproducible.
 """
 function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
     Random.seed!(seed)
     m = divexact(n * l, r)
     F = if is_prime(q)
-        GF(q)
+        Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))

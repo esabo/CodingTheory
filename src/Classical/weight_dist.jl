@@ -1019,6 +1019,84 @@ function minimum_words(C::AbstractLinearCode)
     end
 end
 
+"""
+    random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
+
+Return an upper bound on the minimum distance of `C` and a codeword of that weight using
+`max_iters` random information sets.
+"""
+function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
+
+    order(field(C)) == 2 || throw(DomainError(C, "Currently only implemented for binary codes."))
+    is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
+
+    !ismissing(C.d) && (println("Distance already known"); return C.d;)
+    verbose && println("Bounding the distance")
+    G = _Flint_matrix_to_Julia_T_matrix(_rref_no_col_swap(C.G), UInt8)
+    G = _remove_empty(G, :rows)
+    upper, ind  = _min_wt_row(G)
+    found = G[ind, :]
+    # TODO this can contradict C.u_bound cause that requires a different found
+    verbose && println("Starting lower bound: $(C.l_bound)")
+    verbose && println("Starting upper bound: $upper")
+
+    uppers, founds = _RIS_bound_loop(G, C.l_bound, upper, found, max_iters, C.n, verbose)
+    loc = argmin(uppers)
+    C.u_bound = uppers[loc]
+    verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
+    return uppers[loc], matrix(field(C), permutedims(founds[loc]))
+end
+
+function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr_u_bound::Int,
+    found::Vector{T}, max_iters::Int, n::Int, verbose::Bool) where T <: Integer
+
+    num_thrds = Threads.nthreads()
+    verbose && println("Detected $num_thrds threads.")
+
+    flag = Threads.Atomic{Bool}(true)
+    uppers = [curr_u_bound for _ in 1:num_thrds]
+    founds = [found for _ in 1:num_thrds]
+    thread_load = Int(floor(max_iters / num_thrds))
+    remaining = max_iters - thread_load * num_thrds
+    prog_meter = Progress(max_iters)
+    Threads.@threads for t in 1:num_thrds
+        orig_ops = deepcopy(operators_to_reduce)
+        perm_ops = similar(orig_ops)
+        ops = similar(orig_ops)
+        perm = collect(1:n)
+        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
+            if flag[]
+                shuffle!(perm)
+                _col_permutation!(perm_ops, orig_ops, perm)
+                _rref_no_col_swap_binary!(perm_ops)
+                _col_permutation!(ops, perm_ops, invperm(perm))
+
+                for i in axes(perm_ops, 1)
+                    w = 0
+                    @inbounds for j in 1:n
+                        isodd(ops[i, j]) && (w += 1;)
+                    end
+
+                    if uppers[t] > w
+                        uppers[t] = w
+                        founds[t] .= ops[i, :]
+                        verbose && println("Adjusting (thread's local) upper bound: $w")
+                        if curr_l_bound == w
+                            verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
+                            Threads.atomic_cas!(flag, true, false)
+                            break
+                        end
+                    end
+                end
+            end
+            next!(prog_meter)
+        end
+    end
+    finish!(prog_meter)
+
+    return uppers, founds
+end
+
 #############################
     # Weight Enumerators
 #############################
@@ -1076,13 +1154,13 @@ function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
     return T.CWE
 end
 
+# TODO: remove C from this, store in WE struct
 """
     MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
 
 Return the weight enumerator of the dual (`:Euclidean` or `:Hermitian`) of `C` obtained
 by applying the MacWilliams identities to `W`.
 """
-# TODO: remove C from this, store in WE struct
 function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
     dual ∈ (:Euclidean, :Hermitian) ||
         throw(ArgumentError("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals."))

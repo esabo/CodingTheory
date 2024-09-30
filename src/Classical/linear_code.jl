@@ -16,7 +16,7 @@ set to `true`, a linear code is built with `G` as the parity-check matrix. If th
 `brute_force_WE` is `true`, the weight enumerator and (and therefore the distance) is calculated when
 there are fewer than 1.5e5 codewords.
 """
-function LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=true)
+function LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool = true)
     iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
 
     G_new = deepcopy(G)
@@ -75,7 +75,7 @@ function LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=t
 end
 
 # TODO: add doc strings
-function LinearCode(G::T, H::T, brute_force_WE::Bool=true) where T <: CTMatrixTypes
+function LinearCode(G::T, H::T, brute_force_WE::Bool = true) where T <: CTMatrixTypes
     ncols(G) == ncols(H) ||
         throw(ArgumentError("The number of columns of G and H should be the same (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))"))
     base_ring(G) == base_ring(H) || throw(ArgumentError("G and H are not over the same field"))
@@ -103,7 +103,7 @@ function LinearCode(G::T, H::T, brute_force_WE::Bool=true) where T <: CTMatrixTy
     return C
 end
 
-function LinearCode(G::Matrix{Int}, q::Int, parity::Bool=false)
+function LinearCode(G::Matrix{Int}, q::Int, parity::Bool = false)
     factors = Nemo.factor(q)
     (length(factors) == 1 && q > 1) || throw(ArgumentError("There is no finite field of order $q."))
 
@@ -123,7 +123,7 @@ function LinearCode(Gs::Vector{<:CTMatrixTypes})
     return LinearCode(G)
 end
 
-function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool=false)
+function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool = false)
     s = size(Gs[1])
     all(s == size(Gs[i]) for i in 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
 
