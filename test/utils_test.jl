@@ -272,4 +272,24 @@
         1, 1, 0, 1, 1, 1, 0, 0, 1,
         0, 1, 1, 1, 1, 1, 1, 0, 0])
     @test weight_matrix(A) == [1 0 2; 2 3 1]
+
+    # Nonpivots tests
+    F2 = Oscar.Nemo.Native.GF(2)
+    C = matrix(F2, [1 0; 0 1])
+    pivs=CodingTheory._rref_non_pivot_cols(C)
+    @test pivs==[]
+
+    C2 = matrix(F2, [1 0 0; 0 0 1])
+    pivs2=CodingTheory._rref_non_pivot_cols(C2)
+    @test pivs2==[2]
+
+    F3 = Oscar.Nemo.Native.GF(3)
+    C3 = matrix(F3, [1 0 0; 0 0 2])
+    pivs3=CodingTheory._rref_non_pivot_cols(C3)
+    @test pivs3==[2,3]
+
+    C4 = matrix(F3, [1 0 0; 0 2 0])
+    pivs4=CodingTheory._rref_non_pivot_cols(C4)
+    @test pivs4==[2,3]
+
 end

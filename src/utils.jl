@@ -287,7 +287,11 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
-function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
+"""
+Assumes the input is in rref form and returns the indexs of the columns that do not contain a pivot entry.
+Note that rref form here requires pivot entries have been normalized to 1.
+"""
+function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
 
     if type == :sp
@@ -298,7 +302,7 @@ function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
         j = 1
         nr, nc = size(A)
         while i <= nr && j <= nc
-            if isone(A[i, j])
+            if is_one(A[i, j])
                 i += 1
                 j += 1
             else
@@ -341,10 +345,10 @@ function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMa
         !flag && error("Cannot solve system for quotient")
         _, rref_sol = rref(sol)
         if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
-            nonpivots = _non_pivot_cols(rref_sol, :sp)
+            nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
             return reduce(vcat, [big[r, :] for r in nonpivots])
         else
-            return big[_non_pivot_cols(rref_sol, :nsp), :]
+            return big[_rref_non_pivot_cols(rref_sol, :nsp), :]
         end
     end
 end

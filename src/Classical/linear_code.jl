@@ -396,13 +396,13 @@ end
 #############################
      # general functions
 #############################
+"""
+Returns the indexs of the pivot columns and an information set which 
+is the submatrix of G given by these columns.
+"""
 function information_set(C::AbstractLinearCode)
-    """
-    Returns the indexs of the pivot columns and an information set which 
-    is the submatrix of G given by these columns.
-    """
-    _, rref_sol = rref(C.G)
-    nonpivot_inds = _non_pivot_cols(rref_sol, :nsp) 
+    rref_sol = _rref_no_col_swap(C.G)
+    nonpivot_inds = _rref_non_pivot_cols(rref_sol, :nsp) 
     pivot_inds = [x for x in 1:C.n if !(x in nonpivot_inds)]
     return pivot_inds
 end
