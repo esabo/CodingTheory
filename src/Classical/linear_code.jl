@@ -714,6 +714,26 @@ function are_permutation_equivalent(C1::AbstractLinearCode, C2::AbstractLinearCo
 end
 
 """
+Checks permutation equivalence by brute force for the purpose of doing small tests. 
+"""
+function are_perm_equivalent_exhaustive_search(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    G1 = C1.G 
+    G2 = C2.G 
+    if G1 == G2 
+        return are_permutation_equivalent(C1, C2) 
+    end 
+    nc = ncols(G1)
+    sym = symmetric_group(nc)
+    for e in collect(sym) 
+        P = permutation_matrix(C1.F, e)
+        if G1 * P == G2 
+            return (true, P)
+        end
+    end
+    return (false, missing)
+end
+
+"""
     is_self_dual(C::AbstractLinearCode)
 
 Return `true` if `are_equivalent(C, dual(C))`.
@@ -995,17 +1015,3 @@ function contains_self_dual_subcode(C::AbstractLinearCode)
     end
 end
 
-"""
-Checks permutation equivalence by brute force for the purpose of doing small tests. 
-"""
-function _are_perm_equivalent(mat0::CodingTheory.CTMatrixTypes, mat1::CodingTheory.CTMatrixTypes, field::CodingTheory.CTFieldTypes)
-    nc = ncols(mat0)
-    sym=symmetric_group(nc)
-    for e in collect(sym) 
-        s = permutation_matrix(field, e)
-        if mat0*s == mat1
-            return true 
-        end
-    end
-    return false
-end

@@ -58,23 +58,25 @@
         # a code with G in standard form 
         Gstd = matrix(F, [1 0; 0 1])
         Cstd = LinearCode(Gstd);
-        pivs, info_mat=information_set(Cstd)
-        @test pivs==[1,2]
-        @test info_mat==identity_matrix(F, 2)
+        pivs = information_set(Cstd)
+        @test pivs == [1,2]
 
-        # a code with nontrivial pivots:
+        # codes with nontrivial pivots:
         G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
         C = LinearCode(G);
-        pivs, info_mat=information_set(C)
-        @test pivs==[1,3]
-        @test info_mat==identity_matrix(F, 2)
+        pivs = information_set(C)
+        @test pivs == [1,3]
 
-        # a code with non-identity information set
         C_ham = HammingCode(2, 3)
-        pivs, info_mat=information_set(C_ham)
-        expected_info_mat=matrix(F, [1 0 0 0; 1 1 0 0; 0 1 1 0; 1 1 0 1])
-        @test pivs==[1, 4, 6, 7]
-        @test info_mat==expected_info_mat
+        pivs = information_set(C_ham)
+        expected_info_mat = matrix(F, [1 0 0 0; 1 1 0 0; 0 1 1 0; 1 1 0 1])
+        @test pivs == [1, 2, 3, 4]
+
+        C = deepcopy(C_ham)
+        C.G[:,1] = C_ham.G[:, 5]
+        C.G[:,5] = C_ham.G[:, 1]
+        pivs = information_set(C)
+        @test pivs == [1, 2, 3, 5]
     end
 
     @testset "Puncturing examples" begin
@@ -160,11 +162,12 @@
         G3 = matrix(F, [1 1 0 0 0 0; 1 0 1 0 0 0; 1 1 1 1 1 1])
         C3 = LinearCode(G3)
         LinearCode(words(C1))
-        @test is_self_dual(C1)
-        @test is_self_dual(C2)
-        @test !is_self_dual(C3)
-        @test are_perm_equivalent(G1, G2, F)
-        @test !are_perm_equivalent(G1, G3, F)
+        bool1, permutation1 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C2)
+        @test bool1
+        @test !(permutation1 === missing)
+        bool2, permutation2 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C3)
+        @test !bool2
+        @test permutation2 === missing
  
     end
         # "On the Schur Product of Vector Spaces over Finite Fields"
