@@ -10,6 +10,7 @@ using AutoHashEquals
 using Graphs
 import Graphs as Grphs
 using Oscar
+using Hecke
 using Combinatorics
 using .Threads
 using LinearAlgebra
@@ -31,6 +32,7 @@ import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import Combinatorics: powerset
 import DataStructures: capacity
+import Hecke: GroupAlgebraElem, FinGenAbGroupElem, FinFieldElem, CTFieldElem, fpFieldElem
 
 # tilings.jl
 LINS_flag_install = Packages.install("LINS")
@@ -376,7 +378,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
     Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code,
-    homological_product, ⊠, BivariateBicycleCode
+    homological_product, ⊠, BivariateBicycleCode, CoPrimeBivariateBicycleCode
 
 #############################
 #   Quantum/simulation.jl

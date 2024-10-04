@@ -917,7 +917,7 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
             l = exps[1][1]
         end
     end
-    
+
     x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
     y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
 
@@ -935,6 +935,52 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
     B = zero_matrix(F, l * m, l * m)
     for ex in exponents(lift(b))
         iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
+        power, which = findmax(ex)
+        if which == 1
+            B += x^power
+        elseif which == 2
+            B += y^power
+        end
+    end
+
+
+    return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
+end
+
+
+"""
+    CoPrimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+
+Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
+
+# Note
+- This is defined in https://arxiv.org/pdf/2408.10001v1.
+"""
+function CoPrimeBivariateBicycleCode(a::T, b::T, l::Int, m::Int) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
+    R = parent(a)
+    R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
+    F = base_ring(base_ring(a))
+    order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
+    length(symbols(parent(a))) == 1 || throw(DomainError("Polynomials must be over one variable."))
+    g = gens(modulus(R))
+    length(g) == 1 || throw(DomainError("Residue rings must have only one generator."))
+
+    gcd([l, m]) == 1 || throw(DomainError("l and m must be coprime numbers."))
+    x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
+    y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
+
+    A = zero_matrix(F, l * m, l * m)
+    for ex in exponents(lift(a))
+        power, which = findmax(ex)
+        if which == 1
+            A += x^power
+        elseif which == 2
+            A += y^power
+        end
+    end
+
+    B = zero_matrix(F, l * m, l * m)
+    for ex in exponents(lift(b))
         power, which = findmax(ex)
         if which == 1
             B += x^power
