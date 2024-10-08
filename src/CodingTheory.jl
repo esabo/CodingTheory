@@ -120,7 +120,7 @@ export LinearCode, field, length, dimension, cardinality, rate, relative_distanc
     is_doubly_even, is_triply_even, characteristic_polynomial, is_Hermitian_LCD, is_Hermitian_dual_containing,
     is_LCD, Hermitian_hull, hull, is_Hermitian_self_dual, is_dual_containing, minimum_distance_lower_bound,
     minimum_distance_upper_bound, set_distance_upper_bound!, standard_form_permutation, genus,
-    is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode, information_set
+    is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode, information_set, random_information_set
 
 #############################
 # Classical/new_codes_from_old.jl

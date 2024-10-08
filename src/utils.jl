@@ -814,7 +814,17 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 
-function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+function _permgroup_vec_permutation!(X::Vector{T}, A::Vector{T}, p::PermGroupElem) where T
+    n = degree(parent(p))
+    n >= size(A, 1) || throw(ArgumentError("degree of the parent group of `p` must be at least `size(A, 2)`."))
+    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in 1:length(X) 
+        X[j] = p(A[j])
+    end
+    return nothing
+end
+
+function _col_permutation!(X::Union{VecOrMat{T}, CTMatrixTypes}, A::Union{VecOrMat{T}, CTMatrixTypes}, p::AbstractVector{Int}) where T
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
     size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
     for j in axes(X, 2)

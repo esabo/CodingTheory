@@ -407,6 +407,26 @@ function information_set(C::AbstractLinearCode)
     return pivot_inds
 end
 
+function random_information_set(C::AbstractLinearCode)
+    perm = Vector(1:C.n)
+    shuffle!(perm)
+    perm_mat = parent(C.G)(zero_matrix(ZZ, C.k, C.n))
+
+    new_perm = convert(Vector{Int}, perm)
+    _col_permutation!(perm_mat, C.G, new_perm)
+
+    permuted_pivot_inds = information_set(LinearCode(perm_mat))
+
+    S_n = symmetric_group(C.n)
+    inv_perm_vec = invperm(perm) 
+    inv_perm = Oscar.perm(S_n, inv_perm_vec)
+    pivot_inds = Vector(1:length(permuted_pivot_inds))
+    _permgroup_vec_permutation!(pivot_inds, permuted_pivot_inds, inv_perm)
+    return pivot_inds
+end
+
+
+
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
     F = base_ring(G_stand)
