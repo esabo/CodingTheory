@@ -27,14 +27,8 @@ optimal_threshold
 density_evolution
 ```
 
-```@docs
-plot_EXIT_chart
-```
 
 # Misc
-```@docs
-multiplicative_gap
-```
 
 ```@docs
 multiplicative_gap_lower_bound
@@ -43,6 +37,8 @@ multiplicative_gap_lower_bound
 ```@docs
 density_lower_bound
 ```
+
+See also: `plot_EXIT_chart`, `multiplicative_gap`
 
 ## Comments
 
