@@ -947,7 +947,6 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
     return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
 end
 
-
 """
     CoPrimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
 
