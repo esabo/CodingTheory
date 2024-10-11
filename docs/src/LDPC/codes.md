@@ -31,14 +31,7 @@ Parity-check matrix: 6 × 9
         1 1 0 0 0 0 1 1 1
 ```
 
-Random regular LDPC codes maybe be constructed via
-```@docs
-regular_LDPC_code
-```
-and irregular LDPC codes via
-```@docs
-irregular_LDPC_code
-```
+Random regular LDPC codes maybe be constructed via `regular_LDPC_code` and `irregular_LDPC_code`
 
 ## Attributes
 The polynomials ``\lambda(x)`` and ``\rho(x)`` as well as the degrees of each variable and check nodes are computed upon construction.
@@ -116,33 +109,8 @@ To count or explicitly enumerate the short cycles of the Tanner graph, use
 count_short_cycles
 ```
 
-```@docs
-shortest_cycles
-```
+See also: `shortest_cycles`
 
-Various information about the ACE values of cycles in the Tanner graph may be computed with the following functions.
-```@docs
-ACE_spectrum
-```
-
-```@docs
-shortest_cycle_ACE
-```
-
-```@docs
-ACE_distribution
-```
-
-```@docs
-average_ACE_distribution
-```
-
-```@docs
-median_ACE_distribution
-```
-
-```@docs
-mode_ACE_distribution
-```
+Various information about the ACE value  of cycles in the Tanner graph may be computed with the following functions. See: `ACE_spectrum`, `shortest_cycle_ACE`, `ACE_distribution`, `average_ACE_distribution`, `median_ACE_distribution`, `mode_ACE_distribution`
 
 ## Greedy Construction Algorithms

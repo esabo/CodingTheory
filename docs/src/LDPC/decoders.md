@@ -21,9 +21,7 @@ sum_product_box_plus
 min_sum
 ```
 
-```@docs
-find_MP_schedule
-```
+See also: `find_MP_schedule`
 
 ## Linear Programming
 
@@ -33,6 +31,4 @@ LP_decoder_LDPC
 
 ## Simulations
 
-```@docs
-decoder_simulation
-```
+See: `decoder_simulation`

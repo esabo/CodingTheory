@@ -31,6 +31,8 @@ cardinality
 rate
 ```
 
+See also: encode`
+
 If the linear code was created by passing in a generator (parity-check) matrix, then this matrix is stored in addition to the standard form. Note that this matrix is potentially over complete (has more rows than its rank). The standard form is returned when the optional parameter `stand_form` is set to true. Some code families are not constructed using these matrices. In these cases, the matrices are initially `missing` and are computed and cached when these functions are called for the first time. Direct access to the underlying structs is not recommended.
 ```@docs
 generator_matrix
@@ -50,9 +52,6 @@ standard_form_permutation
 ```
 
 The minimum distance of some code families are known and are set during construction. The minimum distance is automatically computed in the constructor for codes which are deemed "small enough". Otherwise, the minimum distance is `missing`. Primitive bounds on the minimum distance are given by
-```@docs
-minimum_distance_lower_bound
-```
 
 ```@docs
 minimum_distance_upper_bound
@@ -82,21 +81,15 @@ set_distance_lower_bound!
 ```
 
 ```@docs
-set_distance_upper_bound!
-```
-
-```@docs
 set_minimum_distance!
 ```
+
+See: `minimum_distance_lower_bound`, `set_distance_upper_bound!`
 
 ## Methods
 
 ```@docs
 Singleton_bound
-```
-
-```@docs
-encode
 ```
 
 ```@docs
