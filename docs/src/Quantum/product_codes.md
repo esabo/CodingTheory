@@ -6,6 +6,8 @@
 - [Generealized bicycle](https://errorcorrectionzoo.org/c/generalized_bicycle): [pryadko2013quantum](@cite), [Kovalev_2013](@cite), [panteleev2021degenerate](@cite)
 - Generalized hypergraph product: [panteleev2021degenerate](@cite)
 - Bias-tailored lifted product: [roffe2023bias](@cite)
+- Bivariate bicycle: [wang2024coprime](@cite)
+- Coprime bivarate bicycle: [wang2024coprime](@cite)
 
 
 ```@autodocs

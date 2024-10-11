@@ -1027,9 +1027,9 @@ version = "0.12.1+0"
 
 [[deps.libsingular_julia_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Singular_jll", "libcxxwrap_julia_jll"]
-git-tree-sha1 = "ab24eb5706b1d1a1b5037951a382b0c4fd6edf5b"
+git-tree-sha1 = "436efe88c41337fd128062555fe8f8ea6c0e7309"
 uuid = "ae4fbd8f-ecdb-54f8-bbce-35570499b30e"
-version = "0.45.5+0"
+version = "0.45.6+0"
 
 [[deps.lrslib_jll]]
 deps = ["Artifacts", "GMP_jll", "JLLWrappers", "Libdl", "Pkg"]

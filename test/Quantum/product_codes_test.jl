@@ -607,60 +607,61 @@
         @test dimension(Q) == 12
         @test_broken minimum_distance(S) == 8
 
-        # co-prime bivariate bicycle codes
+        # Coprime Bivariate Bicycle codes
+        # Table 2 of https://arxiv.org/pdf/2408.10001v1
         # [[30, 4, 6]]
-        S, (π) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:π])
+        S, (P) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:P])
         l = 3
         m = 5
-        R, _ = quo(S, ideal(S, [π[1]^(l*m)]))
-        a = R(1 + π[1] + π[1]^2)
-        b = R(π[1] + π[1]^3 + π[1]^8)
-        Q = CoPrimeBivariateBicycleCode(a, b, l, m)
+        R, _ = quo(S, ideal(S, [P[1]^(l*m)]))
+        a = R(1 + P[1] + P[1]^2)
+        b = R(P[1] + P[1]^3 + P[1]^8)
+        Q = CoprimeBivariateBicycleCode(a, b, l, m)
         @test length(Q) == 30
-        @test_broken  dimension(code) == 4
+        @test dimension(Q) == 4
         @test_broken  minimum_distance(S) == 6
-        
+
         # [[42, 6, 6]]
         l = 3
         m = 7
-        R, _ = quo(S, ideal(S, [π[1]^(l*m)]))
-        a = R(1 + π[1]^2 + π[1]^3)
-        b = R(π[1] + π[1]^3 + π[1]^11)
-        Q = CoPrimeBivariateBicycleCode(a, b, l, m)
+        R, _ = quo(S, ideal(S, [P[1]^(l*m)]))
+        a = R(1 + P[1]^2 + P[1]^3)
+        b = R(P[1] + P[1]^3 + P[1]^11)
+        Q = CoprimeBivariateBicycleCode(a, b, l, m)
         @test length(Q) == 42
-        @test_broken dimension(Q) == 6
+        @test dimension(Q) == 6
         @test_broken minimum_distance(S) == 6
 
         # [[70, 6, 8]]
         l = 5
         m = 7
-        R, _ = quo(S, ideal(S, [π[1]^(l*m)]))
-        a = R(1 + π[1]^2 + π[1]^5)
-        b = R(1 + π[1] + π[1]^12)
-        Q = CoPrimeBivariateBicycleCode(a, b, l, m)
+        R, _ = quo(S, ideal(S, [P[1]^(l*m)]))
+        a = R(1 + P[1] + P[1]^5)
+        b = R(1 + P[1] + P[1]^12)
+        Q = CoprimeBivariateBicycleCode(a, b, l, m)
         @test length(Q) == 70
-        @test_broken dimension(Q) == 6
+        @test dimension(Q) == 6
         @test_broken minimum_distance(S) == 8
 
         # [[108, 12, 6]]
         l = 2
         m = 27
-        R, _ = quo(S, ideal(S, [π[1]^(l*m)]))
-        a = R(π[1]^2 + π[1]^5 + π[1]^44)
-        b = R(π[1]^8 + π[1]^14 + π[1]^47)
-        Q = CoPrimeBivariateBicycleCode(a, b, l, m)
+        R, _ = quo(S, ideal(S, [P[1]^(l*m)]))
+        a = R(P[1]^2 + P[1]^5 + P[1]^44)
+        b = R(P[1]^8 + P[1]^14 + P[1]^47)
+        Q = CoprimeBivariateBicycleCode(a, b, l, m)
         @test length(Q) == 108
-        @test_broken dimension(Q) == 12
+        @test dimension(Q) == 12
         @test_broken minimum_distance(S) == 6
 
         # [126, 12, 10]]
         l = 7
         m = 9
-        R, _ = quo(S, ideal(S, [π[1]^(l*m)]))
-        a = R(1 + π[1] + π[1]^58)
-        b = R(π[1]^3 + π[1]^16 + π[1]^44)
-        Q = CoPrimeBivariateBicycleCode(a, b, l, m)
+        R, _ = quo(S, ideal(S, [P[1]^(l*m)]))
+        a = R(1 + P[1] + P[1]^58)
+        b = R(P[1]^3 + P[1]^16 + P[1]^44)
+        Q = CoprimeBivariateBicycleCode(a, b, l, m)
         @test length(Q) == 126
-        @test_broken dimension(Q) == 12
+        @test dimension(Q) == 12
         @test_broken dimension(Q) == 10
 end
