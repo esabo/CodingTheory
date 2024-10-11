@@ -917,7 +917,7 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
             l = exps[1][1]
         end
     end
-    
+
     x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
     y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
 
@@ -941,6 +941,57 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
         elseif which == 2
             B += y^power
         end
+    end
+
+
+    return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
+end
+
+"""
+    CoPrimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+
+Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
+
+# Note
+- This is defined in https://arxiv.org/pdf/2408.10001v1.
+"""
+function CoprimeBivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
+    R = parent(a)
+    R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
+    F = base_ring(base_ring(a))
+    order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
+    length(symbols(parent(a))) == 1 || throw(DomainError("Polynomials must be over one variable."))
+    g = gens(modulus(R))
+
+    m = -1
+    l = -1
+
+    exps = collect(exponents(g[1]))[1][1]
+    length(exps) == 1 || throw(ArgumentError("Moduli of the incorrect form."))
+    facs = factor(ZZ(exps)).fac
+    pfacs = collect(keys(facs))
+    pexps = collect(values(facs))
+
+    l = Int(pfacs[1]^pexps[1])
+    m = Int(pfacs[2]^pexps[2])
+
+    length(pfacs) == 2 ? (gcd([l, m]) == 1 ?
+        nothing : throw(ArgumentError("l and m must be coprime numbers."))) : throw(ArgumentError("Moduli of the incorrect form."))
+
+    x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
+    y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
+
+    P = x*y
+    A = zero_matrix(F, exps, exps)
+    for ex in exponents(lift(a))
+        power, _ = findmax(ex)
+        A += P^power
+    end
+
+    B = zero_matrix(F, exps, exps)
+    for ex in exponents(lift(b))
+        power, _ = findmax(ex)
+        B += P^power
     end
 
     return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))

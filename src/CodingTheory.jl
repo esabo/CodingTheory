@@ -376,7 +376,7 @@ export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
     GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
     Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code,
-    homological_product, ⊠, BivariateBicycleCode
+    homological_product, ⊠, BivariateBicycleCode, CoprimeBivariateBicycleCode
 
 #############################
 #   Quantum/simulation.jl
