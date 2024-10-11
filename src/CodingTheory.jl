@@ -10,7 +10,6 @@ using AutoHashEquals
 using Graphs
 import Graphs as Grphs
 using Oscar
-using Hecke
 using Combinatorics
 using .Threads
 using LinearAlgebra
@@ -32,7 +31,6 @@ import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
 import Combinatorics: powerset
 import DataStructures: capacity
-import Hecke: GroupAlgebraElem, FinGenAbGroupElem, FinFieldElem, CTFieldElem, fpFieldElem
 
 # tilings.jl
 LINS_flag_install = Packages.install("LINS")
