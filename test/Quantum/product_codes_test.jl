@@ -670,12 +670,13 @@
 
     @testset "BiasTailoredLiftedProductCode" begin
         # [[882, 24, d ≤ 24]] from Appendix B of https://arxiv.org/pdf/2202.01702
+        F = Oscar.Nemo.Native.GF(2)
         S, x = polynomial_ring(F, :x)
         l = 63
         R, _ = residue_ring(S, x^l - 1)
         A1 = matrix(R, 1, 1, [1 + x^1 + x^6])
         A2 = matrix(R, 7, 7,
-             [x^36, 0   , 0   , 0   , 0   , 1   , x^9,
+             [x^36, 0   , 0   , 0   , 0   , 1   , x^9 ,
               x^9 , x^36, 0   , 0   , 0   , 0   , 1   ,
               1   , x^9 , x^36, 0   , 0   , 0   , 0   ,
               0   , 1   , x^9 , x^36, 0   , 0   , 0   ,
