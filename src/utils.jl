@@ -316,7 +316,7 @@ function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMa
 
     if alg == :VS
         F = base_ring(big)
-        V = VectorSpace(F, ncols(big))
+        V = vector_space(F, ncols(big))
         U, U_to_V = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
         W, W_to_V = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
         gens_of_U_in_W = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))

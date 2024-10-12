@@ -22,7 +22,7 @@ using ProgressMeter
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
-    lift, quo, VectorSpace, dimension, extend, support, complement,
+    lift, quo, vector_space, dimension, extend, support, complement,
     is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic, field

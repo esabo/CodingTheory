@@ -17,6 +17,7 @@ Return a plot of the EXIT chart for the ensemble given the channel up to a numer
 - Run `using Makie` to activate this extension.
 """
 function CodingTheory.EXIT_chart_plot(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64 = 1e-9)
+    
     @assert isa(Ch, BinaryErasureChannel) "Only BEC is implemented so far"
     x = 0:0.01:1
     c = 1 .- [CodingTheory._poly_eval(x, E.ρ) for x in 1 .- x]

@@ -2161,7 +2161,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         if !isempty(parallel[i])
             v_e_mat_sym = quadratic_to_symplectic(reduce(vcat, valid_edges))
             F = base_ring(v_e_mat_sym)
-            VS = VectorSpace(F, ncols(v_e_mat_sym))
+            VS = vector_space(F, ncols(v_e_mat_sym))
             U, U_to_VS = sub(VS, [VS(p_e_mat_sym[i, :]) for i in 1:nrows(p_e_mat_sym)])
             W, W_to_VS = sub(VS, [VS(v_e_mat_sym[i, :]) for i in 1:nrows(v_e_mat_sym)])
             I, _ = intersect(U, W)
