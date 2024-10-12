@@ -20,7 +20,7 @@
 function _Reed_Muller_generator_matrix(r::Int, m::Int, alt::Bool=false)
     (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     if r == 1 && m == 1 && !alt
         return matrix(F, 2, 2, [1, 1, 0, 1])
     elseif r == m

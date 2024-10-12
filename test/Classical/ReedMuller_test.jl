@@ -2,7 +2,7 @@
     using Oscar, CodingTheory
 
     @testset "Misc Known ReedMullerCodes" begin
-        F = GF(2)
+        F = Oscar.Nemo.Native.GF(2)
         # Huffman, Pless, p. 34
         # identity used for RM(1, 1)
         @test CodingTheory._Reed_Muller_generator_matrix(1, 1, true) == matrix(F,

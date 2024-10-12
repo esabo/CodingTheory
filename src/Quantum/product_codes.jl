@@ -149,7 +149,7 @@ Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2`.
 function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
     char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     Int(order(C1.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
     Int(order(C2.F)) == 2 || error("Generalized Shor codes are only defined for binary codes.")
     dual(C1) ⊆ C2 || error("Generalized Shor codes require the dual of the first code is a subset of the second.")
@@ -205,7 +205,7 @@ julia> length(code), dimension(code)
 function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int; char_vec::Union{Vector{zzModRingElem},
     Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     χ > 0 || throw(ArgumentError("Required χ > 0."))
     c = length(a)
     gcd(c, χ) == 1 || throw(ArgumentError("The length of the input vectors must be coprime with χ."))
@@ -358,7 +358,7 @@ julia> length(code), dimension(code)
 function GeneralizedBicycleCode(A::T, B::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     F = base_ring(A)
     F == base_ring(B) || throw(ArgumentError("Arguments must be over the same base ring."))
     (iszero(A) || iszero(B)) && throw(ArgumentError("Arguments should not be zero."))
@@ -383,7 +383,7 @@ Return the generealized bicycle code determined by `a` and `b`.
 function GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: ResElem
 
-    logs_alg ∈ [:stnd_frm, :VS, :sys_eqs] || throw(ArgumentError("Unrecognized logicals algorithm"))
+    logs_alg ∈ (:stnd_frm, :VS, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm"))
     parent(a) == parent(b) || throw(ArgumentError("Both objects must be defined over the same residue ring."))
 
     return GeneralizedBicycleCode(residue_polynomial_to_circulant_matrix(a),
@@ -867,8 +867,8 @@ function Quintavalle_basis(C::HypergraphProductCode)
     tr_im_H2_tr_c = transpose(im_H2_tr_c)
     for i in 1:nrows(tr_ker_H1)
         for h in 1:nrows(tr_ker_H2)
-            lx[l, :] = hcat(tr_im_H1_tr_c[i, :] ⊗ tr_ker_H2[h, :], temp)
-            lz[l, :] = hcat(tr_ker_H1[i, :] ⊗ tr_im_H2_tr_c[h, :], temp)
+            lx[l:l, :] = hcat(tr_im_H1_tr_c[i:i, :] ⊗ tr_ker_H2[h:h, :], temp)
+            lz[l:l, :] = hcat(tr_ker_H1[i:i, :] ⊗ tr_im_H2_tr_c[h:h, :], temp)
             l += 1
         end
     end
@@ -880,8 +880,8 @@ function Quintavalle_basis(C::HypergraphProductCode)
     tr_ker_H2_tr = transpose(ker_H2_tr)
     for i in 1:nrows(tr_ker_H1_tr)
         for h in 1:nrows(tr_ker_H2_tr)
-            lx[l, :] = hcat(temp, tr_ker_H1_tr[i, :] ⊗ tr_im_H2_c[h, :])
-            lz[l, :] = hcat(temp, tr_im_H1_c[i, :] ⊗ tr_ker_H2_tr[h, :])
+            lx[l:l, :] = hcat(temp, tr_ker_H1_tr[i:i, :] ⊗ tr_im_H2_c[h:h, :])
+            lz[l:l, :] = hcat(temp, tr_im_H1_c[i:i, :] ⊗ tr_ker_H2_tr[h:h, :])
             l += 1
         end
     end
@@ -1160,70 +1160,50 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
 end
 
 """
-    CoPrimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+    CoprimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
 
 Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
 
 # Note
+
 - This is defined in https://arxiv.org/pdf/2408.10001v1.
-
-# Example
-
-[[126, 12, 10]] Coprime Bivariate Bicycle Code from Table 2 of [wang2024coprime](@cite).
-
-```jldoctest
-julia> using CodingTheory, Oscar;
-
-julia> S, (P) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:P]);
-
-julia> l = 7; m = 9;
-
-julia> R, _ = quo(S, ideal(S, [P[1]^(l*m)]));
-
-julia> a = R(1 + P[1] + P[1]^58);
-
-julia> b = R(P[1]^3 + P[1]^16 + P[1]^44);
-
-julia> code = CoprimeBivariateBicycleCode(a, b);
-
-julia> length(code), dimension(code)
-(126, 12)
-```
 """
-function CoprimeBivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
+function CoprimeBivariateBicycleCode(a::ResElem, b::ResElem)
     R = parent(a)
+    S = base_ring(a)
     R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
-    F = base_ring(base_ring(a))
+    F = base_ring(S)
     order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
-    length(symbols(parent(a))) == 1 || throw(DomainError("Polynomials must be over one variable."))
-    g = gens(modulus(R))
+    length(gens(S)) == 1 || throw(DomainError("Polynomials must be over one variable."))
+    f = modulus(R)
+    deg_P = degree(f)
+    f == gen(S)^deg_P - 1 || throw(ArgumentError("Residue ring not of the form π^(l * m) - 1."))
 
-    m = -1
-    l = -1
-
-    exps = collect(exponents(g[1]))[1][1]
-    length(exps) == 1 || throw(ArgumentError("Moduli of the incorrect form."))
-    facs = factor(ZZ(exps)).fac
-    pfacs = collect(keys(facs))
-    pexps = collect(values(facs))
-
-    l = Int(pfacs[1]^pexps[1])
-    m = Int(pfacs[2]^pexps[2])
-
-    length(pfacs) == 2 ? (gcd([l, m]) == 1 ?
-        nothing : throw(ArgumentError("l and m must be coprime numbers."))) : throw(ArgumentError("Moduli of the incorrect form."))
+    facs = Nemo.factor(deg_P)
+    length(facs) == 2 || throw(ArgumentError("Residue ring not of the form π^(l * m) - 1."))
+    k = collect(keys(facs.fac))
+    v = collect(values(facs.fac))
+    l = k[1]^v[1]
+    m = k[2]^v[2]
+    # l = 3
+    # m = 7
+    # println("l = $l, m = $m")
+    # actually this check is guaranteed to be true since factor breaks it into its prime
+    # factorization
+    # gcd(l, m) == 1 || throw(ArgumentError("l and m must be coprime"))
 
     x = matrix(F, [mod1(i + 1, l) == j ? 1 : 0 for i in 1:l, j in 1:l]) ⊗ identity_matrix(F, m)
     y = identity_matrix(F, l) ⊗ matrix(F, [mod1(i + 1, m) == j ? 1 : 0 for i in 1:m, j in 1:m])
 
-    P = x*y
-    A = zero_matrix(F, exps, exps)
+    P = x * y
+    A = zero_matrix(F, deg_P, deg_P)
     for ex in exponents(lift(a))
+        # println(ex)
         power, _ = findmax(ex)
         A += P^power
     end
 
-    B = zero_matrix(F, exps, exps)
+    B = zero_matrix(F, deg_P, deg_P)
     for ex in exponents(lift(b))
         power, _ = findmax(ex)
         B += P^power

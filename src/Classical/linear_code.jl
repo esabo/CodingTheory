@@ -766,7 +766,7 @@ Return the characteristic polynomial of `C`.
 * The characteristic polynomial is defined in [Lin1999]_
 """
 function characteristic_polynomial(C::AbstractLinearCode)
-    _, x = PolynomialRing(Nemo.QQ, :x)
+    _, x = polynomial_ring(Nemo.QQ, :x)
     D = dual(C)
     supD = support(D)
     q = Int(order(C.F))
@@ -774,16 +774,16 @@ function characteristic_polynomial(C::AbstractLinearCode)
 end
 
 """
-    VectorSpace(C::AbstractLinearCode)
+    vector_space(C::AbstractLinearCode)
 
 Return the code `C` as a vector space object.
 """
-function VectorSpace(C::AbstractLinearCode)
-    V = VectorSpace(C.F, C.n)
+function vector_space(C::AbstractLinearCode)
+    V = vector_space(C.F, C.n)
     G = generator_matrix(C)
     return sub(V, [V(view(G, i:i, :)) for i in 1:nrows(G)])
 end
-# vector_space(C::AbstractLinearCode) = VectorSpace(C)
+# vector_space(C::AbstractLinearCode) = vector_space(C)
 
 """
     is_even(C::AbstractLinearCode)
@@ -861,6 +861,7 @@ function words(C::AbstractLinearCode, only_print::Bool=false)
         return words
     end
 
+    # TODO new bug?
     # for iter in Iterators.product(Iterators.repeated(E, nrows(G))...)
     for iter in Nemo.AbstractAlgebra.ProductIterator([E for _ in 1:nrows(G)], inplace = true)
         row = iter[1] * view(G, 1:1, :)
@@ -873,8 +874,8 @@ function words(C::AbstractLinearCode, only_print::Bool=false)
     end
     return words
 end
-codewords(C::AbstractLinearCode, only_print::Bool=false) = words(C, only_print)
-elements(C::AbstractLinearCode, only_print::Bool=false) = words(C, only_print)
+codewords(C::AbstractLinearCode, only_print::Bool = false) = words(C, only_print)
+elements(C::AbstractLinearCode, only_print::Bool = false) = words(C, only_print)
 
 """
     hull(C::AbstractLinearCode)
@@ -889,7 +890,7 @@ function hull(C::AbstractLinearCode)
     G = generator_matrix(C)
     H = parity_check_matrix(C)
     F = field(C)
-    VS = VectorSpace(F, C.n)
+    VS = vector_space(F, C.n)
     U, U_to_VS = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
     W, _ = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
     I, I_to_W = intersect(U, W)
@@ -918,7 +919,7 @@ function Hermitian_hull(C::AbstractLinearCode)
     G = generator_matrix(C)
     H = parity_check_matrix(D)
     F = field(C)
-    VS = VectorSpace(F, C.n)
+    VS = vector_space(F, C.n)
     U, U_to_VS = sub(VS, [VS(G[i, :]) for i in 1:nrows(G)])
     W, _ = sub(VS, [VS(H[i, :]) for i in 1:nrows(H)])
     I, I_to_W = intersect(U, W)
