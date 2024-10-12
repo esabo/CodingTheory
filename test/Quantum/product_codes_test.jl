@@ -198,10 +198,9 @@
         # takes awhile to run
 
         # Example C2
-        F = Oscar.Nemo.Native.GF(2)
-        S, x = polynomial_ring(F, :x)
+        F, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x)
         l = 31
-        R = ResidueRing(S, x^l - 1)
+        R, = residue_ring(F, x^l -1)
         h = R(1 + x^2 + x^5)
         A = residue_polynomial_to_circulant_matrix(h)
         Q = HypergraphProductCode(A, A)
@@ -606,7 +605,9 @@
         @test length(Q) == 196
         @test dimension(Q) == 12
         @test_broken minimum_distance(S) == 8
+    end
 
+    @testset "CoprimeBivariateBicycleCode" begin
         # Coprime Bivariate Bicycle codes
         # Table 2 of https://arxiv.org/pdf/2408.10001v1
         # [[30, 4, 6]]
@@ -664,4 +665,5 @@
         @test length(Q) == 126
         @test dimension(Q) == 12
         @test_broken minimum_distance(Q) == 10
+    end
 end
