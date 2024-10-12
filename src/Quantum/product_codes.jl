@@ -560,8 +560,7 @@ Return the lifted product code given by the matrices `A` and `B`.
 ```jldoctest
 julia> F = Oscar.Nemo.Native.GF(2);
 
-julia> S, x = polynomial_ring(F, :x)
-(Univariate polynomial ring in x over F, x)
+julia> S, x = polynomial_ring(F, :x);
 
 julia> l = 63;
 
@@ -630,7 +629,7 @@ function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) whe
     A13 = En1 ⊗ B
     A21 = A ⊗ En2
     A24 = Ek1 ⊗ B_tr
-    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+    return vcat(hcat(zero(A21), A12, A13, zero(A24)), hcat(A21, zero(A12), zero(A13), A24))
 end
 
 """
@@ -644,6 +643,38 @@ Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of
 
 # Notes
 - Use `BiasTailoredLiftedProductCode` to return a quantum code over the base ring directly.
+
+# Example
+
+[[882, 24, d ≤ 24]] BiasTailored Lifted Product Code from Appendix B of [roffe2023bias](@cite).
+
+```jldoctest
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> S, x = polynomial_ring(F, :x);
+
+julia> l = 63;
+
+julia> R, _ = residue_ring(S, x^l - 1);
+
+julia> A1 = matrix(R, 1, 1, [1 + x^1 + x^6]);
+
+julia> A2 = matrix(R, 7, 7,
+           [x^36, 0   , 0   , 0   , 0   , 1   , x^9,
+            x^9 , x^36, 0   , 0   , 0   , 0   , 1   ,
+            1   , x^9 , x^36, 0   , 0   , 0   , 0   ,
+            0   , 1   , x^9 , x^36, 0   , 0   , 0   ,
+            0   , 0   , 1   , x^9 , x^36, 0   , 0   ,
+            0   , 0   , 0   , 1   , x^9 , x^36, 0   ,
+            0   , 0   , 0   , 0   , 1   , x^9 , x^36]);
+
+julia> code = BiasTailoredLiftedProductCode(A1, A2);
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Desktop/ct/doctests/CodingTheory/src/Quantum/product_codes.jl:60
+
+julia> length(code), dimension(code)
+(882, 24)
+```
 """
 function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGroupAlgebra
 
@@ -664,7 +695,7 @@ function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) whe
     A13 = En1 ⊗ B
     A21 = A ⊗ En2
     A24 = Ek1 ⊗ B_tr
-    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+    return vcat(hcat(zero(A21), A12, A13, zero(A24)), hcat(A21, zero(A12), zero(A13), A24))
 end
 
 """

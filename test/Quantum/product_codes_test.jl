@@ -666,4 +666,39 @@
         @test dimension(Q) == 12
         @test_broken minimum_distance(Q) == 10
     end
+
+    @testset "BiasTailoredLiftedProductCode" begin
+        # [[882, 24, d ≤ 24]] from Appendix B of https://arxiv.org/pdf/2202.01702
+        S, x = polynomial_ring(F, :x)
+        l = 63
+        R, _ = residue_ring(S, x^l - 1)
+        A1 = matrix(R, 1, 1, [1 + x^1 + x^6])
+        A2 = matrix(R, 7, 7,
+             [x^36, 0   , 0   , 0   , 0   , 1   , x^9,
+              x^9 , x^36, 0   , 0   , 0   , 0   , 1   ,
+              1   , x^9 , x^36, 0   , 0   , 0   , 0   ,
+              0   , 1   , x^9 , x^36, 0   , 0   , 0   ,
+              0   , 0   , 1   , x^9 , x^36, 0   , 0   ,
+              0   , 0   , 0   , 1   , x^9 , x^36, 0   ,
+              0   , 0   , 0   , 0   , 1   , x^9 , x^36])
+        Q = BiasTailoredLiftedProductCode(A1, A2)
+        @test length(Q) == 882
+        @test dimension(Q) == 24
+        @test_broken minimum_distance(Q) == 24
+
+        # [[416, 18, d ≤ 20]] from Example 4.1 of https://arxiv.org/pdf/2202.01702
+        S, x = polynomial_ring(F, :x)
+        l = 13
+        R, _ = residue_ring(S, x^l - 1)
+        A1 = matrix(R, 4, 4,
+             [1   , x^11, x^7 , x^12,
+              x^1 , x^8 , x^2 , x^8 ,
+              x^11, 1   , x^4 , x^8 ,
+              x^6 , x^1 , x^4 , x^12,])
+        A2 = A1
+        Q = BiasTailoredLiftedProductCode(A1, A2)
+        @test length(Q) == 416
+        @test dimension(Q) == 18
+        @test_broken minimum_distance(Q) == 20
+    end
 end
