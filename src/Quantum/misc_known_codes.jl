@@ -181,6 +181,7 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     # but this is corrected here to match
     # X - consequetive column pairs
     X_gauges = zero_matrix(F, sum([col_wts[i] - 1 for i in 1:length(col_wts)]), n)
+    typeof(X_gauges)
     curr_row = 1
     F_one = F(1)
     for c in 1:nc
