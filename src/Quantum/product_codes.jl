@@ -15,8 +15,10 @@ Return the hypergraph product code of matrices `A` and `B`.
 
 # Example
 
+[[1922, 50, 16]] Hypergraph Product Code from Appendix B, Example C1 of [panteleev2021degenerate](@cite).
+
 ```jldoctest
-[1922, 50, 16]] Hypergraph Product Code from Appendix B, Example C1 of [panteleev2021degenerate](@cite).
+julia> using CodingTheory, Oscar;
 
 julia> F, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x);
 
@@ -285,6 +287,8 @@ Return the generealized bicycle code given by `A` and `B`.
 [[254, 28, 14 ≤ d ≤ 20]] Generalized Bicycle Code from Appendix B, Example A1 of [panteleev2021degenerate](@cite).
 
 ```jldoctest
+julia> using CodingTheory, Oscar;
+
 julia> F = Oscar.Nemo.Native.GF(2);
 
 julia> S, x = polynomial_ring(F, :x);
@@ -558,6 +562,8 @@ Return the lifted product code given by the matrices `A` and `B`.
 [[882, 24, 18 ≤ d ≤ 24]] Lifted Product Code from Appendix B, Example B1 of [panteleev2021degenerate](@cite).
 
 ```jldoctest
+julia> using CodingTheory, Oscar;
+
 julia> F = Oscar.Nemo.Native.GF(2);
 
 julia> S, x = polynomial_ring(F, :x);
@@ -649,6 +655,8 @@ Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of
 [[882, 24, d ≤ 24]] BiasTailored Lifted Product Code from Appendix B of [roffe2023bias](@cite).
 
 ```jldoctest
+julia> using CodingTheory, Oscar;
+
 julia> F = Oscar.Nemo.Native.GF(2);
 
 julia> S, x = polynomial_ring(F, :x);
@@ -722,6 +730,35 @@ Return the single-parity-check `D`-fold product code.
 
 # Note
 - This is defined in https://arxiv.org/abs/2209.13474
+
+# Example
+
+[512, 174, 8]] Symmetric 2-fold product CSS code from [ostrev2024classical](@cite)
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> h = matrix(F, [1 1]);
+
+julia> id = identity_matrix(F, 2);
+
+julia> H_X = vcat(
+             h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id,
+             id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id,
+             id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h);
+
+julia> H_Z = vcat(
+             h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
+             id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
+             id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h);
+
+julia> code = SPCDFoldProductCode(3);
+
+julia> length(code), dimension(code)
+(512, 174)
+```
 """
 function SPCDFoldProductCode(D::Int, s::Int = 1)
     vec_S = Vector{AbstractStabilizerCode}()
@@ -737,8 +774,8 @@ function SPCDFoldProductCode(D::Int, s::Int = 1)
     end
     
     S = symmetric_product(vec_S)
-    set_minimum_X_distance!(S, 2^D)
-    set_minimum_Z_distance!(S, 2^D)
+    set_X_minimum_distance!(S, 2^D)
+    set_Z_minimum_distance!(S, 2^D)
     S.pure = true
     # metacheck distance = 3
     return S
@@ -1088,7 +1125,7 @@ Return the coprime bivariate bicycle code defined by the residue ring elements `
 
 # Example
 
-[126, 12, 10]] Coprime Bivariate Bicycle Code from Table 2 of [wang2024coprime](@cite).
+[[126, 12, 10]] Coprime Bivariate Bicycle Code from Table 2 of [wang2024coprime](@cite).
 
 ```jldoctest
 julia> using CodingTheory, Oscar;

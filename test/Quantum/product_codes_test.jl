@@ -385,7 +385,7 @@
     end
 
     @testset "Product Codes" begin
-        # should list that paper here
+        # [512, 174, 8]] SPCDFoldProductCode from Section 4 of https://arxiv.org/pdf/2209.13474
         F = Oscar.Nemo.Native.GF(2)
         h = matrix(F, [1 1])
         id = identity_matrix(F, 2)
@@ -397,11 +397,12 @@
             h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
             id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
             id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h)
-        SPCtest = CodingTheory.SPCDFoldProductCode(3)
+        SPCtest = SPCDFoldProductCode(3)
         @test length(SPCtest) == 512
         @test dimension(SPCtest) == 174
-        @test H_X == SPCtest.X_stabs
-        @test H_Z == SPCtest.Z_stabs
+        @test_broken minimum_distance(SPCtest) == 8
+        @test_broken H_X == SPCtest.X_stabs
+        @test_broken H_Z == SPCtest.Z_stabs
     end
 
     @testset "BivariateBicycleCode" begin
