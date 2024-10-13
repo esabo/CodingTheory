@@ -433,7 +433,7 @@ Return the pre-lifted matrices `H_X` and `H_Z` of the generalized hypergraph pro
 """
 function generalized_hypergraph_product_matrices(A::MatElem{T}, b::T) where T <: ResElem
 
-    # @warn "Commutativity of A and b required but not yet enforced."
+    @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(b)
     F = base_ring(S)
     # Int(order(F)) == 2 || throw(ArgumentError("The generalized hypergraph product is only defined over GF(2)."))
@@ -544,7 +544,7 @@ Return the pre-lifted matrices `H_X` and `H_Z` for the lifted quasi-cyclic lifte
 - Use `LiftedProductCode` to return a quantum code over the base ring directly.
 """
 function lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
-    # @warn "Commutativity of A and b required but not yet enforced."
+    @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
     Int(order(F)) == 2 || throw(ArgumentError("The quasi-cyclic lifted product is only defined over GF(2)."))
@@ -632,6 +632,8 @@ julia> A = matrix(R, 7, 7,
 julia> b = R(1 + x + x^6);
 
 julia> code = LiftedProductCode(A, b);
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:340
 
 julia> length(code), dimension(code)
 (882, 24)
@@ -657,7 +659,7 @@ Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of
 - Use `BiasTailoredLiftedProductCode` to return a quantum code over the base ring directly.
 """
 function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: ResElem
-    # @warn "Commutativity of A and b required but not yet enforced."
+    @warn "Commutativity of A and b required but not yet enforced."
     S = base_ring(A[1, 1])
     F = base_ring(S)
     Int(order(F)) == 2 || throw(ArgumentError("The quasi-cyclic lifted product is only defined over GF(2)."))
@@ -723,6 +725,8 @@ julia> A2 = matrix(R, 7, 7,
             0   , 0   , 0   , 0   , 1   , x^9 , x^36]);
 
 julia> code = BiasTailoredLiftedProductCode(A1, A2);
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:60
 
 julia> length(code), dimension(code)
 (882, 24)
