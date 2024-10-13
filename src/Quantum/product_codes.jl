@@ -1166,7 +1166,7 @@ Return the coprime bivariate bicycle code defined by the residue ring elements `
 
 # Note
 
-- This is defined in https://arxiv.org/pdf/2408.10001v1.
+- This is defined in https://arxiv.org/pdf/2408.10001.
 """
 function CoprimeBivariateBicycleCode(a::ResElem, b::ResElem)
     R = parent(a)

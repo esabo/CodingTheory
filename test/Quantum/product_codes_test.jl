@@ -399,8 +399,8 @@
         @test length(SPCtest) == 512
         @test dimension(SPCtest) == 174
         @test_broken minimum_distance(SPCtest) == 8
-        @test_broken H_X == SPCtest.X_stabs
-        @test_broken H_Z == SPCtest.Z_stabs
+        @test H_X == SPCtest.X_stabs
+        @test H_Z == SPCtest.Z_stabs
     end
 
     @testset "BivariateBicycleCode" begin

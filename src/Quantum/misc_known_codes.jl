@@ -8,46 +8,6 @@
       # Subsystem codes
 #############################
 
-"""
-[[9, 1, 4, 3]] gauged Shor code from [poulin2005stabilizer](@cite)
-
-```jldoctest
-julia> using CodingTheory, Oscar;
-
-julia> code = GaugedShorCode();
-
-julia> length(code), dimension(code), code.r
-(9, 1, 4)
-
-julia> code.stabs_stand
-[1   0   1   1   1   1   1   0   0   0   0   0   0   0   0   0   0   0]
-[0   1   0   0   1   1   1   1   1   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   1   1   0   1   0   1   1   0]
-[0   0   0   0   0   0   0   0   0   1   0   0   1   1   1   0   1   1]
-
-julia> code.logicals
-1-element Vector{Tuple{fpMatrix, fpMatrix}}:
- ([0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1], [1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0])
-
-julia> code.X_stabs
-[1   1   1   1   1   1   0   0   0]
-[1   1   1   0   0   0   1   1   1]
-
-julia> code.Z_stabs
-[1   1   0   1   1   0   1   1   0]
-[0   1   1   0   1   1   0   1   1]
-
-julia> code.g_ops_mat
-[0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0]
-[0   0   1   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0]
-[0   0   0   0   0   1   0   0   1   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   1   1   0   0   0   0   0   0   0]
-[1   0   0   0   0   0   1   0   0   0   0   0   0   0   0   0   0   0]
-[0   0   0   0   0   0   0   0   0   0   0   0   1   1   0   0   0   0]
-[0   0   0   1   0   0   1   0   0   0   0   0   0   0   0   0   0   0]
-```
-"""
 function GaugedShorCode()
     # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
     # [[9, 1, 4, 3]] gauged Shor code
@@ -183,7 +143,6 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     # but this is corrected here to match
     # X - consequetive column pairs
     X_gauges = zero_matrix(F, sum([col_wts[i] - 1 for i in 1:length(col_wts)]), n)
-    typeof(X_gauges)
     curr_row = 1
     F_one = F(1)
     for c in 1:nc
