@@ -1197,16 +1197,15 @@ function CoprimeBivariateBicycleCode(a::ResElem, b::ResElem)
 
     P = x * y
     A = zero_matrix(F, deg_P, deg_P)
-    for ex in exponents(lift(a))
-        # println(ex)
-        power, _ = findmax(ex)
-        A += P^power
+    exps = findall(i -> !is_zero(i), collect(coefficients(lift(a)))) .- 1
+    for ex in exps
+        A += P^ex
     end
 
     B = zero_matrix(F, deg_P, deg_P)
-    for ex in exponents(lift(b))
-        power, _ = findmax(ex)
-        B += P^power
+    exps = findall(i -> !is_zero(i), collect(coefficients(lift(b)))) .- 1
+    for ex in exps
+        B += P^ex
     end
 
     return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))

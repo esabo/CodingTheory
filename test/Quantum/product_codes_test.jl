@@ -606,66 +606,66 @@
         @test_broken minimum_distance(S) == 8
     end
 
-    # @testset "CoprimeBivariateBicycleCode" begin
-    #     # coprime bivariate bicycle codes
-    #     S, P = polynomial_ring(Oscar.Nemo.Native.GF(2), :P)
+    @testset "CoprimeBivariateBicycleCode" begin
+        # coprime bivariate bicycle codes
+        S, P = polynomial_ring(Oscar.Nemo.Native.GF(2), :P)
 
-    #     # Table 2 of https://arxiv.org/pdf/2408.10001v1
-    #     # [[30, 4, 6]]
-    #     l = 3
-    #     m = 5
-    #     R, _ = residue_ring(S, P^(l * m) - 1)
-    #     a = R(1 + P + P^2)
-    #     b = R(P + P^3 + P^8)
-    #     Q = CoprimeBivariateBicycleCode(a, b)
-    #     @test length(Q) == 30
-    #     @test dimension(Q) == 4
-    #     @test_broken minimum_distance(Q) == 6
+        # Table 2 of https://arxiv.org/pdf/2408.10001v1
+        # [[30, 4, 6]]
+        l = 3
+        m = 5
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^2)
+        b = R(P + P^3 + P^8)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 30
+        @test dimension(Q) == 4
+        @test_broken minimum_distance(Q) == 6
 
-    #     # [[42, 6, 6]]
-    #     l = 3
-    #     m = 7
-    #     R, _ = residue_ring(S, P^(l * m) - 1)
-    #     a = R(1 + P^2 + P^3)
-    #     b = R(P + P^3 + P^11)
-    #     Q = CoprimeBivariateBicycleCode(a, b)
-    #     @test length(Q) == 42
-    #     @test dimension(Q) == 6
-    #     @test_broken minimum_distance(Q) == 6
+        # [[42, 6, 6]]
+        l = 3
+        m = 7
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P^2 + P^3)
+        b = R(P + P^3 + P^11)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 42
+        @test dimension(Q) == 6
+        @test_broken minimum_distance(Q) == 6
 
-    #     # [[70, 6, 8]]
-    #     l = 5
-    #     m = 7
-    #     R, _ = residue_ring(S, P^(l * m) - 1)
-    #     a = R(1 + P + P^5)
-    #     b = R(1 + P + P^12)
-    #     Q = CoprimeBivariateBicycleCode(a, b)
-    #     @test length(Q) == 70
-    #     @test dimension(Q) == 6
-    #     @test_broken minimum_distance(Q) == 8
+        # [[70, 6, 8]]
+        l = 5
+        m = 7
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^5)
+        b = R(1 + P + P^12)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 70
+        @test dimension(Q) == 6
+        @test_broken minimum_distance(Q) == 8
 
-    #     # [[108, 12, 6]]
-    #     l = 2
-    #     m = 27
-    #     R, _ = residue_ring(S, P^(l * m) - 1)
-    #     a = R(P^2 + P^5 + P^44)
-    #     b = R(P^8 + P^14 + P^47)
-    #     Q = CoprimeBivariateBicycleCode(a, b)
-    #     @test length(Q) == 108
-    #     @test dimension(Q) == 12
-    #     @test_broken minimum_distance(Q) == 6
+        # [[108, 12, 6]]
+        l = 2
+        m = 27
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(P^2 + P^5 + P^44)
+        b = R(P^8 + P^14 + P^47)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 108
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(Q) == 6
 
-    #     # [[126, 12, 10]]
-    #     l = 7
-    #     m = 9
-    #     R, _ = residue_ring(S, P^(l * m) - 1)
-    #     a = R(1 + P + P^58)
-    #     b = R(P^3 + P^16 + P^44)
-    #     Q = CoprimeBivariateBicycleCode(a, b)
-    #     @test length(Q) == 126
-    #     @test dimension(Q) == 12
-    #     @test_broken minimum_distance(Q) == 10
-    # end
+        # [[126, 12, 10]]
+        l = 7
+        m = 9
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^58)
+        b = R(P^3 + P^16 + P^44)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 126
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(Q) == 10
+    end
 
     @testset "BiasTailoredLiftedProductCode" begin
         # [[882, 24, d ≤ 24]] from Appendix B of https://arxiv.org/pdf/2202.01702
