@@ -101,6 +101,12 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     # , _Pauli_string_to_symplectic
 
 #############################
+         # iterators.jl
+#############################
+
+include("iterators.jl")
+
+#############################
   # Classical/cyclotomic.jl
 #############################
 
