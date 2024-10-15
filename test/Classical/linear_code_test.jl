@@ -2,7 +2,7 @@
     using Oscar, CodingTheory
 
     @testset "Linear Code" begin
-        F = GF(2)
+        F = Oscar.Nemo.Native.GF(2)
         G = matrix(F, [1 0 0 0 0 1 1;
                    0 1 0 0 1 0 1;
                    0 0 1 0 1 1 0;
@@ -80,7 +80,7 @@
     end
 
     @testset "Puncturing examples" begin
-        F = GF(2)
+        F = Oscar.Nemo.Native.GF(2)
         # puncturing examples from Huffman/Pless
         G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
         C = LinearCode(G)
@@ -93,7 +93,7 @@
     end
 
     @testset "Extending and Shortening Property" begin
-        F = GF(2)
+        F = Oscar.Nemo.Native.GF(2)
         # extending examples from Huffman/Pless
         C = TetraCode()
         exC = extend(C)

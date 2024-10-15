@@ -25,7 +25,8 @@ function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
     if parity
         A_type = :H
         H = lift(A)
-        k, _ = right_kernel(H)
+        # k, _ = kernel(H, side = :right)
+        k = rank(H)
         W = weight_matrix(A)
         return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing,
             missing, missing, missing, missing, l, m, A, A_type, W, maximum(W))

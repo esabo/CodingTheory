@@ -137,8 +137,8 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
                 gauge_ops, gauge_ops_mat, stabs_stand, stand_r, stand_k, P_stand, missing, missing)
         else
             # bare
-            X_logs = reduce(vcat, [log[1][:, 1:n] for log in logs])
-            Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in logs])
+            X_logs = reduce(vcat, [log[1][:, 1:n] for log in bare_logs])
+            Z_logs = reduce(vcat, [log[2][:, n + 1:end] for log in bare_logs])
             _, X_mat = rref(vcat(args[2], X_logs))
             anti = _remove_empty(X_mat, :rows) * transpose(Z_logs)
             u_bound_dx_bare, _ = _min_wt_row(X_mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :])
@@ -1261,7 +1261,7 @@ function set_dressed_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d:
     S.l_bound_dressed = d
     S.u_bound_dressed = d
 
-    if !ismissing(S.d_dressed)
+    if !ismissing(S.d_dressed) && !ismissing(S.d_bare)
         # bare is an upper bound on dressed 
         S.d_dressed ≤ S.d_bare || (@warn "The bare distance is a bound on the dressed distance, but this is false for the new set parameters.")
     end

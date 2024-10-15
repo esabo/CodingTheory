@@ -37,7 +37,7 @@ function CodingTheory.TriangularColorCode488(d::Int)
     elseif d == 19
         @load joinpath(path, "488d19stabslogs_trellis.jld2") S l
     end
-    F = CodingTheory.Oscar.GF(2)
+    F = CodingTheory.Oscar.Nemo.Native.GF(2)
     Q = StabilizerCode(CodingTheory.Oscar.matrix(F, S))
     set_logicals!(Q, CodingTheory.Oscar.matrix(F, l))
     set_minimum_distance!(Q, d)
@@ -80,7 +80,7 @@ function CodingTheory.TriangularColorCode666(d::Int)
     elseif d == 21
         @load joinpath(path, "666d21stabslogs_trellis.jld2") S l    
     end
-    F = CodingTheory.Oscar.GF(2)
+    F = CodingTheory.Oscar.Nemo.Native.GF(2)
     Q = StabilizerCode(CodingTheory.Oscar.matrix(F, S))
     set_logicals!(Q, CodingTheory.Oscar.matrix(F, l))
     set_minimum_distance!(Q, d)

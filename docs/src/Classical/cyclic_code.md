@@ -83,10 +83,6 @@ qcosets_reps
 ```
 
 ```@docs
-defining_set
-```
-
-```@docs
 zeros
 ```
 

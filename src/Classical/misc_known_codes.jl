@@ -15,7 +15,7 @@ function ZeroCode(F::CTFieldTypes, n::Integer)
 end
 
 function ZeroCode(q::Integer, n::Integer)
-    F = if is_prime(q) GF(q)
+    F = if is_prime(q) Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
@@ -37,7 +37,7 @@ Return the `[n, 1, n]` repetition code over `GF(q)`.
 """
 function RepetitionCode(q::Int, n::Int)
     F = if is_prime(q)
-        GF(q)
+        Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
@@ -60,7 +60,7 @@ Return the `[n, n-1, 2]` single parity check code over `GF(q)`.
 function SingleParityCheckCode(q::Int, n::Int)
     iseven(q) && (return dual(RepetitionCode(q, n));)
     F = if is_prime(q)
-        GF(q)
+        Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
         length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
@@ -140,7 +140,7 @@ Return the `[4, 2, 3]` tetra code over `GF(3)`.
   based on the commonly presented generator and parity-check matrices.
 """
 function TetraCode()
-    F = GF(3)
+    F = Oscar.Nemo.Native.GF(3)
     G = matrix(F, [1 0 1 1; 0 1 1 -1])
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
     G_stand, H_stand, P, rnk = _standard_form(G)
@@ -179,8 +179,7 @@ function SimplexCode(q::Int, r::Int)
     q > 2 && return dual(HammingCode(q, r))
 
     # binary simplex codes
-    # Oscar.Nemo.Native.
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     G2 = matrix(F, [0 1 1; 1 0 1]);
     if r == 2
         C = LinearCode(G2, false, false)
@@ -237,7 +236,7 @@ function ExtendedGolayCode(p::Int)
             vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
         return LinearCode(F, 24, 12, 8, 8, 8, G, H, G, H, missing, wt_enum)
     elseif p == 3
-        F = GF(3)
+        F = Oscar.Nemo.Native.GF(3)
         A = matrix(F, [0  1  1  1  1  1;
                        1  0  1 -1 -1  1;
                        1  1  0  1 -1 -1;

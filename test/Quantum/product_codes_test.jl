@@ -20,7 +20,7 @@
 
         # Example A2
         l = 63
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         a = 1 + x + x^14 + x^16 + x^22
         b = 1 + x^3 + x^13 + x^20 + x^42
         Q = GeneralizedBicycleCode(R(a), R(b))
@@ -29,7 +29,7 @@
 
         # Example A3
         l = 24
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         a = 1 + x^2 + x^8 + x^15
         b = 1 + x^2 + x^12 + x^17
         Q = GeneralizedBicycleCode(R(a), R(b))
@@ -38,7 +38,7 @@
 
         # Example A4
         l = 23
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         a = 1 + x^5 + x^8 + x^12
         b = 1 + x + x^5 + x^7
         Q = GeneralizedBicycleCode(R(a), R(b))
@@ -47,7 +47,7 @@
 
         # Example A5
         l = 90
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         a = 1 + x^28 + x^80 + x^89
         b = 1 + x^2 + x^21 + x^25
         Q = GeneralizedBicycleCode(R(a), R(b))
@@ -56,7 +56,7 @@
 
         # Example A6
         l = 450
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         a = 1 + x^97 + x^372 + x^425
         b = 1 + x^50 + x^265 + x^390
         Q = GeneralizedBicycleCode(R(a), R(b))
@@ -67,9 +67,9 @@
         # Figure 9
         # [[126, 12, d < 11]]
         l = 63
-        R = ResidueRing(S, x^l - 1)
-        a(x) = 1 + x^43 + x^37
-        b(x) = 1 + x^59 + x^31
+        R, _ = residue_ring(S, x^l - 1)
+        a = 1 + x^43 + x^37
+        b = 1 + x^59 + x^31
         Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 126
         @test dimension(Q) == 12
@@ -77,31 +77,29 @@
         # Figure 9
         # [[254, 14, d < 17]]
         l = 127
-        R = ResidueRing(S, x^l - 1)
-        a(x) = 1 + x^18 +x^53
-        b(x) = 1 + x^12 + x^125
+        R, _ = residue_ring(S, x^l - 1)
+        a = 1 + x^18 +x^53
+        b = 1 + x^12 + x^125
         Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 254
         @test dimension(Q) == 14
 
-
         # Figure 9
         # [[510, 16, d < 19]]
         l = 255
-        R = ResidueRing(S, x^l - 1)
-        a(x) = 1 + x^250 + x^133
-        b(x) = 1 + x^41 + x^157
+        R, _ = residue_ring(S, x^l - 1)
+        a = 1 + x^250 + x^133
+        b = 1 + x^41 + x^157
         Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 510
         @test dimension(Q) == 16
 
-
         # Figure 9
         # [[1022, 18]]
         l = 511
-        R = ResidueRing(S, x^l - 1)
-        a(x) = 1 + x^244 + x^157
-        b(x) = 1 + x^51 + x^454
+        R, _ = residue_ring(S, x^l - 1)
+        a = 1 + x^244 + x^157
+        b = 1 + x^51 + x^454
         Q = GeneralizedBicycleCode(R(a), R(b))
         @test length(Q) == 1022
         @test dimension(Q) == 18
@@ -110,9 +108,9 @@
         # # Figure 9
         # # [[8190, 24]]
         # l = 4095
-        # R = ResidueRing(S, x^l - 1)
-        # a(x) = 1 + x^2083 + x^2212
-        # b(x) = 1 + x^1802 + x^3220
+        # R, _ = residue_ring(S, x^l - 1)
+        # a = 1 + x^2083 + x^2212
+        # b = 1 + x^1802 + x^3220
         # Q = GeneralizedBicycleCode(R(a), R(b))
         # @test length(Q) == 8190
         # @test dimension(Q) == 24
@@ -155,7 +153,7 @@
 
         # Example B3
         l = 127
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         A = matrix(R, 5, 5,
             [1, 0, x^51, x^52, 0,
              0, 1, 0, x^111, x^20,
@@ -189,7 +187,7 @@
         # Degenerate Quantum LDPC Codes With Good Finite Length Performance
         # # Example C1
         # l = 63
-        # R = ResidueRing(S, x^l - 1)
+        # R, _ = residue_ring(S, x^l - 1)
         # h = R(1 + x^3 + x^34 + x^41 + x^57)
         # A = residue_polynomial_to_circulant_matrix(h)
         # Q = HypergraphProductCode(A, A)
@@ -201,7 +199,7 @@
         F = Oscar.Nemo.Native.GF(2)
         S, x = polynomial_ring(F, :x)
         l = 31
-        R = ResidueRing(S, x^l - 1)
+        R, _ = residue_ring(S, x^l - 1)
         h = R(1 + x^2 + x^5)
         A = residue_polynomial_to_circulant_matrix(h)
         Q = HypergraphProductCode(A, A)
@@ -239,11 +237,11 @@
             for i in 1:nrows(lx)
                 for ii in 1:nrows(lz)
                     if i != ii
-                        iszero(sum(lx[i:i, :] .* lz[ii:ii, :])) || (zero_sum_flag = false)
-                        iszero(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_zero_flag = false;)
+                        iszero(sum(lx[i, :] .* lz[ii, :])) || (zero_sum_flag = false)
+                        iszero(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_zero_flag = false;)
                     else
-                        isone(sum(lx[i:i, :] .* lz[ii:ii, :])) || (one_sum_flag = false;)
-                        isone(length(findall(x -> x == Fone, lx[i:i, :] .* lz[ii:ii, :]))) || (count_one_flag = false;)
+                        isone(sum(lx[i, :] .* lz[ii, :])) || (one_sum_flag = false;)
+                        isone(length(findall(x -> x == Fone, lx[i, :] .* lz[ii, :]))) || (count_one_flag = false;)
                     end
                 end
             end
@@ -606,5 +604,66 @@
         @test length(Q) == 196
         @test dimension(Q) == 12
         @test_broken minimum_distance(S) == 8
+    end
+
+    @testset "CoprimeBivariateBicycleCode" begin
+        # coprime bivariate bicycle codes
+        S, P = polynomial_ring(Oscar.Nemo.Native.GF(2), :P)
+
+        # Table 2 of https://arxiv.org/pdf/2408.10001v1
+        # [[30, 4, 6]]
+        l = 3
+        m = 5
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^2)
+        b = R(P + P^3 + P^8)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 30
+        @test dimension(Q) == 4
+        @test_broken minimum_distance(Q) == 6
+
+        # [[42, 6, 6]]
+        l = 3
+        m = 7
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P^2 + P^3)
+        b = R(P + P^3 + P^11)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 42
+        @test dimension(Q) == 6
+        @test_broken minimum_distance(Q) == 6
+
+        # [[70, 6, 8]]
+        l = 5
+        m = 7
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^5)
+        b = R(1 + P + P^12)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 70
+        @test dimension(Q) == 6
+        @test_broken minimum_distance(Q) == 8
+
+        # [[108, 12, 6]]
+        l = 2
+        m = 27
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(P^2 + P^5 + P^44)
+        b = R(P^8 + P^14 + P^47)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 108
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(Q) == 6
+
+        # [[126, 12, 10]]
+        l = 7
+        m = 9
+        R, _ = residue_ring(S, P^(l * m) - 1)
+        a = R(1 + P + P^58)
+        b = R(P^3 + P^16 + P^44)
+        Q = CoprimeBivariateBicycleCode(a, b)
+        @test length(Q) == 126
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(Q) == 10
     end
 end
