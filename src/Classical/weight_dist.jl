@@ -122,6 +122,9 @@ Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k
     ((G.mutate ? v : copy(v);), (g, τ, G.ks, v))
 end
 
+"""
+initally based on Algo 2 from Bitner, Ehrlich, and Reingold 1976. Modified to support prefix 
+"""
 @inline function Base.iterate(G::GrayCode, state)
     g, τ, t, v = state
     @inbounds begin
