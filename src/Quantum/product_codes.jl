@@ -15,7 +15,7 @@ Return the hypergraph product code of matrices `A` and `B`.
 
 # Example
 
-[[1922, 50, 16]] Hypergraph Product Code from Appendix B, Example C1 of [panteleev2021degenerate](@cite).
+[[1922, 50, 16]] Hypergraph Product Code from Appendix B, Example C2 of [panteleev2021degenerate](@cite).
 
 ```jldoctest
 julia> using CodingTheory, Oscar;
