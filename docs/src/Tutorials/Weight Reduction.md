@@ -678,42 +678,27 @@ Dict(78 => 28, 56 => 2894, 16 => 13428, 20 => 24654, 58 => 15616, 52 => 7728, 60
 ## Lifted Products
 Classical weight reduction also applies to other types of inputs, although with the current function, the row and column indices must be specified explicitly either as a vector or a range.
 ```
-julia> F = GF(2);
-
-julia> S, x = PolynomialRing(F, "x");
+julia> S, x = polynomial_ring(Oscar.Nemo.Native.GF(2), "x");
 
 julia> l = 63;
 
-julia> R = ResidueRing(S, x^l - 1);
+julia> R, = residue_ring(S, x^l - 1);
 
 julia> A = matrix(R, 7, 7,
-               [x^27, 0, 0, 1, x^18, x^27, 1,
-                1, x^27, 0, 0, 1, x^18, x^27,
-                x^27, 1, x^27, 0, 0, 1, x^18,
-                x^18, x^27, 1, x^27, 0, 0, 1,
-                1, x^18, x^27, 1, x^27, 0, 0,
-                0, 1, x^18, x^27, 1, x^27, 0,
-                0, 0, 1, x^18, x^27, 1, x^27])
-[x^27      0      0      1   x^18   x^27      1]
-[   1   x^27      0      0      1   x^18   x^27]
-[x^27      1   x^27      0      0      1   x^18]
-[x^18   x^27      1   x^27      0      0      1]
-[   1   x^18   x^27      1   x^27      0      0]
-[   0      1   x^18   x^27      1   x^27      0]
-[   0      0      1   x^18   x^27      1   x^27]
+               [x^27, 0   , 0   , 1   , x^18, x^27, 1   ,
+                1   , x^27, 0   , 0   , 1   , x^18, x^27,
+                x^27, 1   , x^27, 0   , 0   , 1   , x^18,
+                x^18, x^27, 1   , x^27, 0   , 0   , 1   ,
+                1   , x^18, x^27, 1   , x^27, 0   , 0   ,
+                0   , 1   , x^18, x^27, 1   , x^27, 0   ,
+                0   , 0   , 1   , x^18, x^27, 1   , x^27]);
 
-julia> b = R(1 + x + x^6)
-x^6 + x + 1
+julia> b = R(1 + x + x^6);
 
-julia> LiftedProductCode(A, b)
+julia> code = LiftedProductCode(A, b);
 ┌ Warning: Commutativity of A and b required but not yet enforced.
-└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
-[[882, 48]]_2 CSS stabilizer code
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:340
 
-julia> A_wtred = weight_reduction(A, row_indices = 1:4, column_indices = 1:4, permute_rows = false, permute_columns = false);
-
-julia> LiftedProductCode(A_wtred, b)
-┌ Warning: Commutativity of A and b required but not yet enforced.
-└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:354
-[[4914, 48]]_2 CSS stabilizer code
+julia> length(code), dimension(code)
+(882, 48)
 ```

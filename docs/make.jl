@@ -9,7 +9,7 @@ Documenter.makedocs(;
 	modules = Module[CodingTheory],
 	repo = "",
 	highlightsig = true,
-	sitename = "Coding Theory Documentation",
+	sitename = "CodingTheory.jl",
 	expandfirst = [],
 	warnonly = [:missing_docs],
     pages = ["Introduction" => "index.md",
