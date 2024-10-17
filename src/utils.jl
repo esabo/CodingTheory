@@ -287,7 +287,11 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
-function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
+"""
+Assumes the input is in rref form and returns the indexs of the columns that do not contain a pivot entry.
+Note that rref form here requires pivot entries have been normalized to 1.
+"""
+function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
 
     if type == :sp
@@ -298,7 +302,7 @@ function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
         j = 1
         nr, nc = size(A)
         while i <= nr && j <= nc
-            if isone(A[i, j])
+            if is_one(A[i, j])
                 i += 1
                 j += 1
             else
@@ -341,10 +345,10 @@ function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMa
         !flag && error("Cannot solve system for quotient")
         _, rref_sol = rref(sol)
         if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
-            nonpivots = _non_pivot_cols(rref_sol, :sp)
+            nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
             return reduce(vcat, [big[r, :] for r in nonpivots])
         else
-            return big[_non_pivot_cols(rref_sol, :nsp), :]
+            return big[_rref_non_pivot_cols(rref_sol, :nsp), :]
         end
     end
 end
@@ -810,7 +814,17 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 
-function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+function _permgroup_vec_permutation!(X::Vector{T}, A::Vector{T}, p::PermGroupElem) where T
+    n = degree(parent(p))
+    n >= size(A, 1) || throw(ArgumentError("degree of the parent group of `p` must be at least `size(A, 2)`."))
+    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    for j in 1:length(X) 
+        X[j] = p(A[j])
+    end
+    return nothing
+end
+
+function _col_permutation!(X::Union{VecOrMat{T}, CTMatrixTypes}, A::Union{VecOrMat{T}, CTMatrixTypes}, p::AbstractVector{Int}) where T
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
     size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
     for j in axes(X, 2)
