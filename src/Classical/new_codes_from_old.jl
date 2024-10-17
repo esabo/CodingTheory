@@ -255,7 +255,7 @@ function /(C2::AbstractLinearCode, C1::AbstractLinearCode)
     F = C1.F
     G1 = generator_matrix(C1)
     G2 = generator_matrix(C2)
-    V = VectorSpace(F, C1.n)
+    V = vector_space(F, C1.n)
     U, U_to_V = sub(V, [V(G1[i, :]) for i in 1:nrows(G1)])
     W, W_to_V = sub(V, [V(G2[i, :]) for i in 1:nrows(G2)])
     gens_of_U_in_W = [preimage(W_to_V, U_to_V(g)) for g in gens(U)]
@@ -613,8 +613,8 @@ function even_subcode(C::AbstractLinearCode)
     F = C.F
     Int(order(F)) == 2 || throw(ArgumentError("Even-ness is only defined for binary codes."))
 
-    V_C, ψ = VectorSpace(C)
-    G_F_VS = VectorSpace(F, 1)
+    V_C, ψ = vector_space(C)
+    G_F_VS = vector_space(F, 1)
     homo1_quad = ModuleHomomorphism(V_C, G_F_VS, matrix(F, dim(V_C), 1,
         reduce(vcat, [F(weight(ψ(g).v) % 2) for g in gens(V_C)])))
     even_sub, ϕ1 = kernel(homo1_quad)
@@ -631,8 +631,8 @@ function doubly_even_subcode(C::AbstractLinearCode)
     F = C.F
     Int(order(C.F)) == 2 || throw(ArgumentError("Even-ness is only defined for binary codes."))
 
-    V_C, ψ = VectorSpace(C)
-    G_F_VS = VectorSpace(F, 1)
+    V_C, ψ = vector_space(C)
+    G_F_VS = vector_space(F, 1)
 
     # first get the even subspace
     homo1_quad = ModuleHomomorphism(V_C, G_F_VS, matrix(F, dim(V_C), 1,
@@ -666,8 +666,8 @@ end
 # currently incomplete
 # function triply_even_subcode(C::AbstractLinearCode)
 #     F = C.F
-#     V_C, ψ = VectorSpace(C)
-#     G_F_VS = VectorSpace(F, 1)
+#     V_C, ψ = vector_space(C)
+#     G_F_VS = vector_space(F, 1)
 #
 #     # first get the even subspace
 #     homo1_quad = ModuleHomomorphism(V_C, G_F_VS, matrix(F, dim(V_C), 1, vcat([F(weight(ψ(g).v) % 2) for g in gens(V_C)]...)))

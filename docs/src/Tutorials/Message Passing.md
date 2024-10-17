@@ -247,7 +247,6 @@ lines!(ax, x, x, color = :black)
 f
 
 ```
-![phi](./../assets/images/phi.png)
 
 Trying to plot this function with the $\tanh$ versus plotting this function with the exponentials makes the numerical instability of the $\tanh$ apparent. Fortunately, the exponential form makes it apparent that it is not only symmetric about $y = x$, but also that the function is dominated by smaller values of $x$:
 
@@ -406,7 +405,7 @@ julia> Gallager_B(H, y)
 ```
 
 ## Decimation
-Decimation was previously used in message-passing applications outside of error correction and was applied to stabilizer codes in [](@cite). The idea is to freeze the value of a variable node. We can either do this from the start to obtain a so-called *genie-aided* decoder, or we can periodically pause message passing to fix a bit. In *guided decimation*, we pause every fixed number of rounds and freeze the value of the variable node with the highest log-likelihood ratio. In *automated decimation*, we pause after every iteration and fix any bit whose absolute value has passed a certain threshold.
+Decimation was previously used in message-passing applications outside of error correction and was applied to stabilizer codes [yao2024belief](@cite). The idea is to freeze the value of a variable node. We can either do this from the start to obtain a so-called *genie-aided* decoder, or we can periodically pause message passing to fix a bit. In *guided decimation*, we pause every fixed number of rounds and freeze the value of the variable node with the highest log-likelihood ratio. In *automated decimation*, we pause after every iteration and fix any bit whose absolute value has passed a certain threshold.
 
 It is important to note that when a variable node is fixed to a specific value, the decoder is now sampling possible solutions with that fixed bit, which is different from the ML and MAP problems above. Furthermore, if there is a unique solution and a bit is fixed which does not match the solution, the decoder will fail instead of correcting that bit. For example, fixing the most reliable bit in guided decimation may mean fixing a bit which is still far from reliable and could go either way. On the other hand, fixing a bit could help the decoder converge faster and also break out of trapping sets. In this sense, decimation can be very helpful decoding degenerate stabilizer codes where there are many valid solutions and BP has a difficult time picking one to converge to.
 
@@ -751,7 +750,6 @@ lines!(noise, FER, color = :red)
 scatter!(noise, FER, color = :red)
 current_figure()
 ```
-![CSS_FER_test](./../assets/images/CSS_FER_test.png)
 
 
 TODO REDO THIS FUNCTION
@@ -772,7 +770,6 @@ ax2 = Axis(fig2[1, 2], xlabel = "Iteration Number", ylabel = "Number Of Times Co
 barplot!(ax1, collect(keys(X_iters_15)), X_values, bar_width = 1)
 barplot!(ax2, collect(keys(Z_iters_15)), Z_values, bar_width = 1)
 ```
-![CSS_test_iters](./../assets/images/CSS_test_iters.png)
 
 The overwhelming majority of convergeneces, for both $X$ and $Z$, occurred within one or two iterations. This is plausible for a couple of reasons. First, note that all variable nodes have degree four but all check nodes have degree nine! This is large for an LDPC code. For low error rates when errors are sparsely distributed over 254 qubits, it may be common that a single check node does not connect to more than one inncorrect variable node and the degrees are high enough to immediately flip any bit.
 
@@ -804,8 +801,6 @@ false
 
 
 Rerunning the simulation without using Bayes' Theorem returns almost symmetric $X$ and $Z$ iteration counts. For completeness, we include both runs on a single plot. The first blue point on the left is due to a single convergence error and the spike on the left further shows that direct sampling is either not appropriate for this error rate or it has not been sampled enough times for accuracy.
-
-![CSS_FER_Bayes_test](./../assets/images/CSS_FER_Bayes_test.png)
 
 ## Example 2: Single-Shot Decoding With Metachecks
 Next we're going to look at two single-shot decoding schemes. We will call the paper [quintavalle2021single](@cite) scheme one and [higgott2023improved](@cite) scheme two. We encourage the reader to check out both papers directly for details. Briefly, both schemes will consider data errors, as in the previous example, plus additional measurement errors (on the syndrome values). The code family we will look at has an extra matrix, $M$, with the property that $Ms = 0$ for any valid syndrome $s$ of the code. Then assuming that the measurement error $s_e$ didn't take us from a valid syndrome to another valid syndrome, $M(s + s_e) = Ms_e \neq 0$. Whether or not this happens depends on the properties of the classical code with $M$ as its parity-check matrix. To correct the syndrome, we decode using the Tanner graph based on $M$. Then we will use the corrected syndrome to decode the stabilizers.
@@ -1220,9 +1215,8 @@ julia> check_weights(X_meta_L)
 
 By distance eight, scheme one was difficult to run without a cluster. We did not attempt distance nine with this scheme. This is problematic for many reasons, the most important of which is that many code families do not "settle in" to their asymptotic behaviors until distances much higher than this (although the exact distance depends on the decoder being used). For example, for the surface codes under minimum-weight perfect-matching (MWPM), anything below distance 20 is considered the small-code regime (compare this to distance seven for the same code family using trellis decoding). 
 
-![CSS_Single_Shot_test](./../assets/images/CSS_Single_Shot_test.png)
-
 Logical errors were equally distributed among the cosets and only occurred on odd-distance codes.
+
 
 
 

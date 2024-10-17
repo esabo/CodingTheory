@@ -16,7 +16,9 @@ function GaugedShorCode()
     Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
     # G = S ∪ Gops
     L = ["ZZZZZZZZZ", "XXXXXXXXX"]
-    return SubsystemCode(S, L, Gops)
+    Q = SubsystemCode(S, L, Gops)
+    set_dressed_minimum_distance!(Q, 3)
+    return Q
 end
 Q9143() = GaugedShorCode()
 
@@ -27,7 +29,7 @@ Q9143() = GaugedShorCode()
 Return the Bacon-Shor subsystem code on a `m x n` lattice.
 """
 function BaconShorCode(m::Int, n::Int)
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     num_qubits = m * n
 
@@ -330,7 +332,7 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     end
 
     len = m * n * k
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     gauges = zero_matrix(F, (m - 1) * n * k + m * (n - 1) * k + m * n * (k - 1), 2 * len)
     curr_row = 1
@@ -381,7 +383,7 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     end
 
     len = x * y * z * w
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     gauges = zero_matrix(F, (x - 1) * y * z * w + x * (y - 1) * z * w + x * y * (z - 1) * w + x * y * z * (w - 1), 2 * len)
     curr_row = 1
@@ -437,7 +439,7 @@ columns of squares.
 function SubsystemToricCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     len = 3 * m * n
     gauges = zero_matrix(F, 4 * m * n, 2 * len)
@@ -585,7 +587,7 @@ columns of squares.
 function SubsystemSurfaceCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     len = (3n + 2) * m + 2 * n + 1
     gauges = zero_matrix(F, 4 * m * n + 2 * n + 2 * m, 2 * len)
@@ -812,7 +814,7 @@ function Q511()
 end
 
 function Q823()
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     stabs = matrix(F, [1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
     0 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0;
     0 1 0 0 1 1 1 0 0 0 1 1 1 0 1 0;
@@ -898,7 +900,7 @@ function _triangular_lattice(L::Int)
 end
 
 function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64, 3})
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     stabilizers = zero_matrix(F, L^2, 3 * L^2)
     r = 1
     for i in 1:L
@@ -932,7 +934,7 @@ function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64, 3})
 end
 
 function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64, 3})
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     stabilizers = zero_matrix(F, 2 * L^2, 3 * L^2)
     r = 1
     for i in 1:L
@@ -1042,7 +1044,7 @@ end
 
 function _R_Surf_stabs(d::Int)
     n = d^2
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
@@ -1160,7 +1162,7 @@ end
 
 function _XZZX_stabs_logs(d::Int)
     n = d^2
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
     F_one = F(1)
@@ -1296,7 +1298,7 @@ The lattice orientation used here follows the picture at https://errorcorrection
 function ToricCode(d::Int)
     2 <= d || throw(DomainError("Distance must be at least two."))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     A = zero_matrix(F, d^2, 2 * d^2) # stars, X stabilizers
     B = zero_matrix(F, d^2, 2 * d^2) # faces, Z stabilizers
@@ -1380,7 +1382,7 @@ The top and bottom boundaries are "smooth" (`Z`) and the left and right are "rou
 function PlanarSurfaceCode(d_x::Int, d_z::Int)
     (2 <= d_x && 2 <= d_z) || throw(DomainError("Distances must be at least two."))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     num_V = d_x * d_z + (d_x - 1) * (d_z - 1)
     A = zero_matrix(F, d_x * (d_z - 1) + 1, num_V) # stars, X stabilizers
@@ -1469,7 +1471,7 @@ The top and bottom boundaries are "smooth" (`Y`) and the left and right are "rou
 function XYSurfaceCode(d_x::Int, d_y::Int)
     (2 <= d_x && 2 <= d_y) || throw(DomainError("Distances must be at least two."))
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     num_V = d_x * d_y + (d_x - 1) * (d_y - 1)
     M = zero_matrix(F, num_V - 1, 2 * num_V)
@@ -1597,7 +1599,7 @@ Return the `[[k + 4, k, 2]]` H code from `https://errorcorrectionzoo.org/c/quant
 function HCode(k::Int)
     (2 <= k && iseven(k)) || throw(DomainError("Input must be >= 2 and even.")) 
 
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
     X = zero_matrix(F, 2, k + 4)
     Z = zero_matrix(F, 2, k + 4)
@@ -1869,7 +1871,7 @@ function ToricCode4D(l::Int)
     # X_logical, Z_logical = _compute_logical_vectors(X_logicals, Z_logicals, q_dict)
 
     # defining the code objects
-    F = GF(2)
+    F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
 
     X = zero_matrix(F, size(X_stabs)[1], size(X_stabs)[2])

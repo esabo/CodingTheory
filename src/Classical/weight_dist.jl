@@ -113,7 +113,7 @@ Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k
 @inline function Base.iterate(G::GrayCode)
     0 <= G.ks <= G.ns || return nothing
 
-    g = [i <= G.ks ? 1 : 0 for i = 1:G.ns + 1]
+    g = [i <= G.ks ? 1 : 0 for i in 1:G.ns + 1]
     τ = collect(2:G.ns + 2)
     τ[1] = G.ks + 1
     # to force stopping with returning the only valid vector when ks == 0 and ns > 0
@@ -389,33 +389,60 @@ end
 # 2. extend GrayCode to non-binary
 # 3. reduce ops by going to A_i instead of G_i
 # 4. unit tests
-# 7. decoding attacks from thesis
 
 # TODO: this does not produce the optimal set of matrices
 # see section 7.3 of White's thesis for comments on this
-function _get_information_sets(G::CTMatrixTypes, alg::Symbol)
-    # alg ∈ (:Brouwer, :Zimmermann, :White, :Chen) || throw(ArgumentError("Expected :Brouwer, :Zimmermann, :White, or :Chen."))
+function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Bool = false, only_A::Bool = false)
+
+    alg ∈ (:Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+    # TODO should rref to begin with and remove empty rows?
     nr, nc = size(G)
-    gen_mats = []
-    # Gi = deepcopy(G)
+    gen_mats = Vetor{Matrix{UInt8}}()
+    perms = Vetor{Matrix{UInt8}}()
+    rnks = Vetor{Int}()
+    
     rnk = nr
     if alg == :Brouwer
         for i in 0:Int(floor(nc / nr)) - 1
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
-            push!(gen_mats, (rnk, Gi, Pi))
-            # Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
-            # push!(gen_mats, Ai)
+            if only_A
+                Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
+                push!(gen_mats, Ai)
+                push!(perms, Pi)
+                push!(rnks, rnk)
+            else
+                if permute
+                    # permute identities to the front
+                    pivots = collect(i * nr + 1:(i + 1) * nr)
+                    σ = [pivots; setdiff(1:nc, pivots)]
+                    Gi = Gi[:, σ]
+                    Pi = Pi[:, σ]
+                end
+                push!(gen_mats, Gi)
+                push!(perms, Pi)
+                push!(rnks, rnk)
+            end
         end
     elseif alg == :Zimmermann
         for i in 0:Int(floor(nc / nr))
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
-            push!(gen_mats, (rnk, Gi, Pi))
-            # display(Gi)
-            # println(rnk)
-            # Ai = Gi[:, setdiff(1:nc, i * nr + 1:i * nr + rnk)]
-            # display(Ai)
-            # println(" ")
-            # push!(gen_mats, (rnk, Ai))
+            if only_A
+                Ai = Gi[:, setdiff(1:nc, i * nr + 1:i * nr + rnk)]
+                push!(gen_mats, Ai)
+                push!(perms, Pi)
+                push!(rnks, rnk)
+            else
+                if permute
+                    # permute identities to the front
+                    pivots = collect(i * nr + 1:(i + 1) * nr)
+                    σ = [pivots; setdiff(1:nc, pivots)]
+                    Gi = Gi[:, σ]
+                    Pi = Pi[:, σ]
+                end
+                push!(gen_mats, Gi)
+                push!(perms, Pi)
+                push!(rnks, rnk)
+            end
         end
     elseif alg == :White
         # TODO: this is not true when the parity-check matrix is true
@@ -425,31 +452,53 @@ function _get_information_sets(G::CTMatrixTypes, alg::Symbol)
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * nr + 1:(i + 1) * nr)
             # display(Gi)
             # println(rnk)
-            push!(gen_mats, (rnk, Gi, Pi))
+            push!(gen_mats, Gi)
+            push!(perms, Pi)
+            push!(rnks, rnk)
         end
     elseif alg == :Chen
-        # should remove this in the future as this should simply be (k, Gstand, P)
-        rnk, Gi, Pi = CodingTheory._rref_col_swap(G, 1:nr, 1:nc)
-        push!(gen_mats, (rnk, Gi, Pi))
+        Gi, _, Pi, rnk = _standard_form(G)
+        if only_A
+            Ai = Gi[:, rnk + 1:nc]
+            push!(gen_mats, Ai)
+            push!(perms, Pi)
+            push!(rnks, rnk)
+        else
+            push!(gen_mats, Gi)
+            push!(perms, Pi)
+            push!(rnks, rnk)
+        end
     end
-    return gen_mats
+    return gen_mats, perms, rnks
 end
 
-@inline function _lower_bounds(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int}, type::Symbol)
-    if type == :BZ
+function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int},
+    info_set_alg::Symbol; even::Bool = false, doubly_even::Bool = false, triply_even::Bool = false)
+
+    if info_set_alg == :Brouwer
+        lower = r * length(rank_defs)
+    elseif info_set_alg == :Zimmermann
         h = length(rank_defs)
         lower = 0
         for i in 1:h
             lower += maximum([0, r - rank_defs[i]])
         end
-    elseif type == :Chen
+    elseif info_set_alg == :Chen
         lower = Int(ceil(n * r / k))
-    elseif type == :White
+    elseif info_set_alg == :White
         lower = 0
         for i in 1:l
 	        lower += Int(ceil(n * maximum([0, r - rank_defs[i]]) / (l * (k + rank_defs[i]))))
         end
+    # elseif info_set_alg == :Bouyuklieva
+    #     continue
+    # elseif info_set_alg == :Edmonds
+    #     continue
     end
+
+    (!triply_even && !doubly_even && even) && (lower += lower % 2;)
+    (!triply_even && doubly_even) && (lower += 4 - lower % 4;)
+    triply_even && (lower += 8 - lower % 8;)
     return lower
 end
 
@@ -465,41 +514,45 @@ constant weight codewords of the binary reflected Gray code. If a word of minimu
 is found before the lower and upper bounds cross, it is returned; otherwise, `missing`
 is returned.
 """
-function Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false)
+function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
+    verbose::Bool = false)
+
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
 
-    p = Int(characteristic(C.F))
-    found = missing
-    perm = missing
-
-    G = generator_matrix(C)
+    G = _remove_empty(generator_matrix(C, true), :cols)
     # generate if not pre-stored
     parity_check_matrix(C)
-    if typeof(C) <: AbstractCyclicCode
-        verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, :Chen)
-    # TODO: fix this case
-    # elseif typeof(C) <: AbstractQuasiCyclicCode
-    #     verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-    #     gen_mats = _get_information_sets(G, :White)
-    else
-        gen_mats = _get_information_sets(G, :Zimmermann)
+
+    if info_set_alg == :auto
+        if typeof(C) <: AbstractCyclicCode
+            verbose && println("Detected a cyclic code, using Chen's adaption.")
+            info_set_alg = :Chen
+            # TODO: fix this case
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+            info_set_alg = :White
+        else
+            info_set_alg = :Edmonds
+        end
     end
-    gen_mats_Julia = [deepcopy(_Flint_matrix_to_Julia_int_matrix(x[2])') for x in gen_mats]
-    h = length(gen_mats_Julia)
+    # should have no need to permute to find better ranks because of Edmond's?
+    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, only_A = true)
+    A_mats_Julia = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
+    h = length(A_mats_Julia)
     rank_defs = zeros(Int, h)
     if verbose
         print("Generated $h information sets with ranks: ")
         for i in 1:h
-            i == h ? (println(gen_mats[i][1]);) : (print("$(gen_mats[i][1]), "))
+            i == h ? (println(rnks[i]);) : (print("$(rnks[i]), ");)
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
             # rank is zero
-            rank_defs[i] = C.k - gen_mats[i][1]
+            # TODO huh? check this comment and setup properly
+            rank_defs[i] = C.k - rnks[i]
         end
     end
-    # display(gen_mats)
     
     even_flag = false
     doubly_even_flag = false
@@ -512,121 +565,111 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
         (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
     end
-    
-    flag = true
+
+    k, n = size(G)
+    found = zeros(UInt8, n)
+    perm = collect(1:n)
     while flag
-        for (j, g) in enumerate(gen_mats_Julia)
-            # redo j = 1 to grab index and perm
+        for (j, g) in enumerate(A_mats_Julia)
+            # can make this faster with dots and views
             w, i = _min_wt_col(g)
             if w <= C.u_bound
-                found = g[:, i]
+                # view might not work here
+                found .= view(g, :, i)
                 C.u_bound = w
-                perm = j
+                perm = perms_mats[j]
             end
         end
-        # if restarted, found is missing
-        ismissing(found) ? (C.u_bound = C.n;) : (flag = false;)
     end
-    verbose && println("Upper bound after row analysis: $(C.u_bound)")
-    verbose && !ismissing(found) && println("Found element matching upper bound.")
+    verbose && println("Current upper bound: $(C.u_bound)")
+    verbose && !iszero(found) && println("Found element matching upper bound.")
+
+    info_set_alg == :Chen ? (l = C.l;) : (l = 0;)
+    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k]
+    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+    isnothing(r_term) && (r_term = k;)
+    verbose && println("Predicted termination weight based on current upper bound: $r_term")
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
-    power = 0
-    for i in 1:20
-        if 2^i > num_thrds
-            power = i - 1
-            break
-        end
-    end
+    power = Int(floor(log(2, num_thrds)))
 
-    for r in 1:C.k
-        if typeof(C) <: AbstractCyclicCode
-            new_lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
-            C.l_bound < new_lower && (C.l_bound = new_lower;)
-        # elseif typeof(C) <: AbstractQuasiCyclicCode
-        #     new_lower = _lower_bounds(r, C.n, C.k, C.l, rank_defs, :White)
-        #     C.l_bound < new_lower && (C.l_bound = new_lower;)
-        else
-            new_lower = _lower_bounds(r, C.n, C.k, 0, rank_defs, :BZ)
-            C.l_bound < new_lower && (C.l_bound = new_lower;)
-        end
+    for r in 1:k
+        C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
-        (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
-        (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
-        triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
-
+        # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
+        # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
+        # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
         verbose && println("r: $r")
         verbose && println("Lower bound: $(C.l_bound)")
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            if !ismissing(found)
-                y = matrix(C.F, 1, C.n, found)
-                ismissing(gen_mats[perm][3]) || (y = y * gen_mats[perm][3];)
-                iszero(C.H * transpose(y)) ? (return C.u_bound, y;) : (return C.u_bound, missing;)
-            else
-                return C.u_bound, found
+            y = matrix(C.F, 1, n, found)[perm]
+            # iszero(C.H * transpose(y))
+            return C.u_bound, y
+        end
+
+        if verbose
+            count = 0
+            for i in 1:h
+                r - rank_defs[i] ≤ 0 && (count += 1;)
             end
+            count > 0 && println("$count of the original $h information sets no longer contribute to the lower bound")
         end
 
         flag = Threads.Atomic{Bool}(true)
         # num_thrds = 1
         # power = 0
-        # total = Threads.Atomic{Int}(0)
+        p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
         founds = [found for _ in 1:num_thrds]
         perms = [perm for _ in 1:num_thrds]
         Threads.@threads for m in 1:num_thrds
             c = zeros(Int, C.n)
-            prefix = digits(m - 1, base=2, pad=power)
-            # count = Threads.Atomic{Int}(0)
-            for u in GrayCode(C.k, r, prefix, mutate=true)
-                # count += 1
-                # Threads.atomic_add!(count, 1)
+            prefix = digits(m - 1, base = 2, pad = power)
+            for u in GrayCode(C.k, r, prefix, mutate = true)
                 if flag[]
                     for i in 1:h
                         if r - rank_defs[i] > 0
-                            LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
-                            w = 0
-                            @inbounds for j in 1:C.n
+                            LinearAlgebra.mul!(c, A_mats_Julia[i], u)
+                            w = r
+                            @inbounds for j in 1:n
                                 c[j] % p != 0 && (w += 1;)
                             end
 
                             if uppers[m] > w
                                 uppers[m] = w
-                                # TODO maybe so .= here
-                                founds[m] = c
+                                founds[m] .= c
                                 perms[m] = i
-                                # verbose && println("Adjusting upper bound: $upperlocal")
+                                verbose && println("Adjusting (local) upper bound: $w")
                                 if C.l_bound == uppers[m]
                                     Threads.atomic_cas!(flag, true, false)
                                     break
+                                else
+                                    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+                                    isnothing(r_term) && (r_term = k;)
+                                    verbose && println("Updated termination weight: $r_term")
                                 end
                             end
                         end
                     end
+                else
+                    break
                 end
             end
-            # println(count)
-            # Threads.atomic_add!(total, count[])
         end
         loc = argmin(uppers)
         C.u_bound = uppers[loc]
         found = founds[loc]
         perm = perms[loc]
-        # println("total: $total")
-        if !flag[]
-            C.d = C.u_bound
-            if !ismissing(found)
-                y = matrix(C.F, 1, C.n, found)
-                ismissing(gen_mats[perm][3]) || (y = y * gen_mats[perm][3];)
-                iszero(C.H * transpose(y)) ? (return C.u_bound, y;) : (return C.u_bound, missing;)
-            else
-                return C.u_bound, found
-            end
-        end
     end
+
+    # at this point we are guaranteed to have found the answer
+    C.d = C.u_bound
+    y = matrix(C.F, 1, n, found)[perm]
+    # iszero(C.H * transpose(y))
+    return C.u_bound, y
 end
 
 """
@@ -648,12 +691,12 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, :Chen)
+        gen_mats = information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, :White)
+        gen_mats = information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, :Zimmermann)
+        gen_mats = information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
@@ -753,12 +796,12 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, :Chen)
+        gen_mats = information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, :White)
+        gen_mats = information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, :Zimmermann)
+        gen_mats = information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats]
     h = length(gen_mats_Julia)
@@ -896,12 +939,12 @@ function minimum_words(C::AbstractLinearCode)
     G = generator_matrix(C)
     if typeof(C) <: AbstractCyclicCode
         verbose && println("Detected a cyclic code, using Chen's adaption.")
-        gen_mats = _get_information_sets(G, :Chen)
+        gen_mats = information_sets(G, :Chen)
     elseif typeof(C) <: AbstractQuasiCyclicCode
         verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-        gen_mats = _get_information_sets(G, :White)
+        gen_mats = information_sets(G, :White)
     else
-        gen_mats = _get_information_sets(G, :Zimmermann)
+        gen_mats = information_sets(G, :Zimmermann)
     end
     gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2])' for x in gen_mats] # deepcopy doesn't save anythign here
     # gen_mats_Julia = [_Flint_matrix_to_Julia_int_matrix(x[2]) for x in gen_mats]
@@ -1058,7 +1101,7 @@ function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr
     founds = [found for _ in 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
-    prog_meter = Progress(max_iters)
+    verbose && (prog_meter = Progress(max_iters);)
     Threads.@threads for t in 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         perm_ops = similar(orig_ops)
@@ -1089,10 +1132,10 @@ function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr
                     end
                 end
             end
-            next!(prog_meter)
+            verbose && next!(prog_meter)
         end
     end
-    finish!(prog_meter)
+    verbose && finish!(prog_meter)
 
     return uppers, founds
 end

@@ -18,6 +18,7 @@ learninggit.txt
 docs/.DS_Store
 *.txt
 typestest.jl
+simd_add_mul_wt_benchmarks.txt
 
 # profiling output stuff:
 *.pb.gz
