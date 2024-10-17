@@ -44,7 +44,7 @@ end
     end
     rank += 1
 
-    @inbounds begin
+    # @inbounds begin
         # inds will store the set of indexs in the binary vector that were changed when updating the vector v
         inds[1] = -1
         inds[2] = -1
@@ -95,7 +95,7 @@ end
             end
           end
         end
-    end
+    # end
     return (inds, (v, rank, inds))
 end
 
