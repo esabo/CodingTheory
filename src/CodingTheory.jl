@@ -94,6 +94,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     row_supports, row_supports_symplectic, strongly_lower_triangular_reduction,
     residue_polynomial_to_circulant_matrix, group_algebra_element_to_circulant_matrix,
     load_alist
+    # load_alist, _rref_non_pivot_cols
     # , _min_wt_row
     # , circ_shift
     # , lift
@@ -120,7 +121,8 @@ export LinearCode, field, length, dimension, cardinality, rate, relative_distanc
     is_doubly_even, is_triply_even, characteristic_polynomial, is_Hermitian_LCD, is_Hermitian_dual_containing,
     is_LCD, Hermitian_hull, hull, is_Hermitian_self_dual, is_dual_containing, minimum_distance_lower_bound,
     minimum_distance_upper_bound, set_distance_upper_bound!, standard_form_permutation, genus,
-    is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode
+    is_overcomplete, are_permutation_equivalent, vector_space, contains_self_dual_subcode, information_set, 
+    random_information_set, random_linear_code
 
 #############################
 # Classical/new_codes_from_old.jl

@@ -405,6 +405,60 @@ end
 #############################
      # general functions
 #############################
+"""
+Returns the indexs of the pivot columns and an information set which 
+is the submatrix of G given by these columns.
+"""
+function information_set(C::AbstractLinearCode)
+    rref_sol = _rref_no_col_swap(C.G)
+    nonpivot_inds = _rref_non_pivot_cols(rref_sol, :nsp) 
+    pivot_inds = [x for x in 1:C.n if !(x in nonpivot_inds)]
+    return pivot_inds
+end
+
+#TODO doc
+function random_information_set(C::AbstractLinearCode)
+    perm = Vector(1:C.n)
+    shuffle!(perm)
+    perm_mat = parent(C.G)(zero_matrix(ZZ, C.k, C.n))
+
+    new_perm = convert(Vector{Int}, perm)
+    _col_permutation!(perm_mat, C.G, new_perm)
+
+    permuted_pivot_inds = information_set(LinearCode(perm_mat))
+
+    S_n = symmetric_group(C.n)
+    inv_perm_vec = invperm(perm) 
+    inv_perm = Oscar.perm(S_n, inv_perm_vec)
+    pivot_inds = Vector(1:length(permuted_pivot_inds))
+    _permgroup_vec_permutation!(pivot_inds, permuted_pivot_inds, inv_perm)
+    return pivot_inds
+end
+
+#TODO doc
+function random_linear_code(field::CTFieldTypes, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+    rand_mat = zero_matrix(field, k, n-k)
+    for r in 1:nrows(rand_mat) 
+        for c in 1:ncols(rand_mat) 
+            rand_mat[r, c] = _rand_gf_elem(field, rng) 
+        end
+    end
+    full_mat = hcat(identity_matrix(field, k), rand_mat)
+    return LinearCode(full_mat)
+end 
+
+#TODO doc
+function random_linear_code(q::Int, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+    is_pp, e, p = is_prime_power_with_data(q)
+    if e == 1 
+        field = Oscar.Nemo.Native.GF(p)
+    elseif e > 1
+        field = GF(p, e, :x)
+    else
+        throw(ArgumentError("q must be a prime power"))
+    end
+    return random_linear_code(field, n, k, rng)
+end 
 
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
@@ -732,6 +786,26 @@ function are_permutation_equivalent(C1::AbstractLinearCode, C2::AbstractLinearCo
 end
 
 """
+Checks permutation equivalence by brute force for the purpose of doing small tests. 
+"""
+function are_perm_equivalent_exhaustive_search(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    G1 = C1.G 
+    G2 = C2.G 
+    if G1 == G2 
+        return are_permutation_equivalent(C1, C2) 
+    end 
+    nc = ncols(G1)
+    sym = symmetric_group(nc)
+    for e in collect(sym) 
+        P = permutation_matrix(C1.F, e)
+        if G1 * P == G2 
+            return (true, P)
+        end
+    end
+    return (false, missing)
+end
+
+"""
     is_self_dual(C::AbstractLinearCode)
 
 Return `true` if `are_equivalent(C, dual(C))`.
@@ -1013,3 +1087,4 @@ function contains_self_dual_subcode(C::AbstractLinearCode)
         error("Unknown case for finite field of order $p^$t")
     end
 end
+

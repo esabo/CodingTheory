@@ -51,6 +51,32 @@
         C_G_and_G = LinearCode(G);
         @test rank(G_and_G) == dimension(C_G_and_G)
         @test G == generator_matrix(C_G_and_G)
+
+        # information set tests:
+        F = Oscar.Nemo.Native.GF(2)
+
+        # a code with G in standard form 
+        Gstd = matrix(F, [1 0; 0 1])
+        Cstd = LinearCode(Gstd);
+        pivs = information_set(Cstd)
+        @test pivs == [1,2]
+
+        # codes with nontrivial pivots:
+        G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
+        C = LinearCode(G);
+        pivs = information_set(C)
+        @test pivs == [1,3]
+
+        C_ham = HammingCode(2, 3)
+        pivs = information_set(C_ham)
+        expected_info_mat = matrix(F, [1 0 0 0; 1 1 0 0; 0 1 1 0; 1 1 0 1])
+        @test pivs == [1, 2, 3, 4]
+
+        C = deepcopy(C_ham)
+        C.G[:,1] = C_ham.G[:, 5]
+        C.G[:,5] = C_ham.G[:, 1]
+        pivs = information_set(C)
+        @test pivs == [1, 2, 3, 5]
     end
 
     @testset "Puncturing examples" begin
@@ -124,6 +150,25 @@
         flag, P = are_permutation_equivalent(C1, C2)
         @test flag
         @test are_equivalent(permute_code(C1, P), C2)
+
+        # Huffman and Pless Ex 1.6.1
+        F = Oscar.Nemo.Native.GF(2)
+        G1 = matrix(F, [1 1 0 0 0 0; 0 0 1 1 0 0; 0 0 0 0 1 1])
+        print(typeof(G1))
+        nc=ncols(G1)
+        C1 = LinearCode(G1)
+        G2 = matrix(F, [1 0 0 0 0 1; 0 0 1 1 0 0; 0 1 0 0 1 0])
+        C2 = LinearCode(G2)
+        G3 = matrix(F, [1 1 0 0 0 0; 1 0 1 0 0 0; 1 1 1 1 1 1])
+        C3 = LinearCode(G3)
+        LinearCode(words(C1))
+        bool1, permutation1 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C2)
+        @test bool1
+        @test !(permutation1 === missing)
+        bool2, permutation2 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C3)
+        @test !bool2
+        @test permutation2 === missing
+ 
     end
         # "On the Schur Product of Vector Spaces over Finite Fields"
         # Christiaan Koster
@@ -131,4 +176,29 @@
 
         # simplex code itself has dimension k(k + 1)/2
         #
+
+    @testset "Random Linear Code" begin
+        function test_random_linear_code()
+            pr = 2
+            n = 7
+            k = 4
+            rng = Random.seed!(0)
+            code = CodingTheory.random_linear_code(pr, n, k, rng)
+            @test code.n == n
+            @test code.k == k
+        
+            rng = Random.seed!(0)
+            prime_power = pr^2
+            code = CodingTheory.random_linear_code(prime_power, n, k, rng)
+            @test code.n == n
+            @test code.k == k
+        
+            rng_from_field = Random.seed!(0)
+            code_from_field = CodingTheory.random_linear_code(GF(pr, 2, :x), n, k, rng_from_field)
+            @test code_from_field.n == n
+            @test code_from_field.k == k
+            @test code.G == code_from_field.G
+        end
+    end
+
 end
