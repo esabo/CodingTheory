@@ -23,12 +23,12 @@ using ProgressMeter
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
-    is_regular, iscyclic, genus, density, isdegenerate, index, generators, copy, issubfield, ⊗,
+    is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product, gens, dim, is_isomorphic, field
+    tensor_product, gens, dim, is_isomorphic, field, is_irreducible
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈
 import Combinatorics: powerset
 import DataStructures: capacity
 
@@ -57,7 +57,8 @@ include("Classical/types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
     AbstractLinearCode, AbstractLDPCCode, AbstractMatrixProductCode, AbstractReedMullerCode,
     AbstractCyclicCode, AbstractBCHCode, AbstractReedSolomonCode, AbstractQuasiCyclicCode,
-    AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode, WeightEnumerator
+    AbstractGeneralizedReedSolomonCode, AbstractAlgebraicGeometryCode, WeightEnumerator,
+    AbstractAlternateCode, AbstractGoppaCode
 
 include("LDPC/types.jl")
 export AbstractLDPCCode, AbstractNoiseChannel, AbstractClassicalNoiseChannel,
@@ -236,12 +237,13 @@ export order, RMr, RMm, ReedMullerCode, number_of_variables
   # Classical/cyclic_code.jl
 #############################
 
+# TODO is_cyclic exporting weird (removed here) due to Oscar import
 include("Classical/cyclic_code.jl")
 export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     design_distance, qcosets, qcosets_reps, generator_polynomial, parity_check_polynomial,
     idempotent, is_primitive, is_narrowsense, is_reversible, find_delta, dual_defining_set,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCH_bound, is_degenerate, nonzeros, is_cyclic, is_antiprimitive
+    zeros, BCH_bound, is_degenerate, nonzeros, is_antiprimitive
 
 #############################
 # Classical/quasi-cyclic_code.jl
@@ -267,7 +269,14 @@ export ZeroCode, IdentityCode, RepetitionCode, SingleParityCheckCode, SPCCode,
 #############################
 
 include("Classical/GeneralizedReedSolomon.jl")
-export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points
+export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points, AlternateCode
+
+#############################
+    # Classical/Goppa.jl
+#############################
+
+include("Classical/Goppa.jl")
+export GoppaCode, Goppa_polynomial, is_seperable, is_cumulative, extension_field
 
 #############################
 # Classical/concatenation.jl

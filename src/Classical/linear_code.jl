@@ -61,14 +61,23 @@ function LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool
         LinearCode(base_ring(G_new), ncols(G_new), k, missing, 1, ub, G_new, H, G_stand, H_stand, P, missing)
     end
 
-    if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
-        C.weight_enum = if 2k <= ncols(G)
-            _weight_enumerator_BF(C.G_stand)
-        else
-            MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+    if k == 0
+        set_minimum_distance!(C, C.n)
+    else
+        if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
+            # BUG only adding this new case because MacWilliams has a new Oscar problem
+            if BigInt(order(base_ring(G)))^k ≤ 1.5e5
+                C.weight_enum = _weight_enumerator_BF(C.G_stand)
+            else
+                C.weight_enum = if 2k <= ncols(G)
+                    _weight_enumerator_BF(C.G_stand)
+                else
+                    MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+                end
+            end
+            d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+            set_minimum_distance!(C, d)
         end
-        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
-        set_minimum_distance!(C, d)
     end
 
     return C
@@ -331,7 +340,7 @@ end
 Set the lower bound on the minimum distance of `C`, if `l` is better than the current bound.
 """
 function set_distance_lower_bound!(C::AbstractLinearCode, l::Int)
-    1 <= l <= C.u_bound || throw(DomainError("The lower bound must be between 1 and the upper bound."))
+    1 <= l <= C.u_bound || throw(DomainError(l, "The lower bound must be between 1 and the upper bound."))
     C.l_bound < l && (C.l_bound = l;)
     if C.l_bound == C.u_bound
         @info "The new lower bound is equal to the upper bound; setting the minimum distance."
@@ -345,7 +354,7 @@ end
 Set the upper bound on the minimum distance of `C`, if `u` is better than the current bound.
 """
 function set_distance_upper_bound!!(C::AbstractLinearCode, u::Int)
-    C.l_bound <= u <= C.n || throw(DomainError("The upper bound must be between the lower bound and the code length."))
+    C.l_bound <= u <= C.n || throw(DomainError(u, "The upper bound must be between the lower bound and the code length."))
     u < C.u_bound && (C.u_bound = u;)
     if C.l_bound == C.u_bound
         @info "The new upper bound is equal to the lower bound; setting the minimum distance."
@@ -425,6 +434,8 @@ function show(io::IO, C::AbstractLinearCode)
         println(io, "quasi-cyclic code of index $(C.l)")
     elseif isa(C, GeneralizedReedSolomonCode)
         println(io, "generalized Reed-Solomon code")
+    elseif isa(C, GoppaCode)
+        println(io, "Goppa code")
     else
         println(io, "linear code")
     end
@@ -450,9 +461,24 @@ function show(io::IO, C::AbstractLinearCode)
             end
             println(io, "Generator polynomial:")
             println(io, "\t", generator_polynomial(C))
+        elseif isa(C, GoppaCode)
+            len = length(C.L)
+            if len ≤ 20
+                println(io, "Evaluated at:")
+                print(io, "\t[")
+                for i in 1:len
+                    if i ≠ len
+                        print(C.L[i], ", ")
+                    else
+                        println(C.L[i], "]")
+                    end
+                end
+            end
+            println(io, "Goppa polynomial:")
+            println(io, "\t", C.g)
         end
 
-        if C.n <= 30
+        if C.n ≤ 30 && C.k ≠ 0
             if isa(C, QuasiCyclicCode)
                 if C.A_type == :G
                     M = generator_matrix(C)
@@ -554,10 +580,12 @@ end
 
 """
     in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode)
+    ∈(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode)
 
 Return whether or not `v` is a codeword of `C`.
 """
 in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
+∈(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
     ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
@@ -588,7 +616,7 @@ function dual(C::AbstractLinearCode)
     elseif isa(C, GeneralizedReedSolomonCode)
         d = C.k + 1
         return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
-            deepcopy(C.dual_scalars), deepcopy(C.scalars), deepcopy(C.evaluation_points),
+            deepcopy(C.dual_scalars), deepcopy(C.scalars), deepcopy(C.eval_pts),
             deepcopy(C.H), deepcopy(C.G), deepcopy(C.H_stand),
             deepcopy(C.G_stand), deepcopy(C.P_stand), missing)
     elseif isa(C, MatrixProductCode)

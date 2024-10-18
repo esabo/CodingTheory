@@ -1435,6 +1435,7 @@ function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldE
     return D
 end
 
+# BUG this is building the expanded matrix in the wrong ring, added change_base_ring below
 function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
@@ -1464,7 +1465,7 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
 
     # λ = dual_basis(L, K, β)
     D = _expansion_dict(L, K, λ)
-    return _expand_matrix(M, D, m)
+    return change_base_ring(K, _expand_matrix(M, D, m))
 end
 
 """
@@ -1509,16 +1510,17 @@ function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
 end
 
 """
-    is_extension(E::fqPolyRepField, F::fqPolyRepField)
+    is_extension(E::CTFieldTypes, F::CTFieldTypes)
 
-Return `true` if `E/F` is a valid field extension.
+Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
+`false, -1`.
 """
 function is_extension(E::CTFieldTypes, F::CTFieldTypes)
     p = Int(characteristic(E))
-    Int(characteristic(F)) == p || return false, missing
+    Int(characteristic(F)) == p || return false, -1
     deg_E = degree(E)
     deg_F = degree(F)
-    deg_E % deg_F == 0 || return false, missing
+    deg_E % deg_F == 0 || return false, -1
     return true, div(deg_E, deg_F)
     # the below allows you to embed GF(2) into GF(5) without error but is not an extension
     # try
@@ -1528,6 +1530,13 @@ function is_extension(E::CTFieldTypes, F::CTFieldTypes)
     #     return false, missing
     # end
 end
+
+"""
+    is_subfield(F::CTFieldTypes, E::CTFieldTypes)
+
+Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
+`false, -1`.
+"""
 is_subfield(F::CTFieldTypes, E::CTFieldTypes) = is_extension(E, F)
 
 """

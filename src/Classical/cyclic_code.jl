@@ -706,7 +706,7 @@ function is_cyclic(C::AbstractLinearCode)
     R, x = polynomial_ring(E, :x)
     # β = α^(div(q^deg - 1, n))
 
-    G = generatormatrix(C)
+    G = generator_matrix(C)
     nc = ncols(G)
     g = R([E(G[1, i]) for i in 1:nc])
     for r in 2:nrows(G)
@@ -719,7 +719,7 @@ function is_cyclic(C::AbstractLinearCode)
     flag || return false
     G_cyc = _generator_matrix(C.F, C.n, C.k, g)
     for r in 1:nrows(G_cyc)
-        (G_cyc[r, :] ∈ C) || (return false;)
+        (G_cyc[r:r, :] ∈ C) || (return false;)
     end
 
     return true, CyclicCode(C.n, g)

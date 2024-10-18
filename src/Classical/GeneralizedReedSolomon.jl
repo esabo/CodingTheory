@@ -1,4 +1,4 @@
-# Copyright (c) 2022, 2023 Eric Sabo
+# Copyright (c) 2022 - 2024 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -9,7 +9,7 @@
 #############################
 
 """
-    GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::Vector{fqPolyRepFieldElem})
+    GeneralizedReedSolomonCode(k::Int, v::Vector{FqFieldElem}, γ::Vector{FqFieldElem})
 
 Return the dimension `k` Generalized Reed-Solomon code with scalars `v` and
 evaluation points `γ`.
@@ -19,18 +19,18 @@ evaluation points `γ`.
 * The elements of `v` need not be distinct but must be nonzero.
 * The elements of `γ` must be distinct.
 """
-function GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::Vector{fqPolyRepFieldElem})
+function GeneralizedReedSolomonCode(k::Int, v::Vector{FqFieldElem}, γ::Vector{FqFieldElem})
     n = length(v)
     1 <= k <= n || throw(DomainError("The dimension of the code must be between 1 and n."))
     n == length(γ) || throw(DomainError("Lengths of scalars and evaluation points must be equal."))
-    F = base_ring(v[1])
+    F = parent(v[1])
     1 <= n <= Int(order(F)) || throw(DomainError("The length of the code must be between 1 and the order of the field."))
     for (i, x) in enumerate(v)
         iszero(x) && throw(ArgumentError("The elements of v must be nonzero."))
         parent(x) == F || throw(ArgumentError("The elements of v must be over the same field."))
         parent(γ[i]) == F || throw(ArgumentError("The elements of γ must be over the same field as v."))
     end
-    length(distinct(γ)) == n || throw(ArgumentError("The elements of γ must be distinct."))
+    length(unique(γ)) == n || throw(ArgumentError("The elements of γ must be distinct."))
 
     G = zero_matrix(F, k, n)
     for c in 1:n
@@ -40,11 +40,11 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::V
     end
 
     # evaluation points are the same for the parity check, but scalars are now
-    # w_i = (γ_i * \prod(v_j - v_i))^-1
+    # w_i = (v_i * \prod(γ_j - γ_i))^-1
     # which follows from Lagrange interpolation
-    w = zero_matrix(F, 1, n)
+    w = [F(0) for _ in 1:n]
     for i in 1:n
-        w[i] = (γ[c] * prod(v[j] - v[c] for j = 1:n if j != c))^-1
+        w[i] = (v[i] * prod(γ[j] - γ[i] for j in 1:n if j ≠ i))^-1
     end
 
     H = zero_matrix(F, n - k, n)
@@ -55,11 +55,62 @@ function GeneralizedReedSolomonCode(k::Int, v::Vector{fqPolyRepFieldElem}, γ::V
     end
 
     iszero(G * transpose(H)) || error("Calculation of dual scalars failed in constructor.")
-    G_stand, H_stand, P, rnk = _standardform(G)
+    G_stand, H_stand, P, rnk = _standard_form(G)
+    rnk == k || error("Computed rank not equal to desired input rank")
     d = n - k + 1
     return GeneralizedReedSolomonCode(F, n, k, d, d, d, v, w, γ, G, H,
         G_stand, H_stand, P, missing)
 end
+
+# using notation of MacWilliams & Sloane, p. 340
+"""
+    GeneralizedReedSolomonCode(C::AbstractGoppaCode)
+
+Return the generalized Reed-Solomon code associated with the Goppa code `C`.
+"""
+GeneralizedReedSolomonCode(C::AbstractGoppaCode) = GeneralizedReedSolomonCode(C.n - degree(C.g), [C.g(C.L[i]) * prod(C.L[j] - C.L[i] for j in 1:C.n if i ≠ j)^(-1) for i in 1:C.n], C.L)
+
+# doesn't have it's own struct
+"""
+    AlternateCode(F::CTFieldTypes, k::Int, v::Vector{FqFieldElem}, γ::Vector{FqFieldElem})
+
+Return the alternate code as a subfield subcode of `GRS_k(v, γ)^⟂` over `F`.
+"""
+function AlternateCode(F::CTFieldTypes, k::Int, v::Vector{FqFieldElem},
+    γ::Vector{FqFieldElem})
+
+    E = parent(v[1])
+    flag, _ = is_subfield(F, E)
+    flag || throw(ArgumentError("Given field is not a subfield of the base ring of the vectors"))
+
+    # let this do the rest of the type checking
+    GRS = GeneralizedReedSolomonCode(k, v, γ)
+    GRS = dual(GRS)
+    basis, _ = primitive_basis(E, F)
+    C = subfield_subcode(GRS, F, basis)
+    return AlternateCode(F, E, C.n, C.k, C.d, C.l_bound, C.u_bound, v, γ, C.G, C.H, C.G_stand,
+        C.H_stand, C.P_stand, C.weight_enum)
+end
+
+"""
+   AlternateCode(F::CTFieldTypes, C::GeneralizedReedSolomonCode)
+
+Return the subfield subcode of `C` over `F`.
+"""
+function AlternateCode(F::CTFieldTypes, C::GeneralizedReedSolomonCode)
+    flag, _ = is_subfield(F, C.F)
+    flag || throw(ArgumentError("Given field is not a subfield of the base ring of the code"))
+
+    basis, _ = primitive_basis(C.F, F)
+    return subfield_subcode(C, F, basis)
+end
+
+"""
+    GeneralizedReedSolomonCode(C::AbstractAlternateCode)
+
+Return the generalized Reed-Solomon code associated with the alternate code `C`.
+"""
+GeneralizedReedSolomonCode(C::AbstractAlternateCode) = dual(GeneralizedReedSolomonCode(C.k, C.scalars, C.eval_pts))
 
 #############################
       # getter functions
@@ -70,21 +121,21 @@ end
 
 Return the scalars `v` of the Generalized Reed-Solomon code `C`.
 """
-scalars(C::GeneralizedReedSolomonCode) = C.v
+scalars(C::GeneralizedReedSolomonCode) = C.scalars
 
 """
     dual_scalars(C::GeneralizedReedSolomonCode)
 
 Return the scalars of the dual of the Generalized Reed-Solomon code `C`.
 """
-dual_scalars(C::GeneralizedReedSolomonCode) = C.w
+dual_scalars(C::GeneralizedReedSolomonCode) = C.dual_scalars
 
 """
     evaluation_points(C::GeneralizedReedSolomonCode)
 
 Return the evaluation points `γ` of the Generalized Reed-Solomon code `C`.
 """
-evaluation_points(C::GeneralizedReedSolomonCode) = C.γ
+evaluation_points(C::GeneralizedReedSolomonCode) = C.eval_pts
 
 #############################
       # setter functions
@@ -94,4 +145,6 @@ evaluation_points(C::GeneralizedReedSolomonCode) = C.γ
      # general functions
 #############################
 
-# TODO: write conversion function from Reed-Solomon code to GRS
+# TODO
+# write conversion function from Reed-Solomon code to GRS
+# generalized BCH codes
