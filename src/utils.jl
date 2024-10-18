@@ -1834,7 +1834,18 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
-
+function _rand_gf_elem(field, rng::AbstractRNG = Random.seed!())
+    pr = characteristic(field)
+    dg = degree(field)
+    vec = fill(0, dg+1)
+    vec .+= rand(rng, 0:pr,dg+1)
+    elem = zero(field)
+    x = gen(field)
+    for i in 0:dg 
+      elem += vec[i+1] * x^i
+    end
+    return elem
+end
 
 
 # #=

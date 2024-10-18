@@ -407,6 +407,7 @@ function information_set(C::AbstractLinearCode)
     return pivot_inds
 end
 
+#TODO doc
 function random_information_set(C::AbstractLinearCode)
     perm = Vector(1:C.n)
     shuffle!(perm)
@@ -425,7 +426,30 @@ function random_information_set(C::AbstractLinearCode)
     return pivot_inds
 end
 
+#TODO doc
+function random_linear_code(field::CTFieldTypes, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+    rand_mat = zero_matrix(field, k, n-k)
+    for r in 1:nrows(rand_mat) 
+        for c in 1:ncols(rand_mat) 
+            rand_mat[r, c] = _rand_gf_elem(field, rng) 
+        end
+    end
+    full_mat = hcat(identity_matrix(field, k), rand_mat)
+    return LinearCode(full_mat)
+end 
 
+#TODO doc
+function random_linear_code(q::Int, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+    is_pp, e, p = is_prime_power_with_data(q)
+    if e == 1 
+        field = Oscar.Nemo.Native.GF(p)
+    elseif e > 1
+        field = GF(p, e, :x)
+    else
+        throw(ArgumentError("q must be a prime power"))
+    end
+    return random_linear_code(field, n, k, rng)
+end 
 
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))

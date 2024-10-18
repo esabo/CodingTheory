@@ -177,6 +177,28 @@
         # simplex code itself has dimension k(k + 1)/2
         #
 
-       
+    @testset "Random Linear Code" begin
+        function test_random_linear_code()
+            pr = 2
+            n = 7
+            k = 4
+            rng = Random.seed!(0)
+            code = CodingTheory.random_linear_code(pr, n, k, rng)
+            @test code.n == n
+            @test code.k == k
+        
+            rng = Random.seed!(0)
+            prime_power = pr^2
+            code = CodingTheory.random_linear_code(prime_power, n, k, rng)
+            @test code.n == n
+            @test code.k == k
+        
+            rng_from_field = Random.seed!(0)
+            code_from_field = CodingTheory.random_linear_code(GF(pr, 2, :x), n, k, rng_from_field)
+            @test code_from_field.n == n
+            @test code_from_field.k == k
+            @test code.G == code_from_field.G
+        end
+    end
 
 end
