@@ -24,6 +24,7 @@ abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 abstract type AbstractConcatenatedCode <: AbstractLinearCode end
 abstract type AbstractAlternateCode <: AbstractLinearCode end
 abstract type AbstractGoppaCode <: AbstractAlternateCode end
+abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
 
 #############################
       # concrete types
@@ -245,6 +246,9 @@ mutable struct AlternateCode <: AbstractAlternateCode
     P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
     weight_enum::Union{WeightEnumerator, Missing}
 end
+
+
+AbstractGeneralizedSrivastavaCode
 
 #############################
          # Goppa.jl

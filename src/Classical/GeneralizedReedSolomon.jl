@@ -112,6 +112,82 @@ Return the generalized Reed-Solomon code associated with the alternate code `C`.
 """
 GeneralizedReedSolomonCode(C::AbstractAlternateCode) = dual(GeneralizedReedSolomonCode(C.k, C.scalars, C.eval_pts))
 
+function GeneralizedSrivastavaCode(F, a, w, z, t::Int)
+    is_positive(t) || throw(DomainError(t, "The parameter `t` must be positive"))
+    n = length(a)
+    n == length(z) || throw(ArgumentError("Vectors `a` and `z` must be the same length"))
+    s = length(w)
+    length(unique([a; w])) == n + s || throw(ArgumentError("Elements of `a` and `w` must be distinct"))
+    any(iszero, z) && throw(DomainError(z, "Elements of `z` must be nonzero"))
+    E = parent(a[1])
+    flag, _ = is_subfield(F, E)
+    flag || throw(ArgumentError("Input field is not a subfield of the base ring of the input veectors"))
+    # TODO check all elements in the vectors have the same base ring
+    # TODO repeat this for the constructors above
+
+    H = zero_matrix(E, s * t, n)
+    for l in 1:s
+        count = 1
+        for r in (l - 1) * s + 1:(l - 1) * s + t
+            for c in 1:n
+                H[r, c] = z[c] * (a[c] - w[l])^(-count)
+            end
+            count += 1
+        end
+    end
+
+    basis, _ = primitive_basis(E, F)
+    if typeof(E) === typeof(F)
+        H_exp = transpose(expand_matrix(transpose(H), F, basis))
+    else
+        H_exp = change_base_ring(F, transpose(expand_matrix(transpose(H), GF(Int(order(F))), basis)))
+    end
+    return LinearCode(H_exp, true)
+
+    # compute G
+    G = kernel(H_exp, side = :right)
+    k = rank(G)
+    if ncols(G) == k
+        G_tr = transpose(G)
+    else
+        # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
+        nr = nrows(G)
+        G_tr = zero_matrix(base_ring(G), k, nr)
+        for r in 1:nr
+            for c in 1:rnk_G
+                !iszero(G[r, c]) && (G_tr[c, r] = G[r, c];)
+            end
+        end
+    end
+    G = G_tr
+    n = ncols(G)
+
+    G_stand, H_stand, P, _ = _standard_form(G)
+    ub1, _ = _min_wt_row(G)
+    ub2, _ = _min_wt_row(G_stand)
+    ub = min(ub1, ub2)
+
+    C = GeneralizedSrivastavaCode(F, E, n, k, missing, 1, ub, G, H_exp, G_stand, H_stand, P,
+        missing, L, g)
+    if BigInt(order(base_ring(G)))^min(k, n - k) <= 1.5e5
+        C.weight_enum = if 2k <= n
+            _weight_enumerator_BF(C.G_stand)
+        else
+            MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+        end
+        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+        set_minimum_distance!(C, d)
+    else
+        l_bound = s * t + 1
+        
+        set_distance_lower_bound!(C, l_bound)
+    end
+
+    return C
+end
+
+SrivastavaCode(F, a, w, z) = GeneralizedSrivastavaCode(F, a, w, [z], 1)
+
 #############################
       # getter functions
 #############################

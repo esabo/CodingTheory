@@ -543,8 +543,8 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2))
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)

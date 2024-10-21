@@ -13,7 +13,6 @@ function GoppaCode(F::CTFieldTypes, L::Vector{FqFieldElem}, g::FqPolyRingElem)
     E == base_ring(g) || throw(ArgumentError("Input vector must be over the same base ring as the Goppa polynomial."))
     rts = roots(g)
     isempty(L ∩ rts) || throw(ArgumentError("The input vector must not contain any roots of the Goppa polynomial."))
-    # length(rts) == degree(g) || throw(ArgumentError("The Goppa polynomial must be defined over the splitting field."))
     is_subfield(F, E)[1] || throw(ArgumentError("The input field is not a subfield of the base ring of the polynomial."))
     
     n = length(L)
@@ -57,7 +56,7 @@ function GoppaCode(F::CTFieldTypes, L::Vector{FqFieldElem}, g::FqPolyRingElem)
 
     C = GoppaCode(F, E, n, k, missing, 1, ub, G, H_exp, G_stand, H_stand, P,
         missing, L, g)
-    if Int(order(base_ring(G))) == 2 && BigInt(order(F))^min(k, n - k) <= 1.5e5
+    if BigInt(order(base_ring(G)))^min(k, n - k) <= 1.5e5
         C.weight_enum = if 2k <= n
             _weight_enumerator_BF(C.G_stand)
         else
