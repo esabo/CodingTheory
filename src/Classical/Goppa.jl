@@ -8,8 +8,10 @@
         # constructors
 #############################
 
-function GoppaCode(F::CTFieldTypes, L::Vector{FqFieldElem}, g::FqPolyRingElem) 
+function GoppaCode(F::CTFieldTypes, L::Vector{FqFieldElem}, g::FqPolyRingElem)
+    is_empty(L) && throw(ArgumentError("The input vector `L` cannot be empty."))
     E = parent(L[1])
+    all(parent(pt) == E for pt in L) || throw(ArgumentError("All elements of the input vector `L` must be over the same base ring."))
     E == base_ring(g) || throw(ArgumentError("Input vector must be over the same base ring as the Goppa polynomial."))
     rts = roots(g)
     isempty(L ∩ rts) || throw(ArgumentError("The input vector must not contain any roots of the Goppa polynomial."))
@@ -30,6 +32,8 @@ function GoppaCode(F::CTFieldTypes, L::Vector{FqFieldElem}, g::FqPolyRingElem)
     else
         H_exp = change_base_ring(F, transpose(expand_matrix(transpose(H), GF(Int(order(F))), basis)))
     end
+
+    # just call LinearCode constructor here?
 
     # compute G
     G = kernel(H_exp, side = :right)

@@ -265,11 +265,12 @@ export ZeroCode, IdentityCode, RepetitionCode, SingleParityCheckCode, SPCCode,
     best_known_linear_code
 
 #############################
-# Classical/GeneralizedReedSolomon.jl
+# Classical/GRS_alternate.jl
 #############################
 
-include("Classical/GeneralizedReedSolomon.jl")
-export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points, AlternateCode
+include("Classical/GRS_alternate.jl")
+export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points, AlternateCode,
+    SrivastavaCode, GeneralizedSrivastavaCode
 
 #############################
     # Classical/Goppa.jl

@@ -21,6 +21,8 @@ evaluation points `eval_pts` with respect to the subfield `F` of the base ring o
 """
 function GeneralizedGabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int, s::Int; parity::Bool = false)
 
+    is_empty(eval_pts) && throw(ArgumentError("The input vector `eval_pts` cannot be empty."))
+    is_positive(s) || throw(DomainError(s, "The parameter `s` must be positive."))
     E = parent(eval_pts[1])
     all(parent(pt) == E for pt in eval_pts) || throw(ArgumentError("All evaluation points must be over the same base ring."))
     flag, m = is_extension_field(E, F)
@@ -60,3 +62,7 @@ Return the vector representation of the dimension `k` Gabidulin code given the e
 """
 GabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int; parity::Bool = false) =
     GeneralizedGabidulinCode(F, eval_pts, k, 1, parity = parity)
+
+# TODO the dual is also a Gabidulin code, need to figure out those eval points based on these
+# but that would require making a type for this named code
+# TODO are these MDS or just in rank metric?

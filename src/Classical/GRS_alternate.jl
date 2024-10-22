@@ -21,16 +21,16 @@ evaluation points `γ`.
 """
 function GeneralizedReedSolomonCode(k::Int, v::Vector{FqFieldElem}, γ::Vector{FqFieldElem})
     n = length(v)
-    1 <= k <= n || throw(DomainError("The dimension of the code must be between 1 and n."))
+    1 <= k <= n || throw(DomainError("The dimension of the code must be between `1` and `n`."))
     n == length(γ) || throw(DomainError("Lengths of scalars and evaluation points must be equal."))
     F = parent(v[1])
-    1 <= n <= Int(order(F)) || throw(DomainError("The length of the code must be between 1 and the order of the field."))
+    1 <= n <= Int(order(F)) || throw(DomainError("The length of the code must be between `1` and the order of the field."))
     for (i, x) in enumerate(v)
-        iszero(x) && throw(ArgumentError("The elements of v must be nonzero."))
-        parent(x) == F || throw(ArgumentError("The elements of v must be over the same field."))
-        parent(γ[i]) == F || throw(ArgumentError("The elements of γ must be over the same field as v."))
+        iszero(x) && throw(ArgumentError("The elements of `v` must be nonzero."))
+        parent(x) == F || throw(ArgumentError("The elements of `v` must be over the same field."))
+        parent(γ[i]) == F || throw(ArgumentError("The elements of `γ` must be over the same field as `v`."))
     end
-    length(unique(γ)) == n || throw(ArgumentError("The elements of γ must be distinct."))
+    length(unique(γ)) == n || throw(ArgumentError("The elements of `γ` must be distinct."))
 
     G = zero_matrix(F, k, n)
     for c in 1:n
@@ -112,7 +112,20 @@ Return the generalized Reed-Solomon code associated with the alternate code `C`.
 """
 GeneralizedReedSolomonCode(C::AbstractAlternateCode) = dual(GeneralizedReedSolomonCode(C.k, C.scalars, C.eval_pts))
 
-function GeneralizedSrivastavaCode(F, a, w, z, t::Int)
+"""
+    GeneralizedSrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, z::Vector{T}, t::Int) where T <: CTFieldElem
+
+Return the generalized Srivastava code over `F` given `a`, `w`, `z`, and `t`.
+
+# Notes
+- These inputs are defined on page 357 of MacWilliams & Sloane
+"""
+function GeneralizedSrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, z::Vector{T},
+    t::Int) where T <: CTFieldElem
+
+    is_empty(a) && throw(ArgumentError("The input vector `a` cannot be empty."))
+    is_empty(w) && throw(ArgumentError("The input vector `w` cannot be empty."))
+    is_empty(z) && throw(ArgumentError("The input vector `z` cannot be empty."))
     is_positive(t) || throw(DomainError(t, "The parameter `t` must be positive"))
     n = length(a)
     n == length(z) || throw(ArgumentError("Vectors `a` and `z` must be the same length"))
@@ -120,10 +133,11 @@ function GeneralizedSrivastavaCode(F, a, w, z, t::Int)
     length(unique([a; w])) == n + s || throw(ArgumentError("Elements of `a` and `w` must be distinct"))
     any(iszero, z) && throw(DomainError(z, "Elements of `z` must be nonzero"))
     E = parent(a[1])
+    all(parent(pt) == E for pt in a) || throw(ArgumentError("All elements of the input vector `a` must be over the same base ring."))
+    all(parent(pt) == E for pt in w) || throw(ArgumentError("All elements of the input vector `w` must be over the same base ring as `a`."))
+    all(parent(pt) == E for pt in z) || throw(ArgumentError("All elements of the input vector `z` must be over the same base ring as `a`."))
     flag, _ = is_subfield(F, E)
     flag || throw(ArgumentError("Input field is not a subfield of the base ring of the input veectors"))
-    # TODO check all elements in the vectors have the same base ring
-    # TODO repeat this for the constructors above
 
     H = zero_matrix(E, s * t, n)
     for l in 1:s
@@ -142,51 +156,24 @@ function GeneralizedSrivastavaCode(F, a, w, z, t::Int)
     else
         H_exp = change_base_ring(F, transpose(expand_matrix(transpose(H), GF(Int(order(F))), basis)))
     end
-    return LinearCode(H_exp, true)
+    C = LinearCode(H_exp, true)
+    C2 = GeneralizedSrivastavaCode(F, E, C.n, C.k, C.d, C.l_bound, C.u_bound, a, w, z, t, C.G, C.H,
+        C.G_stand, C.H_stand, C.P_stand, C.weight_enum)
+    ismissing(C2.d) && set_distance_lower_bound!(C2, s * t + 1)
 
-    # compute G
-    G = kernel(H_exp, side = :right)
-    k = rank(G)
-    if ncols(G) == k
-        G_tr = transpose(G)
-    else
-        # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
-        nr = nrows(G)
-        G_tr = zero_matrix(base_ring(G), k, nr)
-        for r in 1:nr
-            for c in 1:rnk_G
-                !iszero(G[r, c]) && (G_tr[c, r] = G[r, c];)
-            end
-        end
-    end
-    G = G_tr
-    n = ncols(G)
-
-    G_stand, H_stand, P, _ = _standard_form(G)
-    ub1, _ = _min_wt_row(G)
-    ub2, _ = _min_wt_row(G_stand)
-    ub = min(ub1, ub2)
-
-    C = GeneralizedSrivastavaCode(F, E, n, k, missing, 1, ub, G, H_exp, G_stand, H_stand, P,
-        missing, L, g)
-    if BigInt(order(base_ring(G)))^min(k, n - k) <= 1.5e5
-        C.weight_enum = if 2k <= n
-            _weight_enumerator_BF(C.G_stand)
-        else
-            MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
-        end
-        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
-        set_minimum_distance!(C, d)
-    else
-        l_bound = s * t + 1
-        
-        set_distance_lower_bound!(C, l_bound)
-    end
-
-    return C
+    return C2
 end
 
-SrivastavaCode(F, a, w, z) = GeneralizedSrivastavaCode(F, a, w, [z], 1)
+"""
+    SrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, z::Vector{T}, t::Int) where T <: CTFieldElem
+
+Return the Srivastava code over `F` given `a`, `w`, and `z`.
+
+# Notes
+- These inputs are defined on page 357 of MacWilliams & Sloane
+"""
+SrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, z::Vector{T}) where T <: CTFieldElem =
+    GeneralizedSrivastavaCode(F, a, w, z, 1)
 
 #############################
       # getter functions
@@ -220,6 +207,13 @@ evaluation_points(C::GeneralizedReedSolomonCode) = C.eval_pts
 #############################
      # general functions
 #############################
+
+"""
+    is_primitive(C::AbstractGeneralizedSrivastavaCode)
+
+Return `true` if `C` is primitive
+"""
+is_primitive(C::AbstractGeneralizedSrivastavaCode) = C.n == Int(order(C.E)) - length(C.w)
 
 # TODO
 # write conversion function from Reed-Solomon code to GRS
