@@ -397,36 +397,71 @@ end
      # general functions
 #############################
 """
-Returns the indexs of the pivot columns and an information set which 
-is the submatrix of G given by these columns.
+    information_set(C::AbstractLinearCode)
+
+Returns an information set defined by the pivot column indexs of the generator matrix 
+
+# Arguments
+- `C` - a linear code 
 """
 function information_set(C::AbstractLinearCode)
     rref_sol = _rref_no_col_swap(C.G)
     nonpivot_inds = _rref_non_pivot_cols(rref_sol, :nsp) 
     pivot_inds = [x for x in 1:C.n if !(x in nonpivot_inds)]
+    if pivot_inds === missing
+        println("piv inds missing")
+    end
     return pivot_inds
 end
 
-#TODO doc
-function random_information_set(C::AbstractLinearCode)
-    perm = Vector(1:C.n)
-    shuffle!(perm)
-    perm_mat = parent(C.G)(zero_matrix(ZZ, C.k, C.n))
+"""
+    random_information_set(C::AbstractLinearCode, rng::AbstractRNG = Random.seed!())
 
-    new_perm = convert(Vector{Int}, perm)
-    _col_permutation!(perm_mat, C.G, new_perm)
+Returns a random information set defined by pivot column indexs of the generator matrix
 
+# Arguments
+- `C` - a linear code 
+"""
+function random_information_set(C::AbstractLinearCode, rng::AbstractRNG = Random.seed!())
+    perm = shuffle(rng, collect(1:C.n)) 
+    # perm_mat = zero_matrix(base_ring(C.G), C.k, C.n)
+    # new_perm = convert(Vector{Int}, perm)
+    # _col_permutation!(perm_mat, C.G, new_perm) #TODO replace by perm_mat = C.G[:, new_perm]
+
+    # _col_permutation!(perm_ops, orig_ops, perm)
+    perm_mat = C.G[:, perm]
+    _rref_no_col_swap!(perm_mat)
     permuted_pivot_inds = information_set(LinearCode(perm_mat))
-
-    S_n = symmetric_group(C.n)
-    inv_perm_vec = invperm(perm) 
-    inv_perm = Oscar.perm(S_n, inv_perm_vec)
-    pivot_inds = Vector(1:length(permuted_pivot_inds))
-    _permgroup_vec_permutation!(pivot_inds, permuted_pivot_inds, inv_perm)
-    return pivot_inds
+    submat = perm_mat[: , permuted_pivot_inds]
+    println("rank before is ", rank(submat), " submat ")
+    display(submat)
+    @assert rank(submat) == C.k
+    # ops = zeros(length(permuted_pivot_inds)) 
+    ops = similar(permuted_pivot_inds)
+    # println(ops)
+    # _col_permutation!(ops, permuted_pivot_inds, invperm(new_perm))
+    println("before")
+    println(permuted_pivot_inds)
+    println(perm, " has inverse, ", invperm(perm))
+    _permgroup_vec_permutation!(ops, permuted_pivot_inds, invperm(perm))
+    # println(invperm(new_perm))
+    println("after")
+    println(ops)
+    @assert length(ops) == C.k
+    return ops
 end
 
-#TODO doc
+"""
+    random_linear_code(field::CTFieldTypes, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+
+Returns a random linear code
+
+# Arguments
+- `field` - finite field
+- `n` - length of the code
+- `k` - dimension of the code
+- `rng` - random number generator
+"""
 function random_linear_code(field::CTFieldTypes, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
     rand_mat = zero_matrix(field, k, n-k)
     for r in 1:nrows(rand_mat) 
@@ -438,7 +473,17 @@ function random_linear_code(field::CTFieldTypes, n::Int, k::Int, rng::AbstractRN
     return LinearCode(full_mat)
 end 
 
-#TODO doc
+"""
+    random_linear_code(q::Int, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
+
+Returns a random linear code
+
+# Arguments
+- `field` - finite field
+- `n` - length of the code
+- `k` - dimension of the code
+- `rng` - random number generator
+"""
 function random_linear_code(q::Int, n::Int, k::Int, rng::AbstractRNG = Random.seed!())
     is_pp, e, p = is_prime_power_with_data(q)
     if e == 1 

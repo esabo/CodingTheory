@@ -547,8 +547,7 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1), col_range::AbstractUnitRange{Int} = axes(M, 2))
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
@@ -563,7 +562,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
     isempty(col_range) && return 0, missing
 
     # permutation matrix required to return to rowspace if column swap done
-    P = missing
+    # P = missing
     nc_A = ncols(A)
 
     rnk = 0
@@ -571,6 +570,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
     j = first(col_range)
     nr = last(row_range)
     nc = last(col_range)
+    P = identity_matrix(base_ring(A), nc_A)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -814,12 +814,15 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 
-function _permgroup_vec_permutation!(X::Vector{T}, A::Vector{T}, p::PermGroupElem) where T
-    n = degree(parent(p))
-    n >= size(A, 1) || throw(ArgumentError("degree of the parent group of `p` must be at least `size(A, 2)`."))
+function _permgroup_vec_permutation!(X::Vector{T}, A::Vector{T}, p::AbstractVector{Int}) where T
+    # length(p) == size(A) || throw(ArgumentError("`p` should have length `size(A)`."))
     size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
+    my_perm = perm(p)
+    # img_of_A = deepcopy(A)
+    img_of_A = on_tuples(A, my_perm)
+    println("img of A\n", img_of_A, " after ", my_perm)
     for j in 1:length(X) 
-        X[j] = p(A[j])
+        X[j] = img_of_A[j] 
     end
     return nothing
 end

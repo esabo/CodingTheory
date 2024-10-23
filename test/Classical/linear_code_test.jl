@@ -177,7 +177,17 @@
         # simplex code itself has dimension k(k + 1)/2
         #
 
-    @testset "Random Linear Code" begin
+    @testset "Random Linear Code Functions" begin
+        function test_random_information_set()
+            C_ham = HammingCode(2, 3) 
+            @assert ncols(C_ham.G) == 7
+            pivs = random_information_set(C_ham)
+            mat = C_ham.G[:, pivs]
+            @assert nrows(mat) == 4
+            @assert ncols(mat) == 4
+            @assert rank(mat) == 4
+        end
+
         function test_random_linear_code()
             pr = 2
             n = 7
