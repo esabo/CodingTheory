@@ -9,7 +9,7 @@
 #############################
 
 """
-    weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabilizer)
+$TYPEDSIGNATURES
 
 Return a bar graph of the weight distribution related to `S`.
 
@@ -49,7 +49,7 @@ function CodingTheory.weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto
 end
 
 """
-    weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+$TYPEDSIGNATURES
 
 Return a bar graph of the weight distribution of the `X` stabilizers.
 
@@ -73,7 +73,7 @@ function CodingTheory.weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbo
 end
 
 """
-    weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+$TYPEDSIGNATURES
 
 Return a bar graph of the weight distribution of the `Z` stabilizers.
 
@@ -97,7 +97,7 @@ function CodingTheory.weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbo
 end
 
 """
-    weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol = :auto)
+$TYPEDSIGNATURES
 
 Return bar graphs of the weight distribution of both the `X` and 'Z' stabilizers, separately.
 

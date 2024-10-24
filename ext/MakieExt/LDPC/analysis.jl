@@ -9,7 +9,7 @@
 #############################
 
 """
-    EXIT_chart_plot(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel; tol::Float64 = 1e-9)
+$TYPEDSIGNATURES
 
 Return a plot of the EXIT chart for the ensemble given the channel up to a numerical tolerance of `tol`.
 
