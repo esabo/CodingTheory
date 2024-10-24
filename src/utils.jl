@@ -302,7 +302,7 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
         j = 1
         nr, nc = size(A)
         while i <= nr && j <= nc
-            if is_one(A[i, j])
+            if isone(A[i, j])
                 i += 1
                 j += 1
             else
@@ -698,7 +698,7 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     nr = last(row_range)
     nc = last(col_range)
     sym_group = symmetric_group(nc)
-    # permutation matrix required to return to rowspace if column swap done
+    # permutation to return to rowspace if column swap done
     P = cperm(sym_group) 
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
@@ -939,19 +939,6 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
         end
     end
     return rnk, P
-end
-
-function _permgroup_vec_permutation!(X::Vector{T}, A::Vector{T}, p::AbstractVector{Int}) where T
-    # length(p) == size(A) || throw(ArgumentError("`p` should have length `size(A)`."))
-    size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
-    my_perm = perm(p)
-    # img_of_A = deepcopy(A)
-    img_of_A = on_tuples(A, my_perm)
-    println("img of A\n", img_of_A, " after ", my_perm)
-    for j in 1:length(X) 
-        X[j] = img_of_A[j] 
-    end
-    return nothing
 end
 
 function _col_permutation!(X::Union{VecOrMat{T}, CTMatrixTypes}, A::Union{VecOrMat{T}, CTMatrixTypes}, p::AbstractVector{Int}) where T
@@ -1964,18 +1951,6 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
-function _rand_gf_elem(field, rng::AbstractRNG = Random.seed!())
-    pr = characteristic(field)
-    dg = degree(field)
-    vec = fill(0, dg+1)
-    vec .+= rand(rng, 0:pr,dg+1)
-    elem = zero(field)
-    x = gen(field)
-    for i in 0:dg 
-      elem += vec[i+1] * x^i
-    end
-    return elem
-end
 
 
 # #=
