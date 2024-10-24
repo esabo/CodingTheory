@@ -351,15 +351,16 @@ function extend(C::AbstractLinearCode, a::CTMatrixTypes, c::Integer)
     b = ncols(a) == 1 ? transpose(a) : a
     nrows(b) == 1 || throw(ArgumentError("The argument `a` should be a vector."))
 
-    new_col = zero_matrix(C.F, nrows(C.G), 1)
-    is_binary = order(C.F) == 2
+    F = base_ring(C.G)
+    new_col = zero_matrix(F, nrows(C.G), 1)
+    is_binary = order(F) == 2
     for i in axes(new_col, 1)
         new_col[i, 1] = dot(b, view(C.G, i:i, :))
-        is_binary || (new_col[i, 1] *= C.F(-1);)
+        is_binary || (new_col[i, 1] *= F(-1);)
     end
     G_new = hcat(view(C.G, :, 1:c - 1), new_col, view(C.G, :, c:C.n))
-    new_row = hcat(view(b, 1:1, 1:c - 1), matrix(C.F, 1, 1, [1]), view(b, 1:1, c:C.n))
-    H_new = vcat(new_row, hcat(view(C.H, :, 1:c - 1), zero_matrix(C.F, nrows(C.H), 1), view(C.H, :, c:C.n)))
+    new_row = hcat(view(b, 1:1, 1:c - 1), matrix(F, 1, 1, [1]), view(b, 1:1, c:C.n))
+    H_new = vcat(new_row, hcat(view(C.H, :, 1:c - 1), zero_matrix(F, nrows(C.H), 1), view(C.H, :, c:C.n)))
     C_new = LinearCode(G_new, H_new)
     if !ismissing(C.d) && ismissing(C_new.d)
         if is_binary && all(isone(x) for x in a)
@@ -373,9 +374,9 @@ function extend(C::AbstractLinearCode, a::CTMatrixTypes, c::Integer)
 
     return C_new
 end
-extend(C::AbstractLinearCode, c::Integer) = extend(C, matrix(C.F, 1, C.n, ones(Int, C.n)), c)
+extend(C::AbstractLinearCode, c::Integer) = extend(C, matrix(base_ring(C.G), 1, C.n, ones(Int, C.n)), c)
 extend(C::AbstractLinearCode, a::CTMatrixTypes) = extend(C, a, C.n + 1)
-extend(C::AbstractLinearCode) = extend(C, matrix(C.F, 1, C.n, ones(Int, C.n)), C.n + 1)
+extend(C::AbstractLinearCode) = extend(C, matrix(base_ring(C.G), 1, C.n, ones(Int, C.n)), C.n + 1)
 even_extension(C::AbstractLinearCode) = extend(C)
 
 """

@@ -52,31 +52,27 @@
         @test rank(G_and_G) == dimension(C_G_and_G)
         @test G == generator_matrix(C_G_and_G)
 
-        # information set tests:
+        # information_set tests:
         F = Oscar.Nemo.Native.GF(2)
 
         # a code with G in standard form 
         Gstd = matrix(F, [1 0; 0 1])
         Cstd = LinearCode(Gstd);
         pivs = information_set(Cstd)
-        @test pivs == [1,2]
+        @test pivs == [1, 2]
 
         # codes with nontrivial pivots:
         G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
         C = LinearCode(G);
-        pivs = information_set(C)
-        @test pivs == [1,3]
+        @test information_set(C) == [1, 3]
 
         C_ham = HammingCode(2, 3)
-        pivs = information_set(C_ham)
-        expected_info_mat = matrix(F, [1 0 0 0; 1 1 0 0; 0 1 1 0; 1 1 0 1])
-        @test pivs == [1, 2, 3, 4]
+        @test information_set(C_ham) == [1, 2, 3, 4]
 
         C = deepcopy(C_ham)
-        C.G[:,1] = C_ham.G[:, 5]
-        C.G[:,5] = C_ham.G[:, 1]
-        pivs = information_set(C)
-        @test pivs == [1, 2, 3, 5]
+        C.G[:, 1] = C_ham.G[:, 5]
+        C.G[:, 5] = C_ham.G[:, 1]
+        @test information_set(C) == [1, 2, 3, 5]
     end
 
     @testset "Puncturing examples" begin
@@ -162,21 +158,57 @@
         G3 = matrix(F, [1 1 0 0 0 0; 1 0 1 0 0 0; 1 1 1 1 1 1])
         C3 = LinearCode(G3)
         LinearCode(words(C1))
-        bool1, permutation1 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C2)
+        bool1, permutation1 = CodingTheory._are_perm_equivalent_exhaustive_search(C1, C2)
         @test bool1
         @test !(permutation1 === missing)
-        bool2, permutation2 = CodingTheory.are_perm_equivalent_exhaustive_search(C1, C3)
+        bool2, permutation2 = CodingTheory._are_perm_equivalent_exhaustive_search(C1, C3)
         @test !bool2
         @test permutation2 === missing
  
     end
+
+    @testset "Random Linear Code Functions" begin
+        C_ham = HammingCode(2, 3) 
+        @test ncols(C_ham.G) == 7
+        pivs = random_information_set(C_ham)
+        mat = C_ham.G[:, pivs]
+        @test nrows(mat) == 4
+        @test ncols(mat) == 4
+        @test rank(mat) == 4
+
+        C_ham = HammingCode(2, 4) 
+        number_of_tests = 5
+        for i in 1:number_of_tests
+            rng = CodingTheory.Random.seed!(i)
+            infoset = random_information_set(C_ham, rng = rng) 
+            @test det(C_ham.G[:, infoset]) != 0 
+        end
+
+        p = 2
+        n = 7
+        k = 4
+        rng = CodingTheory.Random.seed!(0)
+        code = random_linear_code(p, n, k, rng = rng)
+        @test code.n == n
+        @test code.k == k
+    
+        rng = CodingTheory.Random.seed!(0)
+        prime_power = p^2
+        code = random_linear_code(prime_power, n, k, rng = rng)
+        @test code.n == n
+        @test code.k == k
+    
+        rng_from_field = CodingTheory.Random.seed!(0)
+        code_from_field = random_linear_code(GF(p, 2, :x), n, k, rng = rng_from_field)
+        @test code_from_field.n == n
+        @test code_from_field.k == k
+        @test code.G == code_from_field.G
+    end
+
         # "On the Schur Product of Vector Spaces over Finite Fields"
         # Christiaan Koster
         # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
 
         # simplex code itself has dimension k(k + 1)/2
         #
-
-       
-
 end

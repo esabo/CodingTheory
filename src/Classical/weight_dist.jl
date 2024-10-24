@@ -400,9 +400,9 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     alg ∈ (:Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
     # TODO should rref to begin with and remove empty rows?
     nr, nc = size(G)
-    gen_mats = Vetor{Matrix{UInt8}}()
-    perms = Vetor{Matrix{UInt8}}()
-    rnks = Vetor{Int}()
+    gen_mats = Vector{Matrix{UInt8}}()
+    perms = Vector{Matrix{UInt8}}()
+    rnks = Vector{Int}()
     
     rnk = nr
     if alg == :Brouwer
@@ -478,6 +478,7 @@ end
 function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int},
     info_set_alg::Symbol; even::Bool = false, doubly_even::Bool = false, triply_even::Bool = false)
 
+    lower = 0
     if info_set_alg == :Brouwer
         lower = r * length(rank_defs)
     elseif info_set_alg == :Zimmermann
@@ -572,7 +573,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     k, n = size(G)
     found = zeros(UInt8, n)
     perm = collect(1:n)
-    while flag
+    # while flag
         for (j, g) in enumerate(A_mats_Julia)
             # can make this faster with dots and views
             w, i = _min_wt_col(g)
@@ -583,7 +584,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
                 perm = perms_mats[j]
             end
         end
-    end
+    # end
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
 
@@ -1027,8 +1028,8 @@ function minimum_words(C::AbstractLinearCode)
         Ws = [Set{typeof(G)}() for _ in 1:num_thrds]
         Threads.@threads for m in 1:num_thrds
             c = zeros(Int, C.n)
-            prefix = digits(m - 1, base=2, pad=power)
-            for u in GrayCode(C.k, r, prefix, mutate=true)
+            prefix = digits(m - 1, base = 2, pad = power)
+            for u in GrayCode(C.k, r, prefix, mutate = true)
                 for i in 1:h
                     LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
                     w = 0
@@ -1298,14 +1299,14 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             K, ω = cyclotomic_field(Int(characteristic(C.F)), :ω)
             R, vars = polynomial_ring(K, q)
             prime_field = GF(Int(characteristic(C.F)))
-            _, λ = primitivebasis(C.F, prime_field)
+            _, λ = primitive_basis(C.F, prime_field)
             elms = collect(C.F)
             func_args = []
             for i in 1:q
                 inner_sum = R(0)
                 for j in 1:q
                     β = elms[i] * elms[j]
-                    β_exp = _expandelement(β, prime_field, λ, false)
+                    β_exp = _expand_element(β, prime_field, λ, false)
                     inner_sum += ω^coeff(β_exp[1], 0) * vars[j]
                 end
                 push!(func_args, inner_sum)

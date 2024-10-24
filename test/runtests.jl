@@ -6,7 +6,6 @@ if get(ENV, "GPU_TESTS", "") != "true"
     println("skipping gpu tests (set GPU_TESTS = true to test gpu)")
 end
 
-
 # filter for the test
 test_filter = ti -> begin
     exclude = Symbol[]
@@ -29,7 +28,7 @@ test_filter = ti -> begin
     return all(!in(exclude), ti.tags)
 end
 
-# since unit tests need to be deterministic this saves us having to set it every time we test a random function 
+# unit tests need to be deterministic for debugging so we should set the seed before running the whole test suite 
 println("Random.seed initialized to 0")
 CodingTheory.Random.seed!(0)
 
