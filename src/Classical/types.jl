@@ -22,6 +22,9 @@ abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
 abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
 abstract type AbstractConcatenatedCode <: AbstractLinearCode end
+abstract type AbstractAlternateCode <: AbstractLinearCode end
+abstract type AbstractGoppaCode <: AbstractAlternateCode end
+abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
 
 #############################
       # concrete types
@@ -73,7 +76,7 @@ mutable struct MatrixProductCode <: AbstractMatrixProductCode
 end
 
 #############################
-    # ReedMuller.jl
+       # ReedMuller.jl
 #############################
 
 mutable struct ReedMullerCode <: AbstractReedMullerCode
@@ -94,7 +97,7 @@ mutable struct ReedMullerCode <: AbstractReedMullerCode
 end
   
 #############################
-    # cycliccode.jl
+       # cycliccode.jl
 #############################
 
 mutable struct CyclicCode <: AbstractCyclicCode
@@ -205,7 +208,7 @@ mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
 end
 
 #############################
-# GeneralizedReedSolomon.jl
+      # GRS_alternate.jl
 #############################
 
 mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
@@ -224,6 +227,66 @@ mutable struct GeneralizedReedSolomonCode <: AbstractGeneralizedReedSolomonCode
     H_stand::CTMatrixTypes
     P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
     weight_enum::Union{WeightEnumerator, Missing} # TODO: should never be missing? is completely known for MDS?
+end
+
+mutable struct AlternateCode <: AbstractAlternateCode
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # extension field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    scalars::Vector{<:CTFieldElem}
+    eval_pts::Vector{<:CTFieldElem}
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+end
+
+mutable struct GeneralizedSrivastavaCode <: AbstractGeneralizedSrivastavaCode
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # extension field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    a::Vector{<:CTFieldElem}
+    w::Vector{<:CTFieldElem}
+    z::Vector{<:CTFieldElem}
+    t::Int
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+end
+
+#############################
+         # Goppa.jl
+#############################
+
+mutable struct GoppaCode <: AbstractGoppaCode
+    F::CTFieldTypes # base field
+    E::CTFieldTypes # extension field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+    L::Vector{CTFieldElem}
+    g::FqPolyRingElem
 end
 
 #############################
