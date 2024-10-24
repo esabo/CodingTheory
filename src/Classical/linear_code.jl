@@ -403,52 +403,18 @@ Returns an information set defined by the pivot column indexs of the generator m
 
 # Arguments
 - `C` - a linear code 
-"""
-function information_set(C::AbstractLinearCode)
-    rref_sol = _rref_no_col_swap(C.G)
-    nonpivot_inds = _rref_non_pivot_cols(rref_sol, :nsp) 
-    pivot_inds = [x for x in 1:C.n if !(x in nonpivot_inds)]
-    if pivot_inds === missing
-        println("piv inds missing")
-    end
-    return pivot_inds
-end
-
-"""
-    random_information_set(C::AbstractLinearCode, rng::AbstractRNG = Random.seed!())
-
-Returns a random information set defined by pivot column indexs of the generator matrix
-
-# Arguments
-- `C` - a linear code 
+- `rng` - random number generator
 """
 function random_information_set(C::AbstractLinearCode, rng::AbstractRNG = Random.seed!())
-    perm = shuffle(rng, collect(1:C.n)) 
-    # perm_mat = zero_matrix(base_ring(C.G), C.k, C.n)
-    # new_perm = convert(Vector{Int}, perm)
-    # _col_permutation!(perm_mat, C.G, new_perm) #TODO replace by perm_mat = C.G[:, new_perm]
-
-    # _col_permutation!(perm_ops, orig_ops, perm)
-    perm_mat = C.G[:, perm]
-    _rref_no_col_swap!(perm_mat)
-    permuted_pivot_inds = information_set(LinearCode(perm_mat))
-    submat = perm_mat[: , permuted_pivot_inds]
-    println("rank before is ", rank(submat), " submat ")
-    display(submat)
-    @assert rank(submat) == C.k
-    # ops = zeros(length(permuted_pivot_inds)) 
-    ops = similar(permuted_pivot_inds)
-    # println(ops)
-    # _col_permutation!(ops, permuted_pivot_inds, invperm(new_perm))
-    println("before")
-    println(permuted_pivot_inds)
-    println(perm, " has inverse, ", invperm(perm))
-    _permgroup_vec_permutation!(ops, permuted_pivot_inds, invperm(perm))
-    # println(invperm(new_perm))
-    println("after")
-    println(ops)
-    @assert length(ops) == C.k
-    return ops
+    shuffle_perm_julia = shuffle(rng, collect(1 : C.n)) 
+    shuffle_perm = perm(shuffle_perm_julia)
+    # apply shuffle permutation
+    permuted_mat = C.G[: , invperm(shuffle_perm_julia)] 
+    # transform to rref. The first k columns of the rref matrix are pivot columns
+    _, _, rref_perm = CodingTheory._rref_col_swap_perm(permuted_mat)
+    inv_perm = inv(shuffle_perm * rref_perm)
+    # apply the inverse permutation to the pivots
+    return on_tuples(collect(1 : C.k), inv_perm) 
 end
 
 """
