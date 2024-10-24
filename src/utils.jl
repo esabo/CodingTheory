@@ -942,7 +942,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 
-function _col_permutation!(X::Union{VecOrMat{T}, CTMatrixTypes}, A::Union{VecOrMat{T}, CTMatrixTypes}, p::AbstractVector{Int}) where T
+function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
     size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
     for j in axes(X, 2)
@@ -1960,7 +1960,6 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
 
     return A
 end
-
 
 
 # #=
