@@ -24,6 +24,11 @@ Base.IteratorSize(::SubsetGrayCode) = Base.HasLength()
 end
 Base.in(v::Vector{Int}, G::SubsetGrayCode) = length(v) == G.k 
 
+@inline function Base.isdone(G::SubsetGrayCode, state) 
+    (_, rank, _) = state
+    return rank == G.len
+end
+
 @inline function Base.iterate(G::SubsetGrayCode)
     # The iterator's state is: (v, rank, inds)
 

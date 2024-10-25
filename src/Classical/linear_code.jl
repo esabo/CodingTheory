@@ -663,7 +663,6 @@ end
 Return whether or not `v` is a codeword of `C`.
 """
 in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
-∈(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
     ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)

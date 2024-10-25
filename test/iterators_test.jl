@@ -1,25 +1,22 @@
 @testitem "iterators.jl" begin 
     let
-        len = 5
-        weight = 2
-        itr = CodingTheory.SubsetGrayCode(len, weight) 
-        all_subsets_gray = Vector()
-        v = collect(1: weight)
-        rank = 1
-        init_inds = [-1, -1, -1]
-        state = (v, rank, init_inds)
-        for i in 1:length(itr)
-            push!(all_subsets_gray, deepcopy(v)) 
-            next = iterate(itr, state)
-            next === nothing && break
-            (_, state) = next
-            (v, _, _) = state
+        v_len = 15
+        v_weight = 7
+        sgc = CodingTheory.SubsetGrayCode(v_len, v_weight) 
+        all_subsets_gray = fill(fill(0, v_weight), length(sgc))
+        vec = collect(1:sgc.k)
+        state = (vec, 1, Array{Int}([-1, -1, -1]))
+        for i in 1:length(sgc)
+            all_subsets_gray[i] = deepcopy(vec)
+                next = iterate(sgc, state)
+                next === nothing && break
+                (_, state) = next
+                (vec, _, _) = state
         end
-    
-        all_subsets = collect(CodingTheory.Oscar.subsets(collect(1:len), weight))
-        @test length(all_subsets_gray) == length(all_subsets)
-        @test all([u in all_subsets_gray for u in all_subsets])
-        @test all([u in all_subsets for u in all_subsets_gray])
+        sort!(all_subsets_gray)
+        all_subsets_hecke = CodingTheory.Hecke.subsets(collect(1:v_len), v_weight)
+        sort!(all_subsets_hecke)
+        @assert all_subsets_gray == all_subsets_hecke 
     end
 
     function pushOrDel(a::Set{T}, b::T...) where T <: Any
