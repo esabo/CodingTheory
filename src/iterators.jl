@@ -36,21 +36,26 @@ end
     #=
     The iterator's state is: (v, rank, inds)
 
-    v: an ordered collection of length G.k. It represents the nonzero indexs of a weight k length n vector w over F_2 
-    (This w is not part of this iterators state and we do not ever need to explicitly compute w)
+    v: a subset of k elements which we represent as an ordered vector. 
+    The intended usage for this iterator is to consider v as the nonzero indexs of a weight k, 
+    length n, vector w over F_2 (Note that w is not part of the state and we do not ever need to 
+    explicitly compute w).
 
     rank: an int in [1, choose(G.n G.k)]. 
-    rank and v have a 1-1 correspondance and we can go between them with the functions _subset_unrank
-    and _subset_rank.
+    rank and v have are in one-to-one correspondance and we can go between them with the functions 
+    _subset_unrank and _subset_rank.
 
-    inds: an int array of length 3. It represents the indexs of w that were changed when updating the vector v. 
-    ind[i] can be either -1, meaning no index of w is stored at the position, or in [1, G.n].
+    inds: an int array of length 3. It represents the indexs of w that were changed when updating 
+    the vector v. 
+    ind[i] can be either and index of w (and so in [1, G.n]) or be -1, meaning no index of w is 
+    stored at the position.
 
-    Note that inds is part of the iterator's state inds only to prevent reallocation in each iteration.
+    Note that inds is part of the iterator's state inds only to prevent reallocation in each 
+    iteration.
     =#
     rank = Int(1)
     v = collect(1:G.k) 
-    inds = Vector([-1, -1, -1])
+    inds = fill(-1, 3) 
     (inds, (v, rank, inds))
 end
 
@@ -153,8 +158,10 @@ function _update_indexs!(indexs::Vector{Int}, x::Int)
 end
 
 function _subset_rank(v::Vector{UInt}, k::UInt)
-    # Based on Algorithm 2.11 in kreher1999combinatorial
-    # Results are undefined if the entries of v arent in {1,..,n} for n>=k
+    #=
+    Based on Algorithm 2.11 in kreher1999combinatorial
+    Results are undefined if the entries of v arent in {1,..,n} for n>=k
+    =#
     r = BigInt(0)
     s = BigInt(1)
     for i in k:-1:1
@@ -218,7 +225,7 @@ Base.IteratorSize(::GrayCode) = Base.HasLength()
         0
     end
 end
-Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && view(v, 1:G.prefix_length) == G.prefix
+Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && (view(v, 1:G.prefix_length) == G.prefix)
 
 @inline function Base.iterate(G::GrayCode)
     0 <= G.ks <= G.ns || return nothing
@@ -233,7 +240,10 @@ Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k
 end
 
 @inline function Base.iterate(G::GrayCode, state)
-    # based on Algorithm 2 from bitner1976efficient and modified to support iterating from a binary prefix vector 
+    #=
+    based on Algorithm 2 from bitner1976efficient and modified to support iterating from a binary 
+    prefix vector 
+    =#
     g, τ, t, v = state
     @inbounds begin
         i = τ[1]

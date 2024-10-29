@@ -523,14 +523,13 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         end
 
         flag = Threads.Atomic{Bool}(true)
-        num_thrds = 1
-        power = 0
+        # num_thrds = 1
+        # power = 0
         p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
         founds = [found for _ in 1:num_thrds]
         perms = [perm for _ in 1:num_thrds]
-        # Threads.@threads for m in 1:num_thrds
-            m = 0
+        Threads.@threads for m in 1:num_thrds
             c = zeros(Int, C.n)
             prefix = digits(m - 1, base = 2, pad = power)
             for u in GrayCode(C.k, r, prefix, mutate = true)
@@ -563,7 +562,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
                     break
                 end
             end
-        # end
+        end
         loc = argmin(uppers)
         C.u_bound = uppers[loc]
         found = founds[loc]
