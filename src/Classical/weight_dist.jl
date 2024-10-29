@@ -316,6 +316,8 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
                     # permute identities to the front
                     pivots = collect(i * nr + 1:(i + 1) * nr)
                     σ = [pivots; setdiff(1:nc, pivots)]
+                    Gi = Gi[:, σ]
+                    Pi = Pi[:, σ]
                 end
                 push!(gen_mats, Gi)
                 push!(perms, Pi)
@@ -475,9 +477,6 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
             # can make this faster with dots and views
             w, i = _min_wt_col(g)
             if w <= C.u_bound
-                # view might not work here
-                # found .= view(g, :, i)
-                #TODO add identity vector before g here
                 found = g[:, i]
                 C.u_bound = w
                 perm = perms_mats[j]
@@ -508,9 +507,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            # y = matrix(C.F, 1, n, found) * perm 
             y = perm * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix
-            # iszero(C.H * transpose(y))
+            #TODO make into assertion ? iszero(C.H * transpose(y))
             return C.u_bound, y
         end
 
