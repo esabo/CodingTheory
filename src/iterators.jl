@@ -174,7 +174,7 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     return r
 end
 
-function _subset_unrank(r::BigInt, n::UInt, T::Vector{UInt})
+function _subset_unrank!(r::BigInt, n::UInt, T::Vector{UInt})
     # Based on Algorithm 2.12 in kreher1999combinatorial
     k = length(T)
     subset_size_str="subset size k=($k) must be smaller than the set size n=($n)"
