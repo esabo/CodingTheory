@@ -1,3 +1,9 @@
+# Copyright (c) 2024 David Marquis 
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 based on Algo 2.13 from K & S 
 """
@@ -36,8 +42,8 @@ end
     # (This w is not part of this iterators state and we do not ever need to explicitly compute w)
 
     # rank: an int in [1, choose(G.n G.k)]. 
-    # rank and v have a 1-1 correspondance and we can go between them with the functions _kSubsetRevDoorUnrank
-    # and _kSubsetRevDoorRank.
+    # rank and v have a 1-1 correspondance and we can go between them with the functions _subset_unrank
+    # and _subset_rank.
 
     # inds: an int array of length 3. It represents the indexs of w that were changed when updating the vector v. 
     # ind[i] can be either -1, meaning no index of w is stored at the position, or in [1, G.n].
@@ -113,11 +119,13 @@ end
 end
 
 @inline function rest(G::SubsetGrayCode, rank)
-  #TODO
-  _kSubsetRevDoorUnrank(rank, G.n, vec)
+  #TODO there will be a future PR for integrating this (its used for multithreaded weight calculation)
+  #=
+  _subset_unrank(rank, G.n, vec)
   inds = Vector{Int}([-1,-1,-1]) 
   state = (vec, rank, inds)
   return Base.rest(G, state)
+  =#
 end 
 
 function _update_indexs!(indexs::Vector{Int}, x::Int, y::Int)
@@ -145,8 +153,8 @@ function _update_indexs!(indexs::Vector{Int}, x::Int)
   return nothing
 end
 
-function _kSubsetRevDoorRank(v::Vector{UInt}, k::UInt)
-  # Based on Algorithm 2.11 in S & K
+function _subset_rank(v::Vector{UInt}, k::UInt)
+  # Based on algorithm 2.11 in S & K
   # Results are undefined if the entries of v arent in {1,..,n} for n>=k
   r = BigInt(0)
   s = BigInt(1)
@@ -160,8 +168,8 @@ function _kSubsetRevDoorRank(v::Vector{UInt}, k::UInt)
   return r
 end
 
-function _kSubsetRevDoorUnrank(r::BigInt, n::UInt, T::Vector{UInt})
-  # Based on Algorithm 2.12 in S & K
+function _subset_unrank(r::BigInt, n::UInt, T::Vector{UInt})
+  # Based on algorithm 2.12 in S & K
   k = length(T)
   subset_size_str="subset size k=($k) must be smaller than the set size n=($n)"
   k > n && throw(ArgumentError(subset_size_str))
@@ -182,4 +190,105 @@ function _kSubsetRevDoorUnrank(r::BigInt, n::UInt, T::Vector{UInt})
     T[i] = x+1
     r = extended_binomial(x+1,i) - r - 1
   end 
+end
+
+struct GrayCode
+    n::Int # length of codewords
+    k::Int # weight of codewords
+    ns::Int # n for the subcode
+    ks::Int # k for the subcode
+    prefix::Vector{Int}
+    prefix_length::Int
+    mutate::Bool
+end
+
+GrayCode(n::Int, k::Int; mutate::Bool = false) = GrayCode(n, k, Int[]; mutate = mutate)
+
+function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate::Bool = false)
+    GrayCode(n, k, n - length(prefix), k - count(prefix .!= 0), prefix,
+        length(prefix), mutate)
+end
+
+Base.IteratorEltype(::GrayCode) = Base.HasEltype()
+Base.eltype(::GrayCode) = Array{Int, 1}
+Base.IteratorSize(::GrayCode) = Base.HasLength()
+@inline function Base.length(G::GrayCode)
+    if 0 <= G.ks <= G.ns
+        factorial(big(G.ns)) ÷ (factorial(big(G.ks)) * factorial(big(G.ns - G.ks)))
+    else
+        0
+    end
+end
+Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && view(v, 1:G.prefix_length) == G.prefix
+
+@inline function Base.iterate(G::GrayCode)
+    0 <= G.ks <= G.ns || return nothing
+
+    g = [i <= G.ks ? 1 : 0 for i in 1:G.ns + 1]
+    τ = collect(2:G.ns + 2)
+    τ[1] = G.ks + 1
+    # to force stopping with returning the only valid vector when ks == 0 and ns > 0
+    iszero(G.ks) && (τ[1] = G.ns + 1;)
+    v = [G.prefix; g[end - 1:-1:1]]
+    ((G.mutate ? v : copy(v);), (g, τ, G.ks, v))
+end
+
+"""
+initally based on Algo 2 from Bitner, Ehrlich, and Reingold 1976. Modified to support prefix 
+"""
+@inline function Base.iterate(G::GrayCode, state)
+    g, τ, t, v = state
+    @inbounds begin
+        i = τ[1]
+        i < G.ns + 1 || return nothing
+
+        τ[1] = τ[i]
+        τ[i] = i + 1
+        if g[i] == 1
+            if t != 0
+                g[t] = g[t] == 0 ? 1 : 0
+                if t < G.ns + 1
+                    v[G.prefix_length + G.ns + 1 - t] = g[t]
+                end
+            else
+                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                if i - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                end
+            end
+            t = t + 1
+        else
+            if t != 1
+                g[t - 1] = g[t - 1] == 0 ? 1 : 0
+                if t - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - t] = g[t - 1]
+                end
+            else
+                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                if i - 1 < G.ns + 1
+                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                end
+            end
+            t = t - 1
+        end
+
+        g[i] = g[i] == 0 ? 1 : 0
+        if i < G.ns + 1
+            v[G.prefix_length + G.ns + 1 - i] = g[i]
+        end
+
+        if t == i - 1 || t == 0
+            t = t + 1
+        else
+            t = t - g[i - 1]
+            τ[i - 1] = τ[1]
+            if t == 0
+                τ[1] = i - 1
+            else
+                τ[1] = t + 1
+            end
+        end
+    end
+
+    ((G.mutate ? v : copy(v);), (g, τ, t, v))
 end

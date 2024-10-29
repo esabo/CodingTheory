@@ -1,20 +1,20 @@
 @testitem "iterators.jl" begin 
-    let
-        v_len = 15
-        v_weight = 7
-        sgc = CodingTheory.SubsetGrayCode(v_len, v_weight) 
-        all_subsets_gray = fill(fill(0, v_weight), length(sgc))
-        vec = collect(1:sgc.k)
-        state = (vec, 1, Array{Int}([-1, -1, -1]))
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1,..,n}" begin
+        len = 15
+        weight = 7
+        sgc = CodingTheory.SubsetGrayCode(len, weight) 
+        all_subsets_gray = fill(fill(0, weight), length(sgc))
+        subset = collect(1:sgc.k)
+        state = (subset, 1, fill(-1, 3))
         for i in 1:length(sgc)
-            all_subsets_gray[i] = deepcopy(vec)
+            all_subsets_gray[i] = deepcopy(subset)
                 next = iterate(sgc, state)
                 next === nothing && break
                 (_, state) = next
-                (vec, _, _) = state
+                (subset, _, _) = state
         end
         sort!(all_subsets_gray)
-        all_subsets_hecke = CodingTheory.Hecke.subsets(collect(1:v_len), v_weight)
+        all_subsets_hecke = CodingTheory.Hecke.subsets(collect(1:len), weight)
         sort!(all_subsets_hecke)
         @assert all_subsets_gray == all_subsets_hecke 
     end
@@ -36,34 +36,33 @@
         return nothing
     end
 
-    let 
-        tuple0 = Vector{UInt}([1,2,3])
-        kk = UInt(3)
-        nn = UInt(5)
-        rank = CodingTheory._kSubsetRevDoorRank(tuple0, kk)
-        @test rank == 0
-        result0 = zeros(UInt, kk)
-        CodingTheory._kSubsetRevDoorUnrank(rank, nn, result0)
-        @test result0 == tuple0
+    @testset "Rank/Unrank functions" begin
+        subset1 = Vector{UInt}([1, 2, 3]) # a subset of weight 3
+        k1 = UInt(3)
+        n1 = UInt(5)
+        rank1 = CodingTheory._subset_rank(subset1, k1)
+        @test rank1 == 0
+        result1 = zeros(UInt, k1)
+        CodingTheory._subset_unrank(rank1, n1, result1)
+        @test result1 == subset1
   
-        tuple0 = UInt.([1,3,5])
-        kk = UInt(3)
-        nn = UInt(5)
-        rank = CodingTheory._kSubsetRevDoorRank(tuple0, kk)
-        @test rank == 7
-        result1 = zeros(UInt, kk)
-        CodingTheory._kSubsetRevDoorUnrank(rank, nn, result1)
-        result1 = Int.(result1)
-        @test result1 == [1, 3, 5] 
+        subset2 = UInt.([1, 3, 5])
+        k2 = UInt(3)
+        n2 = UInt(5)
+        rank2 = CodingTheory._subset_rank(subset2, k2)
+        @test rank2 == 7
+        result2 = zeros(UInt, k2)
+        CodingTheory._subset_unrank(rank2, n2, result2)
+        @test result2 == subset2 
   
-        kk = UInt(3)
-        nn = UInt(5)
-        result0 = zeros(UInt, kk)
+        k3 = UInt(3)
+        n3 = UInt(5)
+        result3 = zeros(UInt, k3)
         results = Set()
-        bin = binomial(nn, kk) 
+        bin = binomial(n3, k3) 
         for i::BigInt in collect(0: bin-1)
-          CodingTheory._kSubsetRevDoorUnrank(i, nn, result0)
-          pushOrDel!(results, deepcopy(result0))
+          CodingTheory._subset_unrank(i, n3, result3)
+          pushOrDel!(results, deepcopy(result3))
         end
         @test length(results) == bin 
     end
