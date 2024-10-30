@@ -93,13 +93,19 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     is_valid_bipartition, extract_bipartition, is_Hermitian_self_orthogonal,
     row_supports, row_supports_symplectic, strongly_lower_triangular_reduction,
     residue_polynomial_to_circulant_matrix, group_algebra_element_to_circulant_matrix,
-    load_alist
+    load_alist, extended_binomial
     # load_alist, _rref_non_pivot_cols
     # , _min_wt_row
     # , circ_shift
     # , lift
     # , _process_strings
     # , _Pauli_string_to_symplectic
+
+#############################
+         # iterators.jl
+#############################
+
+include("iterators.jl")
 
 #############################
   # Classical/cyclotomic.jl

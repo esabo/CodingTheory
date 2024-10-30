@@ -1961,6 +1961,13 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
+function extended_binomial(x::UInt, y::UInt)
+  z = UInt(0)
+  if y <= x
+    z = binomial(big(x), big(y))
+  end
+  return z
+end
 
 # #=
 # Example of using the repeated iterator inside of product.
