@@ -511,6 +511,8 @@ function show(io::IO, C::AbstractLinearCode)
         println(io, "generalized Reed-Solomon code")
     elseif isa(C, GoppaCode)
         println(io, "Goppa code")
+    elseif isa(C, TwistedReedSolomonCode)
+        println(io, "twisted Reed-Solomon code")
     else
         println(io, "linear code")
     end
@@ -551,6 +553,48 @@ function show(io::IO, C::AbstractLinearCode)
             end
             println(io, "Goppa polynomial:")
             println(io, "\t", C.g)
+        elseif isa(C, TwistedReedSolomonCode)
+            println(io, "Number of twists: $(C.l)")
+            if C.l ≤ 20
+                println(io, "Twist vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.t[i], ", ")
+                    else
+                        println(C.t[i], "]")
+                    end
+                end
+                println(io, "Hook vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.h[i], ", ")
+                    else
+                        println(C.h[i], "]")
+                    end
+                end
+                println(io, "Coefficient vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.η[i], ", ")
+                    else
+                        println(C.η[i], "]")
+                    end
+                end
+            end
+            if C.n ≤ 20
+                println(io, "Evaluated at:")
+                print(io, "\t[")
+                for i in 1:C.n
+                    if i ≠ C.n
+                        print(C.α[i], ", ")
+                    else
+                        println(C.α[i], "]")
+                    end
+                end
+            end
         end
 
         if C.n ≤ 30 && C.k ≠ 0
