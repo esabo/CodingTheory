@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024 Eric Sabo, Benjamin Ide, David Marquis 
+# Copyright (c) 2022-2024 Benjamin Ide, David Marquis 
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -74,46 +74,46 @@ end
         inds[3] = -1
 
         i = 1
-        while (i <= G.k) && (v[i] == i) 
+        while i <= G.k && v[i] == i
             i = i + 1
         end
-        if Base.rem(G.k - i, 2) != 0 
-            if (i == 1)
-                v[1] != (v[1] - 1) && _update_indexs!(inds, v[1], v[1] - 1) 
+        if Base.rem(G.k - i, 2) != 0
+            if i == 1
+                v[1] != (v[1] - 1) && _update_indices!(inds, v[1], v[1] - 1) 
                 v[1] = (v[1] - 1)
             else 
-                v[i - 1] != i && _update_indexs!(inds,v[i - 1], i) 
+                v[i - 1] != i && _update_indices!(inds,v[i - 1], i) 
                 v[i - 1] = i
                 if i > 2
-                    v[i - 2] != (i - 1) && _update_indexs!(inds,v[i - 2], i - 1) 
+                    v[i - 2] != (i - 1) && _update_indices!(inds,v[i - 2], i - 1) 
                     v[i - 2] = (i - 1)
                 end
             end
         else 
             if i == G.k
-                if ( G.n != v[i] )
+                if G.n != v[i]
                     if (i > 1)
-                      v[i - 1] != v[i] && _update_indexs!(inds,v[i - 1], v[i]) 
+                      v[i - 1] != v[i] && _update_indices!(inds,v[i - 1], v[i]) 
                       v[i - 1] = v[i]
                     end
-                    v[i] != (v[i] + 1) && _update_indexs!(inds,v[i], v[i] + 1) 
+                    v[i] != (v[i] + 1) && _update_indices!(inds,v[i], v[i] + 1) 
                     v[i] = (v[i] + 1)
                 else
-                    v[i] != i && _update_indexs!(inds, v[i], i) 
+                    v[i] != i && _update_indices!(inds, v[i], i) 
                     v[i] = i
                 end
             else
-                if ( v[i + 1] != (v[i] + 1) )
+                if v[i + 1] != (v[i] + 1)
                     if i > 1
-                        v[i - 1] != v[i] && _update_indexs!(inds, v[i - 1], v[i]) 
+                        v[i - 1] != v[i] && _update_indices!(inds, v[i - 1], v[i]) 
                         v[i - 1] = v[i]
                     end
-                    v[i] != (v[i] + 1) && _update_indexs!(inds, v[i], v[i] + 1) 
+                    v[i] != (v[i] + 1) && _update_indices!(inds, v[i], v[i] + 1) 
                     v[i] = (v[i] + 1)
                 else
-                    v[i + 1] != v[i] && _update_indexs!(inds, v[i + 1], v[i]) 
+                    v[i + 1] != v[i] && _update_indices!(inds, v[i + 1], v[i]) 
                     v[i + 1] = v[i]
-                    v[i] != i && _update_indexs!(inds, v[i], i) 
+                    v[i] != i && _update_indices!(inds, v[i], i) 
                     v[i] = i
                 end
             end
@@ -132,27 +132,27 @@ end
   =#
 end 
 
-function _update_indexs!(indexs::Vector{Int}, x::Int, y::Int)
-    _update_indexs!(indexs, x)
-    _update_indexs!(indexs, y)
+function _update_indices!(indices::Vector{Int}, x::Int, y::Int)
+    _update_indices!(indices, x)
+    _update_indices!(indices, y)
     return nothing
 end
 
-function _update_indexs!(indexs::Vector{Int}, x::Int)
-    if x == indexs[1]
-        indexs[1] = -1
-    elseif x == indexs[2]
-        indexs[2] = -1
-    elseif x == indexs[3]
-        indexs[3] = -1
-    elseif indexs[1] == -1
-        indexs[1] = x
-    elseif indexs[2] == -1
-        indexs[2] = x
-    elseif indexs[3] == -1
-        indexs[3] = x
+function _update_indices!(indices::Vector{Int}, x::Int)
+    if x == indices[1]
+        indices[1] = -1
+    elseif x == indices[2]
+        indices[2] = -1
+    elseif x == indices[3]
+        indices[3] = -1
+    elseif indices[1] == -1
+        indices[1] = x
+    elseif indices[2] == -1
+        indices[2] = x
+    elseif indices[3] == -1
+        indices[3] = x
     else 
-        throw("No index positions remaining")
+        error("No index positions remaining")
     end
     return nothing
 end
@@ -165,8 +165,8 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     r = BigInt(0)
     s = BigInt(1)
     for i in k:-1:1
-        r = r + extended_binomial(v[i], i) * s;
-        s = -s;
+        r = r + extended_binomial(v[i], i) * s
+        s = -s
     end
     if (k % 2) == 1
         r = r - 1
@@ -177,10 +177,10 @@ end
 function _subset_unrank!(r::BigInt, n::UInt, T::Vector{UInt})
     # Based on Algorithm 2.12 in kreher1999combinatorial
     k = length(T)
-    subset_size_str="subset size k=($k) must be smaller than the set size n=($n)"
+    subset_size_str = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
     bnd = binomial(n, k)
-    rank_size_str="rank must be in [0, choose(n, k)-1]=$(bnd)"
+    rank_size_str = "rank must be in [0, choose(n, k) - 1] = $bnd"
     r > bnd && throw(ArgumentError(rank_size_str))
   
     x = 0

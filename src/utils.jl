@@ -1,4 +1,4 @@
-# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide, David Marquis
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the

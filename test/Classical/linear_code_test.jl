@@ -115,13 +115,11 @@
         C = HammingCode(2, 3)
         C2 = LinearCode(words(C))
         @test are_equivalent(C, C2)
-    end
 
         # missing so far in tests:
         # expurgate, augment, lengthen, uuplusv, subcode,
         # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
         # expandedcode, entrywiseproductcode, evensubcode
-    @testset "Subfield Subcode" begin
         # subfield subcode example from Huffman/Pless
         K = GF(2, 2, :ω);
         ω = gen(K)
@@ -150,8 +148,8 @@
         # Huffman and Pless Ex 1.6.1
         F = Oscar.Nemo.Native.GF(2)
         G1 = matrix(F, [1 1 0 0 0 0; 0 0 1 1 0 0; 0 0 0 0 1 1])
-        print(typeof(G1))
-        nc=ncols(G1)
+        # print(typeof(G1))
+        nc = ncols(G1)
         C1 = LinearCode(G1)
         G2 = matrix(F, [1 0 0 0 0 1; 0 0 1 1 0 0; 0 1 0 0 1 0])
         C2 = LinearCode(G2)
@@ -188,21 +186,21 @@
         n = 7
         k = 4
         rng = CodingTheory.Random.seed!(0)
-        code = random_linear_code(p, n, k, rng = rng)
-        @test code.n == n
-        @test code.k == k
+        C = random_linear_code(p, n, k, rng = rng)
+        @test C.n == n
+        @test C.k == k
     
         rng = CodingTheory.Random.seed!(0)
         prime_power = p^2
-        code = random_linear_code(prime_power, n, k, rng = rng)
-        @test code.n == n
-        @test code.k == k
+        C = random_linear_code(prime_power, n, k, rng = rng)
+        @test C.n == n
+        @test C.k == k
     
         rng_from_field = CodingTheory.Random.seed!(0)
-        code_from_field = random_linear_code(GF(p, 2, :x), n, k, rng = rng_from_field)
-        @test code_from_field.n == n
-        @test code_from_field.k == k
-        @test code.G == code_from_field.G
+        C2 = random_linear_code(GF(p, 2, :x), n, k, rng = rng_from_field)
+        @test C2.n == n
+        @test C2.k == k
+        @test C.G == C2.G
     end
 
         # "On the Schur Product of Vector Spaces over Finite Fields"

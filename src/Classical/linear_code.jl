@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide, David Marquis
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -137,6 +137,49 @@ function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool = false)
     all(s == size(Gs[i]) for i in 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
 
     return LinearCode(reduce(vcat, Gs), q, parity)
+end
+
+# # Arguments
+# - `F` - finite field
+# - `n` - length of the code
+# - `k` - dimension of the code
+# - `rng` - random number generator
+"""
+    random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+
+Return a random `[n, k]` linear code over `F`.
+"""
+function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+    rand_mat = zero_matrix(F, k, n - k)
+    for r in 1:nrows(rand_mat) 
+        for c in 1:ncols(rand_mat) 
+            rand_mat[r, c] = rand(rng, F) 
+        end
+    end
+    full_mat = hcat(identity_matrix(F, k), rand_mat)
+    return LinearCode(full_mat)
+end 
+
+# # Arguments
+# - `q` - a prime power 
+# - `n` - length of the code
+# - `k` - dimension of the code
+# - `rng` - random number generator
+"""
+    random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+
+Return a random `[n, k]` linear code over `GF(q)`.
+"""
+function random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+    _, e, p = is_prime_power_with_data(q)
+    if e == 1 
+        field = Oscar.Nemo.Native.GF(p)
+    elseif e > 1
+        field = GF(p, e, :x)
+    else
+        throw(ArgumentError("q must be a prime power"))
+    end
+    return random_linear_code(field, n, k, rng = rng)
 end
 
 #############################
@@ -405,27 +448,26 @@ end
 #############################
      # general functions
 #############################
+
+# # Arguments
+# - `C` - a linear code 
 """
     information_set(C::AbstractLinearCode)
 
-Return an information set of C defined by the pivot column indexs of C.G. 
-
-# Arguments
-- `C` - a linear code 
+Return a set of column indices corresponding to an information set of `C`. 
 """
 function information_set(C::AbstractLinearCode)
     _, _, perm = _rref_col_swap_perm(C.G)
     return on_sets(collect(1 : C.k), inv(perm)) 
 end
 
+# # Arguments
+# - `C` - a linear code
+# - `rng` - random number generator
 """
     random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random.seed!())
 
-Return a random information set of C defined by pivot column indexs of C.G. 
-
-# Arguments
-- `C` - a linear code
-- `rng` - random number generator
+Return a set of column indices corresponding to a random information set of `C`. 
 """
 function random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random.seed!())
     shuffle_perm_julia = shuffle(rng, collect(1 : C.n)) 
@@ -438,51 +480,6 @@ function random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random
     # apply the inverse permutation to the pivots
     return on_sets(collect(1 : C.k), inv_perm) 
 end
-
-"""
-    random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-
-Return a random [n, k] linear code over F.
-
-# Arguments
-- `F` - finite field
-- `n` - length of the code
-- `k` - dimension of the code
-- `rng` - random number generator
-"""
-function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-    rand_mat = zero_matrix(F, k, n - k)
-    for r in 1:nrows(rand_mat) 
-        for c in 1:ncols(rand_mat) 
-            rand_mat[r, c] = rand(rng, F) 
-        end
-    end
-    full_mat = hcat(identity_matrix(F, k), rand_mat)
-    return LinearCode(full_mat)
-end 
-
-"""
-    random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-
-Return a random [n, k] linear code over GF(q).
-
-# Arguments
-- `q` - a prime power 
-- `n` - length of the code
-- `k` - dimension of the code
-- `rng` - random number generator
-"""
-function random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-    is_pp, e, p = is_prime_power_with_data(q)
-    if e == 1 
-        field = Oscar.Nemo.Native.GF(p)
-    elseif e > 1
-        field = GF(p, e, :x)
-    else
-        throw(ArgumentError("q must be a prime power"))
-    end
-    return random_linear_code(field, n, k, rng = rng)
-end 
 
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))

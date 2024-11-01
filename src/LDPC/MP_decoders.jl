@@ -149,8 +149,8 @@ function sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::I
         #     var_to_check_messages, 0.0)
 
         # return _message_passing_layered(H_Int, missing, chn_inits_2, _SP_check_node_message, 
-            # var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-            # check_to_var_messages, var_to_check_messages, 0.0, layers)
+        #     var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
+        #     check_to_var_messages, var_to_check_messages, 0.0, layers)
             return _message_passing_fast_layered(H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages,
             var_to_check_messages, current_bits, syn, ϕ_test, ϕ_test, max_iter, layers)
     else
@@ -580,7 +580,7 @@ end
 function _channel_init_BSC(v::Vector{<: Integer}, p::Float64)
     temp = log((1 - p) / p)
     chn_init = zeros(Float64, length(v))
-    for i in eachindex(v)
+    for i in 1:ncols(v)
         @inbounds chn_init[i] = (-1)^v[i] * temp
     end
     return chn_init
@@ -588,7 +588,7 @@ end
 
 function _channel_init_BSC!(var_to_check_messages::Matrix{Float64}, v::CTMatrixTypes, p::Float64)
     temp = log((1 - p) / p)
-    @inbounds for i in eachindex(v)
+    @inbounds for i in 1:ncols(v)
         iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
     end
     return nothing
@@ -596,7 +596,7 @@ end
 
 # function _channel_init_BSC!(var_to_check_messages::Array{Float64, 3}, v::CTMatrixTypes, p::Float64)
 #     temp = log((1 - p) / p)
-#     @inbounds for i in eachindex(v)
+#     @inbounds for i in 1:ncols(v)
 #         iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
 #     end
 #     return nothing
@@ -605,7 +605,7 @@ end
 function _channel_init_BAWGNC_SP(v::Vector{<: AbstractFloat}, σ::Float64)
     temp = 2 / σ^2
     chn_init = zeros(Float64, length(v))
-    for i in eachindex(v)
+    for i in 1:ncols(v)
         @inbounds chn_init[i] = temp * v[i]
     end
     return chn_init
@@ -613,7 +613,7 @@ end
 
 function _channel_init_BAWGNC_SP!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}, σ::Float64)
     temp = 2 / σ^2
-    @inbounds for i in eachindex(v)
+    @inbounds for i in 1:ncols(v)
         var_to_check_messages[i, 1] = temp * v[i]
     end
     return nothing
@@ -628,7 +628,7 @@ function _message_passing_init_fast(H::Union{Matrix{S}, T}, v::Union{Vector{S}, 
     Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
     T <: CTMatrixTypes}
 
-    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter kind"))
+    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter `kind`"))
     if isa(H, CTMatrixTypes)
         Int(order(base_ring(H))) == 2 ||
         throw(ArgumentError("Currently only implemented for binary codes"))
@@ -640,7 +640,7 @@ function _message_passing_init_fast(H::Union{Matrix{S}, T}, v::Union{Vector{S}, 
     end
     num_check, num_var = size(H_Int)
     num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    
+
     len_v = length(v)
     if len_v == num_var
         syndrome_based = false
@@ -1156,22 +1156,25 @@ function _message_passing_fast(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_
     schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
     prev_iter = 1
     @inbounds while iter < max_iter
+    # while iter < max_iter
         for c in 1:num_check
             S::Float64 = 0.0
-            for v in check_adj_list[c]
-                S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v])
+            for (i, v) in enumerate(check_adj_list[c])
+                S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][i])
             end
 
-            for v in check_adj_list[c]
-                Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v]
+            for (i, v) in enumerate(check_adj_list[c])
+                Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][i]
                 # TODO fix phi_inv here to not need this (-1)^sign term
                 temp = S - phi(Q_temp)
-                check_to_var_messages[c][v] = (-1)^sign(temp) * phi_inv(temp)
-                var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][v]
+                # BUG? seems to converge if I put the minus sign before (-1) here?!?!?!
+                check_to_var_messages[c][i] = -(-1)^sign(temp) * phi_inv(temp)
+                var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][i]
             end
         end
 
         @inbounds for i in 1:num_var
+        # for i in 1:num_var
             current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
         end
 
@@ -1191,6 +1194,7 @@ function _message_passing_fast(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_
     end
 
     @inbounds for i in 1:num_var
+    # for i in 1:num_var
         current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
     end
     return false, current_bits, iter
