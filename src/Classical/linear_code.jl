@@ -583,18 +583,7 @@ function show(io::IO, C::AbstractLinearCode)
                 G = generator_matrix(C)
                 nr, nc = size(G)
                 println(io, "Generator matrix: $nr × $nc")
-                for i in 1:nr
-                    print(io, "\t")
-                    for j in 1:nc
-                        if j != nc
-                            print(io, "$(G[i, j]) ")
-                        elseif j == nc && i != nr
-                            println(io, "$(G[i, j])")
-                        else
-                            print(io, "$(G[i, j])")
-                        end
-                    end
-                end
+                println(io, "\t" * replace(repr(MIME("text/plain"), G), r"\n" => "\n\t"))
             end
         end
         # if !ismissing(C.weight_enum)
