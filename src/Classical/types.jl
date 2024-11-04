@@ -25,6 +25,7 @@ abstract type AbstractConcatenatedCode <: AbstractLinearCode end
 abstract type AbstractAlternateCode <: AbstractLinearCode end
 abstract type AbstractGoppaCode <: AbstractAlternateCode end
 abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
+abstract type AbstractTwistedReedSolomonCode <: AbstractLinearCode end
 
 #############################
       # concrete types
@@ -290,7 +291,7 @@ mutable struct GoppaCode <: AbstractGoppaCode
 end
 
 #############################
-    # concatenation.jl
+     # concatenation.jl
 #############################
 
 mutable struct ConcatenatedCode <: AbstractLinearCode
@@ -311,4 +312,28 @@ mutable struct ConcatenatedCode <: AbstractLinearCode
     H_stand::CTMatrixTypes
     P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
     weight_enum::Union{WeightEnumerator, Missing}
+end
+
+#############################
+   # TwistedReedSolomon.jl
+#############################
+
+mutable struct TwistedReedSolomonCode <: AbstractTwistedReedSolomonCode
+    F::CTFieldTypes # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+    α::Vector{T} where T <: CTFieldElem
+    t::Vector{Int}
+    h::Vector{Int}
+    η::Vector{T} where T <: CTFieldElem
+    l::Int
 end

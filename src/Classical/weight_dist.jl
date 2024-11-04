@@ -453,7 +453,6 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     end
     # should have no need to permute to find better ranks because of Edmond's?
     A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
-    println("expect all k", rnks)
 
     A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
     perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
@@ -464,6 +463,11 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     optimize_upper_bound = false # if this flag is true then we  
     dbg["exit_r"] = -1
 
+    k, n = size(G)
+    if info_set_alg == :Brouwer && rnks[h] != k
+        println("Rank of last matrix too small")
+        return
+    end
     if verbose
         print("Generated $h information sets with ranks: ")
         for i in 1:h
@@ -488,7 +492,6 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
     end
 
-    k, n = size(G)
     found = zeros(Int, n) 
     if optimize_upper_bound
         # C_orig_U_bound = C.u_bound #TODO restore this before returning if its smaller than C.u_bound at the end 
@@ -501,8 +504,6 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         w, i = _min_wt_col(g)
         if w <= C.u_bound
             found = g[:, i] 
-            println("setting found to the vector ")
-            println(found)
             C.u_bound = w
             initial_perm_ind = j
             y = perms_mats[initial_perm_ind] * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix

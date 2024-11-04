@@ -1335,7 +1335,6 @@ function ToricCode(d::Int)
                 elseif r == 2 * d && c != 1
                     B[row_B, qubit] = B[row_B, c - 1] = B[row_B, c] = B[row_B, c + d] = F_one
                 else
-                    println("here")
                     error("Ran into unaccounted for case in creating the toric code lattice.")
                 end
                 row_B += 1

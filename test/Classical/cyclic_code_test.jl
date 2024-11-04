@@ -153,5 +153,13 @@
         # H = HammingCode(2, 3)
         # @test is_cyclic(H, false) == false
         # _, C2 = is_cyclic(C, true) # this true is construct, can do an are_equivalent here
+
+        # wikipedia - poor example since the extension field has order 1073741824
+        # but it does work if left to run
+        # F = Oscar.Nemo.Native.GF(2)
+        # S, x = polynomial_ring(F, :x)
+        # p = 1 + x^2 + x^5
+        # l = 5
+        # C = FireCode(p, l)
     end
 end

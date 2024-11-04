@@ -1,8 +1,8 @@
 @testitem "iterators.jl" begin 
-    @testset "SubsetGrayCode iterates over all weight k subsets of {1,..,n}" begin
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n}" begin
         len = 15
         weight = 7
-        sgc = CodingTheory.SubsetGrayCode(len, weight) 
+        sgc = CodingTheory.SubsetGrayCode(len, weight)
         all_subsets_gray = fill(fill(0, weight), length(sgc))
         subset = collect(1:sgc.k)
         state = (subset, 1, fill(-1, 3))

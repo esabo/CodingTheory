@@ -251,7 +251,7 @@ export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     design_distance, qcosets, qcosets_reps, generator_polynomial, parity_check_polynomial,
     idempotent, is_primitive, is_narrowsense, is_reversible, find_delta, dual_defining_set,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCH_bound, is_degenerate, nonzeros, is_antiprimitive
+    zeros, BCH_bound, is_degenerate, nonzeros, is_antiprimitive, FireCode
 
 #############################
 # Classical/quasi-cyclic_code.jl
@@ -286,6 +286,13 @@ export GeneralizedReedSolomonCode, scalars, dual_scalars, evaluation_points, Alt
 
 include("Classical/Goppa.jl")
 export GoppaCode, Goppa_polynomial, is_seperable, is_cumulative, extension_field
+
+#############################
+# Classical/TwistedReedSolomon.jl
+#############################
+
+include("Classical/TwistedReedSolomon.jl")
+export TwistedReedSolomonCode, twist_vector, hook_vector, coefficient_vector, number_of_twists
 
 #############################
 # Classical/concatenation.jl
