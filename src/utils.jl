@@ -372,6 +372,37 @@ end
 #     return maxlen
 # end
 
+function _has_empty_vec(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
+    type::Symbol)
+    
+    type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
+    
+    del = Vector{Int}()
+    if type == :rows
+        for r in axes(A, 1)
+            flag = true
+            for c in axes(A, 2)
+                if !iszero(A[r, c])
+                    flag = false
+                    break
+                end
+            end
+            flag && append!(del, r)
+        end
+    elseif type == :cols
+        for c in axes(A, 2)
+            flag = true
+            for r in axes(A, 1)
+                if !iszero(A[r, c])
+                    flag = false
+                    break
+                end
+            end
+            flag && append!(del, c)
+        end
+    end
+    return !isempty(del) 
+end
 function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
     type::Symbol)
     
@@ -1962,11 +1993,15 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
 end
 
 function extended_binomial(x::UInt, y::UInt)
-  z = UInt(0)
-  if y <= x
-    z = binomial(big(x), big(y))
-  end
-  return z
+    z = UInt(0)
+    if y <= x
+      z = binomial(big(x), big(y))
+    end
+    return z
+end
+
+function _value_distribution(vals)
+    return OrderedDict([(i, count(x -> (x == i), vals)) for i in collect(sort(unique(vals)))])
 end
 
 # #=

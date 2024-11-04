@@ -450,7 +450,7 @@ Return a random [n, k] linear code over F.
 - `k` - dimension of the code
 - `rng` - random number generator
 """
-function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!(), brute_force_WE = false)
     rand_mat = zero_matrix(F, k, n - k)
     for r in 1:nrows(rand_mat) 
         for c in 1:ncols(rand_mat) 
@@ -458,7 +458,8 @@ function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = 
         end
     end
     full_mat = hcat(identity_matrix(F, k), rand_mat)
-    return LinearCode(full_mat)
+    parity = false
+    return LinearCode(full_mat, parity, brute_force_WE)
 end 
 
 """
@@ -583,18 +584,7 @@ function show(io::IO, C::AbstractLinearCode)
                 G = generator_matrix(C)
                 nr, nc = size(G)
                 println(io, "Generator matrix: $nr × $nc")
-                for i in 1:nr
-                    print(io, "\t")
-                    for j in 1:nc
-                        if j != nc
-                            print(io, "$(G[i, j]) ")
-                        elseif j == nc && i != nr
-                            println(io, "$(G[i, j])")
-                        else
-                            print(io, "$(G[i, j])")
-                        end
-                    end
-                end
+                println(io, "\t" * replace(repr(MIME("text/plain"), G), r"\n" => "\n\t"))
             end
         end
         # if !ismissing(C.weight_enum)
@@ -640,8 +630,8 @@ end
 
 Return the syndrome of `v` with respect to `C`.
 """
-function syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
-    w = isa(v, Vector{Int}) ? matrix(C.F, length(v), 1, v) : v
+function syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}})
+    w = isa(v, Union{Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}) ? matrix(C.F, length(v), 1, v) : v
     H = parity_check_matrix(C)
     nc = ncols(H)
     (size(w) != (nc, 1) && size(w) != (1, nc)) &&
@@ -662,7 +652,7 @@ end
 
 Return whether or not `v` is a codeword of `C`.
 """
-in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
+in(v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
     ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
