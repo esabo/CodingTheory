@@ -8,6 +8,8 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
     max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol =
     :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
+    # TODO add MS_C
+    # TODO decimation
     BP_alg ∈ (:SP, :MS) || throw(ArgumentError("`BP_alg` should be `:SP` or `:MS`"))
     Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
     nr, nc = size(H)
@@ -18,20 +20,13 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
     schedule == :flooding && (schedule = :parallel;)
     schedule == :semiserial && (schedule = :layered;)
 
-    H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-        current_bits, syn = _message_passing_init_fast(H, v, chn, :BP_alg, chn_inits, :serial,
-        erasures)
-
-    # 1. Run BP
-    # 2. Sort soft info from output
-    # 3. Make hypergraph (implicit step)
-    # 4. start with least reliable node and record edges to neighbors
-    # 5. Move to next least reliable node, store same making sure no loop is added
-    # 6. Repeat until done
-    # 7. For hyperedges that are never added, set vertex to erased in original Tanner graph
-    # 8. Run BP
+    # TODO search for wt 1 columns and add new row
 
     if BP_alg == :SP
+        H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+            current_bits, syn = _message_passing_init_fast(H, v, chn, :BP_alg, chn_inits, :serial,
+            erasures)
+
         if schedule == :layered
             layers = layered_schedule(H, schedule = schedule, random = rand_sched)
             flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
@@ -43,17 +38,14 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
                 ϕ_test, ϕ_test, max_iter)
         end
     elseif BP_alg == :MS
-        # TODO _MS_check_node_message
-        if schedule == :layered
-            layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-            flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
-                check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                ϕ_test, ϕ_test, max_iter, layers)
-        else
-            flag, e, _, posteriors = _message_passing_fast(H_Int, v_Int, syndrome_based,
-                check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                ϕ_test, ϕ_test, max_iter)
-        end
+        H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
+            var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
+            :MS, chn_inits, schedule, erasures)
+        layers = layered_schedule(H, schedule = schedule, random = rand_sched)
+        flag, e, _, posteriors = _message_passing_layered(H_Int, missing, chn_inits_2,
+            _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule,
+            current_bits, totals, syn, check_to_var_messages, var_to_check_messages,
+            attenuation, layers)
     end
 
     if !flag
@@ -61,10 +53,14 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
         ordered_indices = sortperm(posteriors, rev = true)
         erased_columns = _select_erased_columns(H, posteriors, ordered_indices)
         for i in erased_columns
-            posteriors[i] = 0.0
+            posteriors[i] = 1e-10
         end
 
         if BP_alg == :SP
+            H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+                current_bits, syn = _message_passing_init_fast(H, v, chn, :BP_alg, chn_inits, :serial,
+                erasures)
+    
             if schedule == :layered
                 layers = layered_schedule(H, schedule = schedule, random = rand_sched)
                 flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
@@ -76,17 +72,14 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
                     ϕ_test, ϕ_test, max_iter)
             end
         elseif BP_alg == :MS
-            # TODO _MS_check_node_message
-            if schedule == :layered
-                layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-                flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
-                    check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                    ϕ_test, ϕ_test, max_iter, layers)
-            else
-                flag, e, _, posteriors = _message_passing_fast(H_Int, v_Int, syndrome_based,
-                    check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                    ϕ_test, ϕ_test, max_iter)
-            end
+            H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
+                var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
+                :MS, chn_inits, schedule, erasures)
+            layers = layered_schedule(H, schedule = schedule, random = rand_sched)
+            flag, e, _, posteriors = _message_passing_layered(H_Int, missing, chn_inits_2,
+                _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule,
+                current_bits, totals, syn, check_to_var_messages, var_to_check_messages,
+                attenuation, layers)
         end
     end
 
