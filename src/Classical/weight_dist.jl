@@ -504,13 +504,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
             C.u_bound = w
             initial_perm_ind = j
             y = perms_mats[initial_perm_ind] * found 
-            push!(dbg["found_codewords"], y)
-            # println(dbg["found_codewords"])
-            # is_in = in(y, C)
-            # @assert is_in 
         end
     end
-    # @assert length(A_mats) != 0 
 
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
@@ -699,13 +694,8 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
             C.u_bound = w
             initial_perm_ind = j
             y = perms_mats[initial_perm_ind] * found 
-            push!(dbg["found_codewords"], y)
-            println(dbg["found_codewords"])
-            is_in = in(y, C)
-            @assert is_in 
         end
     end
-    @assert length(A_mats) != 0 
 
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
@@ -789,7 +779,6 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                             first_itr = false
                             c_itr = c
                         end
-                        # @assert (c == c_itr) "vec from mul not eq to vec from itr: $(repr(c)) != $(repr(c_itr))"
 
                         # for testing
                         F = Oscar.Nemo.Native.GF(2)
