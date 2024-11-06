@@ -411,10 +411,6 @@ function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::
     return lower
 end
 
-# In the thesis, the h and GrayCode for loops are switched. This seems inefficient
-# but does allow one to update the lower bound using a single matrix after every
-# GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
-# once will overcome this. Could be tested though.
 """
     Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false)
 
@@ -460,8 +456,9 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
 
-    optimize_upper_bound = false # if this flag is true then we  
+    optimize_upper_bound = false # true will be used in production. False makes it less likely that the algo will early exit at some trivial value 
     dbg["exit_r"] = -1
+    dbg["found_codewords"] = []
 
     k, n = size(G)
     if info_set_alg == :Brouwer && rnks[h] != k
@@ -506,12 +503,14 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
             found = g[:, i] 
             C.u_bound = w
             initial_perm_ind = j
-            y = perms_mats[initial_perm_ind] * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix
-            is_in = in(y, C)
-            @assert is_in 
+            y = perms_mats[initial_perm_ind] * found 
+            push!(dbg["found_codewords"], y)
+            # println(dbg["found_codewords"])
+            # is_in = in(y, C)
+            # @assert is_in 
         end
     end
-    @assert length(A_mats) != 0 
+    # @assert length(A_mats) != 0 
 
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
@@ -537,9 +536,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            y = perms_mats[initial_perm_ind] * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix
-            @assert in(y, C)
-            #TODO make into assertion ? iszero(C.H * transpose(y))
+            y = perms_mats[initial_perm_ind] * found 
+            # @assert in(y, C)
             dbg["exit_r"] = r
             return C.u_bound, y
         end
@@ -553,47 +551,34 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         end
 
         flag = Threads.Atomic{Bool}(true)
-        # num_thrds = 1
-        # power = 0
+        num_thrds = 1
+
         p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
         founds = [found for _ in 1:num_thrds]
         exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
-        use_sub_gray = false
 
         c = zeros(Int, C.n)
-        if use_sub_gray
-            itrs = [SubsetGrayCode(C.k, r)] # no threads yet
-            vec = collect(1:C.k) # assumes 1 thread for now
-        else
-            itrs = [GrayCode(C.k, r, digits(m - 1, base = 2, pad = power), mutate = true) for m in 1:num_thrds]
-        end 
+        itrs = [GrayCode(C.k, r, digits(m - 1, base = 2, pad = power), mutate = true) for m in 1:num_thrds]
         # Threads.@threads for itr in itrs 
         first_itr = true
         for m in 1:num_thrds 
             itr = itrs[m]
-            for u in itr
-                if use_sub_gray
-                    if first_itr
-                        first_itr = false
-                        #TODO set vec
-                    else
-                        # its not necc to build vec explicitly but Ill do it for now for testing, at least
-                        for ind in u
-                            if ind != -1
-                                vec[ind] = vec[ind]==0 ? 1 : 0
-                            end
-                        end
-                    end
-                else
+            # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
+            for i in 1:h
+                # for i in 1:h #TODO 
+                for u in itr
                     vec = u
-                end
-
-                for i in 1:h
-                    if r - rank_defs[i] > 0
+                    if r - rank_defs[i] > 0 
                         LinearAlgebra.mul!(c, A_mats[i], vec)
+
+                        # for testing
+                        F = Oscar.Nemo.Native.GF(2)
+                        output_vec = F.(Vector(perms_mats[initial_perm_ind] * c))
+                        push!(dbg["found_codewords"], (r, deepcopy(vec), output_vec)) 
+
                         w = r
-                        @inbounds for j in 1:n
+                        @inbounds for j in 1:n #TODO unless weve cropped the Gi down to the Ai shouldnt this be skipping the indexs corresp to the identity submatrix
                             c[j] % p != 0 && (w += 1;)
                         end
 
@@ -628,6 +613,225 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     return C.u_bound, y
 end
 
+function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
+    verbose::Bool = false, dbg = Dict())
+
+    ord_F = Int(order(C.F))
+    ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+
+    generator_matrix(C, true) # ensure G_stand exists
+    if _has_empty_vec(C.G, :cols) 
+        #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
+        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
+    end
+    G = C.G #TODO remove local var G
+    # generate if not pre-stored
+    parity_check_matrix(C)
+
+    if info_set_alg == :auto
+        if typeof(C) <: AbstractCyclicCode
+            verbose && println("Detected a cyclic code, using Chen's adaption.")
+            info_set_alg = :Chen
+            # TODO: fix this case
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+            info_set_alg = :White
+        else
+            info_set_alg = :Edmonds
+        end
+    end
+    # should have no need to permute to find better ranks because of Edmond's?
+    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
+
+    A_mats_gf2 = [transpose(deepcopy(Ai)) for Ai in A_mats]
+    A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
+    perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
+    h = length(A_mats)
+    # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
+    rank_defs = zeros(Int, h)
+
+    optimize_upper_bound = false # true will be used in production. False makes it less likely that the algo will early exit at some trivial value 
+    dbg["exit_r"] = -1
+    dbg["found_codewords"] = []
+
+    k, n = size(G)
+    if info_set_alg == :Brouwer && rnks[h] != k
+        println("Rank of last matrix too small")
+        return
+    end
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(rnks[i]);) : (print("$(rnks[i]), ");)
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            # TODO huh? check this comment and setup properly
+            rank_defs[i] = C.k - rnks[i]
+        end
+    end
+    
+    even_flag = false
+    doubly_even_flag = false
+    triply_even_flag = false
+    ord_F == 2 && (even_flag = is_even(C);)
+    even_flag && (doubly_even_flag = is_doubly_even(C);)
+    doubly_even_flag && (triply_even_flag = is_triply_even(C);)
+    if verbose
+        triply_even_flag && println("Detected a triply even code.")
+        (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+    end
+
+    found = zeros(Int, n) 
+    if optimize_upper_bound
+        # C_orig_U_bound = C.u_bound #TODO restore this before returning if its smaller than C.u_bound at the end 
+        C.u_bound = n
+    end
+    # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.  
+    initial_perm_ind = 1 
+    for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
+        # can make this faster with dots and views
+        w, i = _min_wt_col(g)
+        if w <= C.u_bound
+            found = g[:, i] 
+            C.u_bound = w
+            initial_perm_ind = j
+            y = perms_mats[initial_perm_ind] * found 
+            push!(dbg["found_codewords"], y)
+            println(dbg["found_codewords"])
+            is_in = in(y, C)
+            @assert is_in 
+        end
+    end
+    @assert length(A_mats) != 0 
+
+    verbose && println("Current upper bound: $(C.u_bound)")
+    verbose && !iszero(found) && println("Found element matching upper bound.")
+
+    info_set_alg == :Chen ? (l = C.l;) : (l = 0;)
+    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k]
+    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+    isnothing(r_term) && (r_term = k;)
+    verbose && println("Predicted termination weight based on current upper bound: $r_term")
+
+    num_thrds = Threads.nthreads()
+    verbose && println("Detected $num_thrds threads.")
+    power = Int(floor(log(2, num_thrds)))
+
+    for r in 1:k
+        C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
+        # an even code can't have have an odd minimum weight
+        # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
+        # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
+        # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $(C.l_bound)")
+        verbose && println("Upper bound: $(C.u_bound)")
+        if C.l_bound >= C.u_bound
+            C.d = C.u_bound
+            y = perms_mats[initial_perm_ind] * found 
+            @assert in(y, C)
+            dbg["exit_r"] = r
+            return C.u_bound, y
+        end
+
+        if verbose
+            count = 0
+            for i in 1:h
+                r - rank_defs[i] ≤ 0 && (count += 1;)
+            end
+            count > 0 && println("$count of the original $h information sets no longer contribute to the lower bound")
+        end
+
+        flag = Threads.Atomic{Bool}(true)
+        num_thrds = 1
+
+        p = Int(characteristic(C.F))
+        uppers = [C.u_bound for _ in 1:num_thrds]
+        founds = [found for _ in 1:num_thrds]
+        exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
+
+        itrs = [SubsetGrayCode(C.k, r)] 
+        # Threads.@threads for itr in itrs 
+        for m in 1:num_thrds 
+            itr = itrs[m]
+            # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
+            for i in 1:h
+                # for i in 1:h #TODO 
+                vec = C.F.(vcat(fill(1, r), fill(0, C.k - r))) # initial vec corresponds to the subset {1,..,r}
+                c = zeros(C.F, C.n)
+                c_itr = zeros(C.F, C.n)
+                first_itr = true
+                for u in itr
+                    A_col_inds = []
+                    if !first_itr
+                        # its not necc to build vec explicitly but Ill do it for now for testing, at least
+                        for ind in u
+                            if ind != -1
+                                vec[ind] = (vec[ind]==0) ? C.F(1) : C.F(0)
+                                push!(A_col_inds, deepcopy(ind))
+                                if length(A_col_inds) == 0
+                                    println("fail with u=$u")
+                                end
+                            end
+                        end
+                    end
+                    if r - rank_defs[i] > 0
+                        c_itr = deepcopy(c) #TODO c is going to be removed then remove this line
+                        for ind in A_col_inds
+                            vec_to_add = A_mats_gf2[i][:, ind]
+                            c_itr = deepcopy(c_itr + vec_to_add)
+                        end
+                        c = A_mats_gf2[i] * vec
+                        if first_itr
+                            first_itr = false
+                            c_itr = c
+                        end
+                        # @assert (c == c_itr) "vec from mul not eq to vec from itr: $(repr(c)) != $(repr(c_itr))"
+
+                        # for testing
+                        F = Oscar.Nemo.Native.GF(2)
+                        output_vec = F.(Vector(perms_mats[initial_perm_ind] * c))
+                        println("pushing ", (r, deepcopy(vec), output_vec))
+                        push!(dbg["found_codewords"], (r, deepcopy(vec), output_vec)) 
+
+                        w = r
+                        @inbounds for j in 1:n #TODO unless weve cropped the Gi down to the Ai shouldnt this be skipping the indexs corresp to the identity submatrix
+                            c[j] != 0 && (w += 1;)
+                        end
+
+                        if uppers[m] > w
+                            uppers[m] = w
+                            founds[m] = c 
+                            exit_thread_indicator_vec[m] = i 
+                            verbose && println("Adjusting (local) upper bound: $w")
+                            if C.l_bound == uppers[m]
+                                Threads.atomic_cas!(flag, true, false)
+                                break
+                            else
+                                r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+                                isnothing(r_term) && (r_term = k;)
+                                verbose && println("Updated termination weight: $r_term")
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        loc = argmin(uppers)
+        C.u_bound = uppers[loc]
+        found = founds[loc]
+        initial_perm_ind = exit_thread_indicator_vec[loc]
+    end
+
+    # at this point we are guaranteed to have found the answer
+    C.d = C.u_bound
+    y = perms_mats[initial_perm_ind] * found 
+    # iszero(C.H * transpose(y))
+    return C.u_bound, y
+end
 """
     words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
 
@@ -1415,10 +1619,10 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         else
-            return Gray_code_minimum_distance(C, verbose = verbose)
+            return david_Gray_code_minimum_distance(C, verbose = verbose)
         end
     elseif alg == :Gray
-        return Gray_code_minimum_distance(C, verbose = verbose)
+        return david_Gray_code_minimum_distance(C, verbose = verbose)
     elseif alg == :trellis
         weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
         return C.d

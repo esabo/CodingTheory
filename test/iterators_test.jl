@@ -16,7 +16,7 @@
         sort!(all_subsets_gray)
         all_subsets_hecke = CodingTheory.Oscar.subsets(collect(1:len), weight)
         sort!(all_subsets_hecke)
-        @assert all_subsets_gray == all_subsets_hecke 
+        @test all_subsets_gray == all_subsets_hecke 
     end
 
     function pushOrDel(a::Set{T}, b::T...) where T <: Any

@@ -481,52 +481,6 @@ function random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random
     return on_sets(collect(1 : C.k), inv_perm) 
 end
 
-"""
-    random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-
-Return a random [n, k] linear code over F.
-
-# Arguments
-- `F` - finite field
-- `n` - length of the code
-- `k` - dimension of the code
-- `rng` - random number generator
-"""
-function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!(), brute_force_WE = false)
-    rand_mat = zero_matrix(F, k, n - k)
-    for r in 1:nrows(rand_mat) 
-        for c in 1:ncols(rand_mat) 
-            rand_mat[r, c] = rand(rng, F) 
-        end
-    end
-    full_mat = hcat(identity_matrix(F, k), rand_mat)
-    parity = false
-    return LinearCode(full_mat, parity, brute_force_WE)
-end 
-
-"""
-    random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-
-Return a random [n, k] linear code over GF(q).
-
-# Arguments
-- `q` - a prime power 
-- `n` - length of the code
-- `k` - dimension of the code
-- `rng` - random number generator
-"""
-function random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
-    is_pp, e, p = is_prime_power_with_data(q)
-    if e == 1 
-        field = Oscar.Nemo.Native.GF(p)
-    elseif e > 1
-        field = GF(p, e, :x)
-    else
-        throw(ArgumentError("q must be a prime power"))
-    end
-    return random_linear_code(field, n, k, rng = rng)
-end 
-
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
     F = base_ring(G_stand)

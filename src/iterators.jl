@@ -177,10 +177,10 @@ end
 function _subset_unrank!(r::BigInt, n::UInt, T::Vector{UInt})
     # Based on Algorithm 2.12 in kreher1999combinatorial
     k = length(T)
-    subset_size_str = "subset size k = $k must be smaller than the set size n = $n"
+    subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
     bnd = binomial(n, k)
-    rank_size_str = "rank must be in [0, choose(n, k) - 1] = $bnd"
+    rank_size_str::String = "rank must be in [0, choose(n, k) - 1] = $bnd"
     r > bnd && throw(ArgumentError(rank_size_str))
   
     x = 0
