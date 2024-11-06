@@ -1,7 +1,7 @@
 @testitem "Classical/cyclic_code.jl" begin
     using Oscar, CodingTheory
 
-    @testset "Misc known CyclicCode" begin
+    @testset "Cyclic codes" begin
         # examples: Huffman & Pless
         cosets = defining_set([1, 2, 3, 4, 5, 6], 2, 7, false)
         C = CyclicCode(2, 7, cosets)
@@ -30,12 +30,9 @@
         @test dimension(C) == 4
         @test generator_polynomial(C) == 1 + x^2 + x^3
         @test idempotent(C) == x^3 + x^5 + x^6
-    end
 
         # the dual of a cyclic code is the complement code with multiplier -1 (p.146)
         # do Theorem 4.4.11 on page 147
-
-    @testset "doubly-even property" begin
         # a self-orthogonal binary cyclic code is doubly-even
 
         # example: Huffman & Pless
@@ -57,9 +54,7 @@
         @test dimension(C) == 4
         @test_broken minimum_distance(C) == 7
         @test dimension(C) >= length(C) - ord(length(C), 3) * (5 - 1)
-    end
 
-    @testset "Misc known properties" begin
         R, (x, y) = polynomial_ring(Nemo.ZZ, [:x, :y])
 
         # example: MacWilliams & Sloane
@@ -140,9 +135,7 @@
         # C = BCHCode(2, 15, 6, 13)
         # println(C)
         # @test isreversible(C) == true
-    end
 
-    @testset "BCHCode subset of ReedSolomonCode" begin
         # RS codes contain BCH codes
         C = ReedSolomonCode(16, 5)
         C2 = BCHCode(2, 15, 5)
@@ -154,7 +147,6 @@
         @test design_distance(C) == 5
         @test is_narrowsense(C)
         @test is_primitive(C)
-    end
 
         # is_cyclic - true parameter also tests cyclic code constructor given generator polynomial
         # C = ReedSolomonCode(7, 3)
@@ -162,4 +154,12 @@
         # @test is_cyclic(H, false) == false
         # _, C2 = is_cyclic(C, true) # this true is construct, can do an are_equivalent here
 
+        # wikipedia - poor example since the extension field has order 1073741824
+        # but it does work if left to run
+        # F = Oscar.Nemo.Native.GF(2)
+        # S, x = polynomial_ring(F, :x)
+        # p = 1 + x^2 + x^5
+        # l = 5
+        # C = FireCode(p, l)
+    end
 end

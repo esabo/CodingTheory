@@ -1,4 +1,4 @@
-# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide, David Marquis
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -287,7 +287,11 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
-function _non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
+"""
+Assumes the input is in rref form and returns the indexs of the columns that do not contain a pivot entry.
+Note that rref form here requires pivot entries have been normalized to 1.
+"""
+function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
 
     if type == :sp
@@ -341,10 +345,10 @@ function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMa
         !flag && error("Cannot solve system for quotient")
         _, rref_sol = rref(sol)
         if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
-            nonpivots = _non_pivot_cols(rref_sol, :sp)
+            nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
             return reduce(vcat, [big[r, :] for r in nonpivots])
         else
-            return big[_non_pivot_cols(rref_sol, :nsp), :]
+            return big[_rref_non_pivot_cols(rref_sol, :nsp), :]
         end
     end
 end
@@ -543,8 +547,8 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2))
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
@@ -558,8 +562,6 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
     isempty(row_range) && return 0, missing
     isempty(col_range) && return 0, missing
 
-    # permutation matrix required to return to rowspace if column swap done
-    P = missing
     nc_A = ncols(A)
 
     rnk = 0
@@ -567,6 +569,8 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
     j = first(col_range)
     nr = last(row_range)
     nc = last(col_range)
+    # permutation matrix required to return to rowspace if column swap done
+    P = identity_matrix(base_ring(A), nc_A)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
@@ -671,6 +675,134 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
         end
     end
     return rnk, P
+end
+
+function _rref_col_swap_perm(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1), col_range::AbstractUnitRange{Int} = axes(M, 2))
+
+    A = deepcopy(M)
+    rnk, P = _rref_col_swap_perm!(A, row_range, col_range)
+    return rnk, A, P
+end
+
+function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2))
+
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(row_range) && return 0, missing
+    isempty(col_range) && return 0, missing
+
+    nc_A = ncols(A)
+
+    rnk = 0
+    i = first(row_range)
+    j = first(col_range)
+    nr = last(row_range)
+    nc = last(col_range)
+    sym_group = symmetric_group(nc)
+    # permutation to return to rowspace if column swap done
+    P = cperm(sym_group) 
+    if Int(order(base_ring(A))) != 2
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
+            end
+
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            swap_cols!(A, k, j)
+                            P = P * cperm(sym_group, [k,j])
+                            ind = l
+                            break
+                        end
+                    end
+                end
+            end
+
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else
+                # normalize pivot
+                if !isone(A[ind, j])
+                    A[ind:ind, :] *= inv(A[ind, j])
+                end
+
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
+
+                # eliminate
+                for k = first(row_range):nr
+                    if k != i
+                        # do a manual loop here to reduce allocations
+                        d = A[k, j]
+                        @simd for l = 1:nc_A
+                            A[k, l] = (A[k, l] - d * A[i, l])
+                        end
+                    end
+                end
+            end
+            i += 1
+            j += 1
+            rnk += 1
+        end
+    else
+        while i <= nr && j <= nc
+            # find first pivot
+            ind = 0
+            for k in i:nr
+                if !iszero(A[k, j])
+                    ind = k
+                    break
+                end
+            end
+    
+            # need to column swap
+            if iszero(ind)
+                for k in j + 1:nc
+                    for l in i:nr
+                        if !iszero(A[l, k])
+                            swap_cols!(A, k, j)
+                            P = P * cperm(sym_group, [k,j])
+                            ind = l
+                            break
+                        end
+                    end
+                end
+            end
+    
+            # if true, the rest of the submatrix is zero
+            if iszero(ind)
+                return rnk, P
+            else    
+                # swap to put the pivot in the next row
+                ind != i && swap_rows!(A, ind, i)
+    
+                # eliminate
+                for k = first(row_range):nr
+                    if k != i
+                        if isone(A[k, j])
+                            # do a manual loop here to reduce allocations
+                            @simd for l = 1:nc_A
+                                A[k, l] += A[i, l]
+                            end
+                        end
+                    end
+                end
+            end
+            i += 1
+            j += 1
+            rnk += 1
+        end
+    end
+    return rnk, inv(P)
 end
 
 function _rref_symp_col_swap(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
@@ -1435,6 +1567,7 @@ function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldE
     return D
 end
 
+# BUG this is building the expanded matrix in the wrong ring, added change_base_ring below
 function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
@@ -1464,7 +1597,7 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
 
     # λ = dual_basis(L, K, β)
     D = _expansion_dict(L, K, λ)
-    return _expand_matrix(M, D, m)
+    return change_base_ring(K, _expand_matrix(M, D, m))
 end
 
 """
@@ -1509,16 +1642,17 @@ function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
 end
 
 """
-    is_extension(E::fqPolyRepField, F::fqPolyRepField)
+    is_extension(E::CTFieldTypes, F::CTFieldTypes)
 
-Return `true` if `E/F` is a valid field extension.
+Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
+`false, -1`.
 """
 function is_extension(E::CTFieldTypes, F::CTFieldTypes)
     p = Int(characteristic(E))
-    Int(characteristic(F)) == p || return false, missing
+    Int(characteristic(F)) == p || return false, -1
     deg_E = degree(E)
     deg_F = degree(F)
-    deg_E % deg_F == 0 || return false, missing
+    deg_E % deg_F == 0 || return false, -1
     return true, div(deg_E, deg_F)
     # the below allows you to embed GF(2) into GF(5) without error but is not an extension
     # try
@@ -1528,6 +1662,13 @@ function is_extension(E::CTFieldTypes, F::CTFieldTypes)
     #     return false, missing
     # end
 end
+
+"""
+    is_subfield(F::CTFieldTypes, E::CTFieldTypes)
+
+Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
+`false, -1`.
+"""
 is_subfield(F::CTFieldTypes, E::CTFieldTypes) = is_extension(E, F)
 
 """
@@ -1820,8 +1961,13 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
-
-
+function extended_binomial(x::UInt, y::UInt)
+  z = UInt(0)
+  if y <= x
+    z = binomial(big(x), big(y))
+  end
+  return z
+end
 
 # #=
 # Example of using the repeated iterator inside of product.

@@ -51,6 +51,28 @@
         C_G_and_G = LinearCode(G);
         @test rank(G_and_G) == dimension(C_G_and_G)
         @test G == generator_matrix(C_G_and_G)
+
+        # information_set tests:
+        F = Oscar.Nemo.Native.GF(2)
+
+        # a code with G in standard form 
+        Gstd = matrix(F, [1 0; 0 1])
+        Cstd = LinearCode(Gstd);
+        pivs = information_set(Cstd)
+        @test pivs == [1, 2]
+
+        # codes with nontrivial pivots:
+        G = matrix(F, [1 1 0 0 0; 0 0 1 1 1])
+        C = LinearCode(G);
+        @test information_set(C) == [1, 3]
+
+        C_ham = HammingCode(2, 3)
+        @test information_set(C_ham) == [1, 2, 3, 4]
+
+        C = deepcopy(C_ham)
+        C.G[:, 1] = C_ham.G[:, 5]
+        C.G[:, 5] = C_ham.G[:, 1]
+        @test information_set(C) == [1, 2, 3, 5]
     end
 
     @testset "Puncturing examples" begin
@@ -93,13 +115,11 @@
         C = HammingCode(2, 3)
         C2 = LinearCode(words(C))
         @test are_equivalent(C, C2)
-    end
 
         # missing so far in tests:
         # expurgate, augment, lengthen, uuplusv, subcode,
         # juxtaposition, constructionX, constructionX3, upluswvpluswuplusvplusw,
         # expandedcode, entrywiseproductcode, evensubcode
-    @testset "Subfield Subcode" begin
         # subfield subcode example from Huffman/Pless
         K = GF(2, 2, :ω);
         ω = gen(K)
@@ -124,7 +144,65 @@
         flag, P = are_permutation_equivalent(C1, C2)
         @test flag
         @test are_equivalent(permute_code(C1, P), C2)
+
+        # Huffman and Pless Ex 1.6.1
+        F = Oscar.Nemo.Native.GF(2)
+        G1 = matrix(F, [1 1 0 0 0 0; 0 0 1 1 0 0; 0 0 0 0 1 1])
+        # print(typeof(G1))
+        nc = ncols(G1)
+        C1 = LinearCode(G1)
+        G2 = matrix(F, [1 0 0 0 0 1; 0 0 1 1 0 0; 0 1 0 0 1 0])
+        C2 = LinearCode(G2)
+        G3 = matrix(F, [1 1 0 0 0 0; 1 0 1 0 0 0; 1 1 1 1 1 1])
+        C3 = LinearCode(G3)
+        LinearCode(words(C1))
+        bool1, permutation1 = CodingTheory._are_perm_equivalent_exhaustive_search(C1, C2)
+        @test bool1
+        @test !(permutation1 === missing)
+        bool2, permutation2 = CodingTheory._are_perm_equivalent_exhaustive_search(C1, C3)
+        @test !bool2
+        @test permutation2 === missing
+ 
     end
+
+    @testset "Random Linear Code Functions" begin
+        C_ham = HammingCode(2, 3) 
+        @test ncols(C_ham.G) == 7
+        pivs = random_information_set(C_ham)
+        mat = C_ham.G[:, pivs]
+        @test nrows(mat) == 4
+        @test ncols(mat) == 4
+        @test rank(mat) == 4
+
+        C_ham = HammingCode(2, 4) 
+        number_of_tests = 5
+        for i in 1:number_of_tests
+            rng = CodingTheory.Random.seed!(i)
+            infoset = random_information_set(C_ham, rng = rng) 
+            @test det(C_ham.G[:, infoset]) != 0 
+        end
+
+        p = 2
+        n = 7
+        k = 4
+        rng = CodingTheory.Random.seed!(0)
+        C = random_linear_code(p, n, k, rng = rng)
+        @test C.n == n
+        @test C.k == k
+    
+        rng = CodingTheory.Random.seed!(0)
+        prime_power = p^2
+        C = random_linear_code(prime_power, n, k, rng = rng)
+        @test C.n == n
+        @test C.k == k
+    
+        rng_from_field = CodingTheory.Random.seed!(0)
+        C2 = random_linear_code(GF(p, 2, :x), n, k, rng = rng_from_field)
+        @test C2.n == n
+        @test C2.k == k
+        @test C.G == C2.G
+    end
+
         # "On the Schur Product of Vector Spaces over Finite Fields"
         # Christiaan Koster
         # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n

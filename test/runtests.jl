@@ -28,6 +28,10 @@ test_filter = ti -> begin
     return all(!in(exclude), ti.tags)
 end
 
+# unit tests need to be deterministic for debugging so we should set the seed before running the whole test suite 
+println("Random.seed initialized to 0")
+CodingTheory.Random.seed!(0)
+
 println("Starting tests with $(Threads.nthreads()) threads out of `Sys.CPU_THREADS = $(Sys.CPU_THREADS)`...")
 
 @run_package_tests filter = test_filter

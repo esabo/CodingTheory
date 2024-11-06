@@ -80,105 +80,6 @@ function CWE_to_HWE(CWE::WeightEnumerator)
     return WeightEnumerator(poly, :Hamming)
 end
 
-# will be sent to a new package by Ben
-struct GrayCode
-    n::Int # length of codewords
-    k::Int # weight of codewords
-    ns::Int # n for the subcode
-    ks::Int # k for the subcode
-    prefix::Vector{Int}
-    prefix_length::Int
-    mutate::Bool
-end
-
-GrayCode(n::Int, k::Int; mutate::Bool = false) = GrayCode(n, k, Int[]; mutate = mutate)
-
-function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate::Bool = false)
-    GrayCode(n, k, n - length(prefix), k - count(prefix .!= 0), prefix,
-        length(prefix), mutate)
-end
-
-Base.IteratorEltype(::GrayCode) = Base.HasEltype()
-Base.eltype(::GrayCode) = Array{Int, 1}
-Base.IteratorSize(::GrayCode) = Base.HasLength()
-@inline function Base.length(G::GrayCode)
-    if 0 <= G.ks <= G.ns
-        factorial(big(G.ns)) ÷ (factorial(big(G.ks)) * factorial(big(G.ns - G.ks)))
-    else
-        0
-    end
-end
-Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && view(v, 1:G.prefix_length) == G.prefix
-
-@inline function Base.iterate(G::GrayCode)
-    0 <= G.ks <= G.ns || return nothing
-
-    g = [i <= G.ks ? 1 : 0 for i in 1:G.ns + 1]
-    τ = collect(2:G.ns + 2)
-    τ[1] = G.ks + 1
-    # to force stopping with returning the only valid vector when ks == 0 and ns > 0
-    iszero(G.ks) && (τ[1] = G.ns + 1;)
-    v = [G.prefix; g[end - 1:-1:1]]
-    ((G.mutate ? v : copy(v);), (g, τ, G.ks, v))
-end
-
-@inline function Base.iterate(G::GrayCode, state)
-    g, τ, t, v = state
-    @inbounds begin
-        i = τ[1]
-        i < G.ns + 1 || return nothing
-
-        τ[1] = τ[i]
-        τ[i] = i + 1
-        if g[i] == 1
-            if t != 0
-                g[t] = g[t] == 0 ? 1 : 0
-                if t < G.ns + 1
-                    v[G.prefix_length + G.ns + 1 - t] = g[t]
-                end
-            else
-                g[i - 1] = g[i - 1] == 0 ? 1 : 0
-                if i - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
-                end
-            end
-            t = t + 1
-        else
-            if t != 1
-                g[t - 1] = g[t - 1] == 0 ? 1 : 0
-                if t - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - t] = g[t - 1]
-                end
-            else
-                g[i - 1] = g[i - 1] == 0 ? 1 : 0
-                if i - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
-                end
-            end
-            t = t - 1
-        end
-
-        g[i] = g[i] == 0 ? 1 : 0
-        if i < G.ns + 1
-            v[G.prefix_length + G.ns + 1 - i] = g[i]
-        end
-
-        if t == i - 1 || t == 0
-            t = t + 1
-        else
-            t = t - g[i - 1]
-            τ[i - 1] = τ[1]
-            if t == 0
-                τ[1] = i - 1
-            else
-                τ[1] = t + 1
-            end
-        end
-    end
-
-    ((G.mutate ? v : copy(v);), (g, τ, t, v))
-end
-
 # TODO: fix doc string
 """
     Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::Int =  2, max_iters::Int = 50000)
@@ -397,9 +298,9 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     alg ∈ (:Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
     # TODO should rref to begin with and remove empty rows?
     nr, nc = size(G)
-    gen_mats = Vetor{Matrix{UInt8}}()
-    perms = Vetor{Matrix{UInt8}}()
-    rnks = Vetor{Int}()
+    gen_mats = Vector{}()
+    perms = Vector{}()
+    rnks = Vector{Int}()
     
     rnk = nr
     if alg == :Brouwer
@@ -475,6 +376,7 @@ end
 function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int},
     info_set_alg::Symbol; even::Bool = false, doubly_even::Bool = false, triply_even::Bool = false)
 
+    lower = 0
     if info_set_alg == :Brouwer
         lower = r * length(rank_defs)
     elseif info_set_alg == :Zimmermann
@@ -538,9 +440,10 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         end
     end
     # should have no need to permute to find better ranks because of Edmond's?
-    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, only_A = true)
-    A_mats_Julia = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
-    h = length(A_mats_Julia)
+    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
+    A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
+    perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
+    h = length(A_mats)
     rank_defs = zeros(Int, h)
     if verbose
         print("Generated $h information sets with ranks: ")
@@ -569,18 +472,17 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     k, n = size(G)
     found = zeros(UInt8, n)
     perm = collect(1:n)
-    while flag
-        for (j, g) in enumerate(A_mats_Julia)
+    # while flag
+        for (j, g) in enumerate(A_mats)
             # can make this faster with dots and views
             w, i = _min_wt_col(g)
             if w <= C.u_bound
-                # view might not work here
-                found .= view(g, :, i)
+                found = g[:, i]
                 C.u_bound = w
                 perm = perms_mats[j]
             end
         end
-    end
+    # end
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
 
@@ -605,8 +507,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            y = matrix(C.F, 1, n, found)[perm]
-            # iszero(C.H * transpose(y))
+            y = perm * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix
+            #TODO make into assertion ? iszero(C.H * transpose(y))
             return C.u_bound, y
         end
 
@@ -632,7 +534,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
                 if flag[]
                     for i in 1:h
                         if r - rank_defs[i] > 0
-                            LinearAlgebra.mul!(c, A_mats_Julia[i], u)
+                            LinearAlgebra.mul!(c, A_mats[i], u)
                             w = r
                             @inbounds for j in 1:n
                                 c[j] % p != 0 && (w += 1;)
@@ -1024,8 +926,8 @@ function minimum_words(C::AbstractLinearCode)
         Ws = [Set{typeof(G)}() for _ in 1:num_thrds]
         Threads.@threads for m in 1:num_thrds
             c = zeros(Int, C.n)
-            prefix = digits(m - 1, base=2, pad=power)
-            for u in GrayCode(C.k, r, prefix, mutate=true)
+            prefix = digits(m - 1, base = 2, pad = power)
+            for u in GrayCode(C.k, r, prefix, mutate = true)
                 for i in 1:h
                     LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
                     w = 0
@@ -1295,14 +1197,14 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             K, ω = cyclotomic_field(Int(characteristic(C.F)), :ω)
             R, vars = polynomial_ring(K, q)
             prime_field = GF(Int(characteristic(C.F)))
-            _, λ = primitivebasis(C.F, prime_field)
+            _, λ = primitive_basis(C.F, prime_field)
             elms = collect(C.F)
             func_args = []
             for i in 1:q
                 inner_sum = R(0)
                 for j in 1:q
                     β = elms[i] * elms[j]
-                    β_exp = _expandelement(β, prime_field, λ, false)
+                    β_exp = _expand_element(β, prime_field, λ, false)
                     inner_sum += ω^coeff(β_exp[1], 0) * vars[j]
                 end
                 push!(func_args, inner_sum)

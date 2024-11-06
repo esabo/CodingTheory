@@ -1,4 +1,4 @@
-# Copyright (c) 2021, 2022, 2023 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide, David Marquis
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -61,14 +61,23 @@ function LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool
         LinearCode(base_ring(G_new), ncols(G_new), k, missing, 1, ub, G_new, H, G_stand, H_stand, P, missing)
     end
 
-    if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
-        C.weight_enum = if 2k <= ncols(G)
-            _weight_enumerator_BF(C.G_stand)
-        else
-            MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+    if k == 0
+        set_minimum_distance!(C, C.n)
+    else
+        if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
+            # BUG only adding this new case because MacWilliams has a new Oscar problem
+            if BigInt(order(base_ring(G)))^k ≤ 1.5e5
+                C.weight_enum = _weight_enumerator_BF(C.G_stand)
+            else
+                C.weight_enum = if 2k <= ncols(G)
+                    _weight_enumerator_BF(C.G_stand)
+                else
+                    MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+                end
+            end
+            d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+            set_minimum_distance!(C, d)
         end
-        d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
-        set_minimum_distance!(C, d)
     end
 
     return C
@@ -128,6 +137,49 @@ function LinearCode(Gs::Vector{Vector{Int}}, q::Int, parity::Bool = false)
     all(s == size(Gs[i]) for i in 2:length(Gs)) || throw(ArgumentError("Not all vectors in `Gs` were the same size."))
 
     return LinearCode(reduce(vcat, Gs), q, parity)
+end
+
+# # Arguments
+# - `F` - finite field
+# - `n` - length of the code
+# - `k` - dimension of the code
+# - `rng` - random number generator
+"""
+    random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+
+Return a random `[n, k]` linear code over `F`.
+"""
+function random_linear_code(F::CTFieldTypes, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+    rand_mat = zero_matrix(F, k, n - k)
+    for r in 1:nrows(rand_mat) 
+        for c in 1:ncols(rand_mat) 
+            rand_mat[r, c] = rand(rng, F) 
+        end
+    end
+    full_mat = hcat(identity_matrix(F, k), rand_mat)
+    return LinearCode(full_mat)
+end 
+
+# # Arguments
+# - `q` - a prime power 
+# - `n` - length of the code
+# - `k` - dimension of the code
+# - `rng` - random number generator
+"""
+    random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+
+Return a random `[n, k]` linear code over `GF(q)`.
+"""
+function random_linear_code(q::Int, n::Int, k::Int; rng::AbstractRNG = Random.seed!())
+    _, e, p = is_prime_power_with_data(q)
+    if e == 1 
+        field = Oscar.Nemo.Native.GF(p)
+    elseif e > 1
+        field = GF(p, e, :x)
+    else
+        throw(ArgumentError("q must be a prime power"))
+    end
+    return random_linear_code(field, n, k, rng = rng)
 end
 
 #############################
@@ -331,7 +383,7 @@ end
 Set the lower bound on the minimum distance of `C`, if `l` is better than the current bound.
 """
 function set_distance_lower_bound!(C::AbstractLinearCode, l::Int)
-    1 <= l <= C.u_bound || throw(DomainError("The lower bound must be between 1 and the upper bound."))
+    1 <= l <= C.u_bound || throw(DomainError(l, "The lower bound must be between 1 and the upper bound."))
     C.l_bound < l && (C.l_bound = l;)
     if C.l_bound == C.u_bound
         @info "The new lower bound is equal to the upper bound; setting the minimum distance."
@@ -345,7 +397,7 @@ end
 Set the upper bound on the minimum distance of `C`, if `u` is better than the current bound.
 """
 function set_distance_upper_bound!!(C::AbstractLinearCode, u::Int)
-    C.l_bound <= u <= C.n || throw(DomainError("The upper bound must be between the lower bound and the code length."))
+    C.l_bound <= u <= C.n || throw(DomainError(u, "The upper bound must be between the lower bound and the code length."))
     u < C.u_bound && (C.u_bound = u;)
     if C.l_bound == C.u_bound
         @info "The new upper bound is equal to the lower bound; setting the minimum distance."
@@ -397,6 +449,38 @@ end
      # general functions
 #############################
 
+# # Arguments
+# - `C` - a linear code 
+"""
+    information_set(C::AbstractLinearCode)
+
+Return a set of column indices corresponding to an information set of `C`. 
+"""
+function information_set(C::AbstractLinearCode)
+    _, _, perm = _rref_col_swap_perm(C.G)
+    return on_sets(collect(1 : C.k), inv(perm)) 
+end
+
+# # Arguments
+# - `C` - a linear code
+# - `rng` - random number generator
+"""
+    random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random.seed!())
+
+Return a set of column indices corresponding to a random information set of `C`. 
+"""
+function random_information_set(C::AbstractLinearCode; rng::AbstractRNG = Random.seed!())
+    shuffle_perm_julia = shuffle(rng, collect(1 : C.n)) 
+    shuffle_perm = perm(shuffle_perm_julia)
+    # apply shuffle permutation
+    permuted_mat = C.G[: , invperm(shuffle_perm_julia)] 
+    # transform to rref. The first k columns of the rref matrix are pivot columns
+    _, _, rref_perm = CodingTheory._rref_col_swap_perm(permuted_mat)
+    inv_perm = inv(shuffle_perm * rref_perm)
+    # apply the inverse permutation to the pivots
+    return on_sets(collect(1 : C.k), inv_perm) 
+end
+
 function _standard_form(G::CTMatrixTypes)
     rnk, G_stand, P = _rref_col_swap(G, 1:nrows(G), 1:ncols(G))
     F = base_ring(G_stand)
@@ -425,6 +509,10 @@ function show(io::IO, C::AbstractLinearCode)
         println(io, "quasi-cyclic code of index $(C.l)")
     elseif isa(C, GeneralizedReedSolomonCode)
         println(io, "generalized Reed-Solomon code")
+    elseif isa(C, GoppaCode)
+        println(io, "Goppa code")
+    elseif isa(C, TwistedReedSolomonCode)
+        println(io, "twisted Reed-Solomon code")
     else
         println(io, "linear code")
     end
@@ -450,9 +538,66 @@ function show(io::IO, C::AbstractLinearCode)
             end
             println(io, "Generator polynomial:")
             println(io, "\t", generator_polynomial(C))
+        elseif isa(C, GoppaCode)
+            len = length(C.L)
+            if len ≤ 20
+                println(io, "Evaluated at:")
+                print(io, "\t[")
+                for i in 1:len
+                    if i ≠ len
+                        print(C.L[i], ", ")
+                    else
+                        println(C.L[i], "]")
+                    end
+                end
+            end
+            println(io, "Goppa polynomial:")
+            println(io, "\t", C.g)
+        elseif isa(C, TwistedReedSolomonCode)
+            println(io, "Number of twists: $(C.l)")
+            if C.l ≤ 20
+                println(io, "Twist vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.t[i], ", ")
+                    else
+                        println(C.t[i], "]")
+                    end
+                end
+                println(io, "Hook vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.h[i], ", ")
+                    else
+                        println(C.h[i], "]")
+                    end
+                end
+                println(io, "Coefficient vector:")
+                print(io, "\t[")
+                for i in 1:C.l
+                    if i ≠ C.l
+                        print(C.η[i], ", ")
+                    else
+                        println(C.η[i], "]")
+                    end
+                end
+            end
+            if C.n ≤ 20
+                println(io, "Evaluated at:")
+                print(io, "\t[")
+                for i in 1:C.n
+                    if i ≠ C.n
+                        print(C.α[i], ", ")
+                    else
+                        println(C.α[i], "]")
+                    end
+                end
+            end
         end
 
-        if C.n <= 30
+        if C.n ≤ 30 && C.k ≠ 0
             if isa(C, QuasiCyclicCode)
                 if C.A_type == :G
                     M = generator_matrix(C)
@@ -479,18 +624,8 @@ function show(io::IO, C::AbstractLinearCode)
                 G = generator_matrix(C)
                 nr, nc = size(G)
                 println(io, "Generator matrix: $nr × $nc")
-                for i in 1:nr
-                    print(io, "\t")
-                    for j in 1:nc
-                        if j != nc
-                            print(io, "$(G[i, j]) ")
-                        elseif j == nc && i != nr
-                            println(io, "$(G[i, j])")
-                        else
-                            print(io, "$(G[i, j])")
-                        end
-                    end
-                end
+                println(io, "\t" * replace(replace(replace(repr(MIME("text/plain"), G), 
+                r"\n" => "\n\t"), r"\[" => ""), r"\]" => ""))
             end
         end
         # if !ismissing(C.weight_enum)
@@ -554,6 +689,7 @@ end
 
 """
     in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode)
+    ∈(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode)
 
 Return whether or not `v` is a codeword of `C`.
 """
@@ -588,7 +724,7 @@ function dual(C::AbstractLinearCode)
     elseif isa(C, GeneralizedReedSolomonCode)
         d = C.k + 1
         return GeneralizedReedSolomonCode(C.F, C.n, C.n - C.k, d, d, d,
-            deepcopy(C.dual_scalars), deepcopy(C.scalars), deepcopy(C.evaluation_points),
+            deepcopy(C.dual_scalars), deepcopy(C.scalars), deepcopy(C.eval_pts),
             deepcopy(C.H), deepcopy(C.G), deepcopy(C.H_stand),
             deepcopy(C.G_stand), deepcopy(C.P_stand), missing)
     elseif isa(C, MatrixProductCode)
@@ -701,6 +837,26 @@ function are_permutation_equivalent(C1::AbstractLinearCode, C2::AbstractLinearCo
     else
         (false, missing)
     end
+end
+
+"""
+Checks permutation equivalence by brute force for the purpose of doing small tests. 
+"""
+function _are_perm_equivalent_exhaustive_search(C1::AbstractLinearCode, C2::AbstractLinearCode)
+    G1 = C1.G 
+    G2 = C2.G 
+    if G1 == G2 
+        return are_permutation_equivalent(C1, C2) 
+    end 
+    nc = ncols(G1)
+    sym = symmetric_group(nc)
+    for e in collect(sym) 
+        P = permutation_matrix(C1.F, e)
+        if G1 * P == G2 
+            return (true, P)
+        end
+    end
+    return (false, missing)
 end
 
 """
