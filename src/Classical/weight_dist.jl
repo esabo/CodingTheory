@@ -7,7 +7,8 @@
 #############################
          # General
 #############################
-
+using AllocCheck
+using Profile
 """
     polynomial(W::WeightEnumerator)
 
@@ -519,6 +520,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
     power = Int(floor(log(2, num_thrds)))
+    store_vecs = haskey(dbg, "found_codewords")
 
     for r in 1:k
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
@@ -567,10 +569,12 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
                     if r - rank_defs[i] > 0 
                         LinearAlgebra.mul!(c, A_mats[i], vec)
 
-                        # for testing
-                        F = Oscar.Nemo.Native.GF(2)
-                        output_vec = F.(Vector(perms_mats[initial_perm_ind] * c))
-                        push!(dbg["found_codewords"], (r, deepcopy(vec), output_vec)) 
+                        #TODO for testing
+                        if store_vecs
+                            F = Oscar.Nemo.Native.GF(2)
+                            output_vec = F.(Vector(perms_mats[initial_perm_ind] * c))
+                            push!(dbg["found_codewords"], (r, deepcopy(vec), output_vec)) 
+                        end
 
                         w = r
                         @inbounds for j in 1:n #TODO unless weve cropped the Gi down to the Ai shouldnt this be skipping the indexs corresp to the identity submatrix
@@ -639,16 +643,21 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     # should have no need to permute to find better ranks because of Edmond's?
     A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
 
-    A_mats_gf2 = [transpose(deepcopy(Ai)) for Ai in A_mats]
     A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
     perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
     h = length(A_mats)
     # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
 
-    optimize_upper_bound = false # true will be used in production. False makes it less likely that the algo will early exit at some trivial value 
+    if length(keys(dbg)) > 0
+        println("Debug mode ON")
+    end
+    optimize_uppr_bnd = false #TODO Set this from dbg dictionary. optimize_upper_bound controls the initial upper bound. False makes it less likely that the algo will exit early before any codewords are examined 
     dbg["exit_r"] = -1
-    dbg["found_codewords"] = []
+    store_found_codewords = haskey(dbg, "found_codewords")
+    if store_found_codewords
+        verbose && println("Storing the codewords in the debug dictionary")
+    end
 
     k, n = size(G)
     if info_set_alg == :Brouwer && rnks[h] != k
@@ -680,7 +689,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     end
 
     found = zeros(Int, n) 
-    if optimize_upper_bound
+    if optimize_uppr_bnd
         # C_orig_U_bound = C.u_bound #TODO restore this before returning if its smaller than C.u_bound at the end 
         C.u_bound = n
     end
@@ -710,6 +719,8 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     verbose && println("Detected $num_thrds threads.")
     power = Int(floor(log(2, num_thrds)))
 
+    work_factor_up_to_log_field_size = 0
+    expected_work_factor = 0
     for r in 1:k
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
@@ -722,8 +733,9 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
             y = perms_mats[initial_perm_ind] * found 
-            @assert in(y, C)
+            # @assert in(y, C)
             dbg["exit_r"] = r
+            println("work factor ", work_factor_up_to_log_field_size, " vs ", expected_work_factor)
             return C.u_bound, y
         end
 
@@ -743,57 +755,66 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         founds = [found for _ in 1:num_thrds]
         exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
 
+        # itrs_alloc = @allocated begin
         itrs = [SubsetGrayCode(C.k, r)] 
+        # lens = [length(_) for _ in itrs]
+        # println(lens)
+        # expected_work_factor += h * sum(lens)
+        # end
+        # println("alloc itrs used ", itrs_alloc)
+
         # Threads.@threads for itr in itrs 
         for m in 1:num_thrds 
             itr = itrs[m]
             # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
             for i in 1:h
                 # for i in 1:h #TODO 
-                vec = C.F.(vcat(fill(1, r), fill(0, C.k - r))) # initial vec corresponds to the subset {1,..,r}
-                c = zeros(C.F, C.n)
-                c_itr = zeros(C.F, C.n)
-                first_itr = true
+                c_itr = zeros(Int, C.n)
+                is_first = true
+                curr_mat = A_mats[i]
                 for u in itr
-                    A_col_inds = []
-                    if !first_itr
-                        # its not necc to build vec explicitly but Ill do it for now for testing, at least
+                    work_factor_up_to_log_field_size += 1
+                    if r - rank_defs[i] > 0
                         for ind in u
                             if ind != -1
-                                vec[ind] = (vec[ind]==0) ? C.F(1) : C.F(0)
-                                push!(A_col_inds, deepcopy(ind))
-                                if length(A_col_inds) == 0
-                                    println("fail with u=$u")
+                                is_first = false
+                                add_allocs = @allocated begin 
+                                axpy!(1, curr_mat[:, ind], c_itr)
+                                end
+                                println(add_allocs)
+                                @inbounds @simd for j in 1:n 
+                                    c_itr[j] %= p
                                 end
                             end
                         end
-                    end
-                    if r - rank_defs[i] > 0
-                        c_itr = deepcopy(c) #TODO c is going to be removed then remove this line
-                        for ind in A_col_inds
-                            vec_to_add = A_mats_gf2[i][:, ind]
-                            c_itr = deepcopy(c_itr + vec_to_add)
-                        end
-                        c = A_mats_gf2[i] * vec
-                        if first_itr
-                            first_itr = false
-                            c_itr = c
+                        if is_first 
+                            # 2pm mul+reduce (mod 2) allocates ~450 bytes per iteration
+                            vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
+                            # c_itr = A_mats[i] * vec
+                            LinearAlgebra.mul!(c_itr, curr_mat, vec)
+                            @inbounds @simd for j in 1:n 
+                                c_itr[j] %= p
+                            end
+                            # @inbounds for j in 1:n 
+                            #     c_itr[j] > 1 && (c_itr[j] %= 2)
+                            # end
                         end
 
-                        # for testing
-                        F = Oscar.Nemo.Native.GF(2)
-                        output_vec = F.(Vector(perms_mats[initial_perm_ind] * c))
-                        println("pushing ", (r, deepcopy(vec), output_vec))
-                        push!(dbg["found_codewords"], (r, deepcopy(vec), output_vec)) 
+                        if store_found_codewords
+                            output_vec = perms_mats[initial_perm_ind] * c_itr
+                            push!(dbg["found_codewords"], (r, [], output_vec)) 
+                        end
 
                         w = r
                         @inbounds for j in 1:n #TODO unless weve cropped the Gi down to the Ai shouldnt this be skipping the indexs corresp to the identity submatrix
-                            c[j] != 0 && (w += 1;)
+                            # reduce c_itr and store 
+                            c_itr .%= p
+                            c_itr[j] != 0 && (w += 1;)
                         end
 
                         if uppers[m] > w
                             uppers[m] = w
-                            founds[m] = c 
+                            founds[m] = c_itr
                             exit_thread_indicator_vec[m] = i 
                             verbose && println("Adjusting (local) upper bound: $w")
                             if C.l_bound == uppers[m]

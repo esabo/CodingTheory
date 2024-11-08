@@ -164,7 +164,8 @@ function _min_wt_row(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S,
     return w, i
 end
 
-function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}}) where S <: Integer
+# function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}}) where S <: Integer
+function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}, LinearAlgebra.Adjoint{Bool, BitMatrix}}) where S <: Integer
     w = size(A, 1) + 1
     i = 0
     for c in axes(A, 2)
