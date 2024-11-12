@@ -398,7 +398,8 @@
         SPCtest = SPCDFoldProductCode(3)
         @test length(SPCtest) == 512
         @test dimension(SPCtest) == 174
-        @test_broken minimum_distance(SPCtest) == 8
+        # TODO compute this directly
+        @test minimum_distance(SPCtest) == 8
         @test H_X == SPCtest.X_stabs
         @test H_Z == SPCtest.Z_stabs
     end
@@ -417,7 +418,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 72
         @test dimension(Q) == 12
-        @test_broken minimum_distance(S) == 6
+        @test_broken minimum_distance(Q) == 6
 
         # [[90, 8, 10]]
         l = 15

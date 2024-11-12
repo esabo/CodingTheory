@@ -548,7 +548,7 @@ end
 
 function _channel_init_BSC!(var_to_check_messages::Matrix{Float64}, v::CTMatrixTypes, p::Float64)
     temp = log((1 - p) / p)
-    @inbounds for i in 1:nrows(v)
+    @inbounds for i in 1:length(v)
         iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
     end
     return nothing
@@ -565,7 +565,7 @@ end
 function _channel_init_BAWGNC_SP(v::Vector{<: AbstractFloat}, σ::Float64)
     temp = 2 / σ^2
     chn_init = zeros(Float64, length(v))
-    for i in 1:nrows(v)
+    for i in 1:length(v)
         @inbounds chn_init[i] = temp * v[i]
     end
     return chn_init
@@ -573,7 +573,7 @@ end
 
 function _channel_init_BAWGNC_SP!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}, σ::Float64)
     temp = 2 / σ^2
-    @inbounds for i in 1:nrows(v)
+    @inbounds for i in 1:length(v)
         var_to_check_messages[i, 1] = temp * v[i]
     end
     return nothing
@@ -638,6 +638,8 @@ function _message_passing_init_fast(H::Union{Matrix{S}, T}, v::Union{Vector{S}, 
             _channel_init_BAWGNC_SP!(var_to_check_messages, v, chn.param)
         elseif isa(chn, BAWGNChannel) && kind == :MS
             _channel_init_BAWGNC_MS!(var_to_check_messages, v)
+        else
+            error("Haven't yet implemented this combination of channels and inputs")
         end
     elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
         temp = log((1 - chn.param) / chn.param)

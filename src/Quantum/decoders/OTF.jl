@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, BP_alg::Symbol;
+function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel; BP_alg::Symbol = :SP,
     max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol =
     :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
 
@@ -21,11 +21,14 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
     schedule == :semiserial && (schedule = :layered;)
 
     # TODO search for wt 1 columns and add new row
+    H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+            current_bits, syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial,
+            erasures)
 
     if BP_alg == :SP
-        H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-            current_bits, syn = _message_passing_init_fast(H, v, chn, :BP_alg, chn_inits, :serial,
-            erasures)
+        # H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
+        #     current_bits, syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial,
+        #     erasures)
 
         if schedule == :layered
             layers = layered_schedule(H, schedule = schedule, random = rand_sched)
@@ -50,15 +53,55 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
 
     if !flag
         # initial BP did not converge
-        ordered_indices = sortperm(posteriors, rev = true)
-        erased_columns = _select_erased_columns(H, posteriors, ordered_indices)
-        for i in erased_columns
-            posteriors[i] = 1e-10
+        var_adj_list = [Int[] for _ in 1:size(H_Int, 2)];
+        for r in 1:size(H_Int, 1)
+            for c in 1:size(H_Int, 2)
+                if !iszero(H_Int[r, c])
+                    push!(var_adj_list[c], r)
+                end
+            end
         end
+
+        OTF_type = :OSD
+        if syndrome_based
+            if OTF_type == :OSD
+                # sort LLRs from greatest to least (most positive to most negative)
+                # since negative implies an error is more likely here, the selection process will allow BP to run on columns which are still positive while fixing columns which are more likely to have an error to have an error
+                # this is similar to selecting a test pattern in OSD
+                ordered_indices = sortperm(posteriors, rev = true)
+                erased_columns = _select_erased_columns(H_Int, ordered_indices, var_adj_list)
+                for i in erased_columns
+                    posteriors[i] = -20.0
+                end
+            else
+                ordered_indices = sortperm(posteriors, by = abs)
+                erased_columns = _select_erased_columns(H_Int, ordered_indices, var_adj_list)
+                for i in erased_columns
+                    if posteriors[i] < 0
+                        posteriors[i] = -20.0
+                    else
+                        posteriors[i] = 20.0
+                    end
+                end
+            end
+        else
+            ordered_indices = sortperm(posteriors, by = abs)
+            erased_columns = _select_erased_columns(H_Int, ordered_indices, var_adj_list)
+            for i in erased_columns
+                if posteriors[i] < 0
+                    posteriors[i] = -20.0
+                else
+                    posteriors[i] = 20.0
+                end
+            end
+        end
+        println(erased_columns)
+        println(" ")
+        println(posteriors)
 
         if BP_alg == :SP
             H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-                current_bits, syn = _message_passing_init_fast(H, v, chn, :BP_alg, chn_inits, :serial,
+                current_bits, syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial,
                 erasures)
     
             if schedule == :layered
@@ -86,36 +129,45 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel, B
     return flag, e
 end
 
-function _select_erased_columns(H::Matrix{Int}, ordered_indices::Vector{Int}, var_adj_list::Vector{Vector{Int}})
+function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, var_adj_list::Vector{Vector{Int}})
 
     # this is using the disjoint-set data structure/union find algorithm for merging them
     nr = size(H, 1)
     parents = collect(1:nr)
     depths = ones(Int, nr)
-    output_indices = falses(size(H, 2))
+    output_indices = Vector{Int}()
     seen_roots_list = [[-1 for _ in 1:length(var_adj_list[c])] for c in 1:length(var_adj_list)]
+    flag = false
     for col in ordered_indices
-        # println("col $col")
-        count = 0
+        # count = 0
         for row in var_adj_list[col]
             row_root = _find_root(parents, row)
             flag = _check_roots_list!(seen_roots_list, col, row_root)
-            # println(seen_roots_list[col])
             if flag
                 # cycle
-                # println("loop at row $row with root $row_root")
-                output_indices[col] = true
+                push!(output_indices, col)
                 break
-            elseif count ≥ 1
-                # println("here on $count")
-                _union_by_rank!(parents, depths, seen_roots_list[col][count], seen_roots_list[col][count + 1])
-                # println(parents)
             end
-            count += 1
+            # elseif count ≥ 1
+            #     _union_by_rank!(parents, depths, seen_roots_list[col][count], seen_roots_list[col][count + 1])
+            # end
+            # count += 1
         end
-        # println("parents: $parents")
+
+        if !flag
+            count = 0
+            for row in var_adj_list[col]
+                if count ≥ 1
+                    _union_by_rank!(parents, depths, seen_roots_list[col][count], seen_roots_list[col][count + 1])
+                end
+                count += 1
+            end
+            # println(seen_roots_list)
+        end
+        # println(parents)
         # println(depths)
     end
+    
     return output_indices
 end
 
@@ -141,18 +193,13 @@ end
 
 # union by rank
 function _union_by_rank!(parents::Vector{Int}, depths::Vector{Int}, i::Int, j::Int)
-    # println("union on $i and $j")
-    # println("parents before $parents")
     if depths[i] > depths[j]
-        # println("case 1")
         parents[j] = i
     elseif depths[j] > depths[i]
         parents[i] = j
-        # println("case 2")
     else
         parents[j] = i
         depths[i] += 1
-        # println("case 3")
     end
 end
 
@@ -181,3 +228,36 @@ end
 #     end
 # end
 # _select_erased_columns(H_Int, ordering, var_adj_list)
+
+
+# if syndrome based
+#     OSD picture:
+#         sort LLRs from greatest to least (most positive to most negative)
+#         since negative implies an error is more likely here, the selection process will allow BP to run on columns which are still positive while fixing columns which are more likely to have an error to have an error
+#         this is similar to selecting a test pattern in OSD
+#         ideally we can fix these, determine a syndrome for this, then run BP with this new syndrome
+#         the final result comes from combing the correction and fixed error
+#         I think it may suffice to skip this step and simply continue BP with the new fixed LLRs
+#         it is possible a column all the way on the left of the sort (with clearly no error here) can produce a loop and would therefore be fixed to an error
+#         this may be okay in the quantum picture due to degeneracy
+#         this would dramatically kick BP out of its local minimum
+#         we hope this doesn't kick us out so far to land in another logical coset (can we control this?)
+#         codes with a ton of loops (such as QCCs) may fix wayy too many columns to be errors
+#         as long as this doesn't cause BP to fail, this may be find for quantum codes due to degeneracy, although we increase the risk we jumped into another logical coset
+
+#     BP picture:
+#         the bits which are most reliably correct are those with high LLR values
+#         so sort by absolute value
+#         keep solving on the least reliable nodes while fixing bits we are more sure of
+#         this can have the same issues as above:
+#             assigning a definite value to an index which BP isn't yet sure about
+#             fixing too many bits
+#         as above, this relies on degeneracy
+#         to mimic the above approach, we still set all loopy columns to 1, even if it is strongly known to be not in error
+#         however, it may be advantageous to "listen" to BP better by fixing indices based on their sign, keeping nonerrors BP is sure about
+#         this can help by reducing the fixed error wt, helping keep us in the logical coset
+# else
+#     we are unable to assign an interpretation to 0's and 1's in the received vector
+#     we could do standard reliability decoding where we take a parameter and look for test patterns inside the k least-reliable bits
+#     or we could proceed as above with the BP picture
+

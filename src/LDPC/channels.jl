@@ -95,3 +95,21 @@ function capacity(Ch::AbstractClassicalNoiseChannel)
     # TODO: compute capacity functional
     error("Not yet written")
 end
+
+function show(io::IO, Ch::AbstractClassicalNoiseChannel)
+    if isa(Ch, BinaryErasureChannel)
+        print(io, "Binary erasure channel with erasure probability $(Ch.param)")
+    elseif isa(Ch, BinarySymmetricChannel)
+            print(io, "Binary symmetric channel with crossover probability $(Ch.param)")
+    elseif isa(Ch, BAWGNChannel)
+        print(io, "Binary (input) additive white Gaussian noise channel with standard deviation $(Ch.param)")
+    else
+        print(io, "Classical noise channel with parameter $(Ch.param)")
+    end
+
+    if !ismissing(Ch.capacity)
+        println(io, " and capacity $(Ch.capacity).")
+    else
+        println(io, ".")
+    end
+end

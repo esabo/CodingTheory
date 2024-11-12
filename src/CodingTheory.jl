@@ -411,6 +411,13 @@ include("Quantum/simulation.jl")
 export CSS_decoder_test, CSS_decoder_with_Bayes
 
 #############################
+#  Quantum/decoders/OTF.jl
+#############################
+
+include("Quantum/decoders/OTF.jl")
+export ordered_Tanner_forest
+
+#############################
         # tilings.jl
 #############################
 
