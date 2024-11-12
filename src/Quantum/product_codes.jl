@@ -12,6 +12,29 @@
     HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing}= missing, logs_alg::Symbol = :stnd_frm)
 
 Return the hypergraph product code of matrices `A` and `B`.
+
+# Example
+
+[[1922, 50, 16]] Hypergraph Product Code from Appendix B, Example C2 of [panteleev2021degenerate](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x);
+
+julia> l = 31;
+
+julia> R, = residue_ring(F, x^l -1);
+
+julia> h = R(1 + x^2 + x^5);
+
+julia> A = residue_polynomial_to_circulant_matrix(h);
+
+julia> code = HypergraphProductCode(A, A);
+
+julia> length(code), dimension(code)
+(1922, 50)
+```
 """
 function HypergraphProductCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem},
     Missing} = missing, logs_alg::Symbol = :stnd_frm)
@@ -153,6 +176,31 @@ Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 - b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
 - χ: A strictly positive integer coprime with `c`.
+
+# Example
+
+[[900, 50, 14]] CSS Hyperbicycle Code from Example 6 of [Kovalev_2013](@cite).
+
+```jldoctest
+julia> S, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x);
+
+julia> l = 30; χ = 1;
+
+julia> R, = residue_ring(S, x^l - 1);
+
+julia> h = R(1 + x + x^3 + x^5);
+
+julia> A = residue_polynomial_to_circulant_matrix(h);
+
+julia> a1 = A[1:15, 1:15];
+
+julia> a2 = A[1:15, 16:30];
+
+julia> code = HyperBicycleCodeCSS([a1, a2], [a1, a2], χ);
+
+julia> length(code), dimension(code)
+(900, 50)
+```
 """
 function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int; char_vec::Union{Vector{zzModRingElem},
     Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
@@ -209,6 +257,29 @@ Return the hyperbicycle non-CSS code of `a` and `b` given `χ`.
 - b: A vector of length `c` of binary matrices of the same dimensions,
   potentially different from those of `a`.
 - χ: A strictly positive integer coprime with `c`.
+
+# Example
+
+[[289, 81, 5]] non-CSS Hyperbicycle Code from Example 13 of [Kovalev_2013](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> S, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x);
+
+julia> l = 17; χ = 1;
+
+julia> R, = residue_ring(S, x^l - 1);
+
+julia> h = R(x^4 * (1 + x + x^3 + x^6 + x^8 + x^9));
+
+julia> A = residue_polynomial_to_circulant_matrix(h);
+
+julia> code = HyperBicycleCode([A], [A], χ);
+
+julia> length(code), dimension(code)
+(289, 81)
+```
 """
 function HyperBicycleCode(a::Vector{T}, b::Vector{T}, χ::Int, char_vec::Union{Vector{zzModRingElem},
     Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
@@ -258,6 +329,31 @@ end
     GeneralizedBicycleCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
 
 Return the generealized bicycle code given by `A` and `B`.
+
+# Example
+
+[[254, 28, 14 ≤ d ≤ 20]] Generalized Bicycle Code from Appendix B, Example A1 of [panteleev2021degenerate](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> S, x = polynomial_ring(F, :x);
+
+julia> l = 127;
+
+julia> R, _ = residue_ring(S, x^l - 1);
+
+julia> a = 1 + x^15 + x^20 + x^28 + x^66;
+
+julia> b = 1 + x^58 + x^59 + x^100 + x^121;
+
+julia> code = GeneralizedBicycleCode(R(a), R(b));
+
+julia> length(code), dimension(code)
+(254, 28)
+```
 """
 function GeneralizedBicycleCode(A::T, B::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
@@ -508,6 +604,40 @@ end
     LiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
 
 Return the lifted product code given by the matrices `A` and `B`.
+
+# Example
+
+[[882, 24, 18 ≤ d ≤ 24]] Lifted Product Code from Appendix B, Example B1 of [panteleev2021degenerate](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> S, x = polynomial_ring(F, :x);
+
+julia> l = 63;
+
+julia> R, _ = residue_ring(S, x^l - 1);
+
+julia> A = matrix(R, 7, 7,
+           [x^27, 0   , 0   , 0   , 0   , 1   , x^54,
+            x^54, x^27, 0   , 0   , 0   , 0   , 1   ,
+            1   , x^54, x^27, 0   , 0   , 0   , 0   ,
+            0   , 1   , x^54, x^27, 0   , 0   , 0   ,
+            0   , 0   , 1   , x^54, x^27, 0   , 0   ,
+            0   , 0   , 0   , 1   , x^54, x^27, 0   ,
+            0   , 0   , 0   , 0   , 1   , x^54, x^27]);
+
+julia> b = R(1 + x + x^6);
+
+julia> code = LiftedProductCode(A, b);
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:340
+
+julia> length(code), dimension(code)
+(882, 24)
+```
 """
 function LiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{zzModRingElem}, Missing} =
     missing, logs_alg::Symbol = :stnd_frm) where T <: Union{ResElem, CTGroupAlgebra}
@@ -553,7 +683,7 @@ function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) whe
     A13 = En1 ⊗ B
     A21 = A ⊗ En2
     A24 = Ek1 ⊗ B_tr
-    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+    return vcat(hcat(zero(A21), A12, A13, zero(A24)), hcat(A21, zero(A12), zero(A13), A24))
 end
 
 """
@@ -567,6 +697,40 @@ Return the pre-lifted stabilizer matrix for bias-tailored lifted product code of
 
 # Notes
 - Use `BiasTailoredLiftedProductCode` to return a quantum code over the base ring directly.
+
+# Example
+
+[[882, 24, d ≤ 24]] BiasTailored Lifted Product Code from Appendix B of [roffe2023bias](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> S, x = polynomial_ring(F, :x);
+
+julia> l = 63;
+
+julia> R, _ = residue_ring(S, x^l - 1);
+
+julia> A1 = matrix(R, 1, 1, [1 + x^1 + x^6]);
+
+julia> A2 = matrix(R, 7, 7,
+           [x^36, 0   , 0   , 0   , 0   , 1   , x^9 ,
+            x^9 , x^36, 0   , 0   , 0   , 0   , 1   ,
+            1   , x^9 , x^36, 0   , 0   , 0   , 0   ,
+            0   , 1   , x^9 , x^36, 0   , 0   , 0   ,
+            0   , 0   , 1   , x^9 , x^36, 0   , 0   ,
+            0   , 0   , 0   , 1   , x^9 , x^36, 0   ,
+            0   , 0   , 0   , 0   , 1   , x^9 , x^36]);
+
+julia> code = BiasTailoredLiftedProductCode(A1, A2);
+┌ Warning: Commutativity of A and b required but not yet enforced.
+└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:60
+
+julia> length(code), dimension(code)
+(882, 24)
+```
 """
 function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) where T <: CTGroupAlgebra
 
@@ -587,7 +751,7 @@ function bias_tailored_lifted_product_matrices(A::MatElem{T}, B::MatElem{T}) whe
     A13 = En1 ⊗ B
     A21 = A ⊗ En2
     A24 = Ek1 ⊗ B_tr
-    return vcat(hcat(zeros(A21), A12, A13, zeros(A24)), hcat(A21, zeros(A12), zeros(A13), A24))
+    return vcat(hcat(zero(A21), A12, A13, zero(A24)), hcat(A21, zero(A12), zero(A13), A24))
 end
 
 """
@@ -614,6 +778,35 @@ Return the single-parity-check `D`-fold product code.
 
 # Note
 - This is defined in https://arxiv.org/abs/2209.13474
+
+# Example
+
+[512, 174, 8]] Symmetric 2-fold product CSS code from [ostrev2024classical](@cite)
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> F = Oscar.Nemo.Native.GF(2);
+
+julia> h = matrix(F, [1 1]);
+
+julia> id = identity_matrix(F, 2);
+
+julia> H_X = vcat(
+             h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id,
+             id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h ⊗ id ⊗ id ⊗ id,
+             id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ id ⊗ h ⊗ h ⊗ h);
+
+julia> H_Z = vcat(
+             h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
+             id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
+             id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h);
+
+julia> code = SPCDFoldProductCode(3);
+
+julia> length(code), dimension(code)
+(512, 174)
+```
 """
 function SPCDFoldProductCode(D::Int, s::Int = 1)
     vec_S = Vector{AbstractStabilizerCode}()
@@ -894,6 +1087,29 @@ Return the bivariate bicycle code defined by the residue ring elements `a` and `
 
 # Note
 - This is defined in https://arxiv.org/pdf/2308.07915
+
+# Example
+
+[[360, 12, ≤24]] Bivariate Bicycle Code from Table 3 of [bravyi2024high](@cite).
+
+```jldoctest
+julia> using CodingTheory, Oscar;
+
+julia> S, (x, y) = polynomial_ring(Oscar.Nemo.Native.GF(2), [:x, :y]);
+
+julia> l = 30; m = 6;
+
+julia> R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]));
+
+julia> a = R(x^9 + y + y^2);
+
+julia> b = R(y^3 + x^25 + x^26);
+
+julia> code = BivariateBicycleCode(a, b);
+
+julia> length(code), dimension(code)
+(360, 12)
+```
 """
 function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
     R = parent(a)
@@ -953,7 +1169,8 @@ end
 Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
 
 # Note
-- This is defined in https://arxiv.org/pdf/2408.10001
+
+- This is defined in https://arxiv.org/pdf/2408.10001.
 """
 function CoprimeBivariateBicycleCode(a::ResElem, b::ResElem)
     R = parent(a)

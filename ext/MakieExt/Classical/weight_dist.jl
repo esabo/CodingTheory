@@ -9,7 +9,7 @@
 #############################
 
 """
-    weight_plot(C::AbstractLinearCode; alg::Symbol = :auto)
+$TYPEDSIGNATURES
 
 Return a bar graph of the weight distribution of `C`.
 

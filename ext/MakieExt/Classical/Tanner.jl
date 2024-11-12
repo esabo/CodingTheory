@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    Tanner_graph_plot(H::Union{CTMatrixTypes, Matrix{Int}})
+$TYPEDSIGNATURES
 
 Return the Tanner graph of the matrix `H` as a `Figure` object.
 
