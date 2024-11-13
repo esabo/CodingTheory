@@ -308,8 +308,7 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
         for i in 0:Int(floor(nc / nr)) - 1
             start_ind = i * nr + 1
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, start_ind:nc)
-            if rnk < nr
-                println("rank ", rnk, " on mat of size ", size(Gi), " start ind ", start_ind)
+            if rnk < nr # for Brouwer the Gi must all have full rank
                 break
             end
 
@@ -457,7 +456,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
 
-    optimize_upper_bound = false # true will be used in production. False makes it less likely that the algo will early exit at some trivial value 
+    optimize_upper_bound = true # true will be used in production. False makes it less likely that the algo will early exit at some trivial value 
     dbg["exit_r"] = -1
     dbg["found_codewords"] = []
 
@@ -536,7 +535,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
             y = perms_mats[initial_perm_ind] * found 
             # @assert in(y, C)
             dbg["exit_r"] = r
-            return C.u_bound, y
+            return C.u_bound, (C.F).(y) #TODO
         end
 
         if verbose
@@ -609,7 +608,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
     C.d = C.u_bound
     y = perms_mats[initial_perm_ind] * found 
     # iszero(C.H * transpose(y))
-    return C.u_bound, y
+    return C.u_bound, (C.F).(y)
 end
 
 function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
@@ -617,6 +616,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    C.k < 2^16 || throw(DomainError("The given linear code has length k >= 2^16 which is not supported"))
     info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
 
     generator_matrix(C, true) # ensure G_stand exists
@@ -625,6 +625,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
     end
     G = C.G #TODO remove local var G
+
     # generate if not pre-stored
     parity_check_matrix(C)
 
@@ -643,8 +644,8 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     # should have no need to permute to find better ranks because of Edmond's?
     A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
 
-    A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
-    perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
+    A_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Ai, UInt16)') for Ai in A_mats]
+    perms_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Pi, UInt16)') for Pi in perms_mats]
     h = length(A_mats)
     # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
@@ -652,11 +653,22 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     if length(keys(dbg)) > 0
         println("Debug mode ON")
     end
-    optimize_uppr_bnd = false #TODO Set this from dbg dictionary. optimize_upper_bound controls the initial upper bound. False makes it less likely that the algo will exit early before any codewords are examined 
-    dbg["exit_r"] = -1
-    store_found_codewords = haskey(dbg, "found_codewords")
+    dbg_key_unoptimized_uppr_bnd = "unoptimized_uppr_bnd"
+    dbg_key_found = "found_codewords"
+    dbg_key_exit_r = "exit_r"
+
+    unoptimized_uppr_bnd = false 
+    if haskey(dbg, dbg_key_unoptimized_uppr_bnd)
+        verbose && println("dbg Dict: Using unoptimized upper bound")
+        unoptimized_uppr_bnd = true 
+    end
+    if haskey(dbg, dbg_key_exit_r)
+        verbose && println("dbg Dict: Storing the largest message weight reached @key=$dbg_key_found")
+        dbg["exit_r"] = -1
+    end
+    store_found_codewords = haskey(dbg, dbg_key_found)
     if store_found_codewords
-        verbose && println("Storing the codewords in the debug dictionary")
+        verbose && println("dbg Dict: Storing the codewords in the debug dictionary, key=$dbg_key_found")
     end
 
     k, n = size(G)
@@ -689,7 +701,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     end
 
     found = zeros(Int, n) 
-    if optimize_uppr_bnd
+    if unoptimized_uppr_bnd
         # C_orig_U_bound = C.u_bound #TODO restore this before returning if its smaller than C.u_bound at the end 
         C.u_bound = n
     end
@@ -722,6 +734,9 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     work_factor_up_to_log_field_size = 0
     expected_work_factor = 0
     for r in 1:k
+        if r > 2^16
+            verbose && println("reached an r with r>2^16. This is not implemented yet") 
+        end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
         # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
@@ -732,10 +747,10 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            y = perms_mats[initial_perm_ind] * found 
+            y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
             # @assert in(y, C)
-            dbg["exit_r"] = r
-            println("work factor ", work_factor_up_to_log_field_size, " vs ", expected_work_factor)
+            dbg[dbg_key_exit_r] = r
+            #TODO report work factors
             return C.u_bound, y
         end
 
@@ -769,7 +784,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
             # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
             for i in 1:h
                 # for i in 1:h #TODO 
-                c_itr = zeros(Int, C.n)
+                c_itr = zeros(UInt16, C.n)
                 is_first = true
                 curr_mat = A_mats[i]
                 for u in itr
@@ -778,26 +793,26 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                         for ind in u
                             if ind != -1
                                 is_first = false
-                                add_allocs = @allocated begin 
-                                axpy!(1, curr_mat[:, ind], c_itr)
+                                # 51.4 s (1.27% GC) to evaluate,
+                                @simd for i in eachindex(c_itr)
+                                    @inbounds c_itr[i] += curr_mat[i, ind]
                                 end
-                                println(add_allocs)
                                 @inbounds @simd for j in 1:n 
                                     c_itr[j] %= p
                                 end
+                                # @simd for i in eachindex(c_itr)
+                                #     @inbounds c_itr[i] = (c_itr[i] .+ curr_mat[i, ind]).%p
+                                    # println(c_itr[i])
+                                    # c_itr[i] = .%p 
+                                # end
                             end
                         end
                         if is_first 
-                            # 2pm mul+reduce (mod 2) allocates ~450 bytes per iteration
                             vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
-                            # c_itr = A_mats[i] * vec
                             LinearAlgebra.mul!(c_itr, curr_mat, vec)
                             @inbounds @simd for j in 1:n 
                                 c_itr[j] %= p
                             end
-                            # @inbounds for j in 1:n 
-                            #     c_itr[j] > 1 && (c_itr[j] %= 2)
-                            # end
                         end
 
                         if store_found_codewords
@@ -806,11 +821,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                         end
 
                         w = r
-                        @inbounds for j in 1:n #TODO unless weve cropped the Gi down to the Ai shouldnt this be skipping the indexs corresp to the identity submatrix
-                            # reduce c_itr and store 
-                            c_itr .%= p
-                            c_itr[j] != 0 && (w += 1;)
-                        end
+                        w += sum(c_itr)
 
                         if uppers[m] > w
                             uppers[m] = w
@@ -838,9 +849,9 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
 
     # at this point we are guaranteed to have found the answer
     C.d = C.u_bound
-    y = perms_mats[initial_perm_ind] * found 
+    y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
     # iszero(C.H * transpose(y))
-    return C.u_bound, y
+    return C.u_bound, y_Oscar
 end
 """
     words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
