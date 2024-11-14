@@ -741,7 +741,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
 
     for r in 1:k
         if r > 2^16
-            verbose && println("reached an r with r>2^16. This is not implemented yet") 
+            verbose && println("Reached an r with r>2^16") 
         end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
@@ -756,7 +756,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
             y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
             # @assert in(y, C)
             dbg[dbg_key_exit_r] = r
-            #TODO report work factors
+            #TODO report actual/expected work factors in dbg dict
             show_progress && ProgressMeter.finish!(prog_bar)
             return C.u_bound, y
         end
@@ -786,7 +786,15 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         # println("alloc itrs used ", itrs_alloc)
 
         # Threads.@threads for itr in itrs 
+        vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
         for m in 1:num_thrds 
+            # if c_itr is a binary vector. If it were a random binary vector the expected 
+            # weight of the subvector c_itr[1:2*uppers[m]] equals uppers[m]. 
+            # So we use the heuristic that w(c_itr[1:2*uppers[m]+5]) is usually larger than uppers[m]. 
+            # If not, we compute weight of all of c_itr
+            weight_sum_bound = min(2 * uppers[m] + 5, n) 
+
+            verbose && println("Computing weight up to $weight_sum_bound")
             itr = itrs[m]
             # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
             for i in 1:h
@@ -803,17 +811,15 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                             if ind != -1
                                 is_first = false
                                 @simd for i in eachindex(c_itr)
-                                    @inbounds c_itr[i] += curr_mat[i, ind]
-                                    # c_itr[i] %= p
+                                    @inbounds c_itr[i] = xor(c_itr[i], curr_mat[i, ind])
                                 end
                             end
                         end
                         if is_first 
-                            vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
                             LinearAlgebra.mul!(c_itr, curr_mat, vec)
-                            # @inbounds @simd for j in 1:n 
-                            #     c_itr[j] %= p
-                            # end
+                            @inbounds @simd for j in 1:n 
+                                c_itr[j] %= p
+                            end
                         end
 
                         if store_found_codewords
@@ -821,20 +827,23 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                             push!(dbg["found_codewords"], (r, [], output_vec)) 
                         end
 
-                        w = sum(c_itr) 
+                        partial_weight = sum(view(c_itr, 1:weight_sum_bound))
 
-                        if uppers[m] > w
-                            uppers[m] = w
-                            founds[m] = c_itr #TODO reduce founds coeffs here and below
-                            exit_thread_indicator_vec[m] = i 
-                            verbose && println("Adjusting (local) upper bound: $w")
-                            if C.l_bound == uppers[m]
-                                Threads.atomic_cas!(flag, true, false)
-                                break
-                            else
-                                r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
-                                isnothing(r_term) && (r_term = k;)
-                                verbose && println("Updated termination weight: $r_term")
+                        if uppers[m] > partial_weight
+                            w = sum(c_itr) 
+                            if uppers[m] > w 
+                                uppers[m] = w
+                                founds[m] = c_itr #TODO reduce founds coeffs here and below
+                                exit_thread_indicator_vec[m] = i 
+                                verbose && println("Adjusting (local) upper bound: $w")
+                                if C.l_bound == uppers[m]
+                                    Threads.atomic_cas!(flag, true, false)
+                                    break
+                                else
+                                    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+                                    isnothing(r_term) && (r_term = k;)
+                                    verbose && println("Updated termination weight: $r_term")
+                                end
                             end
                         end
                     end
