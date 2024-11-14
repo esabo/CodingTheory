@@ -9,6 +9,7 @@
 #############################
 using AllocCheck
 using Profile
+using ProgressMeter
 """
     polynomial(W::WeightEnumerator)
 
@@ -612,7 +613,7 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
 end
 
 function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
-    verbose::Bool = false, dbg = Dict())
+    verbose::Bool = false, dbg = Dict(), show_progress=true)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -732,7 +733,12 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
     power = Int(floor(log(2, num_thrds)))
 
     work_factor_up_to_log_field_size = 0
-    expected_work_factor = 0
+    predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
+    verbose && println("Predicted work factor: $predicted_work_factor")
+    if show_progress 
+        prog_bar = Progress(predicted_work_factor, dt=1.0, showspeed=true) # updates no faster than once every 1s
+    end
+
     for r in 1:k
         if r > 2^16
             verbose && println("reached an r with r>2^16. This is not implemented yet") 
@@ -751,6 +757,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
             # @assert in(y, C)
             dbg[dbg_key_exit_r] = r
             #TODO report work factors
+            show_progress && ProgressMeter.finish!(prog_bar)
             return C.u_bound, y
         end
 
@@ -789,30 +796,24 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                 curr_mat = A_mats[i]
                 for u in itr
                     work_factor_up_to_log_field_size += 1
+                    show_progress && ProgressMeter.next!(prog_bar) 
                     if r - rank_defs[i] > 0
                         for ind in u
+
                             if ind != -1
                                 is_first = false
-                                # 51.4 s (1.27% GC) to evaluate,
                                 @simd for i in eachindex(c_itr)
                                     @inbounds c_itr[i] += curr_mat[i, ind]
+                                    # c_itr[i] %= p
                                 end
-                                @inbounds @simd for j in 1:n 
-                                    c_itr[j] %= p
-                                end
-                                # @simd for i in eachindex(c_itr)
-                                #     @inbounds c_itr[i] = (c_itr[i] .+ curr_mat[i, ind]).%p
-                                    # println(c_itr[i])
-                                    # c_itr[i] = .%p 
-                                # end
                             end
                         end
                         if is_first 
                             vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
                             LinearAlgebra.mul!(c_itr, curr_mat, vec)
-                            @inbounds @simd for j in 1:n 
-                                c_itr[j] %= p
-                            end
+                            # @inbounds @simd for j in 1:n 
+                            #     c_itr[j] %= p
+                            # end
                         end
 
                         if store_found_codewords
@@ -820,12 +821,11 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
                             push!(dbg["found_codewords"], (r, [], output_vec)) 
                         end
 
-                        w = r
-                        w += sum(c_itr)
+                        w = sum(c_itr) 
 
                         if uppers[m] > w
                             uppers[m] = w
-                            founds[m] = c_itr
+                            founds[m] = c_itr #TODO reduce founds coeffs here and below
                             exit_thread_indicator_vec[m] = i 
                             verbose && println("Adjusting (local) upper bound: $w")
                             if C.l_bound == uppers[m]
@@ -846,6 +846,7 @@ function david_Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::S
         found = founds[loc]
         initial_perm_ind = exit_thread_indicator_vec[loc]
     end
+    show_progress && ProgressMeter.finish!(prog_bar)
 
     # at this point we are guaranteed to have found the answer
     C.d = C.u_bound
