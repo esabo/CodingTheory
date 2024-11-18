@@ -9,7 +9,7 @@
 #############################
 
 """
-    degree_distributions_plot(C::AbstractLDPCCode)
+$TYPEDSIGNATURES
 
 Return a bar plot of the column and row degree distributions of `C`.
 
@@ -44,7 +44,7 @@ function CodingTheory.degree_distributions_plot(C::AbstractLDPCCode)
 end
 
 """
-    count_short_cycles_plot(C::AbstractLDPCCode)
+$TYPEDSIGNATURES
 
 Return a bar graph and a dictionary of (length, count) pairs for unique short
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -82,7 +82,7 @@ function CodingTheory.count_short_cycles_plot(C::AbstractLDPCCode)
 end
 
 """
-    count_elementary_cycles_plot(C::AbstractLDPCCode)
+$TYPEDSIGNATURES
 
 Return a bar graph and a dictionary of (length, count) pairs for unique elementary
 cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
@@ -120,7 +120,7 @@ function CodingTheory.count_elementary_cycles_plot(C::AbstractLDPCCode)
 end
 
 """
-    ACE_spectrum(C::AbstractLDPCCode)
+$TYPEDSIGNATURES
 
 Return an interactive figure and data for the ACE spectrum of the Tanner graph of `C`.
 
@@ -171,7 +171,7 @@ end
 # doesn't seem to be a point in making this dynamic with a slider, as it simply
 # continues in the same tree shape and no useful information is gained from watching it
 """
-    computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol=:v)
+$TYPEDSIGNATURES
 
 Return a figure representing the expansion of the Tanner graph of `C` to level `lvl`
 for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherwise,

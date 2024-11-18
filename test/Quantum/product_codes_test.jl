@@ -196,10 +196,9 @@
         # takes awhile to run
 
         # Example C2
-        F = Oscar.Nemo.Native.GF(2)
-        S, x = polynomial_ring(F, :x)
+        F, x = polynomial_ring(Oscar.Nemo.Native.GF(2), :x)
         l = 31
-        R, _ = residue_ring(S, x^l - 1)
+        R, = residue_ring(F, x^l -1)
         h = R(1 + x^2 + x^5)
         A = residue_polynomial_to_circulant_matrix(h)
         Q = HypergraphProductCode(A, A)
@@ -384,7 +383,7 @@
     end
 
     @testset "Product Codes" begin
-        # should list that paper here
+        # [512, 174, 8]] SPCDFoldProductCode from Section 4 of https://arxiv.org/pdf/2209.13474
         F = Oscar.Nemo.Native.GF(2)
         h = matrix(F, [1 1])
         id = identity_matrix(F, 2)
@@ -396,9 +395,11 @@
             h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id,
             id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id,
             id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h ⊗ id ⊗ id ⊗ h)
-        SPCtest = CodingTheory.SPCDFoldProductCode(3)
+        SPCtest = SPCDFoldProductCode(3)
         @test length(SPCtest) == 512
         @test dimension(SPCtest) == 174
+        # TODO compute this directly
+        @test minimum_distance(SPCtest) == 8
         @test H_X == SPCtest.X_stabs
         @test H_Z == SPCtest.Z_stabs
     end
@@ -417,7 +418,7 @@
         Q = BivariateBicycleCode(a, b)
         @test length(Q) == 72
         @test dimension(Q) == 12
-        @test_broken minimum_distance(S) == 6
+        @test_broken minimum_distance(Q) == 6
 
         # [[90, 8, 10]]
         l = 15
@@ -665,5 +666,41 @@
         @test length(Q) == 126
         @test dimension(Q) == 12
         @test_broken minimum_distance(Q) == 10
+    end
+
+    @testset "BiasTailoredLiftedProductCode" begin
+        # [[882, 24, d ≤ 24]] from Appendix B of https://arxiv.org/pdf/2202.01702
+        F = Oscar.Nemo.Native.GF(2)
+        S, x = polynomial_ring(F, :x)
+        l = 63
+        R, _ = residue_ring(S, x^l - 1)
+        A1 = matrix(R, 1, 1, [1 + x^1 + x^6])
+        A2 = matrix(R, 7, 7,
+             [x^36, 0   , 0   , 0   , 0   , 1   , x^9 ,
+              x^9 , x^36, 0   , 0   , 0   , 0   , 1   ,
+              1   , x^9 , x^36, 0   , 0   , 0   , 0   ,
+              0   , 1   , x^9 , x^36, 0   , 0   , 0   ,
+              0   , 0   , 1   , x^9 , x^36, 0   , 0   ,
+              0   , 0   , 0   , 1   , x^9 , x^36, 0   ,
+              0   , 0   , 0   , 0   , 1   , x^9 , x^36])
+        Q = BiasTailoredLiftedProductCode(A1, A2)
+        @test length(Q) == 882
+        @test dimension(Q) == 24
+        @test_broken minimum_distance(Q) == 24
+
+        # [[416, 18, d ≤ 20]] from Example 4.1 of https://arxiv.org/pdf/2202.01702
+        S, x = polynomial_ring(F, :x)
+        l = 13
+        R, _ = residue_ring(S, x^l - 1)
+        A1 = matrix(R, 4, 4,
+             [1   , x^11, x^7 , x^12,
+              x^1 , x^8 , x^2 , x^8 ,
+              x^11, 1   , x^4 , x^8 ,
+              x^6 , x^1 , x^4 , x^12,])
+        A2 = A1
+        Q = BiasTailoredLiftedProductCode(A1, A2)
+        @test length(Q) == 416
+        @test dimension(Q) == 18
+        @test_broken minimum_distance(Q) == 20
     end
 end
