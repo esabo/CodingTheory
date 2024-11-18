@@ -6,6 +6,7 @@ using Random
 using Dates
 # using AllocCheck
 # using Profile
+include("benchmark_utils.jl")
 CodingTheory.Random.seed!(0)
 
 function white_n70_k35(use_mine, terse_description)
@@ -59,23 +60,7 @@ function white_n70_k35(use_mine, terse_description)
     end
 end
 
-function benchmark_description(function_description)
-    return "@" * Dates.format(now(), dateformat"MM:SS") * " benchmark " * function_description * 
-    "\nMost recent git commit\n" * current_git_hash() * "\ndate: " * Dates.format(now(), dateformat"y-m-d : H:M:S")
-end
-
-function current_git_hash()
-    try
-        # Run the Git command to get the latest commit hash
-        hash = readchomp(`git rev-parse --short HEAD`)
-        return hash
-    catch
-        # Return a default value if not in a Git repository or Git fails
-        return "no-git-repo"
-    end
-end
-
-use_new=false
+use_new=true
 t = white_n70_k35(use_new, true)
 # t = test_white_105(use_mine)
 t
