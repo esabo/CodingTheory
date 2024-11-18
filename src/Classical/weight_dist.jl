@@ -572,7 +572,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
 
     #Note the r+1 here. 
     lower_bounds_for_prediction = [information_set_lower_bound(r+1, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
-    #TODO the next line is temporary while Zimmermann is broken. We use it because we want to compare our Brouwer's performance to Magma's Brouw-Zimm
     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds_for_prediction)
     if isnothing(r_term)
         raise(DomainError("invalid termination r")) 
@@ -581,9 +580,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
 
     #In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r+1
     lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
-    if !store_found_codewords
-        lower_bounds = [lower_bounds[r]+(r+1) for r in 1:k-1]
-    end
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
@@ -595,6 +591,13 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     if show_progress 
         prog_bar = Progress(predicted_work_factor, dt=1.0, showspeed=true) # updates no faster than once every 1s
     end
+    #= TODO rewrite
+    # c_itr is a binary vector. If it were a _random_ vector the expected 
+    # weight of the subvector c_itr[1:2*uppers[m]] equals uppers[m]. 
+    # So we use the heuristic that w(c_itr[1:2*uppers[m]+c]) for a small constant c is 
+    # usually larger than uppers[m]. 
+    # If not, we compute weight of all of c_itr
+    =#
     weight_sum_bound = min(2 * C.u_bound + 5, n)
     verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
 
@@ -647,14 +650,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         # Threads.@threads for itr in itrs 
         vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
         for m in 1:num_thrds 
-            #=
-            # c_itr is a binary vector. If it were a _random_ vector the expected 
-            # weight of the subvector c_itr[1:2*uppers[m]] equals uppers[m]. 
-            # So we use the heuristic that w(c_itr[1:2*uppers[m]+c]) for a small constant c is 
-            # usually larger than uppers[m]. 
-            # If not, we compute weight of all of c_itr
-            =#
-            weight_sum_bound = min(2 * uppers[m] + 5, n) 
 
             itr = itrs[m]
             # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 

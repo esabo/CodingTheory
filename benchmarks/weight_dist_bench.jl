@@ -60,7 +60,7 @@ function white_n70_k35(use_mine, terse_description)
     end
 end
 
-use_new=true
+use_new=false
 t = white_n70_k35(use_new, true)
 # t = test_white_105(use_mine)
 t
