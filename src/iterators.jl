@@ -5,18 +5,43 @@
 # LICENSE file in the root directory of this source tree.
 
 struct SubsetGrayCode
+    # details about the iterator using this struct are in the comments in the iterate() function below
     n::Int # length of codewords
     k::Int # weight of codewords
     len::Int # length of the iterator
+    init_rank::BigInt # iteration will start with the subset of this rank
 end
 
 function SubsetGrayCode(n::Int, k::Int)
-    if 0 <= k <= n
-        len = factorial(big(n)) ÷ (factorial(big(k)) * factorial(big(n - k)))
-    else
-        len = 0
+    init_rank = big(1)
+    num_threads = 1
+    return SubsetGrayCodeFromNumThreads(n, k, init_rank, num_threads)
+end
+
+function SubsetGrayCodeFromNumThreads(n::Int, k::Int, init_rank::BigInt, num_threads::Int)
+    bin = extended_binomial(n, k)
+    if bin % num_threads != 0 
+        throw(ArgumentError("num_threads must divide binomial(n k)"))
     end
-    return SubsetGrayCode(n, k, len)
+    len = fld(bin, num_threads)
+    return SubsetGrayCode(n, k, len, init_rank)
+end
+
+function SubsetGrayCodesFromNumThreads(n::Int, k::Int, num_threads::Int)
+    bin = extended_binomial(n, k)
+    if bin % num_threads != 0 
+        throw(ArgumentError("num_threads must divide binomial(n k)"))
+    end
+    len = fld(bin, num_threads)
+
+    itrs = fill(SubsetGrayCode(1,1,1,1), num_threads)
+    for i in 0:num_threads-1
+        init_rank = 1 + i * len
+
+        itrs[i+1] = SubsetGrayCode(n, k, len, init_rank)
+        @assert length(itrs[i+1]) == len
+    end
+    return itrs
 end
 
 Base.IteratorEltype(::SubsetGrayCode) = Base.HasEltype()
@@ -53,10 +78,10 @@ end
     Note that inds is part of the iterator's state inds only to prevent reallocation in each 
     iteration.
     =#
-    rank = Int(1)
-    v = collect(1:G.k) 
+    subset_vec = zeros(UInt, G.k)
+    CodingTheory._subset_unrank(G.init_rank, UInt(G.n), subset_vec)
     inds = fill(-1, 3) 
-    (inds, (v, rank, inds))
+    (inds, (subset_vec, G.init_rank, inds))
 end
 
 @inline function Base.iterate(G::SubsetGrayCode, state)

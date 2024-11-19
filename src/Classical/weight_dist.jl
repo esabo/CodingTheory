@@ -419,13 +419,13 @@ function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::
 end
 
 """
-    minimum_distance(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::Bool = false)
+    minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::Bool = false)
 Return the minimum distance of `C` using a deterministic algorithm based on enumerating
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
 is found before the lower and upper bounds cross, it is returned; otherwise, the zero vector 
 is returned.
 """
-function minimum_distance(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::Bool = false, show_progress=true)
+function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bool = false, show_progress=true)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -454,7 +454,7 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::B
     alg == :auto || throw(ErrorException("Could not determine minimum distance algo automatically"))
 
     if alg in (:Brouwer, :Zimmermann) || 
-        return _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg = alg, verbose = v)
+        return _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg = alg, verbose = v, show_progress = show_progress)
     end
     println("Warning: old enumeration algorithm selected. Performance will be slow") # TODO remove when all code updated
     return _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg = alg)
@@ -1679,10 +1679,10 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         else
-            return _minimum_distance_BZ(C, verbose = verbose)
+            return minimum_distance_Gray(C, verbose = verbose)
         end
     elseif alg == :Gray
-        return _minimum_distance_BZ(C, verbose = verbose)
+        return minimum_distance_Gray(C, verbose = verbose)
     elseif alg == :trellis
         weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
         return C.d

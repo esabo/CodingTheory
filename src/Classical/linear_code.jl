@@ -344,7 +344,7 @@ minimum_distance_upper_bound(C::AbstractLinearCode) = C.u_bound
 Return `true` if code is maximum distance separable (MDS).
 """
 function is_MDS(C::AbstractLinearCode)
-    ismissing(C.d) && minimum_distance(C)
+    ismissing(C.d) && minimum_distance_Gray(C)
     return C.d == Singleton_bound(C.n, C.k)
 end
 

@@ -377,8 +377,8 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
 
 include("Classical/weight_dist.jl")
 export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
-    weight_distribution, weight_plot, support, minimum_distance, Sterns_attack,
-    _minimum_distance_BZ, minimum_words, words_of_weight
+    weight_distribution, weight_plot, support, minimum_distance_Gray, minimum_distance, 
+    Sterns_attack, minimum_words, words_of_weight
 
 #############################
    # Quantum/weight_dist.jl

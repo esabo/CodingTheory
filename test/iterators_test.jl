@@ -1,5 +1,5 @@
 @testitem "iterators.jl" begin 
-    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n}" begin
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n} (nthreads == 1)" begin
         len = 15
         weight = 7
         sgc = CodingTheory.SubsetGrayCode(len, weight)
@@ -8,14 +8,52 @@
         state = (subset, 1, fill(-1, 3))
         for i in 1:length(sgc)
             all_subsets_gray[i] = deepcopy(subset)
-                next = iterate(sgc, state)
-                next === nothing && break
-                (_, state) = next
-                (subset, _, _) = state
+            next = iterate(sgc, state)
+            isnothing(next) && break
+            (_, state) = next
+            (subset, _, _) = state
         end
         sort!(all_subsets_gray)
         all_subsets_hecke = CodingTheory.Oscar.subsets(collect(1:len), weight)
         sort!(all_subsets_hecke)
+        @test length(all_subsets_gray) == 6435 
+        @test all_subsets_gray == all_subsets_hecke 
+    end
+
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n} (nthreads > 1)" begin
+        len = 15
+        weight = 7
+        num_threads = 3 
+        itrs = CodingTheory.SubsetGrayCodesFromNumThreads(len, weight, num_threads)
+        @test length(itrs) == num_threads
+        initial_subset_vecs = fill(fill(0, weight), length(itrs))
+        bin = extended_binomial(len, weight)
+        for j in eachindex(itrs) 
+            itr = itrs[j]
+            @test length(itr) == fld(bin, num_threads)
+            subset_vec = zeros(UInt, itr.k)
+            CodingTheory._subset_unrank!(itr.init_rank, UInt(itr.n), subset_vec)
+            initial_subset_vecs[j] = subset_vec
+        end
+    
+        all_subsets_gray = fill(fill(0, weight), bin)
+    
+        for j in 0:length(itrs)-1
+            sgc = itrs[j + 1]
+            subset_vec = initial_subset_vecs[j + 1] 
+            state = (subset_vec, 1, fill(-1, 3))
+            for i in 1:length(sgc)
+                all_subsets_gray[j * fld(bin, num_threads) + i] = deepcopy(subset_vec)
+                next = iterate(sgc, state)
+                isnothing(next) && break 
+                (_, state) = next
+                (subset_vec, _, _) = state
+            end
+        end
+        sort!(all_subsets_gray)
+        all_subsets_hecke = CodingTheory.Oscar.subsets(collect(1:len), weight)
+        sort!(all_subsets_hecke)
+        @test length(all_subsets_gray) == 6435 
         @test all_subsets_gray == all_subsets_hecke 
     end
 
