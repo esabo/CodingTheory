@@ -122,16 +122,6 @@ end
     return (inds, (v, rank, inds))
 end
 
-@inline function rest(G::SubsetGrayCode, rank)
-  #TODO there will be a future PR for integrating this (its used for multithreaded weight calculation)
-  #=
-  _subset_unrank(rank, G.n, vec)
-  inds = Vector{Int}([-1,-1,-1]) 
-  state = (vec, rank, inds)
-  return Base.rest(G, state)
-  =#
-end 
-
 function _update_indices!(indices::Vector{Int}, x::Int, y::Int)
     _update_indices!(indices, x)
     _update_indices!(indices, y)

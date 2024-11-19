@@ -631,7 +631,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
             count > 0 && println("$count of the original $h information sets no longer contribute to the lower bound")
         end
 
-        flag = Threads.Atomic{Bool}(true)
+        keep_going = Threads.Atomic{Bool}(true)
         num_thrds = 1
 
         p = Int(characteristic(C.F))
@@ -652,13 +652,15 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         for m in 1:num_thrds 
 
             itr = itrs[m]
-            # for u in itr #TODO its easier to test the iteration if the loops are in the order used by GW 
+            # we loop over matrices first so that we can update the lower bound more often (see White Algo 7.1)
             for i in 1:h
-                # for i in 1:h #TODO 
                 c_itr = zeros(UInt16, C.n)
                 is_first = true
                 curr_mat = A_mats[i]
                 for u in itr
+                    if !keep_going
+                        break
+                    end
                     work_factor_up_to_log_field_size += 1
                     show_progress && ProgressMeter.next!(prog_bar) 
                     if r - rank_defs[i] > 0
@@ -689,12 +691,11 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             w = sum(c_itr) 
                             if uppers[m] > w 
                                 uppers[m] = w
-                                founds[m] = c_itr #TODO reduce founds coeffs here and below
+                                founds[m] = c_itr 
                                 exit_thread_indicator_vec[m] = i 
                                 verbose && println("Adjusting (local) upper bound: $w")
                                 if C.l_bound == uppers[m]
-                                    Threads.atomic_cas!(flag, true, false)
-                                    break
+                                    Threads.atomic_cas!(keep_going, true, false)
                                 else
                                     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
                                     isnothing(r_term) && (r_term = k;)
@@ -720,6 +721,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     return C.u_bound, y_Oscar
 end
 
+#=
 function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
     verbose::Bool = false, dbg = Dict())
 
@@ -888,6 +890,7 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     # iszero(C.H * transpose(y))
     return C.u_bound, (C.F).(y)
 end
+=#
 
 """
     words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
