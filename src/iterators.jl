@@ -8,17 +8,17 @@ struct SubsetGrayCode
     # details about the iterator using this struct are in the comments in the iterate() function below
     n::Int # length of codewords
     k::Int # weight of codewords
-    len::Int # length of the iterator
+    len::BigInt # length of the iterator
     init_rank::BigInt # iteration will start with the subset of this rank
 end
 
 function SubsetGrayCode(n::Int, k::Int)
     init_rank = big(1)
     num_threads = 1
-    return SubsetGrayCodeFromNumThreads(n, k, init_rank, num_threads)
+    return _subset_gray_code_from_num_threads(n, k, init_rank, num_threads)
 end
 
-function SubsetGrayCodeFromNumThreads(n::Int, k::Int, init_rank::BigInt, num_threads::Int)
+function _subset_gray_code_from_num_threads(n::Int, k::Int, init_rank::BigInt, num_threads::Int)
     bin = extended_binomial(n, k)
     if bin % num_threads != 0 
         throw(ArgumentError("num_threads must divide binomial(n k)"))
@@ -27,7 +27,9 @@ function SubsetGrayCodeFromNumThreads(n::Int, k::Int, init_rank::BigInt, num_thr
     return SubsetGrayCode(n, k, len, init_rank)
 end
 
-function SubsetGrayCodesFromNumThreads(n::Int, k::Int, num_threads::Int)
+function _subset_gray_codes_from_num_threads(n::Int, k::Int, num_threads::Int)
+    # This function splits a single iterator into several pieces. 
+    # The intended usage is to do the iteration with multiple threads
     bin = extended_binomial(n, k)
     if bin % num_threads != 0 
         throw(ArgumentError("num_threads must divide binomial(n k)"))
@@ -37,9 +39,7 @@ function SubsetGrayCodesFromNumThreads(n::Int, k::Int, num_threads::Int)
     itrs = fill(SubsetGrayCode(1,1,1,1), num_threads)
     for i in 0:num_threads-1
         init_rank = 1 + i * len
-
         itrs[i+1] = SubsetGrayCode(n, k, len, init_rank)
-        @assert length(itrs[i+1]) == len
     end
     return itrs
 end
@@ -54,6 +54,7 @@ Base.in(v::Vector{Int}, G::SubsetGrayCode) = length(v) == G.k
 
 @inline function Base.isdone(G::SubsetGrayCode, state) 
     (_, rank, _) = state
+    println("called")
     return rank == G.len
 end
 
@@ -78,20 +79,20 @@ end
     Note that inds is part of the iterator's state inds only to prevent reallocation in each 
     iteration.
     =#
-    subset_vec = zeros(UInt, G.k)
-    CodingTheory._subset_unrank(G.init_rank, UInt(G.n), subset_vec)
+    subset_vec = zeros(Int, G.k)
+    CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
     inds = fill(-1, 3) 
-    (inds, (subset_vec, G.init_rank, inds))
+    (inds, (subset_vec, 1, inds))
 end
 
 @inline function Base.iterate(G::SubsetGrayCode, state)
     # Based on Algorithm 2.13 in kreher1999combinatorial
-    v, rank, inds = state
+    v, index, inds = state
 
-    if rank == G.len 
+    if index == G.len
         return nothing 
     end
-    rank += 1
+    index += 1
 
     @inbounds begin
         inds[1] = -1
@@ -144,7 +145,7 @@ end
             end
         end
     end
-    return (inds, (v, rank, inds))
+    return (inds, (v, index, inds))
 end
 
 function _update_indices!(indices::Vector{Int}, x::Int, y::Int)
@@ -189,7 +190,7 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     return r
 end
 
-function _subset_unrank!(r::BigInt, n::UInt, T::Vector{UInt})
+function _subset_unrank!(r::BigInt, n::UInt, T::Vector{Int})
     # Based on Algorithm 2.12 in kreher1999combinatorial
     k = length(T)
     subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"

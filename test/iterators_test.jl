@@ -1,5 +1,5 @@
 @testitem "iterators.jl" begin 
-    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n} (nthreads == 1)" begin
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1,..,n} (single iterator)" begin
         len = 15
         weight = 7
         sgc = CodingTheory.SubsetGrayCode(len, weight)
@@ -20,18 +20,18 @@
         @test all_subsets_gray == all_subsets_hecke 
     end
 
-    @testset "SubsetGrayCode iterates over all weight k subsets of {1, .., n} (nthreads > 1)" begin
+    @testset "SubsetGrayCode iterates over all weight k subsets of {1,..,n} (split iterator)" begin
         len = 15
         weight = 7
-        num_threads = 3 
-        itrs = CodingTheory.SubsetGrayCodesFromNumThreads(len, weight, num_threads)
+        num_threads = 3 # split the iterator into 3 parts 
+        itrs = CodingTheory._subset_gray_codes_from_num_threads(len, weight, num_threads)
         @test length(itrs) == num_threads
         initial_subset_vecs = fill(fill(0, weight), length(itrs))
         bin = extended_binomial(len, weight)
         for j in eachindex(itrs) 
             itr = itrs[j]
             @test length(itr) == fld(bin, num_threads)
-            subset_vec = zeros(UInt, itr.k)
+            subset_vec = zeros(Int, itr.k)
             CodingTheory._subset_unrank!(itr.init_rank, UInt(itr.n), subset_vec)
             initial_subset_vecs[j] = subset_vec
         end
@@ -80,7 +80,7 @@
         n1 = UInt(5)
         rank1 = CodingTheory._subset_rank(subset1, k1)
         @test rank1 == 0
-        result1 = zeros(UInt, k1)
+        result1 = zeros(Int, k1)
         CodingTheory._subset_unrank!(rank1, n1, result1)
         @test result1 == subset1
   
@@ -89,13 +89,13 @@
         n2 = UInt(5)
         rank2 = CodingTheory._subset_rank(subset2, k2)
         @test rank2 == 7
-        result2 = zeros(UInt, k2)
+        result2 = zeros(Int, k2)
         CodingTheory._subset_unrank!(rank2, n2, result2)
         @test result2 == subset2 
   
         k3 = UInt(3)
         n3 = UInt(5)
-        result3 = zeros(UInt, k3)
+        result3 = zeros(Int, k3)
         results = Set()
         bin = binomial(n3, k3) 
         for i::BigInt in collect(0: bin - 1)
