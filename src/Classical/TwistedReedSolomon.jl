@@ -40,7 +40,7 @@ function TwistedReedSolomonCode(k::Int, α::Vector{T}, t::Vector{Int}, h::Vector
             G[i + 1, c] = g_i(α[c])
         end
     end
-    display(G)
+    # display(G)
 
     t_dual = k .- h
     h_dual = (n - k) .- t
@@ -55,11 +55,11 @@ function TwistedReedSolomonCode(k::Int, α::Vector{T}, t::Vector{Int}, h::Vector
             H[i + 1, c] = g_i(α[c])
         end
     end
-    println(" ")
-    display(H)
+    # println(" ")
+    # display(H)
 
-    println(" ")
-    display(G * transpose(H))
+    # println(" ")
+    # display(G * transpose(H))
 
     C = LinearCode(G, H, false)
     return TwistedReedSolomonCode(C.F, C.n, C.k, C.d, C.l_bound, C.u_bound, C.G, C.H, C.G_stand, C.H_stand, C.P_stand, C.weight_enum, α, t, h, η, l)

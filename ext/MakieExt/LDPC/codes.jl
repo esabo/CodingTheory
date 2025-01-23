@@ -43,81 +43,81 @@ function CodingTheory.degree_distributions_plot(C::AbstractLDPCCode)
     return f
 end
 
-"""
-$TYPEDSIGNATURES
+# """
+# $TYPEDSIGNATURES
 
-Return a bar graph and a dictionary of (length, count) pairs for unique short
-cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
-when there are no cycles.
+# Return a bar graph and a dictionary of (length, count) pairs for unique short
+# cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
+# when there are no cycles.
 
-# Note
-- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
-  where ``g`` is the girth.
-- Run `using Makie` to activate this extension.
-"""
-function CodingTheory.count_short_cycles_plot(C::AbstractLDPCCode)
-    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        CodingTheory._count_cycles(C)
-    end
+# # Note
+# - Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
+#   where ``g`` is the girth.
+# - Run `using Makie` to activate this extension.
+# """
+# function CodingTheory.count_short_cycles_plot(C::AbstractLDPCCode)
+#     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
+#         CodingTheory._count_cycles(C)
+#     end
     
-    len = length(C.short_cycle_counts)
-    x_data = [0 for _ in 1:len]
-    y_data = [0 for _ in 1:len]
-    index = 1
-    for (i, j) in C.short_cycle_counts
-        x_data[index] = i
-        y_data[index] = j
-        index += 1
-    end
+#     len = length(C.short_cycle_counts)
+#     x_data = [0 for _ in 1:len]
+#     y_data = [0 for _ in 1:len]
+#     index = 1
+#     for (i, j) in C.short_cycle_counts
+#         x_data[index] = i
+#         y_data[index] = j
+#         index += 1
+#     end
 
-    fig = Figure();
-    ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
-        title = "Short Cycle Counts")
-    barplot!(ax, x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data)
-    # fig = Plots.bar(x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data,
-    #     legend = false, xlabel = "Cycle Length", ylabel = "Occurrences",
-    #     title = "Short Cycle Counts")
-    display(fig)
-    return fig, C.short_cycle_counts
-end
+#     fig = Figure();
+#     ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
+#         title = "Short Cycle Counts")
+#     barplot!(ax, x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data)
+#     # fig = Plots.bar(x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data,
+#     #     legend = false, xlabel = "Cycle Length", ylabel = "Occurrences",
+#     #     title = "Short Cycle Counts")
+#     display(fig)
+#     return fig, C.short_cycle_counts
+# end
 
-"""
-$TYPEDSIGNATURES
+# """
+# $TYPEDSIGNATURES
 
-Return a bar graph and a dictionary of (length, count) pairs for unique elementary
-cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
-when there are no cycles.
+# Return a bar graph and a dictionary of (length, count) pairs for unique elementary
+# cycles in the Tanner graph of `C`. An empty graph and dictionary are returned
+# when there are no cycles.
 
-# Note
-- Elementary cycles do not contain the same vertex twice and are unable to be
-  decomposed into a sequence of shorter cycles.
-- Run `using Makie` to activate this extension.
-"""
-function CodingTheory.count_elementary_cycles_plot(C::AbstractLDPCCode)
-    if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
-        CodingTheory._count_cycles(C)
-    end
+# # Note
+# - Elementary cycles do not contain the same vertex twice and are unable to be
+#   decomposed into a sequence of shorter cycles.
+# - Run `using Makie` to activate this extension.
+# """
+# function CodingTheory.count_elementary_cycles_plot(C::AbstractLDPCCode)
+#     if isempty(C.short_cycle_counts) || isempty(C.elementary_cycle_counts)
+#         CodingTheory._count_cycles(C)
+#     end
 
-    len = length(C.elementary_cycle_counts)
-    x_data = [0 for _ in 1:len]
-    y_data = [0 for _ in 1:len]
-    index = 1
-    for (i, j) in C.elementary_cycle_counts
-        x_data[index] = i
-        y_data[index] = j
-        index += 1
-    end
+#     len = length(C.elementary_cycle_counts)
+#     x_data = [0 for _ in 1:len]
+#     y_data = [0 for _ in 1:len]
+#     index = 1
+#     for (i, j) in C.elementary_cycle_counts
+#         x_data[index] = i
+#         y_data[index] = j
+#         index += 1
+#     end
 
-    fig = Figure();
-    ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
-        title = "Elementary Cycle Counts")
-    barplot!(ax, x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data)
-    # fig = Plots.bar(x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data,
-    #     legend = false, xlabel = "Cycle Length", ylabel = "Occurrences",
-    #     title = "Elementary Cycle Counts")
-    display(fig)
-    return fig, C.elementary_cycle_counts
-end
+#     fig = Figure();
+#     ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
+#         title = "Elementary Cycle Counts")
+#     barplot!(ax, x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data)
+#     # fig = Plots.bar(x_data, y_data, bar_width = 1, xticks = x_data, yticks = y_data,
+#     #     legend = false, xlabel = "Cycle Length", ylabel = "Occurrences",
+#     #     title = "Elementary Cycle Counts")
+#     display(fig)
+#     return fig, C.elementary_cycle_counts
+# end
 
 """
 $TYPEDSIGNATURES

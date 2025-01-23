@@ -9,7 +9,7 @@
 #############################
 
 """
-    LinearCode(G::CTMatrixTypes, parity::Bool=false, brute_force_WE::Bool=true)
+    LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool = true)
 
 Return the linear code constructed with generator matrix `G`. If the optional paramater `parity` is
 set to `true`, a linear code is built with `G` as the parity-check matrix. If the optional parameter
@@ -23,10 +23,10 @@ function LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool
     G_new = _remove_empty(G_new, :rows)
 
     C = if parity
-            H = kernel(G_new, side = :right)
-            rnk_H = rank(H)
-            # println(rnk_H)
-            # display(H)
+        H = kernel(G_new, side = :right)
+        rnk_H = rank(H)
+        # println(rnk_H)
+        # display(H)
         if ncols(H) == rnk_H
             H_tr = transpose(H)
         else
@@ -189,45 +189,45 @@ end
 """
     field(C::AbstractLinearCode)
 
-Return the base ring of the generator matrix.
+Return the base ring of the generator matrix of `C`.
 """
 field(C::AbstractLinearCode) = C.F
 
 """
     length(C::AbstractLinearCode)
 
-Return the length of the code.
+Return the length of `C`.
 """
 length(C::AbstractLinearCode) = C.n
 
 """
     dimension(C::AbstractLinearCode)
 
-Return the dimension of the code.
+Return the dimension of `C`.
 """
 dimension(C::AbstractLinearCode) = C.k
 
 """
     cardinality(C::AbstractLinearCode)
 
-Return the cardinality of the code.
+Return the cardinality of `C`.
 """
 cardinality(C::AbstractLinearCode) = BigInt(order(C.F))^C.k
 
 """
     rate(C::AbstractLinearCode)
 
-Return the rate, ``R = k/n``, of the code.
+Return the rate of `C`.
 """
 rate(C::AbstractLinearCode) = C.k / C.n
 
 """
-    generator_matrix(C::AbstractLinearCode, stand_form::Bool=false)
+    generator_matrix(C::AbstractLinearCode, stand_form::Bool = false)
 
-Return the generator matrix of the code. If the optional parameter `stand_form`
+Return the generator matrix of `C`. If the optional parameter `stand_form`
 is set to `true`, the standard form of the generator matrix is returned instead.
 """
-function generator_matrix(C::AbstractLinearCode, stand_form::Bool=false)
+function generator_matrix(C::AbstractLinearCode, stand_form::Bool = false)
     if isa(C, QuasiCyclicCode)
         stand_form && !ismissing(C.G_stand) && (return C.G_stand;)
         if ismissing(C.G)
@@ -259,13 +259,13 @@ function generator_matrix(C::AbstractLinearCode, stand_form::Bool=false)
 end
 
 """
-    parity_check_matrix(C::AbstractLinearCode, stand_form::Bool=false)
+    parity_check_matrix(C::AbstractLinearCode, stand_form::Bool = false)
 
-Return the parity-check matrix of the code. If the optional parameter
+Return the parity-check matrix of `C`. If the optional parameter
 `stand_form` is set to `true`, the standard form of the parity-check matrix
 is returned instead.
 """
-function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool=false)
+function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool = false)
     if isa(C, QuasiCyclicCode)
         if stand_form
             ismissing(C.H_stand) || (return C.H_stand;)
@@ -312,7 +312,7 @@ standard_form_permutation(C::AbstractLinearCode) = C.P_stand
 """
     relative_distance(C::AbstractLinearCode)
 
-Return the relative minimum distance, ``\\delta = d / n`` of the code if ``d`` is known;
+Return the relative minimum distance of `C` if ``d`` is known;
 otherwise return `missing`.
 """
 relative_distance(C::AbstractLinearCode) = C.d / C.n
@@ -653,7 +653,7 @@ Singleton_bound(C::AbstractLinearCode) = Singleton_bound(C.n, C.k)
 """
     encode(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
 
-Return the encoding of `v` into `C`
+Return the encoding of `v` into `C`.
 """
 function encode(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
     w = isa(v, Vector{Int}) ? matrix(C.F, 1, length(v), v) : v
@@ -995,9 +995,9 @@ function is_triply_even(C::AbstractLinearCode)
 end
 
 """
-    words(C::AbstractLinearCode, only_print::Bool=false)
-    codewords(C::AbstractLinearCode, only_print::Bool=false)
-    elements(C::AbstractLinearCode, only_print::Bool=false)
+    words(C::AbstractLinearCode, only_print::Bool = false)
+    codewords(C::AbstractLinearCode, only_print::Bool = false)
+    elements(C::AbstractLinearCode, only_print::Bool = false)
 
 Return the elements of `C`.
 
@@ -1005,7 +1005,7 @@ Return the elements of `C`.
 * If `only_print` is `true`, the elements are only printed to the console and not
   returned.
 """
-function words(C::AbstractLinearCode, only_print::Bool=false)
+function words(C::AbstractLinearCode, only_print::Bool = false)
     words = only_print ? nothing : Vector{typeof(C.G)}()
     G = ismissing(C.P_stand) ? generator_matrix(C, true) : generator_matrix(C, true) * C.P_stand
     E = base_ring(G)

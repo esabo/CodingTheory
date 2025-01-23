@@ -297,6 +297,7 @@
         @test weight_flag
 
         # [[400,16,6]] code from Table 1 of https://doi.org/10.1103/PhysRevResearch.2.043423
+        F = Oscar.Nemo.Native.GF(2)
         H = matrix(F, 12, 16, 
             [1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0;
              0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 0;

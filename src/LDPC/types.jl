@@ -49,7 +49,7 @@ mutable struct LDPCCode <: AbstractLDPCCode
 end
 
 #############################
-    # LDPC/channels.jl
+      # LDPC/channels.jl
 #############################
 
 struct BinaryErasureChannel <: AbstractBinaryErasureChannel

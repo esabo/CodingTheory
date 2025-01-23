@@ -148,21 +148,31 @@ function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, 
                 push!(output_indices, col)
                 break
             end
-            # elseif count ≥ 1
-            #     _union_by_rank!(parents, depths, seen_roots_list[col][count], seen_roots_list[col][count + 1])
-            # end
-            # count += 1
         end
-
+        
         if !flag
-            count = 0
-            for row in var_adj_list[col]
-                if count ≥ 1
-                    _union_by_rank!(parents, depths, seen_roots_list[col][count], seen_roots_list[col][count + 1])
+            # Find maximum of depths[see_roots_list[col][count]], also, see if there are two or more roots of maximum depth. In which case we should grow.
+            merged_root = -1
+            merged_depth = 0
+            growth = false
+            for row_root in seen_roots_list[col]
+                if depths[row_root] > merged_depth
+                    merged_root = row_root
+                    merged_depth = depths[row_root] 
+                    growth = false
+                elseif depths[row_root] == merged_depth
+                    growth = true
                 end
-                count += 1
             end
-            # println(seen_roots_list)
+
+            for row_root in seen_roots_list[col]
+                parents[row_root] = merged_root
+            end
+
+            if growth
+                depths[merged_root] += 1
+            end
+
         end
         # println(parents)
         # println(depths)
