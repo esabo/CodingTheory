@@ -68,7 +68,7 @@
         end
 
         # check it against the code in this library
-        for S in [SteaneCode(), Q15RM(), RotatedSurfaceCode(3), RotatedSurfaceCode(5), RotatedSurfaceCode(7)]
+        for S in [SteaneCode(), Q15RM(), RotatedSurfaceCode(3), RotatedSurfaceCode(5), RotatedSurfaceCode(7), GrossCode()]
             H_Int = CodingTheory._Flint_matrix_to_Julia_T_matrix(X_stabilizers(S), UInt8);
             ordering = shuffle(1:S.n);
             var_adj_list = [Int[] for _ in 1:size(H_Int, 2)];
@@ -81,14 +81,14 @@
             end
             E = sort(CodingTheory._select_erased_columns(H_Int, ordering, var_adj_list));
             T = findall(x -> x == true, get_indices(H_Int, ordering));
-            # @test E == T
-            test = E == T
-            println(test)
-            if !test
-                println(ordering)
-                println(E)
-                println(T)
-            end
+            @test E == T
+            # test = E == T
+            # println(test)
+            # if !test
+            #     println(ordering)
+            #     println(E)
+            #     println(T)
+            # end
         end
     end
 end

@@ -19,6 +19,7 @@ using DataStructures
 using StatsBase
 using Distributions
 using ProgressMeter
+using DocStringExtensions
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
@@ -52,6 +53,7 @@ const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
+const CTPolyMatrix = Union{AbstractAlgebra.Generic.MatSpaceElem{fpPolyRingElem}, AbstractAlgebra.Generic.MatSpaceElem{FqPolyRingElem}}
 
 include("Classical/types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,

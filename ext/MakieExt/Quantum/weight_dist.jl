@@ -8,19 +8,19 @@
     # Weight Enumerators
 #############################
 
-"""
-$TYPEDSIGNATURES
+# """
+# $TYPEDSIGNATURES
 
-Return a bar graph of the weight distribution related to `S`.
+# Return a bar graph of the weight distribution related to `S`.
 
-If `type` is `:stabilizer`, the weight distribution of the stabilizers are computed.
-If `type` is `:normalizer`, the weight distrbution of the normalizer of the stabilizers
-are computed. If `type` is `:quotient`, the weight distrbution of the normalizer mod the
-stabilizers is computed.
+# If `type` is `:stabilizer`, the weight distribution of the stabilizers are computed.
+# If `type` is `:normalizer`, the weight distrbution of the normalizer of the stabilizers
+# are computed. If `type` is `:quotient`, the weight distrbution of the normalizer mod the
+# stabilizers is computed.
 
-# Note
-- Run `using Makie` to activate this extension.
-"""
+# # Note
+# - Run `using Makie` to activate this extension.
+# """
 function CodingTheory.weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto,
     type::Symbol = :stabilizer)
 

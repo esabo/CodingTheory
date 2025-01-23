@@ -21,7 +21,7 @@ end
 function _subset_gray_code_from_num_threads(n::Int, k::Int, init_rank::BigInt, num_threads::Int)
     bin = extended_binomial(n, k)
     if bin % num_threads != 0 
-        throw(ArgumentError("num_threads must divide binomial(n k)"))
+        throw(ArgumentError("num_threads=$num_threads, must divide binomial($n $k)"))
     end
     len = fld(bin, num_threads)
     return SubsetGrayCode(n, k, len, init_rank)
@@ -31,13 +31,11 @@ function _subset_gray_codes_from_num_threads(n::Int, k::Int, num_threads::Int)
     # This function splits a single iterator into several pieces. 
     # The intended usage is to do the iteration with multiple threads
     bin = extended_binomial(n, k)
-    if bin % num_threads != 0 
-        throw(ArgumentError("num_threads must divide binomial(n k)"))
-    end
+    i = 0
     len = fld(bin, num_threads)
 
     itrs = fill(SubsetGrayCode(1,1,1,1), num_threads)
-    for i in 0:num_threads-1
+    for i in 0:num_threads - 1
         init_rank = 1 + i * len
         itrs[i+1] = SubsetGrayCode(n, k, len, init_rank)
     end
@@ -54,7 +52,6 @@ Base.in(v::Vector{Int}, G::SubsetGrayCode) = length(v) == G.k
 
 @inline function Base.isdone(G::SubsetGrayCode, state) 
     (_, rank, _) = state
-    println("called")
     return rank == G.len
 end
 

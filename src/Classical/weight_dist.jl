@@ -7,8 +7,8 @@
 #############################
          # General
 #############################
-using AllocCheck
-using Profile
+# using AllocCheck
+# using Profile
 using ProgressMeter
 """
     polynomial(W::WeightEnumerator)
@@ -581,26 +581,16 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     #In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r+1
     lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
 
-    num_thrds = Threads.nthreads()
-    verbose && println("Detected $num_thrds threads.")
-    power = Int(floor(log(2, num_thrds)))
-
     work_factor_up_to_log_field_size = 0
     predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
     verbose && println("Predicted work factor: $predicted_work_factor")
     if show_progress 
         prog_bar = Progress(predicted_work_factor, dt=1.0, showspeed=true) # updates no faster than once every 1s
     end
-    #= TODO rewrite
-    # c_itr is a binary vector. If it were a _random_ vector the expected 
-    # weight of the subvector c_itr[1:2*uppers[m]] equals uppers[m]. 
-    # So we use the heuristic that w(c_itr[1:2*uppers[m]+c]) for a small constant c is 
-    # usually larger than uppers[m]. 
-    # If not, we compute weight of all of c_itr
-    =#
     weight_sum_bound = min(2 * C.u_bound + 5, n)
     verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
 
+    num_thrds = Threads.nthreads()
     for r in 2:k
         if r > 2^16
             verbose && println("Reached an r with r>2^16") 
@@ -632,51 +622,58 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         end
 
         keep_going = Threads.Atomic{Bool}(true)
-        num_thrds = 1
 
         p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
+        println("uppers[1] $(uppers[1])")
         founds = [found for _ in 1:num_thrds]
         exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
 
-        # itrs_alloc = @allocated begin
-        itrs = [SubsetGrayCode(C.k, r)] 
-        # lens = [length(_) for _ in itrs]
-        # println(lens)
-        # expected_work_factor += h * sum(lens)
+        # if num_thrds == 1
+        #     itrs = [SubsetGrayCode(C.k, r, extended_binomial(C.k, r), 1)]
+        # else
+        #     itrs = CodingTheory._subset_gray_codes_from_num_threads(C.k, r, num_thrds)
         # end
-        # println("alloc itrs used ", itrs_alloc)
+        itrs = CodingTheory._subset_gray_codes_from_num_threads(C.k, r, num_thrds)
+        num_thrds = length(itrs)
 
-        # Threads.@threads for itr in itrs 
-        vec = vcat(fill(1, r), fill(0, C.k - r)) # initial vec corresponds to the subset {1,..,r}
-        for m in 1:num_thrds 
+        vec = vcat(fill(1, 1), fill(0, C.k - r), fill(1, r-1)) # initial vec corresponds to the subset {1,..,r}
+        vec = UInt16.(vec)
 
-            itr = itrs[m]
+        # Threads.@threads for ind in 1:num_thrds 
+        for ind in 1:num_thrds 
+            m = Threads.threadid()
             # we loop over matrices first so that we can update the lower bound more often (see White Algo 7.1)
             for i in 1:h
-                c_itr = zeros(UInt16, C.n)
+                if keep_going[] == false
+                    break
+                end
+                c_itr = zeros(UInt16, C.n) 
                 is_first = true
                 curr_mat = A_mats[i]
-                for u in itr
-                    if !keep_going
+                itr = itrs[m]
+                count = 0
+                for u in itr 
+                    # count += 1
+                    if keep_going[] == false
                         break
                     end
                     work_factor_up_to_log_field_size += 1
                     show_progress && ProgressMeter.next!(prog_bar) 
                     if r - rank_defs[i] > 0
-                        for ind in u
-
-                            if ind != -1
-                                is_first = false
-                                @simd for i in eachindex(c_itr)
-                                    @inbounds c_itr[i] = xor(c_itr[i], curr_mat[i, ind])
-                                end
-                            end
-                        end
                         if is_first 
                             LinearAlgebra.mul!(c_itr, curr_mat, vec)
-                            @inbounds @simd for j in 1:n 
+                            @inbounds @simd for j in eachindex(c_itr) 
                                 c_itr[j] %= p
+                            end
+                            is_first = false
+                        else
+                            for ind in u 
+                                if ind != -1
+                                    @simd for i in eachindex(c_itr)
+                                        @inbounds c_itr[i] = xor(c_itr[i], curr_mat[i, ind])
+                                    end
+                                end
                             end
                         end
 
@@ -689,12 +686,17 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
 
                         if uppers[m] > partial_weight
                             w = sum(c_itr) 
+                            if w == 0
+                                verbose && println("WARNING found weight(c_itr)=0 at count ", count, "u is ", u)
+                                continue
+                            end
                             if uppers[m] > w 
-                                uppers[m] = w
+                                uppers[m] = w 
                                 founds[m] = c_itr 
                                 exit_thread_indicator_vec[m] = i 
                                 verbose && println("Adjusting (local) upper bound: $w")
                                 if C.l_bound == uppers[m]
+                                    println("early exit")
                                     Threads.atomic_cas!(keep_going, true, false)
                                 else
                                     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
@@ -706,11 +708,12 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                     end
                 end
             end
+            loc = argmin(uppers)
+            println("old C.u_bound $(C.u_bound)")
+            C.u_bound = uppers[loc]
+            found = founds[loc]
+            initial_perm_ind = exit_thread_indicator_vec[loc]
         end
-        loc = argmin(uppers)
-        C.u_bound = uppers[loc]
-        found = founds[loc]
-        initial_perm_ind = exit_thread_indicator_vec[loc]
     end
     show_progress && ProgressMeter.finish!(prog_bar)
 
@@ -721,7 +724,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     return C.u_bound, y_Oscar
 end
 
-#=
 function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
     verbose::Bool = false, dbg = Dict())
 
@@ -890,7 +892,6 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     # iszero(C.H * transpose(y))
     return C.u_bound, (C.F).(y)
 end
-=#
 
 """
     words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
