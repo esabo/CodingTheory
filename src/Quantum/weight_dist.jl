@@ -437,7 +437,7 @@ end
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimum_distance(S::AbstractStabilizerCode; alg::Symbol = :auto, verbose::Bool = false)
+function minimum_distance_Gray(S::AbstractStabilizerCode; alg::Symbol = :auto, verbose::Bool = false)
     !ismissing(S.d) && return S.d
 
     # these should be different? weight? auto? BZ?
@@ -577,7 +577,7 @@ end
 
 function is_pure(S::AbstractStabilizerCode)
     ismissing(S.pure) || return S.pure
-    minimum_distance(S) # this needs to force the weight enumerator approach
+    minimum_distance_Gray(S) # this needs to force the weight enumerator approach
     return S.pure
 end
 
