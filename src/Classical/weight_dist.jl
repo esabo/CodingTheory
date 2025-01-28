@@ -461,7 +461,7 @@ function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bo
 end
 
 function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zimmermann,
-    verbose::Bool = false, dbg = Dict(), show_progress=true)
+    verbose::Bool = false, dbg = Dict(), show_progress=false)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -591,6 +591,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
 
     num_thrds = Threads.nthreads()
+    verbose && println("number of threads ", num_thrds)
     for r in 2:k
         if r > 2^16
             verbose && println("Reached an r with r>2^16") 
@@ -600,18 +601,17 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
         # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
         # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
-        verbose && println("r: $r")
-        verbose && println("Lower bound: $(C.l_bound)")
-        verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
             y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
             # @assert in(y, C)
             dbg[dbg_key_exit_r] = r
-            #TODO report actual/expected work factors in dbg dict
             show_progress && ProgressMeter.finish!(prog_bar)
             return C.u_bound, y
         end
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $(C.l_bound)")
+        verbose && println("Upper bound: $(C.u_bound)")
 
         if verbose
             count = 0
@@ -625,36 +625,38 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
 
         p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
-        println("uppers[1] $(uppers[1])")
         founds = [found for _ in 1:num_thrds]
         exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
-
-        # if num_thrds == 1
-        #     itrs = [SubsetGrayCode(C.k, r, extended_binomial(C.k, r), 1)]
-        # else
-        #     itrs = CodingTheory._subset_gray_codes_from_num_threads(C.k, r, num_thrds)
-        # end
-        itrs = CodingTheory._subset_gray_codes_from_num_threads(C.k, r, num_thrds)
-        num_thrds = length(itrs)
 
         vec = vcat(fill(1, 1), fill(0, C.k - r), fill(1, r-1)) # initial vec corresponds to the subset {1,..,r}
         vec = UInt16.(vec)
 
-        # Threads.@threads for ind in 1:num_thrds 
-        for ind in 1:num_thrds 
-            m = Threads.threadid()
+        bin = extended_binomial(C.k, r)
+        # println("bin is ", bin)
+        len = fld(bin, num_thrds)
+
+        # Threads.@threads for ind in 1:num_thrds
+        for ind in 1:num_thrds
+        # for ind in 1:num_thrds 
             # we loop over matrices first so that we can update the lower bound more often (see White Algo 7.1)
             for i in 1:h
+                verbose && println("thread id=$(Threads.threadid())\t mat id=$(i)")
                 if keep_going[] == false
                     break
                 end
                 c_itr = zeros(UInt16, C.n) 
                 is_first = true
                 curr_mat = A_mats[i]
-                itr = itrs[m]
+                init_rank = 1 + (ind - 1) * len
+                if ind == num_thrds 
+                    len = bin - (num_thrds - 1) * len
+                end
                 count = 0
-                for u in itr 
-                    # count += 1
+                for u in SubsetGrayCode(C.k, r, len, init_rank)
+                    m = Threads.threadid()
+                    # println("Comparing sum with $(uppers[m]). Also C.u=$(C.u_bound)")
+                
+                    count += 1
                     if keep_going[] == false
                         break
                     end
@@ -708,8 +710,8 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                     end
                 end
             end
-            loc = argmin(uppers)
-            println("old C.u_bound $(C.u_bound)")
+            loc = argmin(uppers) #TODO not threadsafe ?
+            # verbose && println("old C.u_bound $(C.u_bound)")
             C.u_bound = uppers[loc]
             found = founds[loc]
             initial_perm_ind = exit_thread_indicator_vec[loc]
