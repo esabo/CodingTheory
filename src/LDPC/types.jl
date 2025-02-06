@@ -46,6 +46,7 @@ mutable struct LDPCCode <: AbstractLDPCCode
     girth::Union{Int, Missing}
     ACEs_per_var_node::Vector{Vector{Int}}
     simple_cycles::Vector{Vector{Int}}
+    max_cyc_len::Int
 end
 
 #############################

@@ -153,20 +153,21 @@ export LDPCCode, regular_LDPC_code, variable_degree_distribution, check_degree_d
     degree_distributions, column_bound, row_bound, column_row_bounds, limited, density,
     is_regular, variable_degree_polynomial, check_degree_polynomial, degree_distributions_plot,
     girth, computation_graph, enumerate_simple_cycles, simple_cycle_length_distribution,
-    simple_cycle_length_distribution_plot, average_simple_cycle_length, median_simple_cycle_length,
+    average_simple_cycle_length, median_simple_cycle_length,
     mode_simple_cycle_length, count_simple_cycles, simple_cycle_distribution_by_variable_node,
     simple_cycle_distribution_by_variable_node, enumerate_short_cycles,
-    short_cycle_length_distribution, short_cycle_length_distribution_plot,
+    short_cycle_length_distribution,
     average_short_cycle_length, median_short_cycle_length, mode_short_cycle_length,
-    count_short_cycles, short_cycle_distribution_by_variable_node,
-    short_cycle_distribution_by_variable_node_plot
+    count_short_cycles, short_cycle_distribution_by_variable_node
 
 #############################
      # LDPC/cycles.jl
 #############################
 
 include("LDPC/cycles.jl")
-export remove_cycles
+export remove_cycles, simple_cycle_length_distribution_plot,
+    simple_cycle_distribution_by_variable_node_plot, short_cycle_length_distribution_plot,
+    short_cycle_distribution_by_variable_node_plot, ACE_spectrum_plot
 
 # #############################
 #     # LDPC/algorithms.jl
@@ -463,5 +464,13 @@ export weight_reduction
 include("Quantum/weight_reduction.jl")
 export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_reduction,
     copying_as_coning, gauging_as_coning
+
+
+#############################
+# Quantum/homological_measurements.jl
+#############################
+
+include("Quantum/homological_measurements.jl")
+export homological_measurement, Cheeger_constant
 
 end
