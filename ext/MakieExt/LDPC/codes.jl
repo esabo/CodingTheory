@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024 Eric Sabo
+# Copyright (c) 2023 - 2025 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
