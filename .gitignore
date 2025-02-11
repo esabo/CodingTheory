@@ -27,3 +27,4 @@ simd_add_mul_wt_benchmarks.txt
 # Manifest.toml
 /.vscode
 alg_geo_notes.jl
+Manifest.toml
