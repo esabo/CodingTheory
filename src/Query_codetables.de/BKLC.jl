@@ -1,3 +1,7 @@
+using HTTP
+using Gumbo
+using Cascadia
+
 function best_linear_code_in_codetables(n::Int, k::Int, F::String; verbose::Bool=false)
     q_match = match(r"GF\((\d+)\)", F)
     if q_match === nothing

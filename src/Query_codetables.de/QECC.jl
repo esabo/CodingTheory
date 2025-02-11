@@ -1,3 +1,7 @@
+using HTTP
+using Gumbo
+using Cascadia
+
 function query_quantum_code_in_codetables(n::Int, k::Int, q::Int; verbose::Bool=false)
     if !(q in [2, 3, 4, 5, 7, 8])
         throw(ArgumentError("q (= $q) must be in [2, 3, 4, 5, 7, 8]"))
