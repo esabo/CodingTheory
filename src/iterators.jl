@@ -76,20 +76,34 @@ end
     Note that inds is part of the iterator's state inds only to prevent reallocation in each 
     iteration.
     =#
+    # subset_vec = zeros(Int, G.k)
+    # CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
+
+    # a = @allocated begyyin
     subset_vec = zeros(Int, G.k)
-    CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
+    if G.init_rank == 1
+        subset_vec = Int.(collect(1 : G.k))
+        # first_vec = vcat(ones(Int, r), zeros(Int, k - r))
+        # for i in 1:G.k
+        #     subset_vec[i] = 1
+        # end
+    else
+        CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
+    end
+    # end; a > 0 && @show a
+
     inds = fill(-1, 3) 
     (inds, (subset_vec, 1, inds))
 end
 
 @inline function Base.iterate(G::SubsetGrayCode, state)
     # Based on Algorithm 2.13 in kreher1999combinatorial
-    v, index, inds = state
+    v, rank, inds = state
 
-    if index == G.len
+    if rank == G.len
         return nothing 
     end
-    index += 1
+    rank += 1
 
     @inbounds begin
         inds[1] = -1
@@ -142,7 +156,7 @@ end
             end
         end
     end
-    return (inds, (v, index, inds))
+    return (inds, (v, rank, inds))
 end
 
 function _update_indices!(indices::Vector{Int}, x::Int, y::Int)
@@ -184,31 +198,58 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     if (k % 2) == 1
         r = r - 1
     end
+    r = r + 1 # we use 1-indexed ranks to follow the usual Julia convention
     return r
+end
+
+function _subset_unrank_to_vec!(r::BigInt, k::UInt, vec::Vector{Int})
+    # returns a {0,1} vector with nonzero entries corresponding to the subset returned by _subset_unrank!
+    n = length(vec)
+    subset_vec = Int.(zeros(k))
+    CodingTheory._subset_unrank!(r, UInt(n), subset_vec)
+    for i in subset_vec
+        vec[i] = 1
+    end
 end
 
 function _subset_unrank!(r::BigInt, n::UInt, T::Vector{Int})
     # Based on Algorithm 2.12 in kreher1999combinatorial
+    r = r - 1 
+
     k = length(T)
     subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
-    bnd = binomial(n, k)
-    rank_size_str::String = "rank must be in [0, choose(n, k) - 1] = $bnd"
-    r > bnd && throw(ArgumentError(rank_size_str))
+    # count_bins = 0
+    # bnd = extended_binomial(n, k)
+    # # count_bins += 1
+    # rank_size_str::String = "rank must be in [0, choose(n, k) - 1] = $bnd but is $(r)"
+    # # r > bnd && throw(ArgumentError(rank_size_str))
+    # if r > bnd 
+    #     println(rank_size_str)
+    #     println("bug exit _subset_unrank")
+    #     return
+    # end
   
     x = 0
     i = 0
-    y = 0
+    y = 0 
     x = n
     for i::UInt in k:-1:1
         y = extended_binomial(x, i)
+        # println((Int16.(x),Int16.(i)))
+        # count_bins += 1
         while y > r
            x = x - 1
            y = extended_binomial(x, i)
+        #    println((x,i))
+        #    count_bins += 1
         end 
         T[i] = x + 1
         r = extended_binomial(x + 1, i) - r - 1
+        # println((x+1,i))
+        # count_bins += 1
     end 
+    # println("num calls to binomial(a,b) in 1 unrank = $(count_bins)")
 end
 
 struct GrayCode

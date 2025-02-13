@@ -20,6 +20,8 @@ using StatsBase
 using Distributions
 using ProgressMeter
 using DocStringExtensions
+using Memoization
+using ThreadSafeDicts
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,

@@ -1993,6 +1993,7 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
+# @memoize ThreadSafeDict function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
 function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
     z = big(0)
     if y <= x
