@@ -8,8 +8,8 @@ struct SubsetGrayCode
     # details about the iterator using this struct are in the comments in the iterate() function below
     n::Int # length of codewords
     k::Int # weight of codewords
-    len::BigInt # length of the iterator
-    init_rank::BigInt # iteration will start with the subset of this rank
+    len::UInt128 # length of the iterator
+    init_rank::UInt128 # iteration will start with the subset of this rank
 end
 
 function SubsetGrayCode(n::Int, k::Int)
@@ -18,7 +18,7 @@ function SubsetGrayCode(n::Int, k::Int)
     return _subset_gray_code_from_num_threads(n, k, init_rank, num_threads)
 end
 
-function _subset_gray_code_from_num_threads(n::Int, k::Int, init_rank::BigInt, num_threads::Int)
+function _subset_gray_code_from_num_threads(n::Int, k::Int, init_rank::UInt128, num_threads::Int)
     bin = extended_binomial(n, k)
     if bin % num_threads != 0 
         throw(ArgumentError("num_threads=$num_threads, must divide binomial($n $k)"))
@@ -189,8 +189,8 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     Based on Algorithm 2.11 in kreher1999combinatorial
     Results are undefined if the entries of v arent in {1,..,n} for n>=k
     =#
-    r = BigInt(0)
-    s = BigInt(1)
+    r = UInt128(0)
+    s = UInt128(1)
     for i in k:-1:1
         r = r + extended_binomial(v[i], i) * s
         s = -s
@@ -202,7 +202,7 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     return r
 end
 
-function _subset_unrank_to_vec!(r::BigInt, k::UInt, vec::Vector{Int})
+function _subset_unrank_to_vec!(r::UInt128, k::UInt, vec::Vector{Int})
     # returns a {0,1} vector with nonzero entries corresponding to the subset returned by _subset_unrank!
     n = length(vec)
     subset_vec = Int.(zeros(k))
@@ -212,7 +212,7 @@ function _subset_unrank_to_vec!(r::BigInt, k::UInt, vec::Vector{Int})
     end
 end
 
-function _subset_unrank!(r::BigInt, n::UInt, T::Vector{Int})
+function _subset_unrank!(r::UInt128, n::UInt, T::Vector{Int})
     # Based on Algorithm 2.12 in kreher1999combinatorial
     r = r - 1 
 

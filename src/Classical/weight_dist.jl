@@ -473,12 +473,10 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
         throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
     end
-    G = C.G #TODO remove local var G
-
     # generate if not pre-stored
     parity_check_matrix(C)
 
-    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
+    A_mats, perms_mats, rnks = information_sets(C.G, info_set_alg, permute = true, only_A = false)
 
     A_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Ai, UInt16)') for Ai in A_mats]
     # A_mats_trunc = () 
@@ -499,10 +497,10 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     end
     store_found_codewords = haskey(dbg, dbg_key_found)
     if store_found_codewords
-        verbose && println("dbg Dict: Storing the codewords in the debug dictionary, key=$dbg_key_found")
+        verbose && println("dbg Dict: Storing the codewords in the debug dictionary @key=$dbg_key_found")
     end
 
-    k, n = size(G)
+    k, n = size(C.G)
     A_mats_trunc = [Matrix{UInt16}(undef, k, n-k) for _ in 1:length(A_mats)]
     for i in 1:size(A_mats, 1) 
        A_mats_trunc[i] = deepcopy(A_mats[i][k+1 : n, :])
@@ -544,11 +542,9 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         if store_found_codewords
             for a in 1:size(g, 2)
                 output_vec = Int.(perms_mats[j] * g[:, a])
-                # @assert in(output_vec, C)
                 push!(dbg["found_codewords"], (1, [], output_vec))
             end
         end
-        # println(dbg["found_codewords"])
         w, i = _min_wt_col(g)
         if w <= C.u_bound
             found = g[:, i] 
@@ -563,7 +559,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
 
     l = 0
     if verbose 
-        _, _, b_rnks = information_sets(G, :Brouwer, permute = true, only_A = false)
+        _, _, b_rnks = information_sets(C.G, :Brouwer, permute = true, only_A = false)
         b_h = length(b_rnks)
         b_lower_bounds = [information_set_lower_bound(r+1, n, k, l, [k - 0 for i in 1:b_h], :Brouwer, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
         b_r_term = findfirst(x -> x ≥ C.u_bound, b_lower_bounds)
@@ -587,7 +583,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     #In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r+1
     lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
 
-    work_factor_up_to_log_field_size = 0
     predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
     verbose && println("Predicted work factor: $predicted_work_factor")
     if show_progress 
@@ -597,10 +592,10 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
 
     num_thrds = Threads.nthreads()
-    verbose && println("number of threads ", num_thrds)
+    verbose && println("Number of threads ", num_thrds)
     for r in 2:k
         if r > 2^16
-            verbose && println("Reached an global_r with r>2^16") 
+            verbose && println("Reached an r larger than 2^16") 
         end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
@@ -610,7 +605,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
             y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
-            # @assert in(y, C)
             dbg[dbg_key_exit_r] = r
             show_progress && ProgressMeter.finish!(prog_bar)
             return C.u_bound, y
@@ -632,27 +626,15 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         founds = [found for _ in 1:num_thrds]
         exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
         keep_going = Threads.Atomic{Bool}(true)
-        # my_lock = ReentrantLock();
-        # Threads.@threads for ind in 1:num_thrds
-
-        #TODO do the following 3 lines together for 1 thread testing
-        # num_thrds = 1
 
         bin = extended_binomial(C.k, r)
 
-        Threads.@threads for ind in 1:num_thrds 
-        # num_thrds = 1
-        # for ind in 1:num_thrds 
-            # local r = global_r
-            thrd_stop_msg = "Stopping current thread, main loop finished"
-            # a = @allocated begin
-            # end
-            # println("binomial() allocs $(a)")
+        thrd_stop_msg = "Stopping current thread, main loop finished"
 
-            # set len
+        Threads.@threads for ind in 1:num_thrds 
             len = (ind == num_thrds) ? bin - (num_thrds - 1) * fld(bin, num_thrds) : fld(bin, num_thrds)
 
-            # set first_vec
+            # iteration begins with a single matrix multiplication of the generator matrix by first_vec
             init_rank = 1 + (ind - 1) * fld(bin, num_thrds)
             first_vec = zeros(Int, k)
             if init_rank == 1
@@ -660,13 +642,11 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                     first_vec[i] = 1
                 end
             else
-                CodingTheory._subset_unrank_to_vec!(big(init_rank), UInt64(r), first_vec)
-                # verbose && println("unranked with args rank=$(init_rank), r=$(r), got first_vec=$(first_vec)")
+                CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
             end
  
-            # we loop over matrices first so that we can update the lower bound more often (see White Algo 7.1)
+            # as in White Algo 7.1 we loop over matrices first so that we can update the lower bound more often
             for i in 1:h
-                # verbose && println("mat id=$(i), thrd=$(num_thrds)")
                 if keep_going[] == false
                     verbose && println(thrd_stop_msg)
                     break
@@ -675,18 +655,11 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                 c_itr = zeros(UInt16, C.n - C.k) 
                 is_first = true
                 curr_mat = A_mats_trunc[i]
-                # local count = 0
-                # verbose && println("SubsetGrayCode with len=$(len), rank=$(init_rank)")
                 for u in SubsetGrayCode(k, r, len, init_rank)
-                    # if (count + init_rank) > bin
-                    #     println("Error: current total rank=$(count + init_rank), length of all iterators=$(bin), index=$(ind), init_rank given to iterator is $(init_rank)")
-                    #     break
-                    # end 
                     if keep_going[] == false
                         println(thrd_stop_msg)
                         break
                     end
-                    work_factor_up_to_log_field_size += 1
                     show_progress && ProgressMeter.next!(prog_bar) 
                     if r - rank_defs[i] > 0
                         if is_first 
@@ -705,25 +678,21 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             end
                         end
 
-                        # if store_found_codewords
-                        #     subset_vec_full = zeros(Int, k)
-                        #     verbose && println("unrank with init_rank=$(init_rank) and count=$(count)")
-                        #     CodingTheory._subset_unrank_to_vec!(big(init_rank + count), UInt64(r), subset_vec_full)
-                        #     output_vec = Int.(perms_mats[exit_thread_indicator_vec[ind]] * vcat(subset_vec_full, c_itr))
-                        #     push!(dbg["found_codewords"], (r, [], Int.(output_vec))) 
-                        # end
+                        if store_found_codewords
+                            subset_vec_full = zeros(Int, k)
+                            CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
+                            output_vec = Int.(perms_mats[exit_thread_indicator_vec[ind]] * vcat(subset_vec_full, c_itr))
+                            push!(dbg["found_codewords"], (r, [], Int.(output_vec))) 
+                        end
 
                         partial_weight = r + sum(view(c_itr, 1:weight_sum_bound))
 
                         if uppers[ind] > partial_weight
                             w = r + sum(c_itr) 
-                            if w == 0
-                                verbose && println("WARNING found weight(c_itr)=0 at count\t", count, "u is ", u, "c_itr_full\n", c_itr_full, "vec\n", first_vec_subset, "c_itr\n", c_itr)
-                                continue
-                            end
+                            verbose && @assert w == 0
                             if uppers[ind] > w 
                                 subset_vec_full = zeros(Int, k)
-                                CodingTheory._subset_unrank_to_vec!(big(init_rank + count), UInt64(r), subset_vec_full)
+                                CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
 
                                 uppers[ind] = w 
                                 founds[ind] = vcat(subset_vec_full, c_itr)
@@ -742,11 +711,9 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             end
                         end
                     end
-                    # count += 1
                 end
             end
             loc = argmin(uppers) 
-            # verbose && println("old C.u_bound $(C.u_bound)")
             C.u_bound = uppers[loc]
             found = founds[loc]
             initial_perm_ind = exit_thread_indicator_vec[loc]

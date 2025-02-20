@@ -1995,11 +1995,7 @@ end
 
 # @memoize ThreadSafeDict function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
 function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
-    z = big(0)
-    if y <= x
-        z = binomial(big(x), big(y))
-    end
-    return z
+    return y <= x ? UInt128.(binomial(x, y)) : UInt128(0)
 end
 
 function _value_distribution(vals)
