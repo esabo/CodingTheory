@@ -164,7 +164,6 @@ function _min_wt_row(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S,
     return w, i
 end
 
-# function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}}) where S <: Integer
 function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}, LinearAlgebra.Adjoint{Bool, BitMatrix}}) where S <: Integer
     w = size(A, 1) + 1
     i = 0
@@ -1993,7 +1992,6 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
-# @memoize ThreadSafeDict function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
 function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
     return y <= x ? UInt128.(binomial(x, y)) : UInt128(0)
 end

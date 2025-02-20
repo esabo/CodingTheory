@@ -4,9 +4,7 @@ authors = ["Eric Sabo <elsinc89@gmail.com>", "Ben Ide <ben@bencide.com>"]
 version = "0.1.0"
 
 [deps]
-AbstractAlgebra = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
 AutoHashEquals = "15f4f7f2-30c1-5605-9d31-71845cf9641f"
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -15,7 +13,6 @@ FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 Hecke = "3e1990a7-5d81-5526-99ce-9ba3ff248f21"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-Memoization = "6fafb56a-5788-4b4e-91ca-c0cea6611c73"
 Oscar = "f1435218-dba5-11e9-1e4d-f1a5fab5fc13"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -23,7 +20,6 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
-ThreadSafeDicts = "4239201d-c60e-5e0a-9702-85d713665ba7"
 
 [weakdeps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
@@ -44,9 +40,7 @@ JuMPExt = ["JuMP", "GLPK"]
 MakieExt = ["Makie"]
 
 [compat]
-AbstractAlgebra = "0.43.12"
 AutoHashEquals = "2.2.0"
-BenchmarkTools = "1.6.0"
 CairoMakie = "0.13.1"
 Colors = "0.13.0"
 Combinatorics = "1.0.2"
@@ -58,11 +52,9 @@ GraphMakie = "0.5.13"
 GraphPlot = "0.6.0"
 Graphs = "1.12.0"
 Makie = "0.19.11"
-Memoization = "0.2.2"
 NetworkLayout = "0.4.9"
 Oscar = "1.2.2"
 StatsBase = "0.34.4"
-ThreadSafeDicts = "0.1.6"
 WGLMakie = "0.8.15"
 julia = "≥ 1.10"
 

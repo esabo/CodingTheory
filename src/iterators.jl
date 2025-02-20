@@ -12,36 +12,6 @@ struct SubsetGrayCode
     init_rank::UInt128 # iteration will start with the subset of this rank
 end
 
-function SubsetGrayCode(n::Int, k::Int)
-    init_rank = big(1)
-    num_threads = 1
-    return _subset_gray_code_from_num_threads(n, k, init_rank, num_threads)
-end
-
-function _subset_gray_code_from_num_threads(n::Int, k::Int, init_rank::UInt128, num_threads::Int)
-    bin = extended_binomial(n, k)
-    if bin % num_threads != 0 
-        throw(ArgumentError("num_threads=$num_threads, must divide binomial($n $k)"))
-    end
-    len = fld(bin, num_threads)
-    return SubsetGrayCode(n, k, len, init_rank)
-end
-
-function _subset_gray_codes_from_num_threads(n::Int, k::Int, num_threads::Int)
-    # This function splits a single iterator into several pieces. 
-    # The intended usage is to do the iteration with multiple threads
-    bin = extended_binomial(n, k)
-    i = 0
-    len = fld(bin, num_threads)
-
-    itrs = fill(SubsetGrayCode(1,1,1,1), num_threads)
-    for i in 0:num_threads - 1
-        init_rank = 1 + i * len
-        itrs[i+1] = SubsetGrayCode(n, k, len, init_rank)
-    end
-    return itrs
-end
-
 Base.IteratorEltype(::SubsetGrayCode) = Base.HasEltype()
 Base.eltype(::SubsetGrayCode) = Array{Int, 1}
 Base.IteratorSize(::SubsetGrayCode) = Base.HasLength()
@@ -76,21 +46,12 @@ end
     Note that inds is part of the iterator's state inds only to prevent reallocation in each 
     iteration.
     =#
-    # subset_vec = zeros(Int, G.k)
-    # CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
-
-    # a = @allocated begyyin
     subset_vec = zeros(Int, G.k)
     if G.init_rank == 1
         subset_vec = Int.(collect(1 : G.k))
-        # first_vec = vcat(ones(Int, r), zeros(Int, k - r))
-        # for i in 1:G.k
-        #     subset_vec[i] = 1
-        # end
     else
         CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
     end
-    # end; a > 0 && @show a
 
     inds = fill(-1, 3) 
     (inds, (subset_vec, 1, inds))
@@ -219,37 +180,20 @@ function _subset_unrank!(r::UInt128, n::UInt, T::Vector{Int})
     k = length(T)
     subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
-    # count_bins = 0
-    # bnd = extended_binomial(n, k)
-    # # count_bins += 1
-    # rank_size_str::String = "rank must be in [0, choose(n, k) - 1] = $bnd but is $(r)"
-    # # r > bnd && throw(ArgumentError(rank_size_str))
-    # if r > bnd 
-    #     println(rank_size_str)
-    #     println("bug exit _subset_unrank")
-    #     return
-    # end
-  
+ 
     x = 0
     i = 0
     y = 0 
     x = n
     for i::UInt in k:-1:1
         y = extended_binomial(x, i)
-        # println((Int16.(x),Int16.(i)))
-        # count_bins += 1
         while y > r
            x = x - 1
            y = extended_binomial(x, i)
-        #    println((x,i))
-        #    count_bins += 1
         end 
         T[i] = x + 1
         r = extended_binomial(x + 1, i) - r - 1
-        # println((x+1,i))
-        # count_bins += 1
     end 
-    # println("num calls to binomial(a,b) in 1 unrank = $(count_bins)")
 end
 
 struct GrayCode
