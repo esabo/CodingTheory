@@ -694,6 +694,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             end
                         end
                     end
+                    count = add!(count, count, 1)
                 end
             end
             loc = argmin(uppers) 
