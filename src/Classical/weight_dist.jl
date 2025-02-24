@@ -323,7 +323,6 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
                 if permute
                     # permute identities to the front
                     pivots = collect(start_ind:(i + 1) * nr)
-                    @assert det(Gi[:, pivots]) != 0
                     σ = [pivots; setdiff(1:nc, pivots)]
                     Gi = Gi[:, σ]
                     Pi = Pi[:, σ]
@@ -424,8 +423,12 @@ Return the minimum distance of `C` using a deterministic algorithm based on enum
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
 is found before the lower and upper bounds cross, it is returned; otherwise, the zero vector 
 is returned.
+
+show_progress will display a progress meter for each iteration of a weight that takes longer than 
+    a second
 """
-function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bool = false, show_progress=true)
+function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bool = false, 
+    show_progress = true)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -451,9 +454,9 @@ function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bo
             alg = :Zimmermann
         end
     end
-    alg == :auto || throw(ErrorException("Could not determine minimum distance algo automatically"))
+    alg == :auto && throw(ErrorException("Could not determine minimum distance algo automatically"))
 
-    if alg in (:Brouwer, :Zimmermann) || 
+    if alg in (:Brouwer, :Zimmermann) 
         return _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg = alg, verbose = v, show_progress = show_progress)
     end
     println("Warning: old enumeration algorithm selected. Performance will be slow") # TODO remove when all code updated
@@ -462,6 +465,7 @@ end
 
 function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zimmermann,
     verbose::Bool = false, dbg = Dict(), show_progress=false)
+    dbg_key_exit_r = "exit_r"
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -488,16 +492,10 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     if length(keys(dbg)) > 0
         println("Debug mode ON")
     end
-    dbg_key_found = "found_codewords"
-    dbg_key_exit_r = "exit_r"
 
     if haskey(dbg, dbg_key_exit_r)
-        verbose && println("dbg Dict: Storing the largest message weight reached @key=$dbg_key_found")
-        dbg["exit_r"] = -1
-    end
-    store_found_codewords = haskey(dbg, dbg_key_found)
-    if store_found_codewords
-        verbose && println("dbg Dict: Storing the codewords in the debug dictionary @key=$dbg_key_found")
+        verbose && println("dbg Dict: largest message weight searched stored @key=$dbg_key_exit_r")
+        dbg[dbg_key_exit_r] = -1
     end
 
     k, n = size(C.G)
@@ -539,12 +537,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     # following loop is the r=1 case of the enumeration. We do this case here because we want to make a good guess at the terminating r before we start multiple threads
     for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
         # can make this faster with dots and views
-        if store_found_codewords
-            for a in 1:size(g, 2)
-                output_vec = Int.(perms_mats[j] * g[:, a])
-                push!(dbg["found_codewords"], (1, [], output_vec))
-            end
-        end
         w, i = _min_wt_col(g)
         if w <= C.u_bound
             found = g[:, i] 
@@ -554,7 +546,6 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     end
 
     verbose && println("Current upper bound: $(C.u_bound)")
-    verbose && !iszero(found) && println("Found element matching upper bound.")
     found = A_mats[1][:, 1]
 
     l = 0
@@ -595,7 +586,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     verbose && println("Number of threads ", num_thrds)
     for r in 2:k
         if r > 2^16
-            verbose && println("Reached an r larger than 2^16") 
+            verbose && println("Warning: Reached an r larger than 2^16") 
         end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
@@ -603,22 +594,19 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
         # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
         if C.l_bound >= C.u_bound
-            C.d = C.u_bound
-            y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found)
-            dbg[dbg_key_exit_r] = r
-            show_progress && ProgressMeter.finish!(prog_bar)
-            return C.u_bound, y
+            dbg[dbg_key_exit_r] = r-1
+            break
         end
         verbose && println("r: $r")
         verbose && println("Lower bound: $(C.l_bound)")
         verbose && println("Upper bound: $(C.u_bound)")
 
         if verbose
-            count = 0
+            i_count = 0
             for i in 1:h
-                r - rank_defs[i] ≤ 0 && (count += 1;)
+                r - rank_defs[i] ≤ 0 && (i_count += 1;)
             end
-            count > 0 && println("$count of the original $h information sets no longer contribute to the lower bound")
+            i_count > 0 && println("$i_count of the original $h information sets no longer contribute to the lower bound")
         end
         p = Int(characteristic(C.F))
 
@@ -645,7 +633,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                 CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
             end
  
-            # as in White Algo 7.1 we loop over matrices first so that we can update the lower bound more often
+            # as in White Algo 7.1 we loop over matrices first 
             for i in 1:h
                 if keep_going[] == false
                     verbose && println(thrd_stop_msg)
@@ -655,6 +643,8 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                 c_itr = zeros(UInt16, C.n - C.k) 
                 is_first = true
                 curr_mat = A_mats_trunc[i]
+                count = UInt128(0)
+
                 for u in SubsetGrayCode(k, r, len, init_rank)
                     if keep_going[] == false
                         println(thrd_stop_msg)
@@ -678,18 +668,11 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             end
                         end
 
-                        if store_found_codewords
-                            subset_vec_full = zeros(Int, k)
-                            CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
-                            output_vec = Int.(perms_mats[exit_thread_indicator_vec[ind]] * vcat(subset_vec_full, c_itr))
-                            push!(dbg["found_codewords"], (r, [], Int.(output_vec))) 
-                        end
-
                         partial_weight = r + sum(view(c_itr, 1:weight_sum_bound))
 
                         if uppers[ind] > partial_weight
                             w = r + sum(c_itr) 
-                            verbose && @assert w == 0
+                            verbose && @assert w != 0
                             if uppers[ind] > w 
                                 subset_vec_full = zeros(Int, k)
                                 CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
@@ -699,7 +682,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                                 verbose && @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n=$(C.n)"
                                 exit_thread_indicator_vec[ind] = i 
 
-                                verbose && println("Adjusting (local) upper bound: $w for c_itr=$(c_itr)")
+                                println("Adjusting (local) upper bound: $w for c_itr=$(Int.(c_itr))")
                                 if C.l_bound == uppers[ind]
                                     println("early exit")
                                     Threads.atomic_cas!(keep_going, true, false)
@@ -719,12 +702,15 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
             initial_perm_ind = exit_thread_indicator_vec[loc]
         end
     end
-    show_progress && ProgressMeter.finish!(prog_bar)
 
-    # at this point we are guaranteed to have found the code's distance
     C.d = C.u_bound
-    y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found) # weight(y) >= C.d with equality not being the typical case
+    y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found) # weight(y) >= C.d, with equality not being the typical case
     verbose && @assert iszero(C.H * transpose(y))
+    if dbg[dbg_key_exit_r] == -1
+        dbg[dbg_key_exit_r] = r
+    end 
+    show_progress && ProgressMeter.finish!(prog_bar)
+    verbose && println("Computation complete")
     return C.u_bound, y
 end
 
@@ -827,7 +813,6 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
             y = perms_mats[initial_perm_ind] * found 
-            # @assert in(y, C)
             return C.u_bound, (C.F).(y) 
         end
 

@@ -403,6 +403,7 @@ function _has_empty_vec(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Ma
     end
     return !isempty(del) 
 end
+
 function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
     type::Symbol)
     
