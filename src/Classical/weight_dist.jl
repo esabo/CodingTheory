@@ -7,7 +7,9 @@
 #############################
          # General
 #############################
-
+# using AllocCheck
+# using Profile
+using ProgressMeter
 """
     polynomial(W::WeightEnumerator)
 
@@ -303,18 +305,24 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     rnks = Vector{Int}()
     
     rnk = nr
+    #TODO Brouw and Zimm should use the same code for rref then discard the last matrix
     if alg == :Brouwer
         for i in 0:Int(floor(nc / nr)) - 1
-            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+            start_ind = i * nr + 1
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, start_ind:nc)
+            if rnk < nr # for Brouwer the Gi must all have full rank
+                break
+            end
+
             if only_A
-                Ai = Gi[:, setdiff(1:nc, i * nr + 1:(i + 1) * nr)]
+                Ai = Gi[:, setdiff(1:nc, start_ind:(i + 1) * nr)]
                 push!(gen_mats, Ai)
                 push!(perms, Pi)
                 push!(rnks, rnk)
             else
                 if permute
                     # permute identities to the front
-                    pivots = collect(i * nr + 1:(i + 1) * nr)
+                    pivots = collect(start_ind:(i + 1) * nr)
                     σ = [pivots; setdiff(1:nc, pivots)]
                     Gi = Gi[:, σ]
                     Pi = Pi[:, σ]
@@ -376,14 +384,16 @@ end
 function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int},
     info_set_alg::Symbol; even::Bool = false, doubly_even::Bool = false, triply_even::Bool = false)
 
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+
     lower = 0
     if info_set_alg == :Brouwer
         lower = r * length(rank_defs)
     elseif info_set_alg == :Zimmermann
         h = length(rank_defs)
-        lower = 0
+        lower = count(x -> x != 0, rank_defs) 
         for i in 1:h
-            lower += maximum([0, r - rank_defs[i]])
+            lower += maximum([0, r - rank_defs[i]]) 
         end
     elseif info_set_alg == :Chen
         lower = Int(ceil(n * r / k))
@@ -397,6 +407,9 @@ function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::
     # elseif info_set_alg == :Edmonds
     #     continue
     end
+    if lower == 0
+        println("initial lower bound is set to 0")
+    end
 
     (!triply_even && !doubly_even && even) && (lower += lower % 2;)
     (!triply_even && doubly_even) && (lower += 4 - lower % 4;)
@@ -404,47 +417,97 @@ function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::
     return lower
 end
 
-# In the thesis, the h and GrayCode for loops are switched. This seems inefficient
-# but does allow one to update the lower bound using a single matrix after every
-# GrayCode loop has finished. I believe only enumerating the very expensive GrayCode
-# once will overcome this. Could be tested though.
 """
-    Gray_code_minimum_distance(C::AbstractLinearCode; verbose::Bool = false)
-
+    minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::Bool = false)
 Return the minimum distance of `C` using a deterministic algorithm based on enumerating
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
-is found before the lower and upper bounds cross, it is returned; otherwise, `missing`
+is found before the lower and upper bounds cross, it is returned; otherwise, the zero vector 
 is returned.
+
+show_progress will display a progress meter for each iteration of a weight that takes longer than 
+    a second
 """
-function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
-    verbose::Bool = false)
+function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bool = false, 
+    show_progress = true)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
-    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+    #TODO add :Bouyuklieva, and :Edmonds
 
-    G = _remove_empty(generator_matrix(C, true), :cols)
+    # We implement the following algorithms described in White's thesis:
+    # :Brouwer      Algo 2.2
+    # :Zimmermann   Algo 2.4 
+    # :Chen         Algo 2.6 
+    # :White        Algo 3.1 
+    alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`"))
+
+    if alg == :auto
+        if typeof(C) <: AbstractCyclicCode
+            v && println("Detected a cyclic code, using Chen's adaption.")
+            alg = :Chen
+            # TODO: fix this case
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            v && println("Detected a quasi-cyclic code, using White's adaption.")
+            alg = :White
+        else
+            v && println("Using Zimmermann's algorithm.")
+            alg = :Zimmermann
+        end
+    end
+    alg == :auto && throw(ErrorException("Could not determine minimum distance algo automatically"))
+
+    if alg in (:Brouwer, :Zimmermann) 
+        return _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg = alg, verbose = v, show_progress = show_progress)
+    end
+    println("Warning: old enumeration algorithm selected. Performance will be slow") # TODO remove when all code updated
+    return _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg = alg)
+end
+
+function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zimmermann,
+    verbose::Bool = false, dbg = Dict(), show_progress=false)
+    dbg_key_exit_r = "exit_r"
+
+    ord_F = Int(order(C.F))
+    ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    C.k < 2^16 || throw(DomainError("The given linear code has length k >= 2^16 which is not supported"))
+    info_set_alg ∈ (:Brouwer, :Zimmermann) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`"))
+
+    generator_matrix(C, true) # ensure G_stand exists
+    if _has_empty_vec(C.G, :cols) 
+        #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
+        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
+    end
     # generate if not pre-stored
     parity_check_matrix(C)
 
-    if info_set_alg == :auto
-        if typeof(C) <: AbstractCyclicCode
-            verbose && println("Detected a cyclic code, using Chen's adaption.")
-            info_set_alg = :Chen
-            # TODO: fix this case
-        elseif typeof(C) <: AbstractQuasiCyclicCode
-            verbose && println("Detected a quasi-cyclic code, using White's adaption.")
-            info_set_alg = :White
-        else
-            info_set_alg = :Edmonds
-        end
-    end
-    # should have no need to permute to find better ranks because of Edmond's?
-    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
-    A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
-    perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
+    A_mats, perms_mats, rnks = information_sets(C.G, info_set_alg, permute = true, only_A = false)
+
+    A_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Ai, UInt16)') for Ai in A_mats]
+    # A_mats_trunc = () 
+    perms_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Pi, UInt16)') for Pi in perms_mats]
     h = length(A_mats)
+    # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
+
+    if length(keys(dbg)) > 0
+        println("Debug mode ON")
+    end
+
+    if haskey(dbg, dbg_key_exit_r)
+        verbose && println("dbg Dict: largest message weight searched stored @key=$dbg_key_exit_r")
+        dbg[dbg_key_exit_r] = -1
+    end
+
+    k, n = size(C.G)
+    A_mats_trunc = [Matrix{UInt16}(undef, k, n-k) for _ in 1:length(A_mats)]
+    for i in 1:size(A_mats, 1) 
+       A_mats_trunc[i] = deepcopy(A_mats[i][k+1 : n, :])
+    end
+
+    if info_set_alg == :Brouwer && rnks[h] != k
+        println("Rank of last matrix too small")
+        return
+    end
     if verbose
         print("Generated $h information sets with ranks: ")
         for i in 1:h
@@ -469,20 +532,263 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
     end
 
-    k, n = size(G)
-    found = zeros(UInt8, n)
-    perm = collect(1:n)
-    # while flag
-        for (j, g) in enumerate(A_mats)
-            # can make this faster with dots and views
-            w, i = _min_wt_col(g)
-            if w <= C.u_bound
-                found = g[:, i]
-                C.u_bound = w
-                perm = perms_mats[j]
-            end
+    # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.  
+    initial_perm_ind = 1 
+    # following loop is the r=1 case of the enumeration. We do this case here because we want to make a good guess at the terminating r before we start multiple threads
+    for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
+        # can make this faster with dots and views
+        w, i = _min_wt_col(g)
+        if w <= C.u_bound
+            found = g[:, i] 
+            C.u_bound = w
+            y = perms_mats[j] * found 
         end
-    # end
+    end
+
+    verbose && println("Current upper bound: $(C.u_bound)")
+    found = A_mats[1][:, 1]
+
+    l = 0
+    if verbose 
+        _, _, b_rnks = information_sets(C.G, :Brouwer, permute = true, only_A = false)
+        b_h = length(b_rnks)
+        b_lower_bounds = [information_set_lower_bound(r+1, n, k, l, [k - 0 for i in 1:b_h], :Brouwer, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+        b_r_term = findfirst(x -> x ≥ C.u_bound, b_lower_bounds)
+
+        # _, _, z_rnks = information_sets(G, :Zimmermann, permute = true, only_A = false)
+        # z_h = length(b_rnks)
+        # z_lower_bounds = [information_set_lower_bound(r+1, n, k, l, [k - z_rnks[i] for i in 1:z_h], :Zimmermann, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+        # z_r_term = findfirst(x -> x ≥ C.u_bound, z_lower_bounds)
+        # verbose && println("ranks: Brouwer $b_rnks Zimm $z_rnks")
+        # verbose && println("Predicted termination weight based on current upper bound: Brouwer $b_r_term Zimm $z_r_term")
+    end
+
+    #Note the r+1 here. 
+    lower_bounds_for_prediction = [information_set_lower_bound(r+1, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds_for_prediction)
+    if isnothing(r_term)
+        raise(DomainError("invalid termination r")) 
+    end
+    verbose && println("Predicted termination weight based on current upper bound: $r_term")
+
+    #In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r+1
+    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+
+    predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
+    verbose && println("Predicted work factor: $predicted_work_factor")
+    if show_progress 
+        prog_bar = Progress(predicted_work_factor, dt=1.0, showspeed=true) # updates no faster than once every 1s
+    end
+    weight_sum_bound = min(2 * C.u_bound + 5, n-k)
+    verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
+
+    num_thrds = Threads.nthreads()
+    verbose && println("Number of threads ", num_thrds)
+    for r in 2:k
+        if r > 2^16
+            verbose && println("Warning: Reached an r larger than 2^16") 
+        end
+        C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
+        # an even code can't have have an odd minimum weight
+        # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
+        # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
+        # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
+        if C.l_bound >= C.u_bound
+            dbg[dbg_key_exit_r] = r-1
+            break
+        end
+        verbose && println("r: $r")
+        verbose && println("Lower bound: $(C.l_bound)")
+        verbose && println("Upper bound: $(C.u_bound)")
+
+        if verbose
+            i_count = 0
+            for i in 1:h
+                r - rank_defs[i] ≤ 0 && (i_count += 1;)
+            end
+            i_count > 0 && println("$i_count of the original $h information sets no longer contribute to the lower bound")
+        end
+        p = Int(characteristic(C.F))
+
+        uppers = [C.u_bound for _ in 1:num_thrds]
+        founds = [found for _ in 1:num_thrds]
+        exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
+        keep_going = Threads.Atomic{Bool}(true)
+
+        bin = extended_binomial(C.k, r)
+
+        thrd_stop_msg = "Stopping current thread, main loop finished"
+
+        Threads.@threads for ind in 1:num_thrds 
+            len = (ind == num_thrds) ? bin - (num_thrds - 1) * fld(bin, num_thrds) : fld(bin, num_thrds)
+
+            # iteration begins with a single matrix multiplication of the generator matrix by first_vec
+            init_rank = 1 + (ind - 1) * fld(bin, num_thrds)
+            first_vec = zeros(Int, k)
+            if init_rank == 1
+                for i in 1:r
+                    first_vec[i] = 1
+                end
+            else
+                CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
+            end
+ 
+            # as in White Algo 7.1 we loop over matrices first 
+            for i in 1:h
+                if keep_going[] == false
+                    verbose && println(thrd_stop_msg)
+                    break
+                end
+
+                c_itr = zeros(UInt16, C.n - C.k) 
+                is_first = true
+                curr_mat = A_mats_trunc[i]
+                count = UInt128(0)
+
+                for u in SubsetGrayCode(k, r, len, init_rank)
+                    if keep_going[] == false
+                        println(thrd_stop_msg)
+                        break
+                    end
+                    show_progress && ProgressMeter.next!(prog_bar) 
+                    if r - rank_defs[i] > 0
+                        if is_first 
+                            LinearAlgebra.mul!(c_itr, curr_mat, first_vec)
+                            @inbounds @simd for j in eachindex(c_itr) 
+                                c_itr[j] %= p
+                            end
+                            is_first = false
+                        else
+                            for ci in u 
+                                if ci != -1
+                                    @simd for i in eachindex(c_itr)
+                                        @inbounds c_itr[i] = xor(c_itr[i], curr_mat[i, ci])
+                                    end
+                                end
+                            end
+                        end
+
+                        partial_weight = r + sum(view(c_itr, 1:weight_sum_bound))
+
+                        if uppers[ind] > partial_weight
+                            w = r + sum(c_itr) 
+                            verbose && @assert w != 0
+                            if uppers[ind] > w 
+                                subset_vec_full = zeros(Int, k)
+                                CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
+
+                                uppers[ind] = w 
+                                founds[ind] = vcat(subset_vec_full, c_itr)
+                                verbose && @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n=$(C.n)"
+                                exit_thread_indicator_vec[ind] = i 
+
+                                println("Adjusting (local) upper bound: $w for c_itr=$(Int.(c_itr))")
+                                if C.l_bound == uppers[ind]
+                                    println("early exit")
+                                    Threads.atomic_cas!(keep_going, true, false)
+                                else
+                                    r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
+                                    isnothing(r_term) && (r_term = k;)
+                                    verbose && println("Updated termination weight: $r_term")
+                                end
+                            end
+                        end
+                    end
+                    count = add!(count, count, 1)
+                end
+            end
+            loc = argmin(uppers) 
+            C.u_bound = uppers[loc]
+            found = founds[loc]
+            initial_perm_ind = exit_thread_indicator_vec[loc]
+        end
+    end
+
+    C.d = C.u_bound
+    y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found) # weight(y) >= C.d, with equality not being the typical case
+    verbose && @assert iszero(C.H * transpose(y))
+    if dbg[dbg_key_exit_r] == -1
+        dbg[dbg_key_exit_r] = r
+    end 
+    show_progress && ProgressMeter.finish!(prog_bar)
+    verbose && println("Computation complete")
+    return C.u_bound, y
+end
+
+function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
+    verbose::Bool = false, dbg = Dict())
+
+    ord_F = Int(order(C.F))
+    ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+
+    generator_matrix(C, true) # ensure G_stand exists
+    if _has_empty_vec(C.G, :cols) 
+        #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
+        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
+    end
+    G = C.G 
+    # generate if not pre-stored
+    parity_check_matrix(C)
+
+    if info_set_alg == :auto
+        if typeof(C) <: AbstractCyclicCode
+            verbose && println("Detected a cyclic code, using Chen's adaption.")
+            info_set_alg = :Chen
+            # TODO: fix this case
+        elseif typeof(C) <: AbstractQuasiCyclicCode
+            verbose && println("Detected a quasi-cyclic code, using White's adaption.")
+            info_set_alg = :White
+        else
+            info_set_alg = :Edmonds
+        end
+    end
+    # should have no need to permute to find better ranks because of Edmond's?
+    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
+    A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
+    perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
+    h = length(A_mats)
+    rank_defs = zeros(Int, h)
+
+    k, n = size(G)
+    if verbose
+        print("Generated $h information sets with ranks: ")
+        for i in 1:h
+            i == h ? (println(rnks[i]);) : (print("$(rnks[i]), ");)
+            # will only be using the rank deficits here
+            # at the moment, the information sets are always disjoint so the relative
+            # rank is zero
+            # TODO huh? check this comment and setup properly
+            rank_defs[i] = C.k - rnks[i]
+        end
+    end
+    
+    even_flag = false
+    doubly_even_flag = false
+    triply_even_flag = false
+    ord_F == 2 && (even_flag = is_even(C);)
+    even_flag && (doubly_even_flag = is_doubly_even(C);)
+    doubly_even_flag && (triply_even_flag = is_triply_even(C);)
+    if verbose
+        triply_even_flag && println("Detected a triply even code.")
+        (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+    end
+
+    # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.  
+    initial_perm_ind = 1 
+    found = A_mats[1][:, 1] 
+    for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
+        # can make this faster with dots and views
+        w, i = _min_wt_col(g)
+        if w <= C.u_bound
+            found = g[:, i] 
+            C.u_bound = w
+            initial_perm_ind = j
+            y = perms_mats[initial_perm_ind] * found 
+        end
+    end
+
     verbose && println("Current upper bound: $(C.u_bound)")
     verbose && !iszero(found) && println("Found element matching upper bound.")
 
@@ -507,9 +813,8 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            y = perm * found #TODO shouldnt we multiply by inv(perm) because found is a vector from the permuted matrix
-            #TODO make into assertion ? iszero(C.H * transpose(y))
-            return C.u_bound, y
+            y = perms_mats[initial_perm_ind] * found 
+            return C.u_bound, (C.F).(y) 
         end
 
         if verbose
@@ -521,29 +826,33 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         end
 
         flag = Threads.Atomic{Bool}(true)
-        # num_thrds = 1
-        # power = 0
+        verbose && println("Detected $num_thrds threads.")
+
         p = Int(characteristic(C.F))
         uppers = [C.u_bound for _ in 1:num_thrds]
         founds = [found for _ in 1:num_thrds]
-        perms = [perm for _ in 1:num_thrds]
-        Threads.@threads for m in 1:num_thrds
-            c = zeros(Int, C.n)
-            prefix = digits(m - 1, base = 2, pad = power)
-            for u in GrayCode(C.k, r, prefix, mutate = true)
+        exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
+
+        c = zeros(Int, C.n)
+        itrs = [GrayCode(C.k, r, digits(m - 1, base = 2, pad = power), mutate = true) for m in 1:num_thrds]
+        Threads.@threads for m in 1:num_thrds 
+            itr = itrs[m]
+            for u in itr 
                 if flag[]
-                    for i in 1:h
-                        if r - rank_defs[i] > 0
-                            LinearAlgebra.mul!(c, A_mats[i], u)
+                    for i in 1:h 
+                        vec = u
+                        if r - rank_defs[i] > 0 
+                            LinearAlgebra.mul!(c, A_mats[i], vec)
+
                             w = r
-                            @inbounds for j in 1:n
+                            @inbounds for j in 1:n 
                                 c[j] % p != 0 && (w += 1;)
                             end
 
                             if uppers[m] > w
                                 uppers[m] = w
-                                founds[m] .= c
-                                perms[m] = i
+                                founds[m] .= c 
+                                exit_thread_indicator_vec[m] = i 
                                 verbose && println("Adjusting (local) upper bound: $w")
                                 if C.l_bound == uppers[m]
                                     Threads.atomic_cas!(flag, true, false)
@@ -564,14 +873,14 @@ function Gray_code_minimum_distance(C::AbstractLinearCode; info_set_alg::Symbol 
         loc = argmin(uppers)
         C.u_bound = uppers[loc]
         found = founds[loc]
-        perm = perms[loc]
+        initial_perm_ind = exit_thread_indicator_vec[loc]
     end
 
     # at this point we are guaranteed to have found the answer
     C.d = C.u_bound
-    y = matrix(C.F, 1, n, found)[perm]
+    y = perms_mats[initial_perm_ind] * found 
     # iszero(C.H * transpose(y))
-    return C.u_bound, y
+    return C.u_bound, (C.F).(y)
 end
 
 """
@@ -1361,10 +1670,10 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
                 for i in 1:length(HWE.polynomial)]))
             return C.d
         else
-            return Gray_code_minimum_distance(C, verbose = verbose)
+            return minimum_distance_Gray(C, verbose = verbose)
         end
     elseif alg == :Gray
-        return Gray_code_minimum_distance(C, verbose = verbose)
+        return minimum_distance_Gray(C, verbose = verbose)
     elseif alg == :trellis
         weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
         return C.d
