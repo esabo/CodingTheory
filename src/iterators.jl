@@ -5,18 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 struct SubsetGrayCode
+    # details about the iterator using this struct are in the comments in the iterate() function below
     n::Int # length of codewords
     k::Int # weight of codewords
-    len::Int # length of the iterator
-end
-
-function SubsetGrayCode(n::Int, k::Int)
-    if 0 <= k <= n
-        len = factorial(big(n)) ÷ (factorial(big(k)) * factorial(big(n - k)))
-    else
-        len = 0
-    end
-    return SubsetGrayCode(n, k, len)
+    len::UInt128 # length of the iterator
+    init_rank::UInt128 # iteration will start with the subset of this rank
 end
 
 Base.IteratorEltype(::SubsetGrayCode) = Base.HasEltype()
@@ -53,17 +46,22 @@ end
     Note that inds is part of the iterator's state inds only to prevent reallocation in each 
     iteration.
     =#
-    rank = Int(1)
-    v = collect(1:G.k) 
+    subset_vec = zeros(Int, G.k)
+    if G.init_rank == 1
+        subset_vec = Int.(collect(1 : G.k))
+    else
+        CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
+    end
+
     inds = fill(-1, 3) 
-    (inds, (v, rank, inds))
+    (inds, (subset_vec, 1, inds))
 end
 
 @inline function Base.iterate(G::SubsetGrayCode, state)
     # Based on Algorithm 2.13 in kreher1999combinatorial
     v, rank, inds = state
 
-    if rank == G.len 
+    if rank == G.len
         return nothing 
     end
     rank += 1
@@ -122,16 +120,6 @@ end
     return (inds, (v, rank, inds))
 end
 
-@inline function rest(G::SubsetGrayCode, rank)
-  #TODO there will be a future PR for integrating this (its used for multithreaded weight calculation)
-  #=
-  _subset_unrank(rank, G.n, vec)
-  inds = Vector{Int}([-1,-1,-1]) 
-  state = (vec, rank, inds)
-  return Base.rest(G, state)
-  =#
-end 
-
 function _update_indices!(indices::Vector{Int}, x::Int, y::Int)
     _update_indices!(indices, x)
     _update_indices!(indices, y)
@@ -162,8 +150,8 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     Based on Algorithm 2.11 in kreher1999combinatorial
     Results are undefined if the entries of v arent in {1,..,n} for n>=k
     =#
-    r = BigInt(0)
-    s = BigInt(1)
+    r = UInt128(0)
+    s = UInt128(1)
     for i in k:-1:1
         r = r + extended_binomial(v[i], i) * s
         s = -s
@@ -171,21 +159,31 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     if (k % 2) == 1
         r = r - 1
     end
+    r = r + 1 # we use 1-indexed ranks to follow the usual Julia convention
     return r
 end
 
-function _subset_unrank!(r::BigInt, n::UInt, T::Vector{UInt})
+function _subset_unrank_to_vec!(r::UInt128, k::UInt, vec::Vector{Int})
+    # returns a {0,1} vector with nonzero entries corresponding to the subset returned by _subset_unrank!
+    n = length(vec)
+    subset_vec = Int.(zeros(k))
+    CodingTheory._subset_unrank!(r, UInt(n), subset_vec)
+    for i in subset_vec
+        vec[i] = 1
+    end
+end
+
+function _subset_unrank!(r::UInt128, n::UInt, T::Vector{Int})
     # Based on Algorithm 2.12 in kreher1999combinatorial
+    r = r - 1 
+
     k = length(T)
-    subset_size_str = "subset size k = $k must be smaller than the set size n = $n"
+    subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
-    bnd = binomial(n, k)
-    rank_size_str = "rank must be in [0, choose(n, k) - 1] = $bnd"
-    r > bnd && throw(ArgumentError(rank_size_str))
-  
+ 
     x = 0
     i = 0
-    y = 0
+    y = 0 
     x = n
     for i::UInt in k:-1:1
         y = extended_binomial(x, i)

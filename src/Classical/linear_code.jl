@@ -344,7 +344,7 @@ minimum_distance_upper_bound(C::AbstractLinearCode) = C.u_bound
 Return `true` if code is maximum distance separable (MDS).
 """
 function is_MDS(C::AbstractLinearCode)
-    ismissing(C.d) && minimum_distance(C)
+    ismissing(C.d) && minimum_distance_Gray(C)
     return C.d == Singleton_bound(C.n, C.k)
 end
 
@@ -671,8 +671,8 @@ end
 
 Return the syndrome of `v` with respect to `C`.
 """
-function syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}})
-    w = isa(v, Vector{Int}) ? matrix(C.F, length(v), 1, v) : v
+function syndrome(C::AbstractLinearCode, v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}})
+    w = isa(v, Union{Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}) ? matrix(C.F, length(v), 1, v) : v
     H = parity_check_matrix(C)
     nc = ncols(H)
     (size(w) != (nc, 1) && size(w) != (1, nc)) &&
@@ -693,7 +693,7 @@ end
 
 Return whether or not `v` is a codeword of `C`.
 """
-in(v::Union{CTMatrixTypes, Vector{Int}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
+in(v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}, C::AbstractLinearCode) = iszero(syndrome(C, v))
 
 """
     ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
