@@ -419,6 +419,7 @@ end
 
 """
     minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :Zimmermann, v::Bool = false)
+    
 Return the minimum distance of `C` using a deterministic algorithm based on enumerating
 constant weight codewords of the binary reflected Gray code. If a word of minimum weight
 is found before the lower and upper bounds cross, it is returned; otherwise, the zero vector 
@@ -427,7 +428,7 @@ is returned.
 show_progress will display a progress meter for each iteration of a weight that takes longer than 
     a second
 """
-function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bool = false, 
+function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, verbose::Bool = false, 
     show_progress = true)
 
     ord_F = Int(order(C.F))
@@ -443,39 +444,50 @@ function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, v::Bo
 
     if alg == :auto
         if typeof(C) <: AbstractCyclicCode
-            v && println("Detected a cyclic code, using Chen's adaption.")
+            verbose && println("Detected a cyclic code, using Chen's adaption.")
             alg = :Chen
             # TODO: fix this case
         elseif typeof(C) <: AbstractQuasiCyclicCode
-            v && println("Detected a quasi-cyclic code, using White's adaption.")
+            verbose && println("Detected a quasi-cyclic code, using White's adaption.")
             alg = :White
         else
-            v && println("Using Zimmermann's algorithm.")
+            verbose && println("Using Zimmermann's algorithm.")
             alg = :Zimmermann
         end
     end
+    # TODO should never hit this case with the else in there?
     alg == :auto && throw(ErrorException("Could not determine minimum distance algo automatically"))
 
-    if alg in (:Brouwer, :Zimmermann) 
-        return _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg = alg, verbose = v, show_progress = show_progress)
+    # really this should work for all just the same?
+    if alg in (:Brouwer, :Zimmermann)
+        return _minimum_distance_BZ(C::AbstractLinearCode, alg, verbose, show_progress)
     end
     println("Warning: old enumeration algorithm selected. Performance will be slow") # TODO remove when all code updated
     return _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg = alg)
 end
 
-function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zimmermann,
-    verbose::Bool = false, dbg = Dict(), show_progress=false)
+# this is a private function, so there's no point in having keyword arguments
+function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbose::Bool,
+    show_progress::Bool)
+    
+    # you never pass this in anywhere so moving out
+    dbg::Dict{String, Int} = Dict()
     dbg_key_exit_r = "exit_r"
 
-    ord_F = Int(order(C.F))
-    ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    # removing since checked in main function
+    # ord_F = Int(order(C.F))
+    # ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
+    # put this at user entry point, although if 2^k is large, 2^(n - k) maybe small enough to do
+    # so we should put this in an if statement above if we are doing G or H
     C.k < 2^16 || throw(DomainError("The given linear code has length k >= 2^16 which is not supported"))
+
     info_set_alg ∈ (:Brouwer, :Zimmermann) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`"))
 
     generator_matrix(C, true) # ensure G_stand exists
     if _has_empty_vec(C.G, :cols) 
         #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
-        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
+        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported"))
+        # is that actually possible? I thought we remove this in the linear code constructor? If we don't we should and then remove this here
     end
     # generate if not pre-stored
     parity_check_matrix(C)
@@ -494,20 +506,22 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     end
 
     if haskey(dbg, dbg_key_exit_r)
-        verbose && println("dbg Dict: largest message weight searched stored @key=$dbg_key_exit_r")
+        verbose && println("dbg Dict: largest message weight searched stored @key = $dbg_key_exit_r")
         dbg[dbg_key_exit_r] = -1
     end
 
     k, n = size(C.G)
-    A_mats_trunc = [Matrix{UInt16}(undef, k, n-k) for _ in 1:length(A_mats)]
-    for i in 1:size(A_mats, 1) 
-       A_mats_trunc[i] = deepcopy(A_mats[i][k+1 : n, :])
+    A_mats_trunc = [Matrix{UInt16}(undef, k, n - k) for _ in 1:length(A_mats)]
+    for i in 1:size(A_mats, 1)
+       A_mats_trunc[i] = deepcopy(A_mats[i][k + 1 : n, :])
     end
 
+    # I don't remember this case in the paper
     if info_set_alg == :Brouwer && rnks[h] != k
         println("Rank of last matrix too small")
         return
     end
+    # I think we have to remove this from the verbose statement to work
     if verbose
         print("Generated $h information sets with ranks: ")
         for i in 1:h
@@ -532,10 +546,10 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
     end
 
-    # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.  
-    initial_perm_ind = 1 
-    # following loop is the r=1 case of the enumeration. We do this case here because we want to make a good guess at the terminating r before we start multiple threads
-    for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
+    # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.
+    initial_perm_ind = 1
+    # following loop is the r = 1 case of the enumeration. We do this case here because we want to make a good guess at the terminating r before we start multiple threads
+    for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later
         # can make this faster with dots and views
         w, i = _min_wt_col(g)
         if w <= C.u_bound
@@ -546,13 +560,15 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     end
 
     verbose && println("Current upper bound: $(C.u_bound)")
+    # I'm actually surpised this works since Oscar now requires [:, 1:1] for most things
     found = A_mats[1][:, 1]
 
     l = 0
-    if verbose 
+    # not entirely sure what's going on here since it's never used later, I guess just for testing, but if we want it printed it never ends up printed with the current comments
+    if verbose
         _, _, b_rnks = information_sets(C.G, :Brouwer, permute = true, only_A = false)
         b_h = length(b_rnks)
-        b_lower_bounds = [information_set_lower_bound(r+1, n, k, l, [k - 0 for i in 1:b_h], :Brouwer, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+        b_lower_bounds = [information_set_lower_bound(r + 1, n, k, l, [k - 0 for i in 1:b_h], :Brouwer, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
         b_r_term = findfirst(x -> x ≥ C.u_bound, b_lower_bounds)
 
         # _, _, z_rnks = information_sets(G, :Zimmermann, permute = true, only_A = false)
@@ -563,38 +579,41 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
         # verbose && println("Predicted termination weight based on current upper bound: Brouwer $b_r_term Zimm $z_r_term")
     end
 
-    #Note the r+1 here. 
-    lower_bounds_for_prediction = [information_set_lower_bound(r+1, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+    # Note the r + 1 here
+    lower_bounds_for_prediction = [information_set_lower_bound(r + 1, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds_for_prediction)
     if isnothing(r_term)
-        raise(DomainError("invalid termination r")) 
+        raise(DomainError("Invalid termination r")) 
     end
     verbose && println("Predicted termination weight based on current upper bound: $r_term")
 
-    #In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r+1
-    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k-1]
+    # In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r + 1
+    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
 
     predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
     verbose && println("Predicted work factor: $predicted_work_factor")
     if show_progress 
-        prog_bar = Progress(predicted_work_factor, dt=1.0, showspeed=true) # updates no faster than once every 1s
+        prog_bar = Progress(predicted_work_factor, dt = 1.0, showspeed = true) # updates no faster than once every 1s
     end
-    weight_sum_bound = min(2 * C.u_bound + 5, n-k)
+    # don't understand this but okay
+    weight_sum_bound = min(2 * C.u_bound + 5, n - k)
     verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
 
     num_thrds = Threads.nthreads()
     verbose && println("Number of threads ", num_thrds)
     for r in 2:k
+        # TODO this case should never happen given the error above?
         if r > 2^16
             verbose && println("Warning: Reached an r larger than 2^16") 
         end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
+        # I assume we want to uncomment these?
         # an even code can't have have an odd minimum weight
         # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
         # (!triply_even_flag && doubly_even_flag) && (C.l_bound += 4 - C.l_bound % 4;)
         # triply_even_flag && (C.l_bound += 8 - C.l_bound % 8;)
         if C.l_bound >= C.u_bound
-            dbg[dbg_key_exit_r] = r-1
+            dbg[dbg_key_exit_r] = r - 1
             break
         end
         verbose && println("r: $r")
@@ -608,6 +627,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
             end
             i_count > 0 && println("$i_count of the original $h information sets no longer contribute to the lower bound")
         end
+        # wait... does this work for nonbinary? cause we do throw an error above if it's not binary
         p = Int(characteristic(C.F))
 
         uppers = [C.u_bound for _ in 1:num_thrds]
@@ -630,17 +650,19 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                     first_vec[i] = 1
                 end
             else
+                # we shouldn't need the CT. here anymore
                 CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
             end
  
-            # as in White Algo 7.1 we loop over matrices first 
+            # I couldn't figure out why we want to do this but sure
+            # as in White Algo 7.1 we loop over matrices first
             for i in 1:h
                 if keep_going[] == false
                     verbose && println(thrd_stop_msg)
                     break
                 end
 
-                c_itr = zeros(UInt16, C.n - C.k) 
+                c_itr = zeros(UInt16, C.n - C.k)
                 is_first = true
                 curr_mat = A_mats_trunc[i]
                 count = UInt128(0)
@@ -650,11 +672,12 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                         println(thrd_stop_msg)
                         break
                     end
-                    show_progress && ProgressMeter.next!(prog_bar) 
+                    show_progress && ProgressMeter.next!(prog_bar)
+
                     if r - rank_defs[i] > 0
                         if is_first 
                             LinearAlgebra.mul!(c_itr, curr_mat, first_vec)
-                            @inbounds @simd for j in eachindex(c_itr) 
+                            @inbounds @simd for j in eachindex(c_itr)
                                 c_itr[j] %= p
                             end
                             is_first = false
@@ -675,21 +698,24 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                             verbose && @assert w != 0
                             if uppers[ind] > w 
                                 subset_vec_full = zeros(Int, k)
+                                # CT.
                                 CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
 
                                 uppers[ind] = w 
                                 founds[ind] = vcat(subset_vec_full, c_itr)
-                                verbose && @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n=$(C.n)"
-                                exit_thread_indicator_vec[ind] = i 
+                                # is it possible to hit this assert if programmed correctly and checked on one or two runs?
+                                verbose && @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n = $(C.n)"
+                                exit_thread_indicator_vec[ind] = i
 
-                                println("Adjusting (local) upper bound: $w for c_itr=$(Int.(c_itr))")
+                                println("Adjusting (local) upper bound: $w for c_itr = $(Int.(c_itr))")
                                 if C.l_bound == uppers[ind]
-                                    println("early exit")
+                                    verbose && println("Early exit")
                                     Threads.atomic_cas!(keep_going, true, false)
                                 else
                                     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
                                     isnothing(r_term) && (r_term = k;)
                                     verbose && println("Updated termination weight: $r_term")
+                                    # can we update the progress meter size here or just maybe add an amount equal to the amount now skipped?
                                 end
                             end
                         end
@@ -697,7 +723,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
                     count = add!(count, count, 1)
                 end
             end
-            loc = argmin(uppers) 
+            loc = argmin(uppers)
             C.u_bound = uppers[loc]
             found = founds[loc]
             initial_perm_ind = exit_thread_indicator_vec[loc]
@@ -705,11 +731,12 @@ function _minimum_distance_BZ(C::AbstractLinearCode; info_set_alg::Symbol = :Zim
     end
 
     C.d = C.u_bound
+    # why would this not always be the proper wt?
     y = matrix(C.F, 1, n, perms_mats[initial_perm_ind] * found) # weight(y) >= C.d, with equality not being the typical case
     verbose && @assert iszero(C.H * transpose(y))
     if dbg[dbg_key_exit_r] == -1
         dbg[dbg_key_exit_r] = r
-    end 
+    end
     show_progress && ProgressMeter.finish!(prog_bar)
     verbose && println("Computation complete")
     return C.u_bound, y
