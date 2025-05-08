@@ -107,10 +107,6 @@ function CSSCode(S::FiniteGeneralizedToricCode)
         end
         row += 1
     end
-    # println("X stabs")
-    # display(X_stabs)
-    # println("Z stabs")
-    # display(Z_stabs)
 
     return CSSCode(X_stabs, Z_stabs)
 end
