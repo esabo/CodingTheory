@@ -54,6 +54,8 @@ const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
 const CTPolyMatrix = Union{AbstractAlgebra.Generic.MatSpaceElem{fpPolyRingElem}, AbstractAlgebra.Generic.MatSpaceElem{FqPolyRingElem}}
+const CTLRPolyElem = AbstractAlgebra.Generic.LaurentMPolyWrap{fpFieldElem, fpMPolyRingElem,
+AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}}
 
 include("Classical/types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
@@ -72,7 +74,8 @@ include("Quantum/types.jl")
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
-    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
+    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS, AbstractGeneralizedToricCode
+
 # misc
 export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
     IsCSS, IsNotCSS, copy, ChainComplex
@@ -472,5 +475,13 @@ export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_r
 
 include("Quantum/homological_measurements.jl")
 export homological_measurement, Cheeger_constant
+
+#############################
+# Quantum/GeneralizedToricCode.jl
+#############################
+
+include("Quantum/GeneralizedToricCode.jl")
+export GeneralizedToricCode, FiniteGeneralizedToricCode, maximum_dimension,
+    Laurent_polynomial_ring, defining_polynomials, twist_vectors
 
 end

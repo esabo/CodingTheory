@@ -21,6 +21,7 @@ abstract type AbstractEASubsystemCode <: AbstractSubsystemCode end
 abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
+abstract type AbstractGeneralizedToricCode <: AbstractStabilizerCodeCSS end
 
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
@@ -334,6 +335,26 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
       sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
       X_metacheck::Union{CTMatrixTypes, Missing}
       Z_metacheck::Union{CTMatrixTypes, Missing}
+end
+
+#############################
+# Quantum/GeneralizedToricCode.jl
+#############################
+
+struct GeneralizedToricCode <: AbstractGeneralizedToricCode
+      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
+      F::CTFieldTypes
+      f::CTLRPolyElem
+      g::CTLRPolyElem
+end
+
+struct FiniteGeneralizedToricCode <: AbstractGeneralizedToricCode
+      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
+      F::CTFieldTypes
+      f::CTLRPolyElem
+      g::CTLRPolyElem
+      a1::Tuple{Int, Int}
+      a2::Tuple{Int, Int}
 end
 
 #############################
