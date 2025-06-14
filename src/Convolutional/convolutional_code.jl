@@ -211,7 +211,7 @@ function is_minimal(C::AbstractConvolutionalCode)
     G_h = zeros(UInt8, C.k, C.n)
     for r = 1:C.k
         for c in C.n
-            degree(C.G[r, c]) == C.vi[r] && G_h[r, c] == 1
+            degree(C.G[r, c]) == C.vi[r] && (G_h[r, c] = 1)
         end
     end
     return k == rank(G_h)
