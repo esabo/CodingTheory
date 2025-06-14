@@ -5,13 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # Noise Model
+# Noise Model
 #############################
 
 struct MPNoiseModel
     type::Symbol
-    cross_over_prob::Union{Float64, Missing}
-    sigma::Union{Float64, Missing}
+    cross_over_prob::Union{Float64,Missing}
+    sigma::Union{Float64,Missing}
 end
 
 function MPNoiseModel(type::Symbol, x::Float64)
@@ -25,15 +25,16 @@ function MPNoiseModel(type::Symbol, x::Float64)
 end
 
 #############################
-    # Importance Sampling
+# Importance Sampling
 #############################
 
-subset_probability(n::Int, wt::Int, p::Float64) = Float64(binomial(BigInt(n), BigInt(wt)) *
-    (BigFloat(p)^wt) * ((1 - BigFloat(p))^(n - wt)))
+subset_probability(n::Int, wt::Int, p::Float64) = Float64(
+    binomial(BigInt(n), BigInt(wt)) * (BigFloat(p)^wt) * ((1 - BigFloat(p))^(n - wt)),
+)
 
 function find_subsets(n::Int, p::Float64, tol::Float64)
-    subsets = Vector{Tuple{Int, Float64}}()
-    for i in 0:n
+    subsets = Vector{Tuple{Int,Float64}}()
+    for i = 0:n
         prob = subset_probability(n, i, p)
         if prob > tol
             push!(subsets, (i, prob))
@@ -66,7 +67,7 @@ function min_max_subsets(n::Int, p_arr::Vector{Float64}, tol::Float64)
 end
 
 #############################
-          # Methods
+# Methods
 #############################
 
 function _channel_to_SNR(chn::MPNoiseModel)
@@ -89,14 +90,14 @@ end
 #     noise::Union{Vector{<:Real}, AbstractRange{<:Real}}, max_iter::Int = 100, num_runs::Union{Int,
 #     Vector{Int}} = [100000 for n in noise], seed::Union{Int, Nothing} = nothing)
 
-    # decoder ∈ (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
-    # noise_type ∈ (:BSC, :BAWGNC) || throw(ArgumentError("Only supports BSC and BAWGNC"))
-    # decoder ∈ (:A, :B) && noise_type == :BAWGNC && throw(ArgumentError("BAWGNC not supported for Gallager decoders."))
-    # 0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
-    # maximum(noise) > 1 && noise_type == :BSC && throw(ArgumentError("Crossover probability must be in the range [0, 1]"))
+# decoder ∈ (:A, :B, :SP, :MS) || throw(ArgumentError("Unsupported decoder"))
+# noise_type ∈ (:BSC, :BAWGNC) || throw(ArgumentError("Only supports BSC and BAWGNC"))
+# decoder ∈ (:A, :B) && noise_type == :BAWGNC && throw(ArgumentError("BAWGNC not supported for Gallager decoders."))
+# 0 <= minimum(noise) || throw(ArgumentError("Must have non-negative noise"))
+# maximum(noise) > 1 && noise_type == :BSC && throw(ArgumentError("Crossover probability must be in the range [0, 1]"))
 
 function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
-   # initial parameters
+    # initial parameters
     # noise is assumed to be sorted
     # noise = [5e-4, 0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05]
     left = 1e-4
@@ -120,7 +121,9 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
     num_threads = Threads.nthreads()
     runs_per_thread = cld(num_runs, num_threads)
     new_num_runs = runs_per_thread * num_threads
-    verbose && println("Number of threads: $num_threads, runs per thread: $runs_per_thread, new number of runs: $new_num_runs")
+    verbose && println(
+        "Number of threads: $num_threads, runs per thread: $runs_per_thread, new number of runs: $new_num_runs",
+    )
 
     # flooding
     # SP
@@ -205,7 +208,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
     # check which should be importance sampled
     imp_sam_ind = len_noise
     sort!(noise)
-    for i in 1:len_noise
+    for i = 1:len_noise
         # first probability where the expected value of the error weight under
         # direct sampling is nontrivial in a way that isn't going to severely
         # under estimate the FER
@@ -219,36 +222,38 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
     if imp_sam_ind ≠ 0
         noise_impt = noise[1:imp_sam_ind]
         min_subset, max_subset = min_max_subsets(n, noise, tolerance)
-        subsets = [i for i in min_subset:max_subset]
+        subsets = [i for i = min_subset:max_subset]
 
         # flooding
-        subset_dic_SP = Dict{Int, Float64}()
-        subset_dic_SP_syn = Dict{Int, Float64}()
-        subset_dic_SP_dec = Dict{Int, Float64}()
-        subset_dic_MS = Dict{Int, Float64}()
-        subset_dic_MS_syn = Dict{Int, Float64}()
-        subset_dic_MS_dec = Dict{Int, Float64}()
-        subset_dic_MS_C = Dict{Int, Float64}()
-        subset_dic_MS_C_syn = Dict{Int, Float64}()
-        subset_dic_MS_C_dec = Dict{Int, Float64}()
+        subset_dic_SP = Dict{Int,Float64}()
+        subset_dic_SP_syn = Dict{Int,Float64}()
+        subset_dic_SP_dec = Dict{Int,Float64}()
+        subset_dic_MS = Dict{Int,Float64}()
+        subset_dic_MS_syn = Dict{Int,Float64}()
+        subset_dic_MS_dec = Dict{Int,Float64}()
+        subset_dic_MS_C = Dict{Int,Float64}()
+        subset_dic_MS_C_syn = Dict{Int,Float64}()
+        subset_dic_MS_C_dec = Dict{Int,Float64}()
 
         # serial
-        subset_dic_SP_s = Dict{Int, Float64}()
-        subset_dic_SP_syn_s = Dict{Int, Float64}()
-        subset_dic_SP_dec_s = Dict{Int, Float64}()
-        subset_dic_MS_s = Dict{Int, Float64}()
-        subset_dic_MS_syn_s = Dict{Int, Float64}()
-        subset_dic_MS_dec_s = Dict{Int, Float64}()
-        subset_dic_MS_C_s = Dict{Int, Float64}()
-        subset_dic_MS_C_syn_s = Dict{Int, Float64}()
-        subset_dic_MS_C_dec_s = Dict{Int, Float64}()
+        subset_dic_SP_s = Dict{Int,Float64}()
+        subset_dic_SP_syn_s = Dict{Int,Float64}()
+        subset_dic_SP_dec_s = Dict{Int,Float64}()
+        subset_dic_MS_s = Dict{Int,Float64}()
+        subset_dic_MS_syn_s = Dict{Int,Float64}()
+        subset_dic_MS_dec_s = Dict{Int,Float64}()
+        subset_dic_MS_C_s = Dict{Int,Float64}()
+        subset_dic_MS_C_syn_s = Dict{Int,Float64}()
+        subset_dic_MS_C_dec_s = Dict{Int,Float64}()
 
         first_fail_flag = false
         second_fail_flag = false
 
         if verbose
             println("Starting importance sampling on $(length(noise_impt)) noise values.")
-            println("Minimum subset: $min_subset, maximum subset: $max_subset, tolerance: $tolerance")
+            println(
+                "Minimum subset: $min_subset, maximum subset: $max_subset, tolerance: $tolerance",
+            )
         end
 
         p = noise_impt[end]
@@ -306,23 +311,56 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                 subset_dic_MS_C_dec_s[s] = 1.0
             else
                 verbose && println("Subset $s")
-                Threads.@threads for th in 1:num_threads
-                # for th in 1:1
+                Threads.@threads for th = 1:num_threads
+                    # for th in 1:1
                     err = zeros(Int, n)
                     err_locs = zeros(Int, s)
                     syn_Int = zeros(Int, nr)
                     erasures = Int[]
                     chn_inits = zeros(Float64, n)
                     # SP and MS for BSC
-                    H_Int, _, var_adj_list, check_adj_list, chn_inits, check_to_var_messages_f,
-                        var_to_check_messages_f, current_bits, totals, syn = _message_passing_init(H, v, chn,
-                        max_iter, :SP, chn_inits, :flooding, erasures)
-                    _, _, _, _, _, check_to_var_messages_s, var_to_check_messages_s, _, _, _ =
-                        _message_passing_init(H, v, chn, max_iter, :SP, chn_inits, :serial, erasures)
+                    H_Int,
+                    _,
+                    var_adj_list,
+                    check_adj_list,
+                    chn_inits,
+                    check_to_var_messages_f,
+                    var_to_check_messages_f,
+                    current_bits,
+                    totals,
+                    syn = _message_passing_init(
+                        H,
+                        v,
+                        chn,
+                        max_iter,
+                        :SP,
+                        chn_inits,
+                        :flooding,
+                        erasures,
+                    )
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    check_to_var_messages_s,
+                    var_to_check_messages_s,
+                    _,
+                    _,
+                    _ = _message_passing_init(
+                        H,
+                        v,
+                        chn,
+                        max_iter,
+                        :SP,
+                        chn_inits,
+                        :serial,
+                        erasures,
+                    )
                     # for syndrome-based we need to change the inits
-                    chn_inits_syn = [log((1 - p) / p) for _ in 1:n]
+                    chn_inits_syn = [log((1 - p) / p) for _ = 1:n]
 
-                    for _ in 1:runs_per_thread
+                    for _ = 1:runs_per_thread
                         # sample
                         err[:] .= 0
                         chn_inits[:] .= init_0
@@ -332,7 +370,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                             chn_inits[e] = init_1
                         end
                         LinearAlgebra.mul!(syn_Int, H_Int, err)
-                        @inbounds @simd for i in 1:nr
+                        @inbounds @simd for i = 1:nr
                             syn_Int[i] %= 2
                         end
                         # pick a random bit to decimate
@@ -340,137 +378,281 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                         # decimated_bits = [bit]
                         # # for now, setup as a genie-assisted decoder
                         # decimated_values = [err[bit]]
-            
+
                         # flooding
                         # run SP
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits, 
-                            _SP_check_node_message_box_plus, var_adj_list, check_adj_list,
-                            max_iter, :flooding, current_bits, totals, syn,
-                            check_to_var_messages_f, var_to_check_messages_f, 0.0)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _SP_check_node_message_box_plus,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            0.0,
+                        )
                         (!flag || !iszero(out)) && (local_counts_SP[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # run syndrome-based SP
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _SP_check_node_message_box_plus, var_adj_list, check_adj_list,
-                            max_iter, :flooding, current_bits, totals, syn,
-                            check_to_var_messages_f, var_to_check_messages_f, 0.0)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _SP_check_node_message_box_plus,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            0.0,
+                        )
                         (!flag || out ≠ err) && (local_counts_SP_syn[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # run MS
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits,
-                            _MS_check_node_message, var_adj_list, check_adj_list, max_iter,
-                            :flooding, current_bits, totals, syn, check_to_var_messages_f,
-                            var_to_check_messages_f, attenuation)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _MS_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            attenuation,
+                        )
                         (!flag && !iszero(out)) && (local_counts_MS[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # run syndrome-based MS
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _MS_check_node_message, var_adj_list, check_adj_list, max_iter,
-                            :flooding, current_bits, totals, syn, check_to_var_messages_f,
-                            var_to_check_messages_f, 0.0)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _MS_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            0.0,
+                        )
                         (!flag && out ≠ err) && (local_counts_MS_syn[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # run MS with correction
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits,
-                            _MS_correction_check_node_message, var_adj_list, check_adj_list,
-                            max_iter, :flooding, current_bits, totals, syn,
-                            check_to_var_messages_f, var_to_check_messages_f, attenuation)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _MS_correction_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            attenuation,
+                        )
                         (!flag || !iszero(out)) && (local_counts_MS_C[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # run syndrome-based MS with correction
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _MS_correction_check_node_message, var_adj_list, check_adj_list,
-                            max_iter, :flooding, current_bits, totals, syn,
-                            check_to_var_messages_f, var_to_check_messages_f, attenuation)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _MS_correction_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :flooding,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_f,
+                            var_to_check_messages_f,
+                            attenuation,
+                        )
                         (!flag || out ≠ err) && (local_counts_MS_C_syn[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_f[:, :, :] .= 0.0
                         var_to_check_messages_f[:, :, :] .= 0.0
-            
+
                         # serial
                         # run SP
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits,
-                            _SP_check_node_message_box_plus, var_adj_list, check_adj_list,
-                            max_iter, :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, 0.0)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _SP_check_node_message_box_plus,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            0.0,
+                        )
                         (!flag || !iszero(out)) && (local_counts_SP_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
-            
+
                         # run syndrome-based SP
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _SP_check_node_message_box_plus, var_adj_list, check_adj_list,
-                            max_iter, :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, 0.0)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _SP_check_node_message_box_plus,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            0.0,
+                        )
                         (!flag || out ≠ err) && (local_counts_SP_syn_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
-            
+
                         # run MS
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits,
-                            _MS_check_node_message, var_adj_list, check_adj_list, max_iter,
-                            :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, attenuation)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _MS_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            attenuation,
+                        )
                         (!flag && !iszero(out)) && (local_counts_MS_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
-            
+
                         # run syndrome-based MS
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _MS_check_node_message, var_adj_list, check_adj_list, max_iter,
-                            :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, 0.0)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _MS_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            0.0,
+                        )
                         (!flag && out ≠ err) && (local_counts_MS_syn_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
-            
+
                         # run MS with correction
-                        flag, out, _ = _message_passing(H_Int, missing, chn_inits, 
-                            _MS_correction_check_node_message, var_adj_list, check_adj_list,
-                            max_iter, :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, attenuation)
+                        flag, out, _ = _message_passing(
+                            H_Int,
+                            missing,
+                            chn_inits,
+                            _MS_correction_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            attenuation,
+                        )
                         (!flag || !iszero(out)) && (local_counts_MS_C_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
-            
+
                         # run syndrome-based MS with correction
-                        flag, out, _, = _message_passing(H_Int, syn_Int, chn_inits_syn,
-                            _MS_correction_check_node_message, var_adj_list, check_adj_list,
-                            max_iter, :serial, current_bits, totals, syn, check_to_var_messages_s,
-                            var_to_check_messages_s, attenuation)
+                        flag, out, _, = _message_passing(
+                            H_Int,
+                            syn_Int,
+                            chn_inits_syn,
+                            _MS_correction_check_node_message,
+                            var_adj_list,
+                            check_adj_list,
+                            max_iter,
+                            :serial,
+                            current_bits,
+                            totals,
+                            syn,
+                            check_to_var_messages_s,
+                            var_to_check_messages_s,
+                            attenuation,
+                        )
                         (!flag || out ≠ err) && (local_counts_MS_C_syn_s[th] += 1;)
-            
+
                         # reset inputs for next run, but don't re-allocate new memory
                         check_to_var_messages_s[:, :, :] .= 0.0
                         var_to_check_messages_s[:, :, :] .= 0.0
@@ -506,7 +688,9 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                         if !second_fail_flag
                             second_fail_flag = true
                             verbose && println("Second short circuit flag set at subset $s")
-                            verbose && println("Short circuiting importance sampling after subset $s")
+                            verbose && println(
+                                "Short circuiting importance sampling after subset $s",
+                            )
                         end
                     else
                         first_fail_flag = true
@@ -537,7 +721,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                 local_counts_MS_C_dec_s[:] .= 0
             end
         end
-        
+
         for (i, p) in enumerate(noise_impt)
             subsets = find_subsets(n, p, tolerance)
             for s in subsets
@@ -594,7 +778,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
             local_counts_MS_C_dec_s[:] .= 0
         end
 
-        for i in imp_sam_ind + 1:len_noise
+        for i = (imp_sam_ind+1):len_noise
             p = noise[i]
             println("Starting p = $p")
             # initialize everything for p
@@ -602,24 +786,58 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
             init_0 = log((1 - p) / p)
             init_1 = log(p / (1 - p))
 
-            Threads.@threads for th in 1:num_threads
+            Threads.@threads for th = 1:num_threads
                 err_dir = zeros(Int, n)
                 syn_Int_dir = zeros(Int, nr)
                 erasures_dir = Int[]
                 chn_inits_dir = zeros(Float64, n)
                 # SP and MS
-                H_Int_dir, _, var_adj_list_dir, check_adj_list_dir, chn_inits_dir, check_to_var_messages_f_dir,
-                    var_to_check_messages_f_dir, current_bits_dir, totals_dir, syn_dir = _message_passing_init(H,
-                    v, chn, max_iter, :SP, chn_inits_dir, :flooding, erasures_dir)
-                _, _, _, _, _, check_to_var_messages_s_dir, var_to_check_messages_s_dir, _, _, _ =
-                    _message_passing_init(H, v, chn, max_iter, :SP, chn_inits_dir, :serial, erasures_dir)
+                H_Int_dir,
+                _,
+                var_adj_list_dir,
+                check_adj_list_dir,
+                chn_inits_dir,
+                check_to_var_messages_f_dir,
+                var_to_check_messages_f_dir,
+                current_bits_dir,
+                totals_dir,
+                syn_dir = _message_passing_init(
+                    H,
+                    v,
+                    chn,
+                    max_iter,
+                    :SP,
+                    chn_inits_dir,
+                    :flooding,
+                    erasures_dir,
+                )
+                _,
+                _,
+                _,
+                _,
+                _,
+                check_to_var_messages_s_dir,
+                var_to_check_messages_s_dir,
+                _,
+                _,
+                _ = _message_passing_init(
+                    H,
+                    v,
+                    chn,
+                    max_iter,
+                    :SP,
+                    chn_inits_dir,
+                    :serial,
+                    erasures_dir,
+                )
                 # for syndrome-based we need to change the inits
-                chn_inits_syn_dir = [init_0 for _ in 1:n]
+                chn_inits_syn_dir = [init_0 for _ = 1:n]
 
-                for _ in 1:runs_per_thread
+                for _ = 1:runs_per_thread
                     # sample
-                    @inbounds for j in 1:n
-                        rand(dist) ≤ p ? (err_dir[j] = 1; chn_inits_dir[j] = init_1;) : (err_dir[j] = 0; chn_inits_dir[j] = init_0;)
+                    @inbounds for j = 1:n
+                        rand(dist) ≤ p ? (err_dir[j] = 1; chn_inits_dir[j] = init_1;) :
+                        (err_dir[j] = 0; chn_inits_dir[j] = init_0;)
                     end
                     # err = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                     # chn_inits = [init_0 for _ in 1:n]
@@ -627,7 +845,7 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     # th == 1 && println(err)
                     # println("thread: $th, weight: $wt")
                     LinearAlgebra.mul!(syn_Int_dir, H_Int_dir, err_dir)
-                    @inbounds @simd for i in 1:nr
+                    @inbounds @simd for i = 1:nr
                         syn_Int_dir[i] %= 2
                     end
                     # pick a random bit to decimate
@@ -638,10 +856,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
 
                     # flooding
                     # run SP
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir,
-                        _SP_check_node_message_box_plus, var_adj_list_dir, check_adj_list_dir, max_iter,
-                        :flooding, current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir,
-                        var_to_check_messages_f_dir, 0.0)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _SP_check_node_message_box_plus,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        0.0,
+                    )
                     (!flag_dir || !iszero(out_dir)) && (local_counts_SP[th] += 1;)
                     # if th == 1 && !iszero(out)
                     #     println("out = $out;")
@@ -657,9 +887,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
                     # run syndrome-based SP
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                        _SP_check_node_message_box_plus, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, 0.0)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _SP_check_node_message_box_plus,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        0.0,
+                    )
                     (!flag_dir || out_dir ≠ err_dir) && (local_counts_SP_syn[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -667,9 +910,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
                     # run MS
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir, _MS_check_node_message,
-                        var_adj_list_dir, check_adj_list_dir, max_iter, :flooding, current_bits_dir, totals_dir, syn_dir,
-                        check_to_var_messages_f_dir, var_to_check_messages_f_dir, attenuation)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _MS_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        attenuation,
+                    )
                     (!flag_dir && !iszero(out_dir)) && (local_counts_MS[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -677,9 +933,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
                     # run syndrome-based MS
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                    _MS_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, 0.0)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _MS_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        0.0,
+                    )
                     (!flag_dir && out_dir ≠ err_dir) && (local_counts_MS_syn[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -687,9 +956,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
                     # run MS with correction
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir, _MS_correction_check_node_message,
-                        var_adj_list_dir, check_adj_list_dir, max_iter, :flooding, current_bits_dir, totals_dir, syn_dir,
-                        check_to_var_messages_f_dir, var_to_check_messages_f_dir, attenuation)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _MS_correction_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        attenuation,
+                    )
                     (!flag_dir || !iszero(out_dir)) && (local_counts_MS_C[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -697,9 +979,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_f_dir[:, :, :] .= 0.0
 
                     # run syndrome-based MS with correction
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                    _MS_correction_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :flooding,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_f_dir, var_to_check_messages_f_dir, attenuation)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _MS_correction_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :flooding,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_f_dir,
+                        var_to_check_messages_f_dir,
+                        attenuation,
+                    )
                     (!flag_dir || out_dir ≠ err_dir) && (local_counts_MS_C_syn[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -708,9 +1003,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
 
                     # serial
                     # run SP
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir, _SP_check_node_message_box_plus,
-                        var_adj_list_dir, check_adj_list_dir, max_iter, :serial, current_bits_dir, totals_dir, syn_dir,
-                        check_to_var_messages_s_dir, var_to_check_messages_s_dir, 0.0)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _SP_check_node_message_box_plus,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        0.0,
+                    )
                     (!flag_dir || !iszero(out_dir)) && (local_counts_SP_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -718,9 +1026,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
                     # run syndrome-based SP
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                        _SP_check_node_message_box_plus, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, 0.0)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _SP_check_node_message_box_plus,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        0.0,
+                    )
                     (!flag_dir || out_dir ≠ err_dir) && (local_counts_SP_syn_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -728,9 +1049,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
                     # run MS
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir, _MS_check_node_message,
-                        var_adj_list_dir, check_adj_list_dir, max_iter, :serial, current_bits_dir, totals_dir, syn_dir,
-                        check_to_var_messages_s_dir, var_to_check_messages_s_dir, attenuation)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _MS_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        attenuation,
+                    )
                     (!flag_dir && !iszero(out_dir)) && (local_counts_MS_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -738,9 +1072,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
                     # run syndrome-based MS
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                    _MS_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, 0.0)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _MS_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        0.0,
+                    )
                     (!flag_dir && out_dir ≠ err_dir) && (local_counts_MS_syn_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -748,9 +1095,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
                     # run MS with correction
-                    flag_dir, out_dir, _ = _message_passing(H_Int_dir, missing, chn_inits_dir, _MS_correction_check_node_message,
-                        var_adj_list_dir, check_adj_list_dir, max_iter, :serial, current_bits_dir, totals_dir, syn_dir,
-                        check_to_var_messages_s_dir, var_to_check_messages_s_dir, attenuation)
+                    flag_dir, out_dir, _ = _message_passing(
+                        H_Int_dir,
+                        missing,
+                        chn_inits_dir,
+                        _MS_correction_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        attenuation,
+                    )
                     (!flag_dir || !iszero(out_dir)) && (local_counts_MS_C_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -758,9 +1118,22 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
                     var_to_check_messages_s_dir[:, :, :] .= 0.0
 
                     # run syndrome-based MS with correction
-                    flag_dir, out_dir, _, = _message_passing(H_Int_dir, syn_Int_dir, chn_inits_syn_dir,
-                    _MS_correction_check_node_message, var_adj_list_dir, check_adj_list_dir, max_iter, :serial,
-                        current_bits_dir, totals_dir, syn_dir, check_to_var_messages_s_dir, var_to_check_messages_s_dir, attenuation)
+                    flag_dir, out_dir, _, = _message_passing(
+                        H_Int_dir,
+                        syn_Int_dir,
+                        chn_inits_syn_dir,
+                        _MS_correction_check_node_message,
+                        var_adj_list_dir,
+                        check_adj_list_dir,
+                        max_iter,
+                        :serial,
+                        current_bits_dir,
+                        totals_dir,
+                        syn_dir,
+                        check_to_var_messages_s_dir,
+                        var_to_check_messages_s_dir,
+                        attenuation,
+                    )
                     (!flag_dir || out_dir ≠ err_dir) && (local_counts_MS_C_syn_s[th] += 1;)
 
                     # reset inputs for next run, but don't re-allocate new memory
@@ -814,13 +1187,46 @@ function decoders_test(H::CTMatrixTypes; verbose::Bool = true)
             local_counts_MS_C_s[:] .= 0
             local_counts_MS_C_syn_s[:] .= 0
             local_counts_MS_C_dec_s[:] .= 0
-            
+
             println("Finished p = $p")
         end
     end
-    return FER_SP, FER_SP_syn, FER_SP_dec, FER_MS, FER_MS_syn, FER_MS_dec, FER_MS_C, FER_MS_C_syn,
-        FER_MS_C_dec, FER_SP_s, FER_SP_syn_s, FER_SP_dec_s, FER_MS_s, FER_MS_syn_s, FER_MS_dec_s,
-        FER_MS_C_s, FER_MS_C_syn_s, FER_MS_C_dec_s, subset_dic_SP, subset_dic_SP_syn, subset_dic_SP_dec, subset_dic_MS, subset_dic_MS_syn, subset_dic_MS_dec, subset_dic_MS_C, subset_dic_MS_C_syn, subset_dic_MS_C_dec, subset_dic_SP_s, subset_dic_SP_syn_s, subset_dic_SP_dec_s, subset_dic_MS_s, subset_dic_MS_syn_s, subset_dic_MS_dec_s, subset_dic_MS_C_s, subset_dic_MS_C_syn_s, subset_dic_MS_C_dec_s
+    return FER_SP,
+    FER_SP_syn,
+    FER_SP_dec,
+    FER_MS,
+    FER_MS_syn,
+    FER_MS_dec,
+    FER_MS_C,
+    FER_MS_C_syn,
+    FER_MS_C_dec,
+    FER_SP_s,
+    FER_SP_syn_s,
+    FER_SP_dec_s,
+    FER_MS_s,
+    FER_MS_syn_s,
+    FER_MS_dec_s,
+    FER_MS_C_s,
+    FER_MS_C_syn_s,
+    FER_MS_C_dec_s,
+    subset_dic_SP,
+    subset_dic_SP_syn,
+    subset_dic_SP_dec,
+    subset_dic_MS,
+    subset_dic_MS_syn,
+    subset_dic_MS_dec,
+    subset_dic_MS_C,
+    subset_dic_MS_C_syn,
+    subset_dic_MS_C_dec,
+    subset_dic_SP_s,
+    subset_dic_SP_syn_s,
+    subset_dic_SP_dec_s,
+    subset_dic_MS_s,
+    subset_dic_MS_syn_s,
+    subset_dic_MS_dec_s,
+    subset_dic_MS_C_s,
+    subset_dic_MS_C_syn_s,
+    subset_dic_MS_C_dec_s
 end
 
 function single_decoder_test(H::CTMatrixTypes)
@@ -857,24 +1263,41 @@ function single_decoder_test(H::CTMatrixTypes)
         init_0 = log((1 - p) / p)
         init_1 = log(p / (1 - p))
         local_counts = zeros(Int, num_threads)
-        Threads.@threads for th in 1:num_threads
+        Threads.@threads for th = 1:num_threads
             err = zeros(Int, n)
             syn_Int = zeros(Int, nr)
             erasures = Int[]
             chn_inits = zeros(Float64, n)
             # SP/MS for BSC
-            H_Int, _, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-                var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-                max_iter, :SP, chn_inits, schedule, erasures)
+            H_Int,
+            _,
+            var_adj_list,
+            check_adj_list,
+            chn_inits,
+            check_to_var_messages,
+            var_to_check_messages,
+            current_bits,
+            totals,
+            syn = _message_passing_init(
+                H,
+                v,
+                chn,
+                max_iter,
+                :SP,
+                chn_inits,
+                schedule,
+                erasures,
+            )
             # chn_inits_syn = [init_0 for _ in 1:n]
 
-            for _ in 1:runs_per_thread
+            for _ = 1:runs_per_thread
                 # sample
                 # @inbounds for j in 1:n
                 #     rand(dist) ≤ p ? (err[j] = 1; chn_inits[j] = init_1;) : (err[j] = 0; chn_inits[j] = init_0;)
                 # end
-                err = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-                chn_inits = [init_0 for _ in 1:n]
+                err = zeros(Int, 254)
+                err[81] = 1
+                chn_inits = [init_0 for _ = 1:n]
                 chn_inits[81] = init_1
 
                 # @inbounds for j in 1:n
@@ -891,10 +1314,22 @@ function single_decoder_test(H::CTMatrixTypes)
                 # decimated_values = [err[bit]]
 
                 # SP
-                flag, out, _ = _message_passing(H_Int, missing, chn_inits,
-                    _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter,
-                    schedule, current_bits, totals, syn, check_to_var_messages,
-                    var_to_check_messages, 0.0)
+                flag, out, _ = _message_passing(
+                    H_Int,
+                    missing,
+                    chn_inits,
+                    _SP_check_node_message_box_plus,
+                    var_adj_list,
+                    check_adj_list,
+                    max_iter,
+                    schedule,
+                    current_bits,
+                    totals,
+                    syn,
+                    check_to_var_messages,
+                    var_to_check_messages,
+                    0.0,
+                )
                 (!flag || !iszero(out)) && (local_counts[th] += 1;)
                 println(flag)
                 println(out)

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 """
@@ -35,8 +35,8 @@ function ConvolutionalCode(G::CTPolyMatrix, parity::Bool = false)
         # remove empty columns for flint objects https://github.com/oscar-system/Oscar.jl/issues/1062
         nr = nrows(H)
         H_tr = zero_matrix(base_ring(H), rnk_H, nr)
-        for r in 1:nr
-            for c in 1:rnk_H
+        for r = 1:nr
+            for c = 1:rnk_H
                 !iszero(H[r, c]) && (H_tr[c, r] = H[r, c];)
             end
         end
@@ -52,8 +52,8 @@ function ConvolutionalCode(G::CTPolyMatrix, parity::Bool = false)
     n = ncols(G_new)
     vi = zeros(Int, k)
     row_degs = zeros(Int, k)
-    for i in 1:k
-        row_deg = [degree(G_new[i, c]) for c in 1:n]
+    for i = 1:k
+        row_deg = [degree(G_new[i, c]) for c = 1:n]
         row_degs = sum(row_deg)
         vi[i] = maximum(row_deg)
     end
@@ -62,11 +62,25 @@ function ConvolutionalCode(G::CTPolyMatrix, parity::Bool = false)
     mnrs = minors(G_new, k)
     int_deg = maximum([degree(x) for x in mnrs])
     ext_deg = sum(row_degs)
-    return ConvolutionalCode(base_ring(G_new), n, k, missing, D, m, vi, mnrs, int_deg, ext_deg, G, H, missing)
+    return ConvolutionalCode(
+        base_ring(G_new),
+        n,
+        k,
+        missing,
+        D,
+        m,
+        vi,
+        mnrs,
+        int_deg,
+        ext_deg,
+        G,
+        H,
+        missing,
+    )
 end
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -147,11 +161,11 @@ Return the external degree of `C`.
 external_degree(C::AbstractConvolutionalCode) = C.ext_deg
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
 """
@@ -183,7 +197,7 @@ function is_basic(C::AbstractConvolutionalCode)
     SNF, _, _ = snf_with_transform(C.G)
     # diag elements of SNF are invariant factors
     # all invariant factors (SNF) are 1
-    return all(is_one, [SNF[i, i] for i in 1:k])
+    return all(is_one, [SNF[i, i] for i = 1:k])
 end
 
 # can always make minimal with row ops
@@ -195,9 +209,9 @@ Return `true` if the generator matrix of `C` is minimal; otherwise, `false`.
 function is_minimal(C::AbstractConvolutionalCode)
     is_basic(C) || return false
     G_h = zeros(UInt8, C.k, C.n)
-    for r in 1:C.k
+    for r = 1:C.k
         for c in C.n
-            degree(C.G[r, c]) == C.vi[r] && (G_h[r, c]  1;)
+            degree(C.G[r, c]) == C.vi[r] && (G_h[r, c] = 1)
         end
     end
     return k == rank(G_h)
@@ -230,16 +244,16 @@ is_catastrophic(C::AbstractConvolutionalCode) = !is_one(sum(ZZ.(coefficients(gcd
 Return the generator matrix of `C` if `systematic` is `false` and a systematic generator matrix
 otherwise.
 """
-generator_matrix(C::AbstractConvolutionalCode, systematic::Bool = false) = 
+generator_matrix(C::AbstractConvolutionalCode, systematic::Bool = false) =
     systematic ? (return hnf(fraction_field(base_ring(C.G)).(C.G));) : (return C.G;)
 
 function terminated_generator_matrix(C::AbstractConvolutionalCode, L::Int)
     L ≥ 1 || throw(DomainError(L, "The number of rows must be at least one."))
 
-    G_mats = [zero_matrix(C.F, C.k, C.n) for _ in 1:C.m]
-    for r in 1:C.k
-        for c in 1:C.n
-            for i in 1:m
+    G_mats = [zero_matrix(C.F, C.k, C.n) for _ = 1:C.m]
+    for r = 1:C.k
+        for c = 1:C.n
+            for i = 1:m
                 G_mats[m][r, c] = coeff(C.G[r, c], i - 1)
             end
         end
@@ -247,9 +261,9 @@ function terminated_generator_matrix(C::AbstractConvolutionalCode, L::Int)
 
     # this matrix has L shifts and truncates at row L
     G_L = zero_matrix(C.F, L * C.k, (m + L) * C.n)
-    for r in 1:L
-        for c in 1:m
-            G_L[(r - 1) * C.k + 1:r * C.k,  (c - 1 + r - 1) * C.n + 1:(c + r - 1) * C.n] .= G_mats[c]
+    for r = 1:L
+        for c = 1:m
+            G_L[((r-1)*C.k+1):(r*C.k), ((c-1+r-1)*C.n+1):((c+r-1)*C.n)] .= G_mats[c]
         end
     end
     return G_L
@@ -257,11 +271,11 @@ end
 
 function truncated_generator_matrix(C::AbstractConvolutionalCode, L::Int)
     L ≥ 1 || throw(DomainError(L, "The number of columns must be at least one."))
-    
-    G_mats = [zero_matrix(C.F, C.k, C.n) for _ in 1:C.m]
-    for r in 1:C.k
-        for c in 1:C.n
-            for i in 1:m
+
+    G_mats = [zero_matrix(C.F, C.k, C.n) for _ = 1:C.m]
+    for r = 1:C.k
+        for c = 1:C.n
+            for i = 1:m
                 G_mats[m][r, c] = coeff(C.G[r, c], i - 1)
             end
         end
@@ -269,11 +283,11 @@ function truncated_generator_matrix(C::AbstractConvolutionalCode, L::Int)
 
     # this matrix truncates at column L
     G_L = zeros(C.F, L * C.k, L * C.n)
-    for offset in 0:min(C.m - 1, L)
-        for i in 1:L - offset
+    for offset = 0:min(C.m-1, L)
+        for i = 1:(L-offset)
             rows = (1:C.k) .+ ((i - 1) * C.k)
             cols = (1:C.n) .+ ((offset + i - 1) * C.n)
-            G_L[rows, cols] .= G_mats[offset + 1]
+            G_L[rows, cols] .= G_mats[offset+1]
         end
     end
     return G_L
@@ -282,10 +296,10 @@ end
 function tail_biting_generator_matrix(C::AbstractConvolutionalCode, L::Int)
     L ≥ 1 || throw(DomainError(L, "The number of columns must be at least one."))
 
-    G_mats = [zero_matrix(C.F, C.k, C.n) for _ in 1:C.m]
-    for r in 1:C.k
-        for c in 1:C.n
-            for i in 1:m
+    G_mats = [zero_matrix(C.F, C.k, C.n) for _ = 1:C.m]
+    for r = 1:C.k
+        for c = 1:C.n
+            for i = 1:m
                 G_mats[m][r, c] = coeff(C.G[r, c], i - 1)
             end
         end
@@ -293,15 +307,15 @@ function tail_biting_generator_matrix(C::AbstractConvolutionalCode, L::Int)
 
     # this matrix has L shifts and truncates at row L
     G_L = zero_matrix(C.F, L * C.k, L * C.n)
-    for r in 1:L
-        for c in 1:m
+    for r = 1:L
+        for c = 1:m
             if c - 1 + r - 1 ≤ L
                 if c + r - 2 > L
-                    cols = ((c - 1 + r - 1) % L) * C.n + 1:((c + r - 1) % L) * C.n
+                    cols = (((c-1+r-1)%L)*C.n+1):(((c+r-1)%L)*C.n)
                 else
-                    cols = (c - 1 + r - 1) * C.n + 1:(c + r - 1) * C.n
+                    cols = ((c-1+r-1)*C.n+1):((c+r-1)*C.n)
                 end
-                G_L[(r - 1) * C.k + 1:r * C.k,  cols] .= G_mats[c]
+                G_L[((r-1)*C.k+1):(r*C.k), cols] .= G_mats[c]
             end
         end
     end
@@ -328,8 +342,16 @@ function show(io::IO, C::AbstractConvolutionalCode)
         println(io, "Constraint length: $(overall_constraint_length(C))")
         if C.n ≤ 10
             println(io, "Generator matrix: $(C.k) × $(C.n)")
-            println(io, "\t" * replace(replace(replace(repr(MIME("text/plain"), C.G), 
-            r"\n" => "\n\t"), r"\[" => ""), r"\]" => ""))
+            println(
+                io,
+                "\t" * replace(
+                    replace(
+                        replace(repr(MIME("text/plain"), C.G), r"\n" => "\n\t"),
+                        r"\[" => "",
+                    ),
+                    r"\]" => "",
+                ),
+            )
         end
         # if !ismissing(C.weight_enum)
         #     println(io, "\nComplete weight enumerator:")
@@ -344,9 +366,13 @@ end
 Return the encoding of `v` into `C`.
 """
 function encode(C::AbstractConvolutionalCode, v::CTPolyMatrix)
-    (size(v) != (1, C.k) && size(v) != (C.k, 1)) &&
-        throw(ArgumentError("Vector has incorrect dimension; expected length $(C.k), received: $(size(v))."))
-    parent(v) == parent(C.G) || throw(ArgumentError("Vector must have the same parent as the generator matrix."))
+    (size(v) != (1, C.k) && size(v) != (C.k, 1)) && throw(
+        ArgumentError(
+            "Vector has incorrect dimension; expected length $(C.k), received: $(size(v)).",
+        ),
+    )
+    parent(v) == parent(C.G) ||
+        throw(ArgumentError("Vector must have the same parent as the generator matrix."))
     nrows(v) ≠ 1 || return v * C.G
     return transpose(v) * C.G
 end
@@ -363,4 +389,3 @@ end
 #     interleave::Bool
 #     scalar and polynomial versions
 # syndrome
-

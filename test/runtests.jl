@@ -32,7 +32,9 @@ end
 println("Random.seed initialized to 0")
 CodingTheory.Random.seed!(0)
 
-println("Starting tests with $(Threads.nthreads()) threads out of `Sys.CPU_THREADS = $(Sys.CPU_THREADS)`...")
+println(
+    "Starting tests with $(Threads.nthreads()) threads out of `Sys.CPU_THREADS = $(Sys.CPU_THREADS)`...",
+)
 
 @run_package_tests filter = test_filter
 

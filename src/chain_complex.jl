@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 # Base.zero(phi::AbstractAlgebra.Generic.ModuleHomomorphism) = hom(domain(phi), codomain(phi), [zero(codomain(phi)) for i in 1:ngens(domain(phi))])
@@ -16,12 +16,13 @@
 Return the chain complex whose boundary maps are given by `∂s` and lowest degree by
 `lowest_degree`.
 """
-function chain_complex(∂s::Vector{T}; lowest_degree::Int=0) where T <: CTMatrixTypes
+function chain_complex(∂s::Vector{T}; lowest_degree::Int = 0) where {T<:CTMatrixTypes}
     F = base_ring(∂s[1])
-    all(x -> base_ring(x) == F, ∂s) || throw(ArgumentError("All inputs must be over the same base ring"))
+    all(x -> base_ring(x) == F, ∂s) ||
+        throw(ArgumentError("All inputs must be over the same base ring"))
     spaces = [[vector_space(F, ncols(∂i)) for ∂i in ∂s]; vector_space(F, nrows(∂s[end]))]
     # need to transpose because they are forced into right multiplication for noncommuntative rings
-    morphisms = [hom(spaces[i], spaces[i + 1], transpose(∂i)) for (i, ∂i) in enumerate(∂s)]
+    morphisms = [hom(spaces[i], spaces[i+1], transpose(∂i)) for (i, ∂i) in enumerate(∂s)]
     # ComplexOfMorphisms(typeof(spaces[1]), morphisms, typ = :chain, seed = lowest_degree)
     return chain_complex(morphisms; seed = lowest_degree)
 end
@@ -33,8 +34,10 @@ end
 Return the 3-term chain complex associated with the CSS code `S`.
 """
 chain_complex(S::AbstractStabilizerCode) = chain_complex(CSSTrait(typeof(S)), S)
-chain_complex(::IsCSS, S::AbstractStabilizerCode) = chain_complex([transpose(S.Z_stabs), S.X_stabs])
-chain_complex(::IsNotCSS, S::AbstractStabilizerCode) = throw(ArgumentError("This is only defined for CSS codes"))
+chain_complex(::IsCSS, S::AbstractStabilizerCode) =
+    chain_complex([transpose(S.Z_stabs), S.X_stabs])
+chain_complex(::IsNotCSS, S::AbstractStabilizerCode) =
+    throw(ArgumentError("This is only defined for CSS codes"))
 
 """
     chain_complex(C::AbstractLinearCode)
@@ -44,7 +47,7 @@ Return the 2-term chain complex associated with the parity-check matrix of `C`.
 chain_complex(C::AbstractLinearCode) = chain_complex([parity_check_matrix(C)])
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -84,11 +87,11 @@ Return `:chain` if `chain` is a chain complex or `:cochain` if it is a cochain c
 type(chain::CTChainComplex) = chain.typ
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
 # TODO: redo
@@ -97,7 +100,8 @@ type(chain::CTChainComplex) = chain.typ
 
 Return the dual of the chain complex.
 """
-cochain(chain::ChainComplex) = ChainComplex([transpose(∂) for ∂ in reverse(chain.boundaries)])
+cochain(chain::ChainComplex) =
+    ChainComplex([transpose(∂) for ∂ in reverse(chain.boundaries)])
 
 """
     ⊗(chain_A::ChainComplex{T}, chain_B::ChainComplex{T}) where T <: CTMatrixTypes
@@ -110,13 +114,19 @@ double_complex(chain_A::CTChainComplex, chain_B::CTChainComplex) = chain_A ⊗ c
 bicomplex(chain_A::CTChainComplex, chain_B::CTChainComplex) = chain_A ⊗ chain_B
 
 
-double_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) = chain_complex(C1) ⊗ chain_complex(C2)
-double_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) = chain_complex(S) ⊗ chain_complex(C)
-double_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) = chain_complex(S1) ⊗ chain_complex(S2)
+double_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) =
+    chain_complex(C1) ⊗ chain_complex(C2)
+double_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) =
+    chain_complex(S) ⊗ chain_complex(C)
+double_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) =
+    chain_complex(S1) ⊗ chain_complex(S2)
 
-total_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) = total_complex(double_complex(C1, C2))
-total_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) = total_complex(double_complex(S, C))
-total_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) = total_complex(double_complex(S1, S2))
+total_complex(C1::AbstractLinearCode, C2::AbstractLinearCode) =
+    total_complex(double_complex(C1, C2))
+total_complex(S::AbstractStabilizerCodeCSS, C::AbstractLinearCode) =
+    total_complex(double_complex(S, C))
+total_complex(S1::AbstractStabilizerCodeCSS, S2::AbstractStabilizerCodeCSS) =
+    total_complex(double_complex(S1, S2))
 
 """
     distance_balancing(S::StabilizerCodeCSS, C::AbstractLinearCode)

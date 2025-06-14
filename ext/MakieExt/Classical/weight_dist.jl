@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-    # Weight Enumerators
+# Weight Enumerators
 #############################
 
 """
@@ -19,9 +19,9 @@ Return a bar graph of the weight distribution of `C`.
 function CodingTheory.weight_plot(C::AbstractLinearCode; alg::Symbol = :auto)
     wt_dist = weight_distribution(C, alg = alg, compact = true)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
     ismissing(C.d) ? (title = "Weight Distribution - [$(C.n), $(C.k)]";) :
-        title = "Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
+    title = "Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
 
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms", title = title)

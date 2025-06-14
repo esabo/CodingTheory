@@ -5,20 +5,35 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-          # Misc
+# Misc
 #############################
 
 function ZeroCode(F::CTFieldTypes, n::Integer)
     n > 0 || throw(ArgumentError("Code length must be positive (received n = $n)"))
     _, vars = polynomial_ring(Nemo.ZZ, Int(order(F)))
-    return LinearCode(F, n, 0, 0, 0, 0, zero_matrix(F, 1, n), identity_matrix(F, n), zero_matrix(F, 0, n), identity_matrix(F, n), missing, WeightEnumerator(vars[1]^n, :complete))
+    return LinearCode(
+        F,
+        n,
+        0,
+        0,
+        0,
+        0,
+        zero_matrix(F, 1, n),
+        identity_matrix(F, n),
+        zero_matrix(F, 0, n),
+        identity_matrix(F, n),
+        missing,
+        WeightEnumerator(vars[1]^n, :complete),
+    )
 end
 
 function ZeroCode(q::Integer, n::Integer)
-    F = if is_prime(q) Oscar.Nemo.Native.GF(q)
+    F = if is_prime(q)
+        Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
-        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        length(factors) == 1 ||
+            throw(DomainError("There is no finite field of order $q"))
         p, t = first(factors)
         GF(p, t, :α)
     end
@@ -40,7 +55,8 @@ function RepetitionCode(q::Int, n::Int)
         Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
-        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        length(factors) == 1 ||
+            throw(DomainError("There is no finite field of order $q"))
         (p, t), = factors
         GF(p, t, :α)
     end
@@ -63,7 +79,8 @@ function SingleParityCheckCode(q::Int, n::Int)
         Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
-        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        length(factors) == 1 ||
+            throw(DomainError("There is no finite field of order $q"))
         (p, t), = factors
         GF(p, t, :α)
     end
@@ -84,11 +101,24 @@ function Hexacode()
     G = matrix(F, [1 0 0 1 ω ω; 0 1 0 ω 1 ω; 0 0 1 ω ω 1])
     H = matrix(F, [1 ω ω 1 0 0; ω 1 ω 0 1 0; ω ω 1 0 0 1])
     G_stand, H_stand, P, rnk = _standard_form(G)
-    return LinearCode(F, 6, 3, 4, 4, 4, G, H, G_stand, H_stand, P, _weight_enumerator_BF(G_stand))
+    return LinearCode(
+        F,
+        6,
+        3,
+        4,
+        4,
+        4,
+        G,
+        H,
+        G_stand,
+        H_stand,
+        P,
+        _weight_enumerator_BF(G_stand),
+    )
 end
 
 #############################
-         # Hamming
+# Hamming
 #############################
 # unclear if this should be promoted to its own type so r can be extracted
 
@@ -102,7 +132,11 @@ Return the `[(q^r - 1)/(q - 1), (q^r - 1)/(q - 1) - r, 3]` Hamming code over `GF
 """
 function HammingCode(q::Int, r::Int)
     2 ≤ r || throw(DomainError("Hamming codes require r ≥ 2; received r = $r."))
-    r < 64 || throw(DomainError("This Hamming code requires the implmentation of BigInts. Change if necessary."))
+    r < 64 || throw(
+        DomainError(
+            "This Hamming code requires the implmentation of BigInts. Change if necessary.",
+        ),
+    )
     q == 2 || throw(DomainError("Nonbinary Hamming codes have not yet been implemented."))
     factors = Nemo.factor(q)
     length(factors) == 1 || throw(ArgumentError("There is no finite field of order $q."))
@@ -111,13 +145,23 @@ function HammingCode(q::Int, r::Int)
         F = Oscar.Nemo.Native.GF(2)
         # there are faster ways to do this using trees, but the complexity and
         # overhead is not worth it for the sizes required here
-        H = matrix(F, reduce(hcat, [reverse(digits(i, base=2, pad=r)) for i in 1:2^r - 1]))
+        H = matrix(
+            F,
+            reduce(hcat, [reverse(digits(i, base = 2, pad = r)) for i = 1:(2^r-1)]),
+        )
         C = LinearCode(H, true, false)
         set_minimum_distance!(C, 3)
         R, vars = polynomial_ring(Nemo.ZZ, 2)
-        C.weight_enum = WeightEnumerator(divexact((vars[2] + vars[1])^C.n + C.n *
-            (vars[2] + vars[1])^div(C.n - 1, 2)*(vars[1] - vars[2])^div(C.n + 1,
-            2), C.n + 1), :complete)
+        C.weight_enum = WeightEnumerator(
+            divexact(
+                (vars[2] + vars[1])^C.n +
+                C.n *
+                (vars[2] + vars[1])^div(C.n - 1, 2) *
+                (vars[1] - vars[2])^div(C.n + 1, 2),
+                C.n + 1,
+            ),
+            :complete,
+        )
         return C
     end
 
@@ -145,13 +189,19 @@ function TetraCode()
     H = matrix(F, [-1 -1 1 0; -1 1 0 1])
     G_stand, H_stand, P, rnk = _standard_form(G)
     R, vars = polynomial_ring(Nemo.ZZ, 3)
-    CWE = WeightEnumerator(vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
-        3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3, :complete)
+    CWE = WeightEnumerator(
+        vars[1]^4 +
+        vars[1]*vars[2]^3 +
+        3*vars[1]*vars[2]^2*vars[3] +
+        3*vars[1]*vars[2]*vars[3]^2 +
+        vars[1]*vars[3]^3,
+        :complete,
+    )
     return LinearCode(F, 4, 2, 3, 3, 3, G, H, G_stand, H_stand, P, CWE)
 end
 
 #############################
-         # Simplex
+# Simplex
 #############################
 
 # if kept as separate type, then can detect this and return simplexcode constrcutor
@@ -168,7 +218,11 @@ Return the `[(q^r - 1)/(q - 1), r]` simplex code over `GF(q)`.
 """
 function SimplexCode(q::Int, r::Int)
     2 ≤ r || throw(DomainError("Simplex codes require 2 ≤ r; received r = $r."))
-    r < 64 || throw(DomainError("The weight enumerator for the simplex codes for r > 64 require BigInts. Implement if necessary."))
+    r < 64 || throw(
+        DomainError(
+            "The weight enumerator for the simplex codes for r > 64 require BigInts. Implement if necessary.",
+        ),
+    )
     q == 2 || throw(DomainError("Nonbinary simplex codes have not yet been implemented."))
 
     # actually really need to check here that q^r is not over sizeof(Int)
@@ -185,7 +239,7 @@ function SimplexCode(q::Int, r::Int)
         C = LinearCode(G2, false, false)
     else
         Grm1 = G2
-        for i in 3:r
+        for i = 3:r
             zs = matrix(F, nrows(Grm1), 1, zeros(Int, nrows(Grm1), 1))
             bot = hcat(Grm1, zs, Grm1)
             zs = matrix(F, 1, ncols(Grm1), zeros(Int, 1, ncols(Grm1)))
@@ -198,14 +252,16 @@ function SimplexCode(q::Int, r::Int)
     # all nonzero codewords have weights q^{r - 1}
     # should have q^r - 1 nonzero codewords
     R, vars = polynomial_ring(Nemo.ZZ, 2)
-    C.weight_enum = WeightEnumerator(vars[1]^(2^r - 1) + (2^r - 1)*
-        vars[1]^(2^r - 2^(r - 1) - 1)*vars[2]^(2^(r - 1)), :complete)
+    C.weight_enum = WeightEnumerator(
+        vars[1]^(2^r - 1) + (2^r - 1) * vars[1]^(2^r - 2^(r - 1) - 1) * vars[2]^(2^(r - 1)),
+        :complete,
+    )
     set_minimum_distance!(C, 2^(r - 1))
     return C
 end
 
 #############################
-          # Golay
+# Golay
 #############################
 
 """
@@ -217,32 +273,48 @@ extended ternary Golay code if `p == 3`.
 function ExtendedGolayCode(p::Int)
     if p == 2
         F = Oscar.Nemo.Native.GF(2)
-        A = matrix(F, [0 1 1 1 1 1 1 1 1 1 1 1;
-                       1 1 1 0 1 1 1 0 0 0 1 0;
-                       1 1 0 1 1 1 0 0 0 1 0 1;
-                       1 0 1 1 1 0 0 0 1 0 1 1;
-                       1 1 1 1 0 0 0 1 0 1 1 0;
-                       1 1 1 0 0 0 1 0 1 1 0 1;
-                       1 1 0 0 0 1 0 1 1 0 1 1;
-                       1 0 0 0 1 0 1 1 0 1 1 1;
-                       1 0 0 1 0 1 1 0 1 1 1 0;
-                       1 0 1 0 1 1 0 1 1 1 0 0;
-                       1 1 0 1 1 0 1 1 1 0 0 0;
-                       1 0 1 1 0 1 1 1 0 0 0 1])
+        A = matrix(
+            F,
+            [
+                0 1 1 1 1 1 1 1 1 1 1 1;
+                1 1 1 0 1 1 1 0 0 0 1 0;
+                1 1 0 1 1 1 0 0 0 1 0 1;
+                1 0 1 1 1 0 0 0 1 0 1 1;
+                1 1 1 1 0 0 0 1 0 1 1 0;
+                1 1 1 0 0 0 1 0 1 1 0 1;
+                1 1 0 0 0 1 0 1 1 0 1 1;
+                1 0 0 0 1 0 1 1 0 1 1 1;
+                1 0 0 1 0 1 1 0 1 1 1 0;
+                1 0 1 0 1 1 0 1 1 1 0 0;
+                1 1 0 1 1 0 1 1 1 0 0 0;
+                1 0 1 1 0 1 1 1 0 0 0 1
+            ],
+        )
         G = hcat(identity_matrix(F, 12), A)
         H = hcat(-transpose(A), identity_matrix(F, 12))
         R, vars = polynomial_ring(Nemo.ZZ, 2)
-        wt_enum = WeightEnumerator(vars[1]^24 + 759*vars[2]^8*vars[1]^16 + 2576*
-            vars[2]^12*vars[1]^12 + 759*vars[1]^8*vars[2]^16 + vars[2]^24, :complete)
+        wt_enum = WeightEnumerator(
+            vars[1]^24 +
+            759*vars[2]^8*vars[1]^16 +
+            2576 * vars[2]^12 * vars[1]^12 +
+            759*vars[1]^8*vars[2]^16 +
+            vars[2]^24,
+            :complete,
+        )
         return LinearCode(F, 24, 12, 8, 8, 8, G, H, G, H, missing, wt_enum)
     elseif p == 3
         F = Oscar.Nemo.Native.GF(3)
-        A = matrix(F, [0  1  1  1  1  1;
-                       1  0  1 -1 -1  1;
-                       1  1  0  1 -1 -1;
-                       1 -1  1  0  1 -1;
-                       1 -1 -1  1  0  1;
-                       1  1 -1 -1  1  0])
+        A = matrix(
+            F,
+            [
+                0 1 1 1 1 1;
+                1 0 1 -1 -1 1;
+                1 1 0 1 -1 -1;
+                1 -1 1 0 1 -1;
+                1 -1 -1 1 0 1;
+                1 1 -1 -1 1 0
+            ],
+        )
         G = hcat(identity_matrix(F, 6), A)
         H = hcat(-transpose(A), identity_matrix(F, 6))
         R, vars = polynomial_ring(Nemo.ZZ, 2)
@@ -272,7 +344,7 @@ function GolayCode(p::Int)
 end
 
 #############################
-         # Hadamard
+# Hadamard
 #############################
 
 # """
@@ -308,16 +380,16 @@ end
 # WalshCode(m) = HadamardCode(m)
 
 #############################
-  # Best Known Linear Codes
+# Best Known Linear Codes
 #############################
 
 function best_known_linear_code(n::Int, k::Int)
     C_GAP = GAP.Globals.BestKnownLinearCode(n, k, GAP.Globals.GF(2))
     G = GAP.Globals.GeneratorMat(C_GAP)
     dims = GAP.Globals.DimensionsMat(G)
-    g = matrix(GF(2), [GAP.Globals.Int(G[i, j]) for i in 1:dims[1], j in 1:dims[2]])
+    g = matrix(GF(2), [GAP.Globals.Int(G[i, j]) for i = 1:dims[1], j = 1:dims[2]])
     H = GAP.Globals.CheckMat(C_GAP)
     dims = GAP.Globals.DimensionsMat(H)
-    h = matrix(GF(2), [GAP.Globals.Int(H[i, j]) for i in 1:dims[1], j in 1:dims[2]])
+    h = matrix(GF(2), [GAP.Globals.Int(H[i, j]) for i = 1:dims[1], j = 1:dims[2]])
     return LinearCode(g, h)
 end

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 """
@@ -21,12 +21,12 @@ function LDPCCode(H::CTMatrixTypes)
     cols, rows = _degree_distribution(H)
     is_reg = true
     c1 = cols[1]
-    for i in 2:length(cols)
+    for i = 2:length(cols)
         c1 == cols[i] || (is_reg = false; break;)
     end
     if is_reg
         r1 = rows[1]
-        for i in 2:length(rows)
+        for i = 2:length(rows)
             r1 == rows[i] || (is_reg = false; break;)
         end
     end
@@ -45,9 +45,29 @@ function LDPCCode(H::CTMatrixTypes)
     row_poly = divexact(row_poly, nnz)
 
     C = LinearCode(H, true)
-    return LDPCCode(base_ring(H), C.n, C.k, C.d, C.l_bound, C.u_bound, H, nnz,
-        cols, rows, c, r, maximum([c, r]), den, is_reg, col_poly,
-        row_poly, missing, [Vector{Int}() for _ in 1:C.n], Vector{Vector{Int}}(), 0)
+    return LDPCCode(
+        base_ring(H),
+        C.n,
+        C.k,
+        C.d,
+        C.l_bound,
+        C.u_bound,
+        H,
+        nnz,
+        cols,
+        rows,
+        c,
+        r,
+        maximum([c, r]),
+        den,
+        is_reg,
+        col_poly,
+        row_poly,
+        missing,
+        [Vector{Int}() for _ = 1:C.n],
+        Vector{Vector{Int}}(),
+        0,
+    )
 end
 
 """
@@ -66,14 +86,21 @@ and row degree `r`.
 If a seed is given, i.e. `regular_LDPC_Code(4, 1200, 3, 6, seed=123)`, the
 results are reproducible.
 """
-function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing)
+function regular_LDPC_code(
+    q::Int,
+    n::Int,
+    l::Int,
+    r::Int;
+    seed::Union{Nothing,Int} = nothing,
+)
     Random.seed!(seed)
     m = divexact(n * l, r)
     F = if is_prime(q)
         Oscar.Nemo.Native.GF(q)
     else
         factors = Nemo.factor(q)
-        length(factors) == 1 || throw(DomainError("There is no finite field of order $q"))
+        length(factors) == 1 ||
+            throw(DomainError("There is no finite field of order $q"))
         (p, t), = factors
         GF(p, t, :α)
     end
@@ -81,7 +108,7 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
     H = zero_matrix(F, m, n)
     col_sums = zeros(Int, n)
     for i in axes(H, 1)
-        ind = reduce(vcat, shuffle(filter(k -> col_sums[k] == s, 1:n)) for s in 0:l - 1)[1:r]
+        ind = reduce(vcat, shuffle(filter(k -> col_sums[k] == s, 1:n)) for s = 0:(l-1))[1:r]
         for j in ind
             H[i, j] = rand(elems)
         end
@@ -92,15 +119,35 @@ function regular_LDPC_code(q::Int, n::Int, l::Int, r::Int; seed::Union{Nothing, 
 
     R, x = polynomial_ring(Nemo.QQ, :x)
     C = LinearCode(H, true)
-    return LDPCCode(C.F, C.n, C.k, C.d, C.l_bound, C.u_bound, H, n * l, l * ones(Int, n),
-        r * ones(Int, m), l, r, max(l, r), r / n, true, (1 // l) * x^l, (1 // r) * x^r, missing,
-        [Vector{Int}() for _ in 1:C.n], Vector{Vector{Int}}(), 0)
+    return LDPCCode(
+        C.F,
+        C.n,
+        C.k,
+        C.d,
+        C.l_bound,
+        C.u_bound,
+        H,
+        n * l,
+        l * ones(Int, n),
+        r * ones(Int, m),
+        l,
+        r,
+        max(l, r),
+        r / n,
+        true,
+        (1 // l) * x^l,
+        (1 // r) * x^r,
+        missing,
+        [Vector{Int}() for _ = 1:C.n],
+        Vector{Vector{Int}}(),
+        0,
+    )
 end
-regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing, Int} = nothing) =
+regular_LDPC_code(n::Int, l::Int, r::Int; seed::Union{Nothing,Int} = nothing) =
     regular_LDPC_code(2, n, l, r, seed = seed)
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -184,24 +231,25 @@ Return the check degree polynomial of `C`.
 check_degree_polynomial(C::AbstractLDPCCode) = C.ρ
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
-function _degree_distribution(H::Union{CTMatrixTypes,
-    MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
+function _degree_distribution(
+    H::Union{CTMatrixTypes,MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}},
+)
 
     nr, nc = size(H)
     cols = zeros(Int, 1, nc)
-    @inbounds @views @simd for i in 1:nc
+    @inbounds @views @simd for i = 1:nc
         # cols[i] = wt(H[:,  i])
         cols[i] = count(x -> !iszero(x), H[:, i])
     end
     rows = zeros(Int, 1, nr)
-    @inbounds @views @simd for i in 1:nr
+    @inbounds @views @simd for i = 1:nr
         # rows[i] = wt(H[i,  :])
         rows[i] = count(x -> !iszero(x), H[i, :])
     end
@@ -211,8 +259,8 @@ end
 function _density(H::CTMatrixTypes)
     count = 0
     nr, nc = size(H)
-    for c in 1:nc
-        for r in 1:nr
+    for c = 1:nc
+        for r = 1:nr
             !iszero(H[r, c]) && (count += 1;)
         end
     end
@@ -223,15 +271,27 @@ end
 function show(io::IO, C::AbstractLDPCCode)
     if ismissing(C.d)
         if C.is_reg
-            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).")
+            println(
+                io,
+                "[$(C.n), $(C.k)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).",
+            )
         else
-            println(io, "[$(C.n), $(C.k)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
+            println(
+                io,
+                "[$(C.n), $(C.k)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).",
+            )
         end
     else
         if C.is_reg
-            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).")
+            println(
+                io,
+                "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) regular ($(C.col_bound), $(C.row_bound))-LDPC code with density $(C.density).",
+            )
         else
-            println(io, "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).")
+            println(
+                io,
+                "[$(C.n), $(C.k), $(C.d)]_$(order(C.F)) irregular $(C.limited)-limited LDPC code with density $(C.density).",
+            )
         end
     end
     if get(io, :compact, true)
@@ -243,9 +303,9 @@ function show(io::IO, C::AbstractLDPCCode)
             # was using Horig here, which is probably what I want
             nr, nc = size(C.H)
             println(io, "Parity-check matrix: $nr × $nc")
-            for i in 1:nr
+            for i = 1:nr
                 print(io, "\t")
-                for j in 1:nc
+                for j = 1:nc
                     if j != nc
                         print(io, "$(C.H[i, j]) ")
                     elseif j == nc && i != nr
@@ -255,10 +315,10 @@ function show(io::IO, C::AbstractLDPCCode)
                     end
                 end
             end
-        # if !ismissing(C.weightenum)
-        #     println(io, "\nComplete weight enumerator:")
-        #     println(io, "\t", C.weightenum.polynomial)
-        # end
+            # if !ismissing(C.weightenum)
+            #     println(io, "\nComplete weight enumerator:")
+            #     println(io, "\t", C.weightenum.polynomial)
+            # end
         end
     end
 end

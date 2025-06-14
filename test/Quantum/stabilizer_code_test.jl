@@ -17,20 +17,36 @@
 
         # examples in https://arxiv.org/abs/1910.09333
         # Example 2 - [[6, 2, 2]], transversal T implements logical identity
-        G = matrix(Oscar.Nemo.Native.GF(2), 4, 12, [
+        G = matrix(
+            Oscar.Nemo.Native.GF(2),
+            4,
+            12,
+            [
                 1 1 1 1 1 1 0 0 0 0 0 0
                 0 0 0 0 0 0 1 1 0 0 0 0
                 0 0 0 0 0 0 0 0 1 1 0 0
-                0 0 0 0 0 0 0 0 0 0 1 1])
+                0 0 0 0 0 0 0 0 0 0 1 1
+            ],
+        )
         S = StabilizerCode(G)
         @test is_CSS_T_code(S)
 
         # Example 4/5 - [[16, 3, 2]], transversal T implements logical CCZ (up to logical Paulis)
-        X = matrix(Oscar.Nemo.Native.GF(2), 3, 16,[
+        X = matrix(
+            Oscar.Nemo.Native.GF(2),
+            3,
+            16,
+            [
                 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0;
                 0 0 0 0 1 1 1 1 1 1 1 1 0 0 0 0;
-                0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1])
-        Z = matrix(Oscar.Nemo.Native.GF(2), 10, 16, [
+                0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1
+            ],
+        )
+        Z = matrix(
+            Oscar.Nemo.Native.GF(2),
+            10,
+            16,
+            [
                 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0 0;
                 0 1 1 0 0 1 1 0 0 0 0 0 0 0 0 0;
                 0 0 1 1 0 0 1 1 0 0 0 0 0 0 0 0;
@@ -40,7 +56,9 @@
                 0 0 0 0 0 0 0 0 1 1 0 0 1 1 0 0;
                 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1 0;
                 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1 1;
-                0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1])
+                0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1
+            ],
+        )
         S = CSSCode(X, Z)
         @test is_CSS_T_code(S)
 

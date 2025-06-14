@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 """
@@ -14,7 +14,7 @@
 Return the quasi-cycle code specified by the matrix `A` of polynomial circulant generators. If the
 optional paramater `parity` is set to `true`, the input is used to construct the parity-check matrix.
 """
-function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
+function QuasiCyclicCode(A::MatElem{T}, parity::Bool = false) where {T<:ResElem}
     R = parent(A[1, 1])
     S = base_ring(R)
     F = base_ring(S)
@@ -28,15 +28,53 @@ function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
         # k, _ = kernel(H, side = :right)
         k = rank(H)
         W = weight_matrix(A)
-        return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing,
-            missing, missing, missing, missing, l, m, A, A_type, W, maximum(W))
+        return QuasiCyclicCode(
+            F,
+            R,
+            ncols(H),
+            k,
+            missing,
+            1,
+            ncols(H),
+            missing,
+            missing,
+            missing,
+            missing,
+            missing,
+            missing,
+            l,
+            m,
+            A,
+            A_type,
+            W,
+            maximum(W),
+        )
     else
         A_type = :G
         G = lift(A)
         k = rank(G)
         W = weight_matrix(A)
-        return QuasiCyclicCode(F, R, ncols(G), k, missing, 1, ncols(G), missing, missing,
-            missing, missing, missing, missing, l, m, A, A_type, W, maximum(W))
+        return QuasiCyclicCode(
+            F,
+            R,
+            ncols(G),
+            k,
+            missing,
+            1,
+            ncols(G),
+            missing,
+            missing,
+            missing,
+            missing,
+            missing,
+            missing,
+            l,
+            m,
+            A,
+            A_type,
+            W,
+            maximum(W),
+        )
     end
 end
 
@@ -53,30 +91,39 @@ for the circulant matrices instead of generator vectors for the code. If the opt
 * If `circ_gens` is `true`, then the length of the code is `ncols(v[1]) * l`. Circulant matrices are
   stacked in rows of length `l`, so `l` must divide `length(v)`.
 """
-function QuasiCyclicCode(v::Vector{T}, l::Int, circ_gens::Bool, parity::Bool=false) where T <: CTMatrixTypes
+function QuasiCyclicCode(
+    v::Vector{T},
+    l::Int,
+    circ_gens::Bool,
+    parity::Bool = false,
+) where {T<:CTMatrixTypes}
     F = base_ring(v[1])
     len_v = length(v)
     if circ_gens
         len_v >= 2 || throw(ArgumentError("Length of input vector must be at least two."))
-        len_v % l == 0 || throw(ArgumentError("The length of the input vector must be divisible by l."))
+        len_v % l == 0 ||
+            throw(ArgumentError("The length of the input vector must be divisible by l."))
         nr = div(len_v, l)
         r, m = size(v[1])
         (r != 1 && m != 1) && throw(ArgumentError("The input matrices must be vectors."))
         m == 1 && (v[1] = transpose(v[1]); (r, m = size(v[1]));)
-        for i in 2:len_v
-            F == base_ring(v[i]) || throw(ArgumentError("All inputs must be over the same base ring."))
+        for i = 2:len_v
+            F == base_ring(v[i]) ||
+                throw(ArgumentError("All inputs must be over the same base ring."))
             r2, m2 = size(v[i])
-            (r2 != 1 && m2 != 1) && throw(ArgumentError("The input matrices must be vectors."))
+            (r2 != 1 && m2 != 1) &&
+                throw(ArgumentError("The input matrices must be vectors."))
             m2 == 1 && (v[i] = transpose(v[i]); (r2, m2 = size(v[i]));)
-            m == m2 || throw(ArgumentError("The input vectors must all be the same length."))
+            m == m2 ||
+                throw(ArgumentError("The input vectors must all be the same length."))
         end
 
         S, x = polynomial_ring(F, :x)
         R, _ = residue_ring(S, x^m - 1)
         A = zero_matrix(R, nr, l)
-        for r in 1:nr
-            for c in 1:l
-                temp = [v[(r - 1) * l + c][i] for i in 1:m]
+        for r = 1:nr
+            for c = 1:l
+                temp = [v[(r-1)*l+c][i] for i = 1:m]
                 A[r, c] = R(S(temp))
             end
         end
@@ -85,29 +132,33 @@ function QuasiCyclicCode(v::Vector{T}, l::Int, circ_gens::Bool, parity::Bool=fal
         r, n = size(v[1])
         (r != 1 && n != 1) && throw(ArgumentError("The input matrices must be vectors."))
         n == 1 && (v[1] = transpose(v[1]); (r, n = size(v[1]));)
-        n % l == 0 || throw(ArgumentError("Parameter l must divide the length of the vector."))
+        n % l == 0 ||
+            throw(ArgumentError("Parameter l must divide the length of the vector."))
         m = div(n, l)
-        for i in 2:len_v
-            F == base_ring(v[i]) || throw(ArgumentError("All vectors must be over the same base ring."))
+        for i = 2:len_v
+            F == base_ring(v[i]) ||
+                throw(ArgumentError("All vectors must be over the same base ring."))
             r2, n2 = size(v[i])
-            (r2 != 1 && n2 != 1) && throw(ArgumentError("The input matrices must be vectors."))
+            (r2 != 1 && n2 != 1) &&
+                throw(ArgumentError("The input matrices must be vectors."))
             n2 == 1 && (v[i] = transpose(v[i]); (r2, n2 = size(v[i]));)
-            n == n2 || throw(ArgumentError("The input vectors must all be the same length."))
+            n == n2 ||
+                throw(ArgumentError("The input vectors must all be the same length."))
         end
-        
+
         S, x = polynomial_ring(F, :x)
         R, _ = residue_ring(S, x^m - 1)
         A = zero_matrix(R, len_v, l)
-        for k in 1:len_v
-            for i in 1:l
+        for k = 1:len_v
+            for i = 1:l
                 row = v[k]
                 top_circ_row = zero_matrix(F, m, 1)
-                for j in 1:m
-                    top_circ_row[j, 1] = row[i + (j - 1) * l]
+                for j = 1:m
+                    top_circ_row[j, 1] = row[i+(j-1)*l]
                 end
                 # transpose to get first circulant column
                 top_circ_row[2:end, :] = top_circ_row[end:-1:2, :]
-                A[k, i] = R(S([top_circ_row[i, 1] for i in 1:m]))
+                A[k, i] = R(S([top_circ_row[i, 1] for i = 1:m]))
             end
         end
         return QuasiCyclicCode(A, parity)
@@ -121,7 +172,8 @@ Return the quasi-cyclic code of index `l` generated by right-bit shifts of size 
 generator vector `v`. If the optional paramater `parity` is set to `true`, the input is used
 to construct the parity check matrix.
 """
-QuasiCyclicCode(v::CTMatrixTypes, l::Int, parity::Bool=false) = QuasiCyclicCode([v], l, false, parity)
+QuasiCyclicCode(v::CTMatrixTypes, l::Int, parity::Bool = false) =
+    QuasiCyclicCode([v], l, false, parity)
 
 """
     QuasiCyclicCode(v::Vector{fqPolyRepPolyRingElem}, n::Int, l::Int, parity::Bool=false)
@@ -130,7 +182,12 @@ Return the quasi-cyclic code of index `l` whose circulants are defined by the ge
 polynomials `v`. If the optional paramater `parity` is set to `true`, the input is used
 to construct the parity check matrix.
 """
-function QuasiCyclicCode(v::Vector{T}, n::Int, l::Int, parity::Bool=false) where T <: CTMatrixTypes
+function QuasiCyclicCode(
+    v::Vector{T},
+    n::Int,
+    l::Int,
+    parity::Bool = false,
+) where {T<:CTMatrixTypes}
     # if g = x^10 + α^2*x^9 + x^8 + α*x^7 + x^3 + α^2*x^2 + x + α
     # g.coeffs = [α  1  α^2  1  0  0  0  α  1  α^2  1]
     gen_vecs = Vector{T}()
@@ -151,7 +208,7 @@ Return the quasi-cyclic code of index `l` whose circulants are determined by the
 codes in `v`. If the optional paramater `parity` is set to `true`, the input is used to
 construct the parity check matrix.
 """
-function QuasiCyclicCode(v::Vector{AbstractCyclicCode}, l::Int, parity::Bool=false)
+function QuasiCyclicCode(v::Vector{AbstractCyclicCode}, l::Int, parity::Bool = false)
     gen_vecs = Vector{fqPolyRepMatrix}()
     for C in v
         push!(gen_vecs, C.G[1, :])
@@ -160,7 +217,7 @@ function QuasiCyclicCode(v::Vector{AbstractCyclicCode}, l::Int, parity::Bool=fal
 end
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -208,11 +265,11 @@ Return `true` if `C` is a single-generator quasi-cyclic code.
 is_single_generator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
 """
@@ -222,18 +279,18 @@ is_single_generator(C::AbstractQuasiCyclicCode) = (nrows(C.A) == 1;)
 
 Return the base/protograph/weight matrix of `A`.
 """
-function weight_matrix(A::MatElem{T}) where T <: ResElem
+function weight_matrix(A::MatElem{T}) where {T<:ResElem}
     nr, nc = size(A)
     W = zeros(Int, nr, nc)
-    for c in 1:nc
-        for r in 1:nr
+    for c = 1:nc
+        for r = 1:nr
             W[r, c] = wt(Nemo.lift(A[r, c]))
         end
     end
     return W
 end
-base_matrix(A::MatElem{T}) where T <: ResElem = weight_matrix(A)
-protograph_matrix(A::MatElem{T}) where T <: ResElem = weight_matrix(A)
+base_matrix(A::MatElem{T}) where {T<:ResElem} = weight_matrix(A)
+protograph_matrix(A::MatElem{T}) where {T<:ResElem} = weight_matrix(A)
 
 """
     noncirculant_generator_matrix(C::AbstractQuasiCyclicCode)
@@ -244,15 +301,15 @@ polynomial matrix specifies the generator matrix; otherwise, return `missing`.
 function noncirculant_generator_matrix(C::AbstractQuasiCyclicCode)
     if C.A_type == :G
         flag = true
-        for r in 1:C.m
+        for r = 1:C.m
             G_inner = zero_matrix(C.F, C.l, C.l * C.n)
-            for col in 1:C.l
+            for col = 1:C.l
                 C = lift(C.A[r, col])
                 G_inner = zero(C)
-                for i in 1:m
+                for i = 1:m
                     c = k % l
                     c == 0 && (c = l;)
-                    G_inner[:, (i - 1) * l + c] = C[:, i]
+                    G_inner[:, (i-1)*l+c] = C[:, i]
                 end
             end
             flag ? (G = G_inner;) : (G = vcat(G, G_inner);)
@@ -272,15 +329,15 @@ if the polynomial matrix specifies the parity-check matrix; otherwise, return `m
 function noncirculant_parity_check_matrix(C::AbstractQuasiCyclicCode)
     if C.A_type == :H
         flag = true
-        for r in 1:C.m
+        for r = 1:C.m
             H_inner = zero_matrix(C.F, C.l, C.l * C.n)
-            for col in 1:C.l
+            for col = 1:C.l
                 C = lift(C.A[r, col])
                 H_inner = zero(C)
-                for i in 1:m
+                for i = 1:m
                     c = k % l
                     c == 0 && (c = l;)
-                    H_inner[:, (i - 1) * l + c] = C[:, i]
+                    H_inner[:, (i-1)*l+c] = C[:, i]
                 end
             end
             flag ? (H = H_inner;) : (H = vcat(H, H_inner);)
@@ -300,7 +357,7 @@ function generators(C::AbstractQuasiCyclicCode)
     G = noncirculant_generator_matrix(C)
     gen_vecs = Vector{fqPolyRepMatrix}()
     nr = nrows(G)
-    for i in 1:nr
+    for i = 1:nr
         if i % l == 1
             push!(gen_vecs, G[i, :])
         end
@@ -317,8 +374,8 @@ function circulants(C::AbstractQuasiCyclicCode)
     circulants = Vector{fqPolyRepMatrix}()
     nr, nc = size(C.A)
     # want stored in row order
-    for r in 1:nr
-        for c in 1:nc
+    for r = 1:nr
+        for c = 1:nc
             push!(circulants, lift(C.A[r, c]))
         end
     end

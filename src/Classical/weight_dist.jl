@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-         # General
+# General
 #############################
 # using AllocCheck
 # using Profile
@@ -43,9 +43,9 @@ function _weight_enumerator_BF(G::CTMatrixTypes)
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
 
     # for iter in Iterators.product(Iterators.repeated(E, nr)...)
-    for iter in Nemo.AbstractAlgebra.ProductIterator([E for _ in 1:nr], inplace = true)
+    for iter in Nemo.AbstractAlgebra.ProductIterator([E for _ = 1:nr], inplace = true)
         row = iter[1] * view(G, 1:1, :)
-        for r in 2:nr
+        for r = 2:nr
             if !iszero(iter[r])
                 row += iter[r] * view(G, r:r, :)
             end
@@ -57,7 +57,7 @@ function _weight_enumerator_BF(G::CTMatrixTypes)
             term[lookup[x]] += 1
         end
         term_poly = R(1)
-        for i in 1:ord_E
+        for i = 1:ord_E
             term_poly *= vars[i]^term[i]
         end
         poly += term_poly
@@ -75,7 +75,7 @@ function CWE_to_HWE(CWE::WeightEnumerator)
 
     R, (x, y) = polynomial_ring(base_ring(CWE.polynomial), [:x, :y])
     poly = R(0)
-    for i in 1:length(CWE.polynomial)
+    for i = 1:length(CWE.polynomial)
         exps = exponent_vector(CWE.polynomial, i)
         poly += coeff(CWE.polynomial, i) * x^sum(exps[2:end]) * y^exps[1]
     end
@@ -88,13 +88,28 @@ end
 
 Search for codewords of `C` of weight `w` using Stern's attack and return any found.
 """
-function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::Int =  2, max_iters::Int = 50000)
+function Sterns_attack(
+    C::AbstractLinearCode,
+    w::Int,
+    p::Int,
+    l::Int;
+    num_find::Int = 2,
+    max_iters::Int = 50000,
+)
     # requires 2 * x = 0
     Int(order(C.F)) == 2 || throw(ArgumentError("Only valid for binary codes."))
     if !ismissing(C.d)
-        C.d <= w <= C.n || throw(ArgumentError("Target weight must be between the minimum distance and code length."))
+        C.d <= w <= C.n || throw(
+            ArgumentError(
+                "Target weight must be between the minimum distance and code length.",
+            ),
+        )
     else
-        1 <= w <= C.n || throw(ArgumentError("Target weight must be positive and no more than the code length."))
+        1 <= w <= C.n || throw(
+            ArgumentError(
+                "Target weight must be positive and no more than the code length.",
+            ),
+        )
     end
     1 <= p <= ceil(C.k / 2) || throw(ArgumentError("p must be between 1 and k/2"))
 
@@ -122,7 +137,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
         while have < nr
             i = rand(1:loc)
             nonzeros = []
-            for j in 1:nr
+            for j = 1:nr
                 if !iszero(H2[j, i])
                     append!(nonzeros, j)
                 end
@@ -137,7 +152,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
                     #     H2[nz, :] = H2[nz, col_indices[i]]^-1 * H2[nz, :]
                     # end
 
-                    for j in 1:nr
+                    for j = 1:nr
                         # go through all rows and eliminate all nonzeros in column using the chosen row
                         if j != nz && !iszero(H2[j, col_indices[i]])
                             if !isone(H2[j, col_indices[i]])
@@ -186,7 +201,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
         # randomly split the remaning column indices
         X = Vector{Int}()
         Y = Vector{Int}()
-        for i in col_indices[1:nc - nr]
+        for i in col_indices[1:(nc-nr)]
             rand(Float16) <= 0.5 ? (append!(X, i);) : (append!(Y, i);)
         end
 
@@ -213,24 +228,24 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
         # storing this is a terrible idea but avoids repeated calculations of πB for each A
         # will have to check later if that's fast enough in parallel to do
         left = nr - l
-        AπAs = Vector{Tuple{Vector{Int}, Vector{fqPolyRepFieldElem}}}()
+        AπAs = Vector{Tuple{Vector{Int},Vector{fqPolyRepFieldElem}}}()
         # for every size-p subset A of X
         for A in powerset(X, p, p)
             # compute the sum of the columns in A for each of those l rows
             # this represents the contribution from these columns to the dot product
-            πA = [sum(H2[Z[left + 1], A])]
-            for i in 2:l
-                push!(πA, sum(H2[Z[left + i], A]))
+            πA = [sum(H2[Z[left+1], A])]
+            for i = 2:l
+                push!(πA, sum(H2[Z[left+i], A]))
             end
             push!(AπAs, (A, πA))
         end
 
         # compute π(B) for every size-p subset B of Y
-        BπBs = Vector{Tuple{Vector{Int}, Vector{fqPolyRepFieldElem}}}()
+        BπBs = Vector{Tuple{Vector{Int},Vector{fqPolyRepFieldElem}}}()
         for B in powerset(Y, p, p)
-            πB = [sum(H2[Z[left + 1], B])]
-            for i in 2:l
-                push!(πB, sum(H2[Z[left + i], B]))
+            πB = [sum(H2[Z[left+1], B])]
+            for i = 2:l
+                push!(πB, sum(H2[Z[left+i], B]))
             end
             push!(BπBs, (B, πB))
         end
@@ -244,7 +259,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
                     AB = i[1] ∪ j[1]
                     # compute the sum of the 2p columns in A ∪ B over all rows
                     πAB = [sum(H2[1, AB])]
-                    for k in 2:nr
+                    for k = 2:nr
                         push!(πAB, sum(H2[k, AB]))
                     end
 
@@ -255,7 +270,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
                         # so any time there is a 1 at index i, put a 1 in the i-th position of the end of col_indices
                         # that will give w - 2p 1's at locations outside of A ∪ B
                         vec_len_w = zeros(C.F, 1, nc)
-                        for k in 1:nr
+                        for k = 1:nr
                             if isone(πAB[k])
                                 vec_len_w[1, row_pivots_loc[k]] = C.F(1)
                             end
@@ -285,7 +300,7 @@ function Sterns_attack(C::AbstractLinearCode, w::Int, p::Int, l::Int; num_find::
 end
 
 #############################
-  # Enumeration Based Algs
+# Enumeration Based Algs
 #############################
 
 # TODO:
@@ -295,19 +310,28 @@ end
 
 # TODO: this does not produce the optimal set of matrices
 # see section 7.3 of White's thesis for comments on this
-function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Bool = false, only_A::Bool = false)
+function information_sets(
+    G::CTMatrixTypes,
+    alg::Symbol = :Edmonds;
+    permute::Bool = false,
+    only_A::Bool = false,
+)
 
-    alg ∈ (:Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+    alg ∈ (:Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(
+        ArgumentError(
+            "Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`.",
+        ),
+    )
     # TODO should rref to begin with and remove empty rows?
     nr, nc = size(G)
     gen_mats = Vector{}()
     perms = Vector{}()
     rnks = Vector{Int}()
-    
+
     rnk = nr
     #TODO Brouw and Zimm should use the same code for rref then discard the last matrix
     if alg == :Brouwer
-        for i in 0:Int(floor(nc / nr)) - 1
+        for i = 0:(Int(floor(nc/nr))-1)
             start_ind = i * nr + 1
             rnk, Gi, Pi = _rref_col_swap(G, 1:nr, start_ind:nc)
             if rnk < nr # for Brouwer the Gi must all have full rank
@@ -315,14 +339,14 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
             end
 
             if only_A
-                Ai = Gi[:, setdiff(1:nc, start_ind:(i + 1) * nr)]
+                Ai = Gi[:, setdiff(1:nc, start_ind:((i+1)*nr))]
                 push!(gen_mats, Ai)
                 push!(perms, Pi)
                 push!(rnks, rnk)
             else
                 if permute
                     # permute identities to the front
-                    pivots = collect(start_ind:(i + 1) * nr)
+                    pivots = collect(start_ind:((i+1)*nr))
                     σ = [pivots; setdiff(1:nc, pivots)]
                     Gi = Gi[:, σ]
                     Pi = Pi[:, σ]
@@ -333,17 +357,17 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
             end
         end
     elseif alg == :Zimmermann
-        for i in 0:Int(floor(nc / nr))
-            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * rnk + 1:nc)
+        for i = 0:Int(floor(nc/nr))
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, (i*rnk+1):nc)
             if only_A
-                Ai = Gi[:, setdiff(1:nc, i * nr + 1:i * nr + rnk)]
+                Ai = Gi[:, setdiff(1:nc, (i*nr+1):(i*nr+rnk))]
                 push!(gen_mats, Ai)
                 push!(perms, Pi)
                 push!(rnks, rnk)
             else
                 if permute
                     # permute identities to the front
-                    pivots = collect(i * nr + 1:(i + 1) * nr)
+                    pivots = collect((i*nr+1):((i+1)*nr))
                     σ = [pivots; setdiff(1:nc, pivots)]
                     Gi = Gi[:, σ]
                     Pi = Pi[:, σ]
@@ -356,9 +380,9 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     elseif alg == :White
         # TODO: this is not true when the parity-check matrix is true
         # the expansion factor of the code
-        for i in 0:div(nc, nr) - 1
+        for i = 0:(div(nc, nr)-1)
             # could use Gi here instead of G
-            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, i * nr + 1:(i + 1) * nr)
+            rnk, Gi, Pi = _rref_col_swap(G, 1:nr, (i*nr+1):((i+1)*nr))
             # display(Gi)
             # println(rnk)
             push!(gen_mats, Gi)
@@ -368,7 +392,7 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     elseif alg == :Chen
         Gi, _, Pi, rnk = _standard_form(G)
         if only_A
-            Ai = Gi[:, rnk + 1:nc]
+            Ai = Gi[:, (rnk+1):nc]
             push!(gen_mats, Ai)
             push!(perms, Pi)
             push!(rnks, rnk)
@@ -381,31 +405,46 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
     return gen_mats, perms, rnks
 end
 
-function information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs::Vector{Int},
-    info_set_alg::Symbol; even::Bool = false, doubly_even::Bool = false, triply_even::Bool = false)
+function information_set_lower_bound(
+    r::Int,
+    n::Int,
+    k::Int,
+    l::Int,
+    rank_defs::Vector{Int},
+    info_set_alg::Symbol;
+    even::Bool = false,
+    doubly_even::Bool = false,
+    triply_even::Bool = false,
+)
 
-    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) ||
+        throw(
+            ArgumentError(
+                "Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`.",
+            ),
+        )
 
     lower = 0
     if info_set_alg == :Brouwer
         lower = r * length(rank_defs)
     elseif info_set_alg == :Zimmermann
         h = length(rank_defs)
-        lower = count(x -> x != 0, rank_defs) 
-        for i in 1:h
-            lower += maximum([0, r - rank_defs[i]]) 
+        lower = count(x -> x != 0, rank_defs)
+        for i = 1:h
+            lower += maximum([0, r - rank_defs[i]])
         end
     elseif info_set_alg == :Chen
         lower = Int(ceil(n * r / k))
     elseif info_set_alg == :White
         lower = 0
-        for i in 1:l
-	        lower += Int(ceil(n * maximum([0, r - rank_defs[i]]) / (l * (k + rank_defs[i]))))
+        for i = 1:l
+            lower +=
+                Int(ceil(n * maximum([0, r - rank_defs[i]]) / (l * (k + rank_defs[i]))))
         end
-    # elseif info_set_alg == :Bouyuklieva
-    #     continue
-    # elseif info_set_alg == :Edmonds
-    #     continue
+        # elseif info_set_alg == :Bouyuklieva
+        #     continue
+        # elseif info_set_alg == :Edmonds
+        #     continue
     end
     if lower == 0
         println("initial lower bound is set to 0")
@@ -428,8 +467,12 @@ is returned.
 show_progress will display a progress meter for each iteration of a weight that takes longer than 
     a second
 """
-function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, verbose::Bool = false, 
-    show_progress = true)
+function minimum_distance_Gray(
+    C::AbstractLinearCode;
+    alg::Symbol = :auto,
+    verbose::Bool = false,
+    show_progress = true,
+)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
@@ -440,7 +483,11 @@ function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, verbo
     # :Zimmermann   Algo 2.4 
     # :Chen         Algo 2.6 
     # :White        Algo 3.1 
-    alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`"))
+    alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen) || throw(
+        ArgumentError(
+            "Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`",
+        ),
+    )
 
     if alg == :auto
         if typeof(C) <: AbstractCyclicCode
@@ -456,22 +503,30 @@ function minimum_distance_Gray(C::AbstractLinearCode; alg::Symbol = :auto, verbo
         end
     end
     # TODO should never hit this case with the else in there?
-    alg == :auto && throw(ErrorException("Could not determine minimum distance algo automatically"))
+    alg == :auto &&
+        throw(ErrorException("Could not determine minimum distance algo automatically"))
 
     # really this should work for all just the same?
     if alg in (:Brouwer, :Zimmermann)
         return _minimum_distance_BZ(C::AbstractLinearCode, alg, verbose, show_progress)
     end
     println("Warning: old enumeration algorithm selected. Performance will be slow") # TODO remove when all code updated
-    return _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg = alg)
+    return _minimum_distance_enumeration_with_matrix_multiply(
+        C::AbstractLinearCode;
+        info_set_alg = alg,
+    )
 end
 
 # this is a private function, so there's no point in having keyword arguments
-function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbose::Bool,
-    show_progress::Bool)
-    
+function _minimum_distance_BZ(
+    C::AbstractLinearCode,
+    info_set_alg::Symbol,
+    verbose::Bool,
+    show_progress::Bool,
+)
+
     # you never pass this in anywhere so moving out
-    dbg::Dict{String, Int} = Dict()
+    dbg::Dict{String,Int} = Dict()
     dbg_key_exit_r = "exit_r"
 
     # removing since checked in main function
@@ -479,24 +534,36 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     # ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
     # put this at user entry point, although if 2^k is large, 2^(n - k) maybe small enough to do
     # so we should put this in an if statement above if we are doing G or H
-    C.k < 2^16 || throw(DomainError("The given linear code has length k >= 2^16 which is not supported"))
+    C.k < 2^16 || throw(
+        DomainError("The given linear code has length k >= 2^16 which is not supported"),
+    )
 
-    info_set_alg ∈ (:Brouwer, :Zimmermann) || throw(ArgumentError("Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`"))
+    info_set_alg ∈ (:Brouwer, :Zimmermann) || throw(
+        ArgumentError(
+            "Unknown information set algorithm. Expected `:Brouwer`, `:Zimmermann`",
+        ),
+    )
 
     generator_matrix(C, true) # ensure G_stand exists
-    if _has_empty_vec(C.G, :cols) 
+    if _has_empty_vec(C.G, :cols)
         #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
-        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported"))
+        throw(
+            ArgumentError(
+                "Codes with standard form of generator matrix having 0 columns not supported",
+            ),
+        )
         # is that actually possible? I thought we remove this in the linear code constructor? If we don't we should and then remove this here
     end
     # generate if not pre-stored
     parity_check_matrix(C)
 
-    A_mats, perms_mats, rnks = information_sets(C.G, info_set_alg, permute = true, only_A = false)
+    A_mats, perms_mats, rnks =
+        information_sets(C.G, info_set_alg, permute = true, only_A = false)
 
     A_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Ai, UInt16)') for Ai in A_mats]
     # A_mats_trunc = () 
-    perms_mats = [deepcopy(_Flint_matrix_to_Julia_T_matrix(Pi, UInt16)') for Pi in perms_mats]
+    perms_mats =
+        [deepcopy(_Flint_matrix_to_Julia_T_matrix(Pi, UInt16)') for Pi in perms_mats]
     h = length(A_mats)
     # println("Starting loop to refine upper bound. Initial upper bound ", C.u_bound, " num of mats is ", length(A_mats), " dimension ", size(A_mats[1]))
     rank_defs = zeros(Int, h)
@@ -506,14 +573,16 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     end
 
     if haskey(dbg, dbg_key_exit_r)
-        verbose && println("dbg Dict: largest message weight searched stored @key = $dbg_key_exit_r")
+        verbose && println(
+            "dbg Dict: largest message weight searched stored @key = $dbg_key_exit_r",
+        )
         dbg[dbg_key_exit_r] = -1
     end
 
     k, n = size(C.G)
-    A_mats_trunc = [Matrix{UInt16}(undef, k, n - k) for _ in 1:length(A_mats)]
-    for i in 1:size(A_mats, 1)
-       A_mats_trunc[i] = deepcopy(A_mats[i][k + 1 : n, :])
+    A_mats_trunc = [Matrix{UInt16}(undef, k, n - k) for _ = 1:length(A_mats)]
+    for i = 1:size(A_mats, 1)
+        A_mats_trunc[i] = deepcopy(A_mats[i][(k+1):n, :])
     end
 
     # I don't remember this case in the paper
@@ -524,7 +593,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     # I think we have to remove this from the verbose statement to work
     if verbose
         print("Generated $h information sets with ranks: ")
-        for i in 1:h
+        for i = 1:h
             i == h ? (println(rnks[i]);) : (print("$(rnks[i]), ");)
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
@@ -533,7 +602,7 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
             rank_defs[i] = C.k - rnks[i]
         end
     end
-    
+
     even_flag = false
     doubly_even_flag = false
     triply_even_flag = false
@@ -543,7 +612,8 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     if verbose
         triply_even_flag && println("Detected a triply even code.")
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
-        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) &&
+            println("Detected an even code.")
     end
 
     # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.
@@ -553,9 +623,9 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
         # can make this faster with dots and views
         w, i = _min_wt_col(g)
         if w <= C.u_bound
-            found = g[:, i] 
+            found = g[:, i]
             C.u_bound = w
-            y = perms_mats[j] * found 
+            y = perms_mats[j] * found
         end
     end
 
@@ -568,7 +638,19 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     if verbose
         _, _, b_rnks = information_sets(C.G, :Brouwer, permute = true, only_A = false)
         b_h = length(b_rnks)
-        b_lower_bounds = [information_set_lower_bound(r + 1, n, k, l, [k - 0 for i in 1:b_h], :Brouwer, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
+        b_lower_bounds = [
+            information_set_lower_bound(
+                r + 1,
+                n,
+                k,
+                l,
+                [k - 0 for i = 1:b_h],
+                :Brouwer,
+                even = even_flag,
+                doubly_even = doubly_even_flag,
+                triply_even = triply_even_flag,
+            ) for r = 1:(k-1)
+        ]
         b_r_term = findfirst(x -> x ≥ C.u_bound, b_lower_bounds)
 
         # _, _, z_rnks = information_sets(G, :Zimmermann, permute = true, only_A = false)
@@ -580,31 +662,56 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     end
 
     # Note the r + 1 here
-    lower_bounds_for_prediction = [information_set_lower_bound(r + 1, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
+    lower_bounds_for_prediction = [
+        information_set_lower_bound(
+            r + 1,
+            n,
+            k,
+            l,
+            rank_defs,
+            info_set_alg,
+            even = even_flag,
+            doubly_even = doubly_even_flag,
+            triply_even = triply_even_flag,
+        ) for r = 1:(k-1)
+    ]
     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds_for_prediction)
     if isnothing(r_term)
-        raise(DomainError("Invalid termination r")) 
+        raise(DomainError("Invalid termination r"))
     end
     verbose && println("Predicted termination weight based on current upper bound: $r_term")
 
     # In the main loop we check if lower bound > upper bound before we enumerate and so the lower bounds for the loop use r not r + 1
-    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k - 1]
+    lower_bounds = [
+        information_set_lower_bound(
+            r,
+            n,
+            k,
+            l,
+            rank_defs,
+            info_set_alg,
+            even = even_flag,
+            doubly_even = doubly_even_flag,
+            triply_even = triply_even_flag,
+        ) for r = 1:(k-1)
+    ]
 
-    predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i in 1:r_term])
+    predicted_work_factor = fld(n, k) * sum([binomial(k, i) for i = 1:r_term])
     verbose && println("Predicted work factor: $predicted_work_factor")
-    if show_progress 
+    if show_progress
         prog_bar = Progress(predicted_work_factor, dt = 1.0, showspeed = true) # updates no faster than once every 1s
     end
     # don't understand this but okay
     weight_sum_bound = min(2 * C.u_bound + 5, n - k)
-    verbose && println("Codeword weights initially checked on first $weight_sum_bound entries")
+    verbose &&
+        println("Codeword weights initially checked on first $weight_sum_bound entries")
 
     num_thrds = Threads.nthreads()
     verbose && println("Number of threads ", num_thrds)
-    for r in 2:k
+    for r = 2:k
         # TODO this case should never happen given the error above?
         if r > 2^16
-            verbose && println("Warning: Reached an r larger than 2^16") 
+            verbose && println("Warning: Reached an r larger than 2^16")
         end
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # I assume we want to uncomment these?
@@ -622,41 +729,45 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
 
         if verbose
             i_count = 0
-            for i in 1:h
+            for i = 1:h
                 r - rank_defs[i] ≤ 0 && (i_count += 1;)
             end
-            i_count > 0 && println("$i_count of the original $h information sets no longer contribute to the lower bound")
+            i_count > 0 && println(
+                "$i_count of the original $h information sets no longer contribute to the lower bound",
+            )
         end
         # wait... does this work for nonbinary? cause we do throw an error above if it's not binary
         p = Int(characteristic(C.F))
 
-        uppers = [C.u_bound for _ in 1:num_thrds]
-        founds = [found for _ in 1:num_thrds]
-        exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
+        uppers = [C.u_bound for _ = 1:num_thrds]
+        founds = [found for _ = 1:num_thrds]
+        exit_thread_indicator_vec = [initial_perm_ind for _ = 1:num_thrds]
         keep_going = Threads.Atomic{Bool}(true)
 
         bin = extended_binomial(C.k, r)
 
         thrd_stop_msg = "Stopping current thread, main loop finished"
 
-        Threads.@threads for ind in 1:num_thrds 
-            len = (ind == num_thrds) ? bin - (num_thrds - 1) * fld(bin, num_thrds) : fld(bin, num_thrds)
+        Threads.@threads for ind = 1:num_thrds
+            len =
+                (ind == num_thrds) ? bin - (num_thrds - 1) * fld(bin, num_thrds) :
+                fld(bin, num_thrds)
 
             # iteration begins with a single matrix multiplication of the generator matrix by first_vec
             init_rank = 1 + (ind - 1) * fld(bin, num_thrds)
             first_vec = zeros(Int, k)
             if init_rank == 1
-                for i in 1:r
+                for i = 1:r
                     first_vec[i] = 1
                 end
             else
                 # we shouldn't need the CT. here anymore
                 CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
             end
- 
+
             # I couldn't figure out why we want to do this but sure
             # as in White Algo 7.1 we loop over matrices first
-            for i in 1:h
+            for i = 1:h
                 if keep_going[] == false
                     verbose && println(thrd_stop_msg)
                     break
@@ -675,14 +786,14 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
                     show_progress && ProgressMeter.next!(prog_bar)
 
                     if r - rank_defs[i] > 0
-                        if is_first 
+                        if is_first
                             LinearAlgebra.mul!(c_itr, curr_mat, first_vec)
                             @inbounds @simd for j in eachindex(c_itr)
                                 c_itr[j] %= p
                             end
                             is_first = false
                         else
-                            for ci in u 
+                            for ci in u
                                 if ci != -1
                                     @simd for i in eachindex(c_itr)
                                         @inbounds c_itr[i] = xor(c_itr[i], curr_mat[i, ci])
@@ -694,27 +805,35 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
                         partial_weight = r + sum(view(c_itr, 1:weight_sum_bound))
 
                         if uppers[ind] > partial_weight
-                            w = r + sum(c_itr) 
+                            w = r + sum(c_itr)
                             verbose && @assert w != 0
-                            if uppers[ind] > w 
+                            if uppers[ind] > w
                                 subset_vec_full = zeros(Int, k)
                                 # CT.
-                                CodingTheory._subset_unrank_to_vec!(UInt128(init_rank + count), UInt64(r), subset_vec_full)
+                                CodingTheory._subset_unrank_to_vec!(
+                                    UInt128(init_rank + count),
+                                    UInt64(r),
+                                    subset_vec_full,
+                                )
 
-                                uppers[ind] = w 
+                                uppers[ind] = w
                                 founds[ind] = vcat(subset_vec_full, c_itr)
                                 # is it possible to hit this assert if programmed correctly and checked on one or two runs?
-                                verbose && @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n = $(C.n)"
+                                verbose &&
+                                    @assert size(founds[ind], 1) == C.n "found vector has length $(size(founds[ind], 1)) but should be n = $(C.n)"
                                 exit_thread_indicator_vec[ind] = i
 
-                                println("Adjusting (local) upper bound: $w for c_itr = $(Int.(c_itr))")
+                                println(
+                                    "Adjusting (local) upper bound: $w for c_itr = $(Int.(c_itr))",
+                                )
                                 if C.l_bound == uppers[ind]
                                     verbose && println("Early exit")
                                     Threads.atomic_cas!(keep_going, true, false)
                                 else
                                     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
                                     isnothing(r_term) && (r_term = k;)
-                                    verbose && println("Updated termination weight: $r_term")
+                                    verbose &&
+                                        println("Updated termination weight: $r_term")
                                     # can we update the progress meter size here or just maybe add an amount equal to the amount now skipped?
                                 end
                             end
@@ -742,19 +861,32 @@ function _minimum_distance_BZ(C::AbstractLinearCode, info_set_alg::Symbol, verbo
     return C.u_bound, y
 end
 
-function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
-    verbose::Bool = false, dbg = Dict())
+function _minimum_distance_enumeration_with_matrix_multiply(
+    C::AbstractLinearCode;
+    info_set_alg::Symbol = :auto,
+    verbose::Bool = false,
+    dbg = Dict(),
+)
 
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
-    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) || throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
+    info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) ||
+        throw(
+            ArgumentError(
+                "Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`.",
+            ),
+        )
 
     generator_matrix(C, true) # ensure G_stand exists
-    if _has_empty_vec(C.G, :cols) 
+    if _has_empty_vec(C.G, :cols)
         #TODO err string can instruct the user to construct a new code without 0 cols and tell them the function for that
-        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported")) 
+        throw(
+            ArgumentError(
+                "Codes with standard form of generator matrix having 0 columns not supported",
+            ),
+        )
     end
-    G = C.G 
+    G = C.G
     # generate if not pre-stored
     parity_check_matrix(C)
 
@@ -771,7 +903,8 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
         end
     end
     # should have no need to permute to find better ranks because of Edmond's?
-    A_mats, perms_mats, rnks = information_sets(G, info_set_alg, permute = true, only_A = false)
+    A_mats, perms_mats, rnks =
+        information_sets(G, info_set_alg, permute = true, only_A = false)
     A_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Ai)') for Ai in A_mats]
     perms_mats = [deepcopy(_Flint_matrix_to_Julia_int_matrix(Pi)') for Pi in perms_mats]
     h = length(A_mats)
@@ -780,7 +913,7 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     k, n = size(G)
     if verbose
         print("Generated $h information sets with ranks: ")
-        for i in 1:h
+        for i = 1:h
             i == h ? (println(rnks[i]);) : (print("$(rnks[i]), ");)
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
@@ -789,7 +922,7 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
             rank_defs[i] = C.k - rnks[i]
         end
     end
-    
+
     even_flag = false
     doubly_even_flag = false
     triply_even_flag = false
@@ -799,20 +932,21 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     if verbose
         triply_even_flag && println("Detected a triply even code.")
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
-        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) &&
+            println("Detected an even code.")
     end
 
     # initial_perm_ind will match the permutation we use for the 'found' vector if the found vector is nonzero. To simplify the code below we're going to choose an initial permutation arbitrarily.  
-    initial_perm_ind = 1 
-    found = A_mats[1][:, 1] 
+    initial_perm_ind = 1
+    found = A_mats[1][:, 1]
     for (j, g) in enumerate(A_mats) # loop over the A_mats rather than the original G because it would add another case to deal with later 
         # can make this faster with dots and views
         w, i = _min_wt_col(g)
         if w <= C.u_bound
-            found = g[:, i] 
+            found = g[:, i]
             C.u_bound = w
             initial_perm_ind = j
-            y = perms_mats[initial_perm_ind] * found 
+            y = perms_mats[initial_perm_ind] * found
         end
     end
 
@@ -820,7 +954,19 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     verbose && !iszero(found) && println("Found element matching upper bound.")
 
     info_set_alg == :Chen ? (l = C.l;) : (l = 0;)
-    lower_bounds = [information_set_lower_bound(r, n, k, l, rank_defs, info_set_alg, even = even_flag, doubly_even = doubly_even_flag, triply_even = triply_even_flag) for r in 1:k]
+    lower_bounds = [
+        information_set_lower_bound(
+            r,
+            n,
+            k,
+            l,
+            rank_defs,
+            info_set_alg,
+            even = even_flag,
+            doubly_even = doubly_even_flag,
+            triply_even = triply_even_flag,
+        ) for r = 1:k
+    ]
     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
     isnothing(r_term) && (r_term = k;)
     verbose && println("Predicted termination weight based on current upper bound: $r_term")
@@ -829,7 +975,7 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
     verbose && println("Detected $num_thrds threads.")
     power = Int(floor(log(2, num_thrds)))
 
-    for r in 1:k
+    for r = 1:k
         C.l_bound < lower_bounds[r] && (C.l_bound = lower_bounds[r];)
         # an even code can't have have an odd minimum weight
         # (!triply_even_flag && !doubly_even_flag && even_flag) && (C.l_bound += C.l_bound % 2;)
@@ -840,46 +986,51 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
         verbose && println("Upper bound: $(C.u_bound)")
         if C.l_bound >= C.u_bound
             C.d = C.u_bound
-            y = perms_mats[initial_perm_ind] * found 
-            return C.u_bound, (C.F).(y) 
+            y = perms_mats[initial_perm_ind] * found
+            return C.u_bound, (C.F).(y)
         end
 
         if verbose
             count = 0
-            for i in 1:h
+            for i = 1:h
                 r - rank_defs[i] ≤ 0 && (count += 1;)
             end
-            count > 0 && println("$count of the original $h information sets no longer contribute to the lower bound")
+            count > 0 && println(
+                "$count of the original $h information sets no longer contribute to the lower bound",
+            )
         end
 
         flag = Threads.Atomic{Bool}(true)
         verbose && println("Detected $num_thrds threads.")
 
         p = Int(characteristic(C.F))
-        uppers = [C.u_bound for _ in 1:num_thrds]
-        founds = [found for _ in 1:num_thrds]
-        exit_thread_indicator_vec = [initial_perm_ind for _ in 1:num_thrds]
+        uppers = [C.u_bound for _ = 1:num_thrds]
+        founds = [found for _ = 1:num_thrds]
+        exit_thread_indicator_vec = [initial_perm_ind for _ = 1:num_thrds]
 
         c = zeros(Int, C.n)
-        itrs = [GrayCode(C.k, r, digits(m - 1, base = 2, pad = power), mutate = true) for m in 1:num_thrds]
-        Threads.@threads for m in 1:num_thrds 
+        itrs = [
+            GrayCode(C.k, r, digits(m - 1, base = 2, pad = power), mutate = true) for
+            m = 1:num_thrds
+        ]
+        Threads.@threads for m = 1:num_thrds
             itr = itrs[m]
-            for u in itr 
+            for u in itr
                 if flag[]
-                    for i in 1:h 
+                    for i = 1:h
                         vec = u
-                        if r - rank_defs[i] > 0 
+                        if r - rank_defs[i] > 0
                             LinearAlgebra.mul!(c, A_mats[i], vec)
 
                             w = r
-                            @inbounds for j in 1:n 
+                            @inbounds for j = 1:n
                                 c[j] % p != 0 && (w += 1;)
                             end
 
                             if uppers[m] > w
                                 uppers[m] = w
-                                founds[m] .= c 
-                                exit_thread_indicator_vec[m] = i 
+                                founds[m] .= c
+                                exit_thread_indicator_vec[m] = i
                                 verbose && println("Adjusting (local) upper bound: $w")
                                 if C.l_bound == uppers[m]
                                     Threads.atomic_cas!(flag, true, false)
@@ -887,7 +1038,8 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
                                 else
                                     r_term = findfirst(x -> x ≥ C.u_bound, lower_bounds)
                                     isnothing(r_term) && (r_term = k;)
-                                    verbose && println("Updated termination weight: $r_term")
+                                    verbose &&
+                                        println("Updated termination weight: $r_term")
                                 end
                             end
                         end
@@ -905,7 +1057,7 @@ function _minimum_distance_enumeration_with_matrix_multiply(C::AbstractLinearCod
 
     # at this point we are guaranteed to have found the answer
     C.d = C.u_bound
-    y = perms_mats[initial_perm_ind] * found 
+    y = perms_mats[initial_perm_ind] * found
     # iszero(C.H * transpose(y))
     return C.u_bound, (C.F).(y)
 end
@@ -915,11 +1067,17 @@ end
 
 Return all the codewords of `C` of Hamming weight in the range `[l_bound, u_bound]`.
 """
-function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verbose::Bool = false)
+function words_of_weight(
+    C::AbstractLinearCode,
+    l_bound::Int,
+    u_bound::Int;
+    verbose::Bool = false,
+)
     ord_F = Int(order(C.F))
     ord_F == 2 || throw(ArgumentError("Currently only implemented for binary codes."))
 
-    1 <= l_bound <= u_bound <= C.n || throw(ArgumentError("Expected 1 <= l_bound <= u_bound <= C.n"))
+    1 <= l_bound <= u_bound <= C.n ||
+        throw(ArgumentError("Expected 1 <= l_bound <= u_bound <= C.n"))
     if l_bound < C.n / 2 && ord_F == 2
         # faster to enumerate backwards, but only in binary
         return _words_of_weight_high(C, l_bound, u_bound, verbose)
@@ -941,7 +1099,7 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
     rank_defs = zeros(Int, h)
     if verbose
         print("Generated $h information sets with ranks: ")
-        for i in 1:h
+        for i = 1:h
             i == h ? (println(gen_mats[i][1]);) : (print("$(gen_mats[i][1]), "))
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
@@ -959,13 +1117,14 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
     if verbose
         triply_even_flag && println("Detected a triply even code.")
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
-        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) &&
+            println("Detected an even code.")
     end
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
     power = 0
-    for i in 1:20
+    for i = 1:20
         if 2^i > num_thrds
             power = i - 1
             break
@@ -973,7 +1132,7 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
     end
 
     W = Set{typeof(G)}()
-    for r in 1:C.k
+    for r = 1:C.k
         if typeof(C) <: AbstractCyclicCode
             lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
@@ -992,15 +1151,15 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
             return W
         end
 
-        Ws = [Set{typeof(G)}() for _ in 1:num_thrds]
-        Threads.@threads for m in 1:num_thrds
+        Ws = [Set{typeof(G)}() for _ = 1:num_thrds]
+        Threads.@threads for m = 1:num_thrds
             c = zeros(Int, C.n)
-            prefix = digits(m - 1, base=2, pad=power)
-            for u in GrayCode(C.k, r, prefix, mutate=true)
-                for i in 1:h
+            prefix = digits(m - 1, base = 2, pad = power)
+            for u in GrayCode(C.k, r, prefix, mutate = true)
+                for i = 1:h
                     LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
                     w = 0
-                    @inbounds for j in 1:C.n
+                    @inbounds for j = 1:C.n
                         c[j] % p != 0 && (w += 1;)
                     end
 
@@ -1012,7 +1171,7 @@ function words_of_weight(C::AbstractLinearCode, l_bound::Int, u_bound::Int; verb
                 end
             end
         end
-        for m in 1:num_thrds
+        for m = 1:num_thrds
             union!(W, Ws[m])
         end
     end
@@ -1023,12 +1182,17 @@ end
 
 Return all the codewords of `C` of Hamming weight `bound`.
 """
-words_of_weight(C::AbstractLinearCode, bound::Int; verbose::Bool = false) = words_of_weight(C, bound, bound, verbose = verbose)
+words_of_weight(C::AbstractLinearCode, bound::Int; verbose::Bool = false) =
+    words_of_weight(C, bound, bound, verbose = verbose)
 
 # untested
 # TODO: figure out if even weight upper weight needs to subtract or not
-function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int;
-    verbose::Bool = false)
+function _words_of_weight_high(
+    C::AbstractLinearCode,
+    l_bound::Int,
+    u_bound::Int;
+    verbose::Bool = false,
+)
 
     p = Int(characteristic(C.F))
     G = generator_matrix(C)
@@ -1046,7 +1210,7 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     rank_defs = zeros(Int, h)
     if verbose
         print("Generated $h information sets with ranks: ")
-        for i in 1:h
+        for i = 1:h
             i == h ? (println(gen_mats[i][1]);) : (print("$(gen_mats[i][1]), "))
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
@@ -1064,13 +1228,14 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     if verbose
         triply_even_flag && println("Detected a triply even code.")
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
-        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) &&
+            println("Detected an even code.")
     end
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
     power = 0
-    for i in 1:20
+    for i = 1:20
         if 2^i > num_thrds
             power = i - 1
             break
@@ -1078,7 +1243,7 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
     end
 
     W = Set{typeof(G)}()
-    for r in C.k:-1:1
+    for r = C.k:-1:1
         if typeof(C) <: AbstractCyclicCode
             upper = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
@@ -1097,15 +1262,15 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
             return W
         end
 
-        Ws = [Set{typeof(G)}() for _ in 1:num_thrds]
-        Threads.@threads for m in 1:num_thrds
+        Ws = [Set{typeof(G)}() for _ = 1:num_thrds]
+        Threads.@threads for m = 1:num_thrds
             c = zeros(Int, C.n)
-            prefix = digits(m - 1, base=2, pad=power)
-            for u in GrayCode(C.k, r, prefix, mutate=true)
-                for i in 1:h
+            prefix = digits(m - 1, base = 2, pad = power)
+            for u in GrayCode(C.k, r, prefix, mutate = true)
+                for i = 1:h
                     LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
                     w = 0
-                    @inbounds for j in 1:C.n
+                    @inbounds for j = 1:C.n
                         c[j] % p != 0 && (w += 1;)
                     end
 
@@ -1117,7 +1282,7 @@ function _words_of_weight_high(C::AbstractLinearCode, l_bound::Int, u_bound::Int
                 end
             end
         end
-        for m in 1:num_thrds
+        for m = 1:num_thrds
             union!(W, Ws[m])
         end
     end
@@ -1134,19 +1299,23 @@ number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
 `Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
 above.
 """
-function partial_weight_distribution(C::AbstractLinearCode, bound::Int; compact::Bool = false)
-	1 <= bound <= C.n || throw(ArgumentError("Bound must be between 1 and n."))
+function partial_weight_distribution(
+    C::AbstractLinearCode,
+    bound::Int;
+    compact::Bool = false,
+)
+    1 <= bound <= C.n || throw(ArgumentError("Bound must be between 1 and n."))
 
-	W = words_of_weight(C, 1, bound)
+    W = words_of_weight(C, 1, bound)
     wt_dist = zeros(BigInt, bound + 1)
     bio = BigInt(1)
-    wt_dist[1] = bio    
-	for c in W
-		wt_dist[wt(c) + 1] += bio
-	end
-    
+    wt_dist[1] = bio
+    for c in W
+        wt_dist[wt(c)+1] += bio
+    end
+
     if compact
-        wt_dist_comp = Vector{Tuple{Int, BigInt}}()
+        wt_dist_comp = Vector{Tuple{Int,BigInt}}()
         for (i, x) in enumerate(wt_dist)
             !iszero(x) && (push!(wt_dist_comp, (i - 1, x)))
         end
@@ -1190,7 +1359,7 @@ function minimum_words(C::AbstractLinearCode)
     rank_defs = zeros(Int, h)
     if verbose
         print("Generated $h information sets with ranks: ")
-        for i in 1:h
+        for i = 1:h
             i == h ? (println(gen_mats[i][1]);) : (print("$(gen_mats[i][1]), "))
             # will only be using the rank deficits here
             # at the moment, the information sets are always disjoint so the relative
@@ -1198,7 +1367,7 @@ function minimum_words(C::AbstractLinearCode)
             rank_defs[i] = C.k - gen_mats[i][1]
         end
     end
-    
+
     even_flag = false
     doubly_even_flag = false
     triply_even_flag = false
@@ -1208,13 +1377,14 @@ function minimum_words(C::AbstractLinearCode)
     if verbose
         triply_even_flag && println("Detected a triply even code.")
         (!triply_even_flag && doubly_even_flag) && println("Detected a doubly even code.")
-        (!triply_even_flag && !doubly_even_flag && even_flag) && println("Detected an even code.")
+        (!triply_even_flag && !doubly_even_flag && even_flag) &&
+            println("Detected an even code.")
     end
-    
+
     upper = C.n - C.k + 1
     verbose && println("Singleton upper bound: $upper")
     for (j, g) in enumerate(gen_mats_Julia)
-        for i in 1:C.k
+        for i = 1:C.k
             w = wt(g[:, i]) # for transposed matrix
             if w < upper
                 found = g[:, i]
@@ -1229,7 +1399,7 @@ function minimum_words(C::AbstractLinearCode)
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
     power = 0
-    for i in 1:20
+    for i = 1:20
         if 2^i > num_thrds
             power = i - 1
             break
@@ -1237,7 +1407,7 @@ function minimum_words(C::AbstractLinearCode)
     end
 
     W = Set{typeof(G)}()
-    for r in 1:C.k
+    for r = 1:C.k
         if typeof(C) <: AbstractCyclicCode
             lower = _lower_bounds(r, C.n, C.k, 0, [0], :Chen)
         elseif typeof(C) <: AbstractQuasiCyclicCode
@@ -1258,16 +1428,16 @@ function minimum_words(C::AbstractLinearCode)
             return upper, W
         end
 
-        uppers = [upper for _ in 1:num_thrds]
-        Ws = [Set{typeof(G)}() for _ in 1:num_thrds]
-        Threads.@threads for m in 1:num_thrds
+        uppers = [upper for _ = 1:num_thrds]
+        Ws = [Set{typeof(G)}() for _ = 1:num_thrds]
+        Threads.@threads for m = 1:num_thrds
             c = zeros(Int, C.n)
             prefix = digits(m - 1, base = 2, pad = power)
             for u in GrayCode(C.k, r, prefix, mutate = true)
-                for i in 1:h
+                for i = 1:h
                     LinearAlgebra.mul!(c, gen_mats_Julia[i], u)
                     w = 0
-                    @inbounds for j in 1:C.n
+                    @inbounds for j = 1:C.n
                         c[j] % p != 0 && (w += 1;)
                     end
 
@@ -1292,7 +1462,7 @@ function minimum_words(C::AbstractLinearCode)
             upper = uppers[loc]
             W = Set{typeof(G)}()
         end
-        for m in 1:num_thrds
+        for m = 1:num_thrds
             if uppers[m] == upper
                 union!(W, Ws[m])
             end
@@ -1306,16 +1476,23 @@ end
 Return an upper bound on the minimum distance of `C` and a codeword of that weight using
 `max_iters` random information sets.
 """
-function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; max_iters::Int = 10000, verbose::Bool = false)
+function random_information_set_minimum_distance_bound!(
+    C::AbstractLinearCode;
+    max_iters::Int = 10000,
+    verbose::Bool = false,
+)
 
-    order(field(C)) == 2 || throw(DomainError(C, "Currently only implemented for binary codes."))
-    is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
+    order(field(C)) == 2 ||
+        throw(DomainError(C, "Currently only implemented for binary codes."))
+    is_positive(max_iters) || throw(
+        DomainError(max_iters, "The number of iterations must be a positive integer."),
+    )
 
     !ismissing(C.d) && (println("Distance already known"); return C.d;)
     verbose && println("Bounding the distance")
     G = _Flint_matrix_to_Julia_T_matrix(_rref_no_col_swap(C.G), UInt8)
     G = _remove_empty(G, :rows)
-    upper, ind  = _min_wt_row(G)
+    upper, ind = _min_wt_row(G)
     found = G[ind, :]
     # TODO this can contradict C.u_bound cause that requires a different found
     verbose && println("Starting lower bound: $(C.l_bound)")
@@ -1328,24 +1505,31 @@ function random_information_set_minimum_distance_bound!(C::AbstractLinearCode; m
     return uppers[loc], matrix(field(C), permutedims(founds[loc]))
 end
 
-function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr_u_bound::Int,
-    found::Vector{T}, max_iters::Int, n::Int, verbose::Bool) where T <: Integer
+function _RIS_bound_loop(
+    operators_to_reduce::Matrix{T},
+    curr_l_bound::Int,
+    curr_u_bound::Int,
+    found::Vector{T},
+    max_iters::Int,
+    n::Int,
+    verbose::Bool,
+) where {T<:Integer}
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
 
     flag = Threads.Atomic{Bool}(true)
-    uppers = [curr_u_bound for _ in 1:num_thrds]
-    founds = [found for _ in 1:num_thrds]
+    uppers = [curr_u_bound for _ = 1:num_thrds]
+    founds = [found for _ = 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
     verbose && (prog_meter = Progress(max_iters);)
-    Threads.@threads for t in 1:num_thrds
+    Threads.@threads for t = 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         perm_ops = similar(orig_ops)
         ops = similar(orig_ops)
         perm = collect(1:n)
-        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
+        for _ = 1:(thread_load+(t<=remaining ? 1 : 0))
             if flag[]
                 shuffle!(perm)
                 _col_permutation!(perm_ops, orig_ops, perm)
@@ -1354,7 +1538,7 @@ function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr
 
                 for i in axes(perm_ops, 1)
                     w = 0
-                    @inbounds for j in 1:n
+                    @inbounds for j = 1:n
                         isodd(ops[i, j]) && (w += 1;)
                     end
 
@@ -1363,7 +1547,9 @@ function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr
                         founds[t] .= ops[i, :]
                         verbose && println("Adjusting (thread's local) upper bound: $w")
                         if curr_l_bound == w
-                            verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
+                            verbose && println(
+                                "Found a logical that matched the lower bound of $curr_l_bound",
+                            )
                             Threads.atomic_cas!(flag, true, false)
                             break
                         end
@@ -1379,12 +1565,15 @@ function _RIS_bound_loop(operators_to_reduce::Matrix{T}, curr_l_bound::Int, curr
 end
 
 #############################
-    # Weight Enumerators
+# Weight Enumerators
 #############################
 # TODO: doc string?
 function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
-    type ∈ (:complete, :Hamming) ||
-        throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
+    type ∈ (:complete, :Hamming) || throw(
+        ArgumentError(
+            "Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.",
+        ),
+    )
 
     if type == :complete && !ismissing(T.CWE)
         return T.CWE
@@ -1401,11 +1590,11 @@ function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
     E = T.edges
     V[1][1].polynomial = R(1)
     # V[1][1].polynomial[1][1] = 1
-    for i in 2:length(V)
+    for i = 2:length(V)
         for (j, v) in enumerate(V[i])
             outer = R(0)
-            Threads.@threads for e in E[i - 1][j]
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
+            Threads.@threads for e in E[i-1][j]
+                inner = deepcopy(V[i-1][e.outvertex].polynomial)
                 for k in e.label
                     inner *= vars[lookup[k]]
                 end
@@ -1420,12 +1609,14 @@ function weight_enumerator_classical(T::Trellis; type::Symbol = :complete)
     if !isshifted(T) && !ismissing(T.code)
         T.code.weight_enum = T.CWE
         HWE = CWE_to_HWE(T.CWE)
-        T.code.d = minimum([collect(exponent_vectors(polynomial(HWE)))[i][1]
-            for i in 1:length(polynomial(HWE))])
+        T.code.d = minimum([
+            collect(exponent_vectors(polynomial(HWE)))[i][1] for
+            i = 1:length(polynomial(HWE))
+        ])
     end
 
     # clean up vertices
-    for i in 1:length(V)
+    for i = 1:length(V)
         for v in V[i]
             v.polynomial = missing
         end
@@ -1442,18 +1633,33 @@ end
 Return the weight enumerator of the dual (`:Euclidean` or `:Hermitian`) of `C` obtained
 by applying the MacWilliams identities to `W`.
 """
-function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::Symbol = :Euclidean)
-    dual ∈ (:Euclidean, :Hermitian) ||
-        throw(ArgumentError("The MacWilliams identities are only programmed for the Euclidean and Hermitian duals."))
-    (dual == :Hermitian && Int(order(C.F)) != 4) &&
-        throw(ArgumentError("The MacWilliams identity for the Hermitian dual is only programmed for GF(4)."))
+function MacWilliams_identity(
+    C::AbstractLinearCode,
+    W::WeightEnumerator;
+    dual::Symbol = :Euclidean,
+)
+    dual ∈ (:Euclidean, :Hermitian) || throw(
+        ArgumentError(
+            "The MacWilliams identities are only programmed for the Euclidean and Hermitian duals.",
+        ),
+    )
+    (dual == :Hermitian && Int(order(C.F)) != 4) && throw(
+        ArgumentError(
+            "The MacWilliams identity for the Hermitian dual is only programmed for GF(4).",
+        ),
+    )
 
     if W.type == :Hamming
         # (1/|C|)W(y - x, y + (q - 1)x)
         R = parent(W.polynomial)
         vars = gens(R)
-        return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
-            (Int(order(C.F)) - 1) * vars[1]), cardinality(C)), :Hamming)
+        return WeightEnumerator(
+            divexact(
+                W.polynomial(vars[2] - vars[1], vars[2] + (Int(order(C.F)) - 1) * vars[1]),
+                cardinality(C),
+            ),
+            :Hamming,
+        )
     end
 
     # complete weight enumerators
@@ -1462,21 +1668,35 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
         # (1/|C|)W(x_0 + (q - 1)x_1, x_0 - x_1)
         R = parent(W.polynomial)
         vars = gens(R)
-        return WeightEnumerator(divexact(W.polynomial(vars[1] +
-            (Int(order(C.F)) - 1) * vars[2], vars[1] - vars[2]),
-            cardinality(C)), :complete)
+        return WeightEnumerator(
+            divexact(
+                W.polynomial(vars[1] + (Int(order(C.F)) - 1) * vars[2], vars[1] - vars[2]),
+                cardinality(C),
+            ),
+            :complete,
+        )
     elseif Int(order(C.F)) == 3
         # (1/|C|)W(x_0 + x_1 + x_2, x_0 + ω x_1 + ω^2 x_2, x_0 + ω^2 x_1 + ω x_2)
         K, ζ = cyclotomic_field(3, :ζ)
         R, vars = polynomial_ring(K, 3)
         # might have to switch this here
-        poly = divexact(W.polynomial(
-            vars[1] + vars[2] + vars[3],
-            vars[1] + ζ * vars[2] + ζ^2 * vars[3],
-            vars[1] + ζ^2 * vars[2] + ζ * vars[3]), cardinality(C))
+        poly = divexact(
+            W.polynomial(
+                vars[1] + vars[2] + vars[3],
+                vars[1] + ζ * vars[2] + ζ^2 * vars[3],
+                vars[1] + ζ^2 * vars[2] + ζ * vars[3],
+            ),
+            cardinality(C),
+        )
         # works so far but now needs to recast down to the integer ring
-        return WeightEnumerator(Oscar.map_coefficients(c -> Nemo.ZZ(coeff(c, 0)), poly,
-            parent=parent(W.polynomial)), :complete)
+        return WeightEnumerator(
+            Oscar.map_coefficients(
+                c -> Nemo.ZZ(coeff(c, 0)),
+                poly,
+                parent = parent(W.polynomial),
+            ),
+            :complete,
+        )
     elseif Int(order(C.F)) == 4
         # these order 4 formulas are from "Self-Dual Codes" by Rains and Sloane without proof
         # the differ in order from the formula in MacWilliams and Sloane used in the general
@@ -1493,12 +1713,18 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             vars = gens(R)
             # switched lines 2 and 3 from Rains & Sloane (Huffman & Press) formula because it
             # appears to implicitly assuming a primitive basis and here we permute for our basis
-            return WeightEnumerator(divexact(W.polynomial(
-                vars[1] + vars[2] + vars[3] + vars[4],
-                vars[1] - vars[2] - vars[3] + vars[4],
-                vars[1] + vars[2] - vars[3] - vars[4],
-                vars[1] - vars[2] + vars[3] - vars[4]), cardinality(C)),
-                :complete)
+            return WeightEnumerator(
+                divexact(
+                    W.polynomial(
+                        vars[1] + vars[2] + vars[3] + vars[4],
+                        vars[1] - vars[2] - vars[3] + vars[4],
+                        vars[1] + vars[2] - vars[3] - vars[4],
+                        vars[1] - vars[2] + vars[3] - vars[4],
+                    ),
+                    cardinality(C),
+                ),
+                :complete,
+            )
         else
             # for Hermitian dual
             # (1/|C|)W(x_0 + x_1 + x_2 + x_3, x_0 + x_1 - x_2 - x_3, x_0 - x_1 + x_2 - x_3, x_0 - x_1 - x_2 + x_3)
@@ -1506,12 +1732,18 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             vars = gens(R)
             # switched lines 2 and 3 from Rains & Sloane (Huffman & Press) formula because it
             # appears to implicitly assuming a primitive basis and here we permute for our basis
-            return WeightEnumerator(divexact(W.polynomial(
-                vars[1] + vars[2] + vars[3] + vars[4],
-                vars[1] - vars[2] + vars[3] - vars[4],
-                vars[1] + vars[2] - vars[3] - vars[4],
-                vars[1] - vars[2] - vars[3] + vars[4]), cardinality(C)),
-                :complete)
+            return WeightEnumerator(
+                divexact(
+                    W.polynomial(
+                        vars[1] + vars[2] + vars[3] + vars[4],
+                        vars[1] - vars[2] + vars[3] - vars[4],
+                        vars[1] + vars[2] - vars[3] - vars[4],
+                        vars[1] - vars[2] - vars[3] + vars[4],
+                    ),
+                    cardinality(C),
+                ),
+                :complete,
+            )
         end
     else
         q = Int(order(C.F))
@@ -1520,15 +1752,17 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             R, vars = polynomial_ring(K, q)
             elms = collect(C.F)
             func_args = []
-            for i in 1:q
+            for i = 1:q
                 inner_sum = R(0)
-                for j in 1:q
+                for j = 1:q
                     inner_sum += ω^coeff(elms[i] * elms[j], 0) * vars[j]
                 end
                 append!(func_args, inner_sum)
             end
-            return WeightEnumerator(divexact(W.polynomial(func_args), cardinality(C)),
-                :complete)
+            return WeightEnumerator(
+                divexact(W.polynomial(func_args), cardinality(C)),
+                :complete,
+            )
         else
             K, ω = cyclotomic_field(Int(characteristic(C.F)), :ω)
             R, vars = polynomial_ring(K, q)
@@ -1536,9 +1770,9 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
             _, λ = primitive_basis(C.F, prime_field)
             elms = collect(C.F)
             func_args = []
-            for i in 1:q
+            for i = 1:q
                 inner_sum = R(0)
-                for j in 1:q
+                for j = 1:q
                     β = elms[i] * elms[j]
                     β_exp = _expand_element(β, prime_field, λ, false)
                     inner_sum += ω^coeff(β_exp[1], 0) * vars[j]
@@ -1546,7 +1780,10 @@ function MacWilliams_identity(C::AbstractLinearCode, W::WeightEnumerator; dual::
                 push!(func_args, inner_sum)
             end
             display(func_args)
-            return WeightEnumerator(divexact(W.polynomial(func_args...), cardinality(C)), :complete)
+            return WeightEnumerator(
+                divexact(W.polynomial(func_args...), cardinality(C)),
+                :complete,
+            )
         end
     end
 end
@@ -1556,9 +1793,16 @@ end
 
 Return either the `:complete` or `:Hamming` weight enumerator of `C` using the algorithm `alg`.
 """
-function weight_enumerator(C::AbstractLinearCode; type::Symbol = :complete, alg::Symbol = :auto)
-    type ∈ (:complete, :Hamming) ||
-        throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
+function weight_enumerator(
+    C::AbstractLinearCode;
+    type::Symbol = :complete,
+    alg::Symbol = :auto,
+)
+    type ∈ (:complete, :Hamming) || throw(
+        ArgumentError(
+            "Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.",
+        ),
+    )
     alg ∈ (:auto, :trellis, :bruteforce) ||
         throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
@@ -1572,8 +1816,15 @@ function weight_enumerator(C::AbstractLinearCode; type::Symbol = :complete, alg:
         if cardinality(C) <= 1e6 # random cutoff
             C.weight_enum = _weight_enumerator_BF(C.G)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-                for i in 1:length(HWE.polynomial)]))
+            C.d = minimum(
+                filter(
+                    x -> x != 0,
+                    [
+                        collect(exponent_vectors(HWE.polynomial))[i][1] for
+                        i = 1:length(HWE.polynomial)
+                    ],
+                ),
+            )
             type == :Hamming && return HWE
             return C.weight_enum
         elseif rate(C) > 0.5
@@ -1581,24 +1832,47 @@ function weight_enumerator(C::AbstractLinearCode; type::Symbol = :complete, alg:
             if cardinality(D) <= 1e6 # random cutoff
                 D.weight_enum = _weight_enumerator_BF(D.G)
             else
-                weight_enumerator_classical(syndrome_trellis(D, "primal", false), type = type)
+                weight_enumerator_classical(
+                    syndrome_trellis(D, "primal", false),
+                    type = type,
+                )
             end
             C.weight_enum = MacWilliams_identity(D, D.weight_enum)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-                for i in 1:length(HWE.polynomial)]))
+            C.d = minimum(
+                filter(
+                    x -> x != 0,
+                    [
+                        collect(exponent_vectors(HWE.polynomial))[i][1] for
+                        i = 1:length(HWE.polynomial)
+                    ],
+                ),
+            )
             type == :Hamming && return HWE
             return C.weight_enum
         else
-            return weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
+            return weight_enumerator_classical(
+                syndrome_trellis(C, "primal", false),
+                type = type,
+            )
         end
     elseif alg == :trellis
-        return weight_enumerator_classical(syndrome_trellis(C, "primal", false), type = type)
+        return weight_enumerator_classical(
+            syndrome_trellis(C, "primal", false),
+            type = type,
+        )
     elseif alg == :bruteforce
         C.weight_enum = _weight_enumerator_BF(C.G)
         HWE = CWE_to_HWE(C.weight_enum)
-        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-            for i in 1:length(HWE.polynomial)]))
+        C.d = minimum(
+            filter(
+                x -> x != 0,
+                [
+                    collect(exponent_vectors(HWE.polynomial))[i][1] for
+                    i = 1:length(HWE.polynomial)
+                ],
+            ),
+        )
         type == :Hamming && return HWE
         return C.weight_enum
     end
@@ -1613,7 +1887,11 @@ number of codewords of `C` of Hamming weight `i - 1`. Otherwise, the result is a
 `Vector{Tuple{Int, BigInt}}` whose entries specify the nonzero indices and values of the
 above.
 """
-function weight_distribution(C::AbstractLinearCode; alg::Symbol = :auto, compact::Bool = true)
+function weight_distribution(
+    C::AbstractLinearCode;
+    alg::Symbol = :auto,
+    compact::Bool = true,
+)
     alg ∈ (:auto, :trellis, :bruteforce) ||
         throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
@@ -1622,14 +1900,16 @@ function weight_distribution(C::AbstractLinearCode; alg::Symbol = :auto, compact
 
     if compact
         wt_dist = Vector{Tuple}()
-        for i in 1:length(HWE.polynomial)
-            push!(wt_dist, (exponent_vector(HWE.polynomial, i)[1],
-                coeff(HWE.polynomial, i)))
+        for i = 1:length(HWE.polynomial)
+            push!(
+                wt_dist,
+                (exponent_vector(HWE.polynomial, i)[1], coeff(HWE.polynomial, i)),
+            )
         end
     else
         wt_dist = zeros(Int, 1, C.n + 1)
-        for i in 1:length(HWE.polynomial)
-            wt_dist[exponent_vector(HWE.polynomial, i)[1] + 1] = coeff(HWE.polynomial, i)
+        for i = 1:length(HWE.polynomial)
+            wt_dist[exponent_vector(HWE.polynomial, i)[1]+1] = coeff(HWE.polynomial, i)
         end
     end
     return wt_dist
@@ -1653,11 +1933,11 @@ Returns the support of `C`.
 # Notes
 - The support of `C` is the collection of nonzero exponents of the Hamming weight enumerator of `C`.
 """
-support(C::AbstractLinearCode) = [i for (i, _) in weight_distribution(C, alg = :auto,
-    compact = true)]
+support(C::AbstractLinearCode) =
+    [i for (i, _) in weight_distribution(C, alg = :auto, compact = true)]
 
 #############################
-     # Minimum Distance
+# Minimum Distance
 #############################
 
 # TODO: update doc strings for these and this whole file in general
@@ -1668,33 +1948,54 @@ Return the minimum distance of the linear code if known, otherwise computes it
 using the algorithm of `alg`. If `alg = "trellis"`, the sectionalization flag
 `sect` can be set to true to further compactify the reprsentation.
 """
-function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::Bool = false,
-    verbose::Bool = false)
+function minimum_distance(
+    C::AbstractLinearCode;
+    alg::Symbol = :trellis,
+    sect::Bool = false,
+    verbose::Bool = false,
+)
 
     !ismissing(C.d) && return C.d
 
     alg ∈ (:auto, :Gray, :trellis, :Leon, :bruteforce, :wt_dist) ||
         throw(ArgumentError("Unexpected algorithm '$alg'."))
-    
+
     if alg == :auto
         D = dual(C)
         if cardinality(C) <= 1e6 # random cutoff
             C.weight_enum = _weight_enumerator_BF(C.G)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-                for i in 1:length(HWE.polynomial)]))
+            C.d = minimum(
+                filter(
+                    x -> x != 0,
+                    [
+                        collect(exponent_vectors(HWE.polynomial))[i][1] for
+                        i = 1:length(HWE.polynomial)
+                    ],
+                ),
+            )
             return C.d
         elseif rate(C) > 0.5
             D = dual(C)
             if cardinality(D) <= 1e6 # random cutoff
                 D.weight_enum = _weight_enumerator_BF(D.G)
             else
-                weight_enumerator_classical(syndrome_trellis(D, "primal", false), type = type)
+                weight_enumerator_classical(
+                    syndrome_trellis(D, "primal", false),
+                    type = type,
+                )
             end
             C.weight_enum = MacWilliams_identity(D, D.weight_enum)
             HWE = CWE_to_HWE(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-                for i in 1:length(HWE.polynomial)]))
+            C.d = minimum(
+                filter(
+                    x -> x != 0,
+                    [
+                        collect(exponent_vectors(HWE.polynomial))[i][1] for
+                        i = 1:length(HWE.polynomial)
+                    ],
+                ),
+            )
             return C.d
         else
             return minimum_distance_Gray(C, verbose = verbose)
@@ -1707,8 +2008,15 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
     elseif alg == :bruteforce
         C.weight_enum = _weight_enumerator_BF(C.G)
         HWE = CWE_to_HWE(C.weight_enum)
-        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-            for i in 1:length(HWE.polynomial)]))
+        C.d = minimum(
+            filter(
+                x -> x != 0,
+                [
+                    collect(exponent_vectors(HWE.polynomial))[i][1] for
+                    i = 1:length(HWE.polynomial)
+                ],
+            ),
+        )
         return C.d
     elseif alg == :wt_dist
         HWE = weight_enumerator(C, type = :Hamming, alg = alg)
@@ -1716,10 +2024,17 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
         # this line should only be needed to be run if the weight enumerator is known
         # but the minimum distance is intentionally set to missing
         # ordering here can be a bit weird
-        C.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-            for i in 1:length(HWE.polynomial)]))
+        C.d = minimum(
+            filter(
+                x -> x != 0,
+                [
+                    collect(exponent_vectors(HWE.polynomial))[i][1] for
+                    i = 1:length(HWE.polynomial)
+                ],
+            ),
+        )
         return C.d
-    # elseif alg == "Leon"
-    #     Leon(C)
+        # elseif alg == "Leon"
+        #     Leon(C)
     end
 end

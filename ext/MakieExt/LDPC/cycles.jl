@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-       # simple cycles
+# simple cycles
 #############################
 
 """
@@ -21,14 +21,23 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
   already cached.
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.simple_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+function CodingTheory.simple_cycle_length_distribution_plot(
+    L::AbstractLDPCCode;
+    len::Int = -1,
+)
     dist = simple_cycle_length_distribution(L, len = len)
     x_data = collect(keys(dist))
     y_data = collect(values(dist))
-    
+
     fig = Figure();
-    ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
-        title = "Simple Cycle Counts", xticks = x_data, yticks = y_data)
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Cycle Length",
+        ylabel = "Occurrences",
+        title = "Simple Cycle Counts",
+        xticks = x_data,
+        yticks = y_data,
+    )
     barplot!(ax, x_data, y_data, strokewidth = 1)
     display(fig)
     return fig
@@ -47,23 +56,31 @@ empty figure and dictionary are returned when there are no cycles.
     already cached.
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.simple_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode;
-    len::Int = -1)
+function CodingTheory.simple_cycle_distribution_by_variable_node_plot(
+    L::AbstractLDPCCode;
+    len::Int = -1,
+)
 
     dist = simple_cycle_distribution_by_variable_node(L, len = len)
     collect(keys(dist))
     collect(values(dist))
 
     fig = Figure();
-    ax = Axis(fig[1, 1], xlabel = "Variable Node Index", ylabel = "Occurrences",
-        title = "Simple Cycles By Variable Node", xticks = x_data, yticks = y_data)
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Variable Node Index",
+        ylabel = "Occurrences",
+        title = "Simple Cycles By Variable Node",
+        xticks = x_data,
+        yticks = y_data,
+    )
     barplot!(ax, x_data, y_data, strokewidth = 1)
     display(fig)
     return fig
 end
 
 #############################
-        # short cycles
+# short cycles
 #############################
 
 """
@@ -80,14 +97,23 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
   already cached.
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.short_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+function CodingTheory.short_cycle_length_distribution_plot(
+    L::AbstractLDPCCode;
+    len::Int = -1,
+)
     dist = short_cycle_length_distribution(L, len = len)
     x_data = collect(keys(dist))
     y_data = collect(values(dist))
 
     fig = Figure()
-    ax = Axis(fig[1, 1], xlabel = "Cycle Length", ylabel = "Occurrences",
-        title = "Short Cycle Counts", xticks = x_data, yticks = y_data)
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Cycle Length",
+        ylabel = "Occurrences",
+        title = "Short Cycle Counts",
+        xticks = x_data,
+        yticks = y_data,
+    )
     barplot!(ax, x_data, y_data, strokewidth = 1)
     display(fig)
     return fig
@@ -107,23 +133,31 @@ empty figure and dictionary are returned when there are no cycles.
     already cached.
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.short_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode;
-    len::Int = -1)
+function CodingTheory.short_cycle_distribution_by_variable_node_plot(
+    L::AbstractLDPCCode;
+    len::Int = -1,
+)
 
     dist = short_cycle_distribution_by_variable_node(L, len = len)
     x_data = collect(keys(dist))
     y_data = collect(values(dist))
 
     fig = Figure();
-    ax = Axis(fig[1, 1], xlabel = "Variable Node Index", ylabel = "Occurrences",
-        title = "Short Cycles By Variable Node", xticks = x_data, yticks = y_data)
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Variable Node Index",
+        ylabel = "Occurrences",
+        title = "Short Cycles By Variable Node",
+        xticks = x_data,
+        yticks = y_data,
+    )
     barplot!(ax, x_data, y_data, strokewidth = 1)
     display(fig)
     return fig
 end
 
 #############################
-        # lollipops
+# lollipops
 #############################
 
 
@@ -135,7 +169,7 @@ end
 
 
 #############################
-           # ACE
+# ACE
 #############################
 
 """
@@ -152,8 +186,10 @@ function CodingTheory.ACE_spectrum_plot(C::AbstractLDPCCode)
     # TODO: remove WGLMakie as a default use and only use for interactive plots
     fig = Figure();
     ax = Axis(fig[1, 1], xlabel = "ACE", ylabel = "Occurrences", title = "ACE Spectrum")
-    sg = SliderGrid(fig[2, 1], (label = "Cycle Length", range = grth:2:2 * grth - 2,
-        startvalue = 4))
+    sg = SliderGrid(
+        fig[2, 1],
+        (label = "Cycle Length", range = grth:2:(2*grth-2), startvalue = 4),
+    )
 
     x_max = maximum(reduce(vcat, vs_ACEs))
     y_max = 0
@@ -161,8 +197,8 @@ function CodingTheory.ACE_spectrum_plot(C::AbstractLDPCCode)
     X_data = Observable(Vector{Int}())
     Y_data = Observable(Vector{Int}())
     barplot!(ax, X_data, Y_data, strokewidth = 1, xticks = X_data, yticks = Y_data)
-    for (k, l) in enumerate(grth:2:2 * grth - 2)
-        
+    for (k, l) in enumerate(grth:2:(2*grth-2))
+
         ys = collect(values(counts[k]))
         y_max = maximum([y_max; ys])
 

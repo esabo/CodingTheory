@@ -10,7 +10,12 @@
         @test C.k == 4
         v2 = matrix(F, 1, 8, [1, 0, 1, 0, 1, 0, 1, 0])
         C = QuasiCyclicCode([v, v2], 2, false)
-        v = [matrix(F, 1, 4, [1, 0, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 1]), matrix(F, 1, 4, [1, 1, 1, 1]), matrix(F, 1, 4, [0, 0, 0, 0])]
+        v = [
+            matrix(F, 1, 4, [1, 0, 1, 1]),
+            matrix(F, 1, 4, [0, 0, 0, 1]),
+            matrix(F, 1, 4, [1, 1, 1, 1]),
+            matrix(F, 1, 4, [0, 0, 0, 0]),
+        ]
         C2 = QuasiCyclicCode(v, 2, true)
         @test are_equivalent(C, C2)
 
@@ -19,10 +24,16 @@
         S, x = polynomial_ring(F, :x)
         l = 31
         R, _ = residue_ring(S, x^l - 1)
-        A = matrix(R, 3, 5,
-            [x, x^2, x^4, x^8, x^16,
-             x^5, x^10, x^20, x^9, x^18,
-             x^25, x^19, x^7, x^14, x^28])
+        A = matrix(
+            R,
+            3,
+            5,
+            [
+                x x^2 x^4 x^8 x^16;
+                x^5 x^10 x^20 x^9 x^18;
+                x^25 x^19 x^7 x^14 x^28
+            ],
+        )
         # A = matrix(R, 3, 5,
         #     [x^(l - 1), x^(l - 2), x^(l - 4), x^(l - 8), x^(l - 16),
         #      x^(l - 5), x^(l - 10), x^(l - 20), x^(l - 9), x^(l - 18),

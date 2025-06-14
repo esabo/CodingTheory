@@ -5,19 +5,24 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-    # Weight Enumerators
+# Weight Enumerators
 #############################
 
 # TODO: test with other iterator
 # TODO: remove quadratic extension
-function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingElem},
-    R::Union{AbsSimpleNumFieldElem, Missing})
+function _weight_enumerator_BF_Q(
+    G::CTMatrixTypes,
+    char_vec::Vector{zzModRingElem},
+    R::Union{AbsSimpleNumFieldElem,Missing},
+)
     # this should be the quadratic extension field
     E = base_ring(G)
-    is_even(Int(degree(E))) || error("Matrix passed to weight enumerator does not appear to be over the quadratic extension.")
+    is_even(Int(degree(E))) || error(
+        "Matrix passed to weight enumerator does not appear to be over the quadratic extension.",
+    )
     ord_E = Int(order(E))
     lookup = Dict(value => key for (key, value) in enumerate(collect(E)))
-    
+
     p = Int(characteristic(E))
     is_even(p) ? nth = 2 * p : nth = p
     if ismissing(R)
@@ -31,9 +36,9 @@ function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingEle
     nr, nc = size(G)
 
     # Nemo.AbstractAlgebra.ProductIterator
-    for iter in Base.Iterators.product([0:(p - 1) for _ in 1:nr]...)
+    for iter in Base.Iterators.product([0:(p-1) for _ = 1:nr]...)
         row = E(iter[1]) * G[1, :]
-        for r in 2:nr
+        for r = 2:nr
             if !iszero(iter[r])
                 row += E(iter[r]) * G[r, :]
             end
@@ -42,7 +47,7 @@ function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingEle
 
         # to do process signs here
         parity = 0
-        for c in 1:2 * nc
+        for c = 1:(2*nc)
             iszero(row_sym[c]) || (parity += data(char_vec[c]);)
         end
 
@@ -53,7 +58,7 @@ function _weight_enumerator_BF_Q(G::CTMatrixTypes, char_vec::Vector{zzModRingEle
         end
         # println(term, ", ", typeof(term))
         term_poly = ω^parity
-        for i in 1:ord_E
+        for i = 1:ord_E
             term_poly *= vars[i]^term[i]
         end
         poly += term_poly
@@ -66,15 +71,21 @@ end
 # formulas from
 # "Weight enumerators for nonbinary asymmetric quantum codes and their applications"
 # by Chuangqiang Hu, Shudi Yang, Stephen S.-T.Yau
-function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator; dual::Bool = false)
+function MacWilliams_identity(
+    S::AbstractStabilizerCode,
+    W::WeightEnumerator;
+    dual::Bool = false,
+)
     dual ? (card = BigInt(characteristic(S.F))^(S.n + S.k);) : (card = cardinality(S);)
     if W.type == :Hamming
         # (1/(q^n|S|))W(y - x, y + (q^2 - 1)x)
         R = parent(W.polynomial)
         vars = gens(R)
         q = Int(order(S.F))
-        return WeightEnumerator(divexact(W.polynomial(vars[2] - vars[1], vars[2] +
-            (q^2 - 1) * vars[1]), card), :Hamming)
+        return WeightEnumerator(
+            divexact(W.polynomial(vars[2] - vars[1], vars[2] + (q^2 - 1) * vars[1]), card),
+            :Hamming,
+        )
         # could probably put the /q under each variable and remove the q^n
     end
 
@@ -85,14 +96,22 @@ function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator; du
         vars = gens(R)
         # this is the same as the classical Hermitian dual formula
         # switched lines 2 and 3 from citation for our basis
-        return WeightEnumerator(divexact(W.polynomial(
-            vars[1] + vars[2] + vars[3] + vars[4],
-            vars[1] + vars[2] - vars[3] - vars[4],
-            vars[1] - vars[2] + vars[3] - vars[4],
-            vars[1] - vars[2] - vars[3] + vars[4]),
-            card), :complete) # need the /2 to connect to the original Shor-Laflamme def
+        return WeightEnumerator(
+            divexact(
+                W.polynomial(
+                    vars[1] + vars[2] + vars[3] + vars[4],
+                    vars[1] + vars[2] - vars[3] - vars[4],
+                    vars[1] - vars[2] + vars[3] - vars[4],
+                    vars[1] - vars[2] - vars[3] + vars[4],
+                ),
+                card,
+            ),
+            :complete,
+        ) # need the /2 to connect to the original Shor-Laflamme def
     else
-        error("The quantum MacWilliams identity for higher fields has a bug and is currently unavailable.")
+        error(
+            "The quantum MacWilliams identity for higher fields has a bug and is currently unavailable.",
+        )
         # BUG: in the below it's unclear what the proper permutation is given the paper
         # the various combinations I've tried always fix one but break the dual
         # need to set ω ↦ ω^2 and then match the equations above (try Q15RM())
@@ -127,12 +146,25 @@ function MacWilliams_identity(S::AbstractStabilizerCode, W::WeightEnumerator; du
     end
 end
 
-function weight_enumerator(S::AbstractStabilizerCode; type::Symbol = :complete,
-    alg::Symbol = :auto, set::Symbol = :all)
+function weight_enumerator(
+    S::AbstractStabilizerCode;
+    type::Symbol = :complete,
+    alg::Symbol = :auto,
+    set::Symbol = :all,
+)
 
-    type ∈ (:complete, :Hamming) || throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
-    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
-    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(ArgumentError("Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'."))
+    type ∈ (:complete, :Hamming) || throw(
+        ArgumentError(
+            "Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.",
+        ),
+    )
+    alg ∈ (:auto, :trellis, :bruteforce) ||
+        throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
+    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(
+        ArgumentError(
+            "Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'.",
+        ),
+    )
 
     if set ∈ (:all, :logicals) && ismissing(S.sgn_CWE_logs)
         logs_mat = logicals_matrix(S)
@@ -141,8 +173,11 @@ function weight_enumerator(S::AbstractStabilizerCode; type::Symbol = :complete,
 
     if set != :logicals && ismissing(S.sgn_CWE_stabs)
         if alg == :bruteforce || cardinality(S) <= 1e6
-            S.sgn_CWE_stabs = _weight_enumerator_BF_Q(S.stabs, S.char_vec,
-                parent(S.sgn_CWE_logs.polynomial))
+            S.sgn_CWE_stabs = _weight_enumerator_BF_Q(
+                S.stabs,
+                S.char_vec,
+                parent(S.sgn_CWE_logs.polynomial),
+            )
         else
             # trellis solution here
         end
@@ -150,19 +185,32 @@ function weight_enumerator(S::AbstractStabilizerCode; type::Symbol = :complete,
 
     if set ∈ (:all, :quotient) && ismissing(S.sgn_CWE_dual)
         if alg == :bruteforce || BigInt(characteristic(S.F))^(S.n + S.k) <= 3e6
-            S.sgn_CWE_dual = _weight_enumerator_BF_Q(vcat(S.stabs, logicals_matrix(S)), S.char_vec,
-                parent(S.sgn_CWE_logs.polynomial))
+            S.sgn_CWE_dual = _weight_enumerator_BF_Q(
+                vcat(S.stabs, logicals_matrix(S)),
+                S.char_vec,
+                parent(S.sgn_CWE_logs.polynomial),
+            )
         else
             # trellis solution here
         end
     end
-    
+
     if !ismissing(S.sgn_CWE_stabs) && !ismissing(S.sgn_CWE_dual)
         # compute minimum distance here
-        poly = WeightEnumerator(S.sgn_CWE_dual.polynomial - S.sgn_CWE_stabs.polynomial, :complete)
+        poly = WeightEnumerator(
+            S.sgn_CWE_dual.polynomial - S.sgn_CWE_stabs.polynomial,
+            :complete,
+        )
         HWE = CWE_to_HWE(poly)
-        S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1]
-            for i in 1:length(HWE.polynomial)]))
+        S.d = minimum(
+            filter(
+                x -> x != 0,
+                [
+                    collect(exponent_vectors(HWE.polynomial))[i][1] for
+                    i = 1:length(HWE.polynomial)
+                ],
+            ),
+        )
     end
 
     if type == :complete
@@ -171,7 +219,10 @@ function weight_enumerator(S::AbstractStabilizerCode; type::Symbol = :complete,
         set == :logicals && return S.sgn_CWE_logs
         return poly
     else
-        set == :all && return CWE_to_HWE(S.sgn_CWE_stabs), CWE_to_HWE(S.sgn_CWE_dual), CWE_to_HWE(S.sgn_CWE_logs), CWE_to_HWE(poly)
+        set == :all && return CWE_to_HWE(S.sgn_CWE_stabs),
+        CWE_to_HWE(S.sgn_CWE_dual),
+        CWE_to_HWE(S.sgn_CWE_logs),
+        CWE_to_HWE(poly)
         set == :stabilizers && return CWE_to_HWE(S.sgn_CWE_stabs)
         set == :logicals && return CWE_to_HWE(S.sgn_CWE_logs)
         return HWE
@@ -180,27 +231,47 @@ end
 
 # MAGMA returns this format
 # [ <0, 1>, <4, 105>, <6, 280>, <8, 435>, <10, 168>, <12, 35> ]
-function weight_distribution(S::AbstractStabilizerCode; alg::Symbol = :auto, compact::Bool = true, set::Symbol = :all)
+function weight_distribution(
+    S::AbstractStabilizerCode;
+    alg::Symbol = :auto,
+    compact::Bool = true,
+    set::Symbol = :all,
+)
 
-    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
-    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(ArgumentError("Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'."))
+    alg ∈ (:auto, :trellis, :bruteforce) ||
+        throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
+    set ∈ (:all, :stabilizers, :logicals, :quotient) || throw(
+        ArgumentError(
+            "Unsupported set type '$set'. Expected ':all', ':stabilizers', ':logicals', ':quotient'.",
+        ),
+    )
 
     wt_enums = weight_enumerator(S, type = :Hamming, alg = alg, set = set)
 
     if compact
         if length(wt_enums) == 1
             wt_dist = Vector{Tuple}()
-            for i in 1:length(wt_enums.polynomial)
-                push!(wt_dist, (exponent_vector(wt_enums.polynomial, i)[1],
-                    coeff(wt_enums.polynomial, i)))
+            for i = 1:length(wt_enums.polynomial)
+                push!(
+                    wt_dist,
+                    (
+                        exponent_vector(wt_enums.polynomial, i)[1],
+                        coeff(wt_enums.polynomial, i),
+                    ),
+                )
             end
         else
             wt_dist = Vector{Vector{Tuple}}()
             for wt_enum in wt_enums
                 wt_dist_inner = Vector{Tuple}()
-                for i in 1:length(wt_enum.polynomial)
-                    push!(wt_dist_inner, (exponent_vector(wt_enum.polynomial, i)[1],
-                        coeff(wt_enum.polynomial, i)))
+                for i = 1:length(wt_enum.polynomial)
+                    push!(
+                        wt_dist_inner,
+                        (
+                            exponent_vector(wt_enum.polynomial, i)[1],
+                            coeff(wt_enum.polynomial, i),
+                        ),
+                    )
                 end
                 push!(wt_dist, wt_dist_inner)
             end
@@ -209,17 +280,19 @@ function weight_distribution(S::AbstractStabilizerCode; alg::Symbol = :auto, com
         if length(wt_enums) == 1
             K = base_ring(wt_enums.polynomial)
             wt_dist = zero_matrix(K, 1, S.n + 1)
-            for i in 1:length(wt_enums.polynomial)
-                wt_dist[1, exponent_vector(wt_enums.polynomial, i)[1] + 1] = coeff(wt_enums.polynomial, i)
+            for i = 1:length(wt_enums.polynomial)
+                wt_dist[1, exponent_vector(wt_enums.polynomial, i)[1]+1] =
+                    coeff(wt_enums.polynomial, i)
             end
         else
             K = base_ring(wt_enums[1].polynomial)
             wt_dist = [] #Vector{Vector{K}}()
             for wt_enum in wt_enums
                 wt_dist_inner = zero_matrix(K, 1, S.n + 1)
-                for i in 1:length(wt_enum.polynomial)
+                for i = 1:length(wt_enum.polynomial)
                     # println(coeff(wt_enum.polynomial, i))
-                    wt_dist_inner[1, exponent_vector(wt_enum.polynomial, i)[1] + 1] = coeff(wt_enum.polynomial, i)
+                    wt_dist_inner[1, exponent_vector(wt_enum.polynomial, i)[1]+1] =
+                        coeff(wt_enum.polynomial, i)
                 end
                 push!(wt_dist, wt_dist_inner)
             end
@@ -229,7 +302,11 @@ function weight_distribution(S::AbstractStabilizerCode; alg::Symbol = :auto, com
 end
 
 function weight_enumerator_quantum(T::Trellis; type::Symbol = :complete)
-    type ∈ (:complete, :Hamming) || throw(ArgumentError("Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'."))
+    type ∈ (:complete, :Hamming) || throw(
+        ArgumentError(
+            "Unsupported weight enumerator type '$type'. Expected ':complete' or ':Hamming'.",
+        ),
+    )
 
     if type == :complete && !ismissing(T.CWE)
         return T.CWE
@@ -252,12 +329,12 @@ function weight_enumerator_quantum(T::Trellis; type::Symbol = :complete)
     E = T.edges
     V[1][1].polynomial = R(1)
     bit = 1
-    for i in 2:length(V)
+    for i = 2:length(V)
         # for (j, v) in enumerate(V[i])
-        Threads.@threads for j in 1:length(V[i])
+        Threads.@threads for j = 1:length(V[i])
             v = V[i][j]
             outer = R(0)
-            for e in E[i - 1][j]
+            for e in E[i-1][j]
                 inner_bit = deepcopy(bit)
                 parity = 0
                 for k in e.label
@@ -265,12 +342,12 @@ function weight_enumerator_quantum(T::Trellis; type::Symbol = :complete)
                         parity += data(char_vec[inner_bit])
                     end
                     if !iszero(coeff(k, 1))
-                        parity += data(char_vec[inner_bit + n])
+                        parity += data(char_vec[inner_bit+n])
                     end
                     inner_bit += 1
                 end
 
-                inner = deepcopy(V[i - 1][e.outvertex].polynomial)
+                inner = deepcopy(V[i-1][e.outvertex].polynomial)
                 for k in e.label
                     inner *= ω^parity * vars[lookup[k]]
                 end
@@ -278,7 +355,7 @@ function weight_enumerator_quantum(T::Trellis; type::Symbol = :complete)
             end
             v.polynomial = outer
         end
-        bit += length(E[i - 1][1][1].label)
+        bit += length(E[i-1][1][1].label)
     end
     T.CWE = WeightEnumerator(V[end][1].polynomial, :complete)
 
@@ -363,7 +440,7 @@ support(S::AbstractStabilizerCode; alg::Symbol = :auto, type::Symbol = :stabiliz
     [i for (i, _) in weight_distribution(S, alg = alg, set = type, compact = true)]
 
 #############################
-     # Minimum Distance
+# Minimum Distance
 #############################
 
 # TODO
@@ -394,7 +471,8 @@ function minimum_distance_upper_bound!(S::AbstractSubsystemCode)
 
             S.u_bound_dx_dressed = u_bound_dx_dressed
             S.u_bound_dz_dressed = u_bound_dz_dressed
-            S.u_bound_dressed = minimum([u_bound_dx_dressed, u_bound_dz_dressed, S.u_bound_bare])
+            S.u_bound_dressed =
+                minimum([u_bound_dx_dressed, u_bound_dz_dressed, S.u_bound_bare])
         else
             # bare
             _, mat = _rref_symp_col_swap(vcat(S.stabs, S.logs_mat))
@@ -406,7 +484,7 @@ function minimum_distance_upper_bound!(S::AbstractSubsystemCode)
             u_bound_dressed, _ = _min_wt_row(mat)
             S.u_bound_dressed = u_bound_dressed
         end
-    # stabilizer code
+        # stabilizer code
     else
         # is a CSS code
         if CSSTrait(typeof(S)) == IsCSS()
@@ -419,7 +497,7 @@ function minimum_distance_upper_bound!(S::AbstractSubsystemCode)
             S.u_bound_dx = u_bound_dx
             S.u_bound_dz = u_bound_dz
             S.u_bound = min(u_bound_dx, u_bound_dz)
-        # is not a CSS code
+            # is not a CSS code
         else
             _, mat = _rref_symp_col_swap(vcat(S.stabs, S.logs_mat))
             u_bound, _ = _min_wt_row(mat)
@@ -437,11 +515,16 @@ end
 Return the minimum distance of the stabilizer code if known, otherwise computes it.
 
 """
-function minimum_distance_Gray(S::AbstractStabilizerCode; alg::Symbol = :auto, verbose::Bool = false)
+function minimum_distance_Gray(
+    S::AbstractStabilizerCode;
+    alg::Symbol = :auto,
+    verbose::Bool = false,
+)
     !ismissing(S.d) && return S.d
 
     # these should be different? weight? auto? BZ?
-    alg ∈ (:auto, :trellis, :bruteforce) || throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
+    alg ∈ (:auto, :trellis, :bruteforce) ||
+        throw(ArgumentError("Algorithm `$alg` is not implemented in weight_enumerator."))
 
     if iszero(S.k)
         # "Quantum Error Correction Via Codes Over GF(4)"
@@ -455,7 +538,8 @@ function minimum_distance_Gray(S::AbstractStabilizerCode; alg::Symbol = :auto, v
             TOF_norm = trellis_oriented_form_additive(S.dualgens)
             boundaries, num_E_sect_primal = optimal_sectionalization_Q(TOF_stabs, TOF_norm)
             verbose && println("Primal edges: $num_E_sect_primal")
-            profiles_primal = trellis_profiles(TOF_stabs, TOF_norm, boundaries, "symplectic")
+            profiles_primal =
+                trellis_profiles(TOF_stabs, TOF_norm, boundaries, "symplectic")
             boundaries, num_E_sect_dual = optimal_sectionalization_Q(TOF_norm, TOF_stabs)
             verbose && println("Dual edges: $num_E_sect_dual")
             profiles_dual = trellis_profiles(TOF_norm, TOF_stabs, boundaries, "symplectic")
@@ -464,15 +548,23 @@ function minimum_distance_Gray(S::AbstractStabilizerCode; alg::Symbol = :auto, v
                 T_primal_HWE = weight_enumerator_quantum(T_primal, type = :complete)
                 T_dual_HWE = MacWilliams_identity(S, T_primal_HWE, dual = true)
                 poly = T_dual_HWE.polynomial - T_primal_HWE.polynomial
-                S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(poly))[i][1]
-                    for i in 1:length(poly)]))
+                S.d = minimum(
+                    filter(
+                        x -> x != 0,
+                        [collect(exponent_vectors(poly))[i][1] for i = 1:length(poly)],
+                    ),
+                )
             else
                 T_dual = sect(S, "dual", true, false)
                 T_dual_HWE = weight_enumerator_quantum(T_dual, type = :Hamming)
                 T_primal_HWE = MacWilliams_identity(S, T_dual_HWE)
                 poly = T_dual_HWE.polynomial - T_primal_HWE.polynomial
-                S.d = minimum(filter(x -> x != 0, [collect(exponent_vectors(poly))[i][1]
-                    for i in 1:length(poly)]))
+                S.d = minimum(
+                    filter(
+                        x -> x != 0,
+                        [collect(exponent_vectors(poly))[i][1] for i = 1:length(poly)],
+                    ),
+                )
             end
 
             # T_dual = syndrome_trellis(S, "primal", true, true)
@@ -488,7 +580,7 @@ function minimum_distance_Gray(S::AbstractStabilizerCode; alg::Symbol = :auto, v
         else
             # brute force solution here
         end
-         #TODO: purity - 
+        #TODO: purity - 
     end
     return S.d
 end
@@ -512,12 +604,26 @@ function XZ_minimum_distance(S::AbstractStabilizerCodeCSS)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C1_set_diff_C2_wt_enum = C1_dual_wt_enum.polynomial - C2_dual_wt_enum.polynomial
-    C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.dz = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
-        for i in 1:length(C1_set_diff_C2_wt_enum)]))
-    S.dx = minimum(filter(x -> x != 0, [collect(exponent_vectors(
-        C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
-        C2_dual_set_diff_C1_dual_wt_enum)]))
+    C2_dual_set_diff_C1_dual_wt_enum =
+        C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
+    S.dz = minimum(
+        filter(
+            x -> x != 0,
+            [
+                collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1] for
+                i = 1:length(C1_set_diff_C2_wt_enum)
+            ],
+        ),
+    )
+    S.dx = minimum(
+        filter(
+            x -> x != 0,
+            [
+                collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1] for
+                i in eachindex(C2_dual_set_diff_C1_dual_wt_enum)
+            ],
+        ),
+    )
     # the above commands will set Ci.d
     (S.dx == C2.d && S.d_z == C1.d) ? (S.pure = true;) : (S.pure = false;)
     return S.dz, S.dx
@@ -534,9 +640,9 @@ end
 
 function X_minimum_distance(S::AbstractStabilizerCodeCSS)
     ismissing(S.dx) || return S.dx
-    
-     # need to make these if they are missing
-     if !ismissing(S.Z_orig_code)
+
+    # need to make these if they are missing
+    if !ismissing(S.Z_orig_code)
         C1 = S.Z_orig_code
         C2 = S.X_orig_code
     else
@@ -547,10 +653,17 @@ function X_minimum_distance(S::AbstractStabilizerCodeCSS)
     C2_wt_enum = weight_enumerator(C2, type = :Hamming)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
-    C2_dual_set_diff_C1_dual_wt_enum = C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
-    S.dx = minimum(filter(x -> x != 0, [collect(exponent_vectors(
-        C2_dual_set_diff_C1_dual_wt_enum))[i][1] for i in eachindex(
-        C2_dual_set_diff_C1_dual_wt_enum)]))
+    C2_dual_set_diff_C1_dual_wt_enum =
+        C2_dual_wt_enum.polynomial - C1_dual_wt_enum.polynomial
+    S.dx = minimum(
+        filter(
+            x -> x != 0,
+            [
+                collect(exponent_vectors(C2_dual_set_diff_C1_dual_wt_enum))[i][1] for
+                i in eachindex(C2_dual_set_diff_C1_dual_wt_enum)
+            ],
+        ),
+    )
     return S.dx
 end
 
@@ -570,8 +683,15 @@ function Z_minimum_distance(S::AbstractStabilizerCodeCSS)
     C1_dual_wt_enum = MacWilliams_identity(C1, C1_wt_enum)
     C2_dual_wt_enum = MacWilliams_identity(C2, C2_wt_enum)
     C1_set_diff_C2_wt_enum = C1_dual_wt_enum.polynomial - C2_dual_wt_enum.polynomial
-    S.d_z = minimum(filter(x -> x != 0, [collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1]
-        for i in eachindex(C1_set_diff_C2_wt_enum)]))
+    S.d_z = minimum(
+        filter(
+            x -> x != 0,
+            [
+                collect(exponent_vectors(C1_set_diff_C2_wt_enum))[i][1] for
+                i in eachindex(C1_set_diff_C2_wt_enum)
+            ],
+        ),
+    )
     return S.d_z
 end
 
@@ -608,8 +728,15 @@ Wrapper for the QDistRnd function DistRandCSS.
 - `max_av` (Options stack): if set, terminate when `<n>` greater than `max_av`, 
     see Section Emprirical. Not set by default.
 """
-function _QDistRndCSS_GAP(H_X::Matrix{Int}, H_Z::Matrix{Int}, num::Int; min_dist::Int = 0,
-    debug::Int = 0, field::GapObj = GAP.Globals.GF(2), max_av = missing)
+function _QDistRndCSS_GAP(
+    H_X::Matrix{Int},
+    H_Z::Matrix{Int},
+    num::Int;
+    min_dist::Int = 0,
+    debug::Int = 0,
+    field::GapObj = GAP.Globals.GF(2),
+    max_av = missing,
+)
 
     # this requires a check on the install and load flags but since this is being moved to private
     # we will ignore it for now
@@ -641,23 +768,57 @@ algorithm finishes normally.
 - `dressed` - set to `true` to bound the dressed distance and `false` to bound the bare distance; this parameter is ignored for stabilizer codes
 - `max_iters` - the number of random iterations
 """
-function random_information_set_minimum_distance_bound!(S::T, which::Symbol = :full;
-        dressed::Bool = true, max_iters::Int = 10000, verbose::Bool = false) where T <: AbstractSubsystemCode
+function random_information_set_minimum_distance_bound!(
+    S::T,
+    which::Symbol = :full;
+    dressed::Bool = true,
+    max_iters::Int = 10000,
+    verbose::Bool = false,
+) where {T<:AbstractSubsystemCode}
 
-    which ∈ (:full, :X, :Z) || throw(DomainError(which, "Must choose `:full`, `:X` or `:Z`."))
-    order(field(S)) == 2 || throw(DomainError(S, "Currently only implemented for binary codes."))
-    is_positive(max_iters) || throw(DomainError(max_iters, "The number of iterations must be a positive integer."))
+    which ∈ (:full, :X, :Z) ||
+        throw(DomainError(which, "Must choose `:full`, `:X` or `:Z`."))
+    order(field(S)) == 2 ||
+        throw(DomainError(S, "Currently only implemented for binary codes."))
+    is_positive(max_iters) || throw(
+        DomainError(max_iters, "The number of iterations must be a positive integer."),
+    )
 
-    return random_information_set_minimum_distance_bound!(GaugeTrait(T), CSSTrait(T),
-        LogicalTrait(T), S, which, dressed, max_iters, verbose)
+    return random_information_set_minimum_distance_bound!(
+        GaugeTrait(T),
+        CSSTrait(T),
+        LogicalTrait(T),
+        S,
+        which,
+        dressed,
+        max_iters,
+        verbose,
+    )
 end
-QDistRnd!(S::T, which::Symbol = :full; dressed::Bool = true, max_iters::Int = 10000,
-    verbose::Bool = false) where T <: AbstractSubsystemCode =
-    random_information_set_minimum_distance_bound!(S, which; dressed = dressed, max_iters =
-    max_iters, verbose = verbose)
+QDistRnd!(
+    S::T,
+    which::Symbol = :full;
+    dressed::Bool = true,
+    max_iters::Int = 10000,
+    verbose::Bool = false,
+) where {T<:AbstractSubsystemCode} = random_information_set_minimum_distance_bound!(
+    S,
+    which;
+    dressed = dressed,
+    max_iters = max_iters,
+    verbose = verbose,
+)
 
-function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound!(
+    ::HasGauges,
+    ::IsCSS,
+    ::HasLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # CSS subsystem code
 
     n = S.n
@@ -669,7 +830,7 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
             println("Bare distance already known")
             return S.d_bare
         end
-        
+
         stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
         if dressed
             verbose && println("Bounding the full dressed distance")
@@ -686,13 +847,15 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
         stabs = _remove_empty(stabs, :rows)
         logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
         operators_to_reduce = vcat(stabs, logs)
-        check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
+        check_against = permutedims(logs[:, [(n+1):2n; 1:n]])
 
         # this is done in the constructor but the logical is not stored at the time
         # so must redo here
         mat = _rref_no_col_swap_binary(operators_to_reduce)
         anti = mat * check_against
-        curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
+        curr_u_bound, index = findmin(
+            row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]),
+        )
         found = operators_to_reduce[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     else
@@ -714,17 +877,29 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
             end
         end
 
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        stabs = _Flint_matrix_to_Julia_T_matrix(
+            stabilizers(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         if dressed
-            gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+            gauges = _Flint_matrix_to_Julia_T_matrix(
+                gauge_operators_matrix(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+                UInt8,
+            )
             stabs = vcat(stabs, gauges)
         end
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        logs = _Flint_matrix_to_Julia_T_matrix(
+            logicals_matrix(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         logs = _remove_empty(logs, :rows)
         operators_to_reduce = vcat(stabs, logs)
-        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], UInt8)
+        check_against = _Flint_matrix_to_Julia_T_matrix(
+            logicals_matrix(S)[:, (which == :X ? ((n+1):2n) : (1:n))],
+            UInt8,
+        )
         check_against = permutedims(_remove_empty(check_against, :rows))
         curr_l_bound = if dressed
             which == :X ? S.l_bound_dx_dressed : S.l_bound_dz_dressed
@@ -732,13 +907,21 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
             which == :X ? S.l_bound_dx_bare : S.l_bound_dz_bare
         end
         verbose && println("Starting lower bound: $curr_l_bound")
-        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i in 1:size(logs, 1))
+        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i = 1:size(logs, 1))
         found = logs[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
-    uppers, founds = _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iters, n, verbose)
+    uppers, founds = _RIS_bound_loop!(
+        operators_to_reduce,
+        check_against,
+        curr_l_bound,
+        curr_u_bound,
+        found,
+        max_iters,
+        n,
+        verbose,
+    )
     loc = argmin(uppers)
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     if dressed
@@ -764,12 +947,20 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsCSS, ::
             flint_mat_found = matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
         end
     end
-    
+
     return uppers[loc], flint_mat_found
 end
 
-function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound!(
+    ::HasNoGauges,
+    ::IsCSS,
+    ::HasLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # CSS stabilizer code
 
     n = S.n
@@ -784,7 +975,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
         check_against = permutedims(logs)
         curr_l_bound = S.l_bound
         verbose && println("Starting lower bound: $curr_l_bound")
-        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i in 1:size(logs, 1))
+        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i = 1:size(logs, 1))
         found = logs[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     else
@@ -793,27 +984,52 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
         elseif verbose && which == :Z
             verbose && println("Bounding the Z-distance")
         end
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        stabs = _Flint_matrix_to_Julia_T_matrix(
+            stabilizers(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
-        logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        logs = _Flint_matrix_to_Julia_T_matrix(
+            logicals_matrix(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         logs = _remove_empty(logs, :rows)
         operators_to_reduce = vcat(stabs, logs)
-        check_against = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S)[:, (which == :X ? (n + 1:2n) : (1:n))], UInt8)
+        check_against = _Flint_matrix_to_Julia_T_matrix(
+            logicals_matrix(S)[:, (which == :X ? ((n+1):2n) : (1:n))],
+            UInt8,
+        )
         check_against = permutedims(_remove_empty(check_against, :rows))
         which == :X ? (curr_l_bound = S.l_bound_dx;) : (curr_l_bound = S.l_bound_dz;)
         verbose && println("Starting lower bound: $curr_l_bound")
-        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i in 1:size(logs, 1))
+        curr_u_bound, index = findmin(count(!iszero, logs[i, :]) for i = 1:size(logs, 1))
         found = logs[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
     uppers, founds = if which == :full
-        _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
-            curr_u_bound, found, max_iters, n, verbose)
+        _RIS_bound_loop_symp!(
+            operators_to_reduce,
+            check_against,
+            curr_l_bound,
+            curr_u_bound,
+            found,
+            max_iters,
+            n,
+            verbose,
+        )
     else
-        _RIS_bound_loop!(operators_to_reduce, check_against, curr_l_bound,
-            curr_u_bound, found, max_iters, n, verbose)
+        _RIS_bound_loop!(
+            operators_to_reduce,
+            check_against,
+            curr_l_bound,
+            curr_u_bound,
+            found,
+            max_iters,
+            n,
+            verbose,
+        )
     end
     loc = argmin(uppers)
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
@@ -833,11 +1049,20 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsCSS, 
     return uppers[loc], flint_mat_found
 end
 
-function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound!(
+    ::HasGauges,
+    ::IsNotCSS,
+    ::HasLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # non-CSS subsystem code
 
-    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+    which == :full ||
+        throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
     n = S.n
     if dressed && !ismissing(S.d_dressed)
@@ -863,18 +1088,28 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
     verbose && println("Starting lower bound: $curr_l_bound")
     logs = _Flint_matrix_to_Julia_T_matrix(logicals_matrix(S), UInt8)
     operators_to_reduce = vcat(stabs, logs)
-    check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
+    check_against = permutedims(logs[:, [(n+1):2n; 1:n]])
 
     # this is done in the constructor but the logical is not stored at the time
     # so must redo here
     mat = _rref_no_col_swap_binary(operators_to_reduce)
     anti = mat * check_against
-    curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
+    curr_u_bound, index = findmin(
+        row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]),
+    )
     found = operators_to_reduce[index, :]
     verbose && println("Starting upper bound: $curr_u_bound")
 
-    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iters, n, verbose)
+    uppers, founds = _RIS_bound_loop_symp!(
+        operators_to_reduce,
+        check_against,
+        curr_l_bound,
+        curr_u_bound,
+        found,
+        max_iters,
+        n,
+        verbose,
+    )
     loc = argmin(uppers)
     if dressed
         S.u_bound_dressed = uppers[loc]
@@ -885,11 +1120,20 @@ function random_information_set_minimum_distance_bound!(::HasGauges, ::IsNotCSS,
     return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
-function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCSS, ::HasLogicals,
-    S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound!(
+    ::HasNoGauges,
+    ::IsNotCSS,
+    ::HasLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # non-CSS stabilizer code
 
-    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+    which == :full ||
+        throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
     n = S.n
     !ismissing(S.d) && (println("Distance already known"); return S.d;)
@@ -903,7 +1147,7 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     # println(" ")
     # display(operators_to_reduce)
     # println(" ")
-    check_against = permutedims(logs[:, [n + 1:2n; 1:n]])
+    check_against = permutedims(logs[:, [(n+1):2n; 1:n]])
     curr_l_bound = S.l_bound
     verbose && println("Starting lower bound: $curr_l_bound")
 
@@ -911,29 +1155,50 @@ function random_information_set_minimum_distance_bound!(::HasNoGauges, ::IsNotCS
     # so must redo here
     mat = _rref_no_col_swap_binary(operators_to_reduce)
     anti = mat * check_against
-    curr_u_bound, index = findmin(row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]))
+    curr_u_bound, index = findmin(
+        row_wts_symplectic(mat[findall(!iszero(anti[i, :]) for i in axes(anti, 1)), :]),
+    )
     found = operators_to_reduce[index, :]
     verbose && println("Starting upper bound: $curr_u_bound")
 
-    uppers, founds = _RIS_bound_loop_symp!(operators_to_reduce, check_against, curr_l_bound,
-        curr_u_bound, found, max_iters, n, verbose)
+    uppers, founds = _RIS_bound_loop_symp!(
+        operators_to_reduce,
+        check_against,
+        curr_l_bound,
+        curr_u_bound,
+        found,
+        max_iters,
+        n,
+        verbose,
+    )
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
-function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound(
+    ::HasGauges,
+    ::IsNotCSS,
+    ::HasNoLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # non-CSS subsystem graph state
 
-    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+    which == :full ||
+        throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
     n = S.n
     stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
     _rref_no_col_swap_binary!(stabs)
     stabs = _remove_empty(stabs, :rows)
     if dressed
-        !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
+        !ismissing(S.d_dressed) &&
+            (println("Dressed distance already known"); return S.d_dressed;)
         verbose && println("Bounding the full dressed distance")
         gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S), UInt8)
         stabs = vcat(stabs, gauges)
@@ -953,8 +1218,15 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, 
     found = stabs[index, :]
     verbose && println("Starting upper bound: $curr_u_bound")
 
-    uppers, founds = _RIS_bound_loop_symp!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n,
-        verbose)
+    uppers, founds = _RIS_bound_loop_symp!(
+        stabs,
+        curr_l_bound,
+        curr_u_bound,
+        found,
+        max_iters,
+        n,
+        verbose,
+    )
     loc = argmin(uppers)
     if dressed
         S.u_bound_dressed = uppers[loc]
@@ -965,12 +1237,22 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsNotCSS, 
     return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
-function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound(
+    ::HasGauges,
+    ::IsCSS,
+    ::HasNoLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # CSS subsystem graph state
 
     n = S.n
     if which == :full
-        !ismissing(S.d_dressed) && (println("Dressed distance already known"); return S.d_dressed;)
+        !ismissing(S.d_dressed) &&
+            (println("Dressed distance already known"); return S.d_dressed;)
         verbose && println("Bounding the full dressed distance")
         stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S), UInt8)
         if dressed
@@ -992,9 +1274,15 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::H
         found = stabs[index, :]
         verbose && println("Starting upper bound: $curr_u_bound")
     else
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        stabs = _Flint_matrix_to_Julia_T_matrix(
+            stabilizers(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         if dressed
-            gauges = _Flint_matrix_to_Julia_T_matrix(gauge_operators_matrix(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+            gauges = _Flint_matrix_to_Julia_T_matrix(
+                gauge_operators_matrix(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+                UInt8,
+            )
             stabs = vcat(stabs, gauges)
         end
         _rref_no_col_swap_binary!(stabs)
@@ -1010,8 +1298,8 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::H
         verbose && println("Starting upper bound: $curr_u_bound")
     end
 
-    uppers, founds = _RIS_bound_loop!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n,
-        verbose)
+    uppers, founds =
+        _RIS_bound_loop!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n, verbose)
     loc = argmin(uppers)
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     if dressed
@@ -1037,14 +1325,24 @@ function random_information_set_minimum_distance_bound(::HasGauges, ::IsCSS, ::H
             flint_mat_found = matrix(field(S), [zeros(Int, 1, n) permutedims(founds[loc])])
         end
     end
-    
+
     return uppers[loc], flint_mat_found
 end
 
-function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound(
+    ::HasNoGauges,
+    ::IsNotCSS,
+    ::HasNoLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # non-CSS stabilizer graph state
 
-    which == :full || throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
+    which == :full ||
+        throw(ArguementError(which, "Parameter is not valid for non-CSS codes."))
 
     n = S.n
     !ismissing(S.d) && (println("Distance already known"); return S.d;)
@@ -1062,15 +1360,31 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsNotCSS
     verbose && println("Starting upper bound: $curr_u_bound")
 
     # TODO write
-    uppers, founds = _RIS_bound_loop_symp!(stabs, curr_l_bound, curr_u_bound, found, max_iters, n, 
-        verbose)
+    uppers, founds = _RIS_bound_loop_symp!(
+        stabs,
+        curr_l_bound,
+        curr_u_bound,
+        found,
+        max_iters,
+        n,
+        verbose,
+    )
     loc = argmin(uppers)
     S.u_bound = uppers[loc]
     verbose && println("Ending $max_iters iterations with an upper bound of $(uppers[loc])")
     return uppers[loc], matrix(field(S), permutedims(founds[loc]))
 end
 
-function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, ::HasNoLogicals, S::AbstractSubsystemCode, which::Symbol, dressed::Bool, max_iters::Int, verbose::Bool)
+function random_information_set_minimum_distance_bound(
+    ::HasNoGauges,
+    ::IsCSS,
+    ::HasNoLogicals,
+    S::AbstractSubsystemCode,
+    which::Symbol,
+    dressed::Bool,
+    max_iters::Int,
+    verbose::Bool,
+)
     # CSS stabilizer graph state
 
     n = S.n
@@ -1094,7 +1408,10 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
         elseif verbose && which == :Z
             verbose && println("Bounding the Z-distance")
         end
-        stabs = _Flint_matrix_to_Julia_T_matrix(stabilizers(S)[:, (which == :X ? (1:n) : (n + 1:2n))], UInt8)
+        stabs = _Flint_matrix_to_Julia_T_matrix(
+            stabilizers(S)[:, (which == :X ? (1:n) : ((n+1):2n))],
+            UInt8,
+        )
         _rref_no_col_swap_binary!(stabs)
         stabs = _remove_empty(stabs, :rows)
         which == :X ? (curr_l_bound = S.l_bound_dx;) : (curr_l_bound = S.l_bound_dz;)
@@ -1127,27 +1444,34 @@ function random_information_set_minimum_distance_bound(::HasNoGauges, ::IsCSS, :
     return uppers[loc], flint_mat_found
 end
 
-function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Matrix{T},
-    curr_l_bound::Int, curr_u_bound::Int, found::Vector{T}, max_iters::Int, n::Int,
-    verbose::Bool) where T <: Integer
+function _RIS_bound_loop_symp!(
+    operators_to_reduce::Matrix{T},
+    check_against::Matrix{T},
+    curr_l_bound::Int,
+    curr_u_bound::Int,
+    found::Vector{T},
+    max_iters::Int,
+    n::Int,
+    verbose::Bool,
+) where {T<:Integer}
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
 
     flag = Threads.Atomic{Bool}(true)
-    uppers = [curr_u_bound for _ in 1:num_thrds]
-    founds = [found for _ in 1:num_thrds]
+    uppers = [curr_u_bound for _ = 1:num_thrds]
+    founds = [found for _ = 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
     verbose && (prog_meter = Progress(max_iters);)
     # Threads.@threads for t in 1:num_thrds
-    for t in 1:num_thrds
+    for t = 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         log_test = zeros(Int, size(orig_ops, 1), size(check_against, 2))
         perm_ops = similar(orig_ops)
         ops = similar(orig_ops)
         perm = collect(1:n)
-        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
+        for _ = 1:(thread_load+(t<=remaining ? 1 : 0))
             if flag[]
                 shuffle!(perm)
                 # println("original")
@@ -1164,8 +1488,8 @@ function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Ma
                     # then ops[i, :] is a logical
                     if any(isodd, log_test[i, :])
                         w = 0
-                        @inbounds for j in 1:n
-                            (isodd(ops[i, j]) || isodd(ops[i, j + n])) && (w += 1;)
+                        @inbounds for j = 1:n
+                            (isodd(ops[i, j]) || isodd(ops[i, j+n])) && (w += 1;)
                         end
 
                         if uppers[t] > w
@@ -1173,7 +1497,9 @@ function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Ma
                             founds[t] .= ops[i, :]
                             verbose && println("Adjusting (thread's local) upper bound: $w")
                             if curr_l_bound == w
-                                verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
+                                verbose && println(
+                                    "Found a logical that matched the lower bound of $curr_l_bound",
+                                )
                                 Threads.atomic_cas!(flag, true, false)
                                 break
                             end
@@ -1189,26 +1515,33 @@ function _RIS_bound_loop_symp!(operators_to_reduce::Matrix{T}, check_against::Ma
     return uppers, founds
 end
 
-function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{T},
-    curr_l_bound::Int, curr_u_bound::Int, found::Vector{T}, max_iters::Int, n::Int,
-    verbose::Bool) where T <: Integer
+function _RIS_bound_loop!(
+    operators_to_reduce::Matrix{T},
+    check_against::Matrix{T},
+    curr_l_bound::Int,
+    curr_u_bound::Int,
+    found::Vector{T},
+    max_iters::Int,
+    n::Int,
+    verbose::Bool,
+) where {T<:Integer}
 
     num_thrds = Threads.nthreads()
     verbose && println("Detected $num_thrds threads.")
 
     flag = Threads.Atomic{Bool}(true)
-    uppers = [curr_u_bound for _ in 1:num_thrds]
-    founds = [found for _ in 1:num_thrds]
+    uppers = [curr_u_bound for _ = 1:num_thrds]
+    founds = [found for _ = 1:num_thrds]
     thread_load = Int(floor(max_iters / num_thrds))
     remaining = max_iters - thread_load * num_thrds
     verbose && (prog_meter = Progress(max_iters);)
-    Threads.@threads for t in 1:num_thrds
+    Threads.@threads for t = 1:num_thrds
         orig_ops = deepcopy(operators_to_reduce)
         log_test = zeros(Int, size(orig_ops, 1), size(check_against, 2))
         perm_ops = similar(orig_ops)
         ops = similar(orig_ops)
         perm = collect(1:n)
-        for _ in 1:(thread_load + (t <= remaining ? 1 : 0))
+        for _ = 1:(thread_load+(t<=remaining ? 1 : 0))
             if flag[]
                 shuffle!(perm)
                 _col_permutation!(perm_ops, orig_ops, perm)
@@ -1220,7 +1553,7 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{
                     # then ops[i, :] is a logical
                     if any(isodd, log_test[i, :])
                         w = 0
-                        @inbounds for j in 1:n
+                        @inbounds for j = 1:n
                             isodd(ops[i, j]) && (w += 1;)
                         end
 
@@ -1229,7 +1562,9 @@ function _RIS_bound_loop!(operators_to_reduce::Matrix{T}, check_against::Matrix{
                             founds[t] .= ops[i, :]
                             verbose && println("Adjusting (thread's local) upper bound: $w")
                             if curr_l_bound == w
-                                verbose && println("Found a logical that matched the lower bound of $curr_l_bound")
+                                verbose && println(
+                                    "Found a logical that matched the lower bound of $curr_l_bound",
+                                )
                                 Threads.atomic_cas!(flag, true, false)
                                 break
                             end

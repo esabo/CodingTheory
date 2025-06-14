@@ -5,11 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # Classical
+# Classical
 #############################
 
 #############################
-        # constructors
+# constructors
 #############################
 
 # TODO: give control over expansion basis
@@ -25,25 +25,35 @@ function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
     β, λ = missing, missing
     if Int(order(F_out)) != Int(order(F_in))
         flag, deg = is_extension(F_out, F_in)
-        flag || throw(ArgumentError("Galois concatenation requires the outer code to be over an extension field of the inner code"))
-        deg % C_in.k == 0 || C_out.n % C_in.k == 0 || 
-            throw(ArgumentError("Inner dimension must divide outer length or extension degree"))
+        flag || throw(
+            ArgumentError(
+                "Galois concatenation requires the outer code to be over an extension field of the inner code",
+            ),
+        )
+        deg % C_in.k == 0 ||
+            C_out.n % C_in.k == 0 ||
+            throw(
+                ArgumentError(
+                    "Inner dimension must divide outer length or extension degree",
+                ),
+            )
         G_out = generator_matrix(C_out, true)
         ismissing(C_out.P_stand) || (G_out = G_out * C_out.P_stand)
-        
+
         β, λ = primitive_basis(F_out, F_in)
         D = _expansion_dict(F_out, F_in, λ)
         G_out = _expand_matrix(G_out, D, deg)
         type = :expanded
     else
-        C_out.n % C_in.k == 0 || throw(ArgumentError("Inner dimension must divide outer length"))
+        C_out.n % C_in.k == 0 ||
+            throw(ArgumentError("Inner dimension must divide outer length"))
 
         F_out == F_in || (C_out = change_field(C_out, F_in);)
         G_out = generator_matrix(C_out, true)
         ismissing(C_out.P_stand) || (G_out = G_out * C_out.P_stand)
         type = :same
     end
-    
+
     Gin = generator_matrix(C_in, true)
     ismissing(C_in.P_stand) || (Gin = Gin * C_in.P_stand)
     G = _concatenated_generator_matrix(G_out, Gin)
@@ -53,7 +63,25 @@ function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
     ub2, _ = _min_wt_row(G_stand)
     ub = min(ub1, ub2)
 
-    C = ConcatenatedCode(C_out, C_in, type, β, λ, F_in, ncols(G), k, missing, 1, ub, G, H, G_stand, H_stand, P, missing)
+    C = ConcatenatedCode(
+        C_out,
+        C_in,
+        type,
+        β,
+        λ,
+        F_in,
+        ncols(G),
+        k,
+        missing,
+        1,
+        ub,
+        G,
+        H,
+        G_stand,
+        H_stand,
+        P,
+        missing,
+    )
     # TODO: distance check here
     # for a lower bound on the distance, count the number of pieces of G_out in _concatenated_generator_matrix
     # with full rank and multiply by the distance of the inner code
@@ -62,18 +90,24 @@ function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
 end
 ∘(C_out::AbstractLinearCode, C_in::AbstractLinearCode) = concatenate(C_out, C_in)
 
-function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
+function concatenate(
+    outers_unexpanded::Vector{T},
+    inners::Vector{T},
+) where {T<:AbstractLinearCode}
     isempty(outers_unexpanded) && throw(ArgumentError("List of codes cannot be empty"))
-    length(outers_unexpanded) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
-    for i in 2:length(inners)
-        inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+    length(outers_unexpanded) == length(inners) ||
+        throw(ArgumentError("Must have the same number of inner and outer codes"))
+    for i = 2:length(inners)
+        inners[i-1] ⊆ inners[i] || throw(
+            ArgumentError("The inner subcodes must be in a decreasing nested sequence"),
+        )
     end
     F = first(inners).F
     n_in = first(inners).n
 
     outers = copy(outers_unexpanded)
-    β = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
-    λ = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
+    β = Union{Vector{<:CTFieldElem},Missing}[missing for _ in eachindex(outers)]
+    λ = Union{Vector{<:CTFieldElem},Missing}[missing for _ in eachindex(outers)]
     type = [:same for i in eachindex(outers)]
     ord_F = Int(order(F))
     for (i, C_out) in enumerate(outers)
@@ -84,7 +118,7 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
             # if it could have been "expanded" without changing
             # anything, list as expanded so that the distance
             # calculation at the end knows
-            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i - 1].k == 1)
+            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i-1].k == 1)
                 type[i] = :expanded
             end
         elseif is_subfield(F, C_out.F)[1]
@@ -98,14 +132,15 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
 
     # Are the outer matrices the right size?
     n_out = divexact(outers[1].n, inners[1].k)
-    for i in 2:length(outers)
-        n_out == divexact(outers[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
+    for i = 2:length(outers)
+        n_out == divexact(outers[i].n, inners[i].k - inners[i-1].k) ||
+            throw(ArgumentError("The outer matrices are not of the correct size"))
     end
 
     B = [generator_matrix(inners[1])]
-    for i in 2:length(inners)
+    for i = 2:length(inners)
         Gi = generator_matrix(inners[i])
-        Gim1 = generator_matrix(inners[i - 1])
+        Gim1 = generator_matrix(inners[i-1])
         push!(B, _quotient_space(Gi, Gim1, :VS))
     end
 
@@ -113,7 +148,7 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     G2 = zero_matrix(F, ncols(G1), n_in * n_out)
     z = 1
     for i in eachindex(inners)
-        for j in 0:n_out - 1
+        for j = 0:(n_out-1)
             rows = range(z, z + size(B[i], 1) - 1)
             cols = range(j * n_in + 1, (j + 1) * n_in)
             G2[rows, cols] = B[i]
@@ -136,9 +171,30 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     ub2, _ = _min_wt_row(G_stand)
     ub = ismissing(d) ? min(ub1, ub2) : d
 
-    return ConcatenatedCode(outers_unexpanded, inners, type, β, λ, F, ncols(G), k, d, lb, ub, G, H, G_stand, H_stand, P, missing)
+    return ConcatenatedCode(
+        outers_unexpanded,
+        inners,
+        type,
+        β,
+        λ,
+        F,
+        ncols(G),
+        k,
+        d,
+        lb,
+        ub,
+        G,
+        H,
+        G_stand,
+        H_stand,
+        P,
+        missing,
+    )
 end
-multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
+multilevel_concatenation(
+    outers::Vector{T},
+    inners::Vector{T},
+) where {T<:AbstractLinearCode} = concatenate(outers, inners)
 # cascade?
 
 # Eric had written this so it's in the way explained by the book but technically it's equivalent to the above
@@ -199,7 +255,7 @@ multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: Abstra
 # Blokh_Zyablov_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = generalized_concatenation(outers, inners)
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -238,20 +294,20 @@ Return `:expanded`, `:same`, or `:generalized` depending on the type of concaten
 concatenation_type(C::AbstractConcatenatedCode) = C.type
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
-function _concatenated_generator_matrix(A::T, B::T) where T <: CTMatrixTypes
+function _concatenated_generator_matrix(A::T, B::T) where {T<:CTMatrixTypes}
     nr_A, nc_A = size(A)
     nr_B, nc_B = size(B)
     t = div(nc_A, nr_B)
     M = zero_matrix(base_ring(A), nr_A, t * nc_B)
-    for i in 1:t
-        M[:, nc_B * (i - 1) + 1: nc_B * i] = view(A, :, nr_B * (i - 1) + 1:nr_B * i) * B
+    for i = 1:t
+        M[:, (nc_B*(i-1)+1):(nc_B*i)] = view(A, :, (nr_B*(i-1)+1):(nr_B*i)) * B
     end
     return M
 end
@@ -262,7 +318,7 @@ end
 
 Return the encoding of `v` into `C`, where `v` is either a valid input for the outer code or the full code.
 """
-function encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}})
+function encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes,Vector{Int}})
     if typeof(v) <: CTMatrixTypes
         nr_v, nc_v = size(v)
         nr_v == 1 || nc_v == 1 || throw(ArgumentError("Vector has incorrect dimension"))
@@ -270,7 +326,9 @@ function encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}
         nc_w = ncols(w)
         if nc_w == C.C_out.k
             # TODO: should check order and then convert if they are the same but different pointers
-            base_ring(w) == C.C_out.F || throw(ArgumentError("Vector must have the same base ring as the outer code."))
+            base_ring(w) == C.C_out.F || throw(
+                ArgumentError("Vector must have the same base ring as the outer code."),
+            )
             G_out = generator_matrix(C.C_out, true)
             ismissing(C.C_out.P_stand) || (G_out = G_out * C.C_out.P_stand)
             temp = w * G_out
@@ -285,7 +343,8 @@ function encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}
             ismissing(C.C_in.P_stand) || (Gin = Gin * C.C_in.P_stand)
             return temp * Gin
         elseif nc_w == C.k
-            base_ring(w) == C.F || throw(ArgumentError("Vector must have the same base ring as the code."))
+            base_ring(w) == C.F ||
+                throw(ArgumentError("Vector must have the same base ring as the code."))
             return w * C.G
         else
             throw(ArgumentError("Vector has incorrect dimension"))
@@ -318,7 +377,7 @@ end
 # permute?
 
 #############################
-         # Quantum
+# Quantum
 #############################
 
 # something like this

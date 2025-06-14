@@ -21,7 +21,7 @@
 #     the variable node lists can be preallocated since we know the degree distribution
 #     but the check node lists can be higher since the number of these is less than the number of variables
 #     need to come up with an estimated average check node degree to preallocate
-    
+
 
 #     don't want the subgraph to be stored in an array because it will constantly grow and shrink
 #     linked-list based structure most appropriate then
@@ -31,6 +31,5 @@
 #         can most likely skip the latter and simply point to location in other array given ID
 #     loop over this next layer and add them as children and make a RB tree out of them
 #     arrange RB trees in each layer into a single array of RB tree pointers
-    
-# end
 
+# end

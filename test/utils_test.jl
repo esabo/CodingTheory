@@ -13,11 +13,13 @@
     GF4 = GF(2, 2, :ω)
     GF2 = GF(2)
 
-    M_min_wt = [1 0 0 1 0
-              1 1 0 0 0
-              0 0 1 0 0
-              1 1 1 1 1
-              0 1 0 1 0]
+    M_min_wt = [
+        1 0 0 1 0
+        1 1 0 0 0
+        0 0 1 0 0
+        1 1 1 1 1
+        0 1 0 1 0
+    ]
     M_min_wt2 = matrix(GF2, M_min_wt)
     M_min_wt3 = matrix(GF4, M_min_wt)
     @test CodingTheory._min_wt_row(M_min_wt) == (1, 3)
@@ -74,23 +76,30 @@
     # TODO: _rref_no_col_swap and _rref_col_swap - come back to when going over weightdist.jl
 
     # digits_to_int
-    @test all(d == digits(d, base = 2, pad = 15) |> reverse |> digits_to_int for d in rand(0:2^15, 100))
+    @test all(
+        d == digits(d, base = 2, pad = 15) |> reverse |> digits_to_int for
+        d in rand(0:(2^15), 100)
+    )
 
     # _concat
     locations = [0 1; 1 1]
     M1 = matrix(GF2, ones(Int, 3, 2))
     M2 = matrix(GF4, ones(Int, 3, 2))
-    @test CodingTheory._concat(locations, M1) == matrix(GF2, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
-    @test CodingTheory._concat(locations, M2) == matrix(GF4, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
+    @test CodingTheory._concat(locations, M1) ==
+          matrix(GF2, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
+    @test CodingTheory._concat(locations, M2) ==
+          matrix(GF4, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
 
     # TODO: pseudoinverse test
 
     # Tri-orthogonal matrix from Bravyi and Haah 2012, equation 3
-    M_tri_orth = [1 1 1 1 1 1 1 0 0 0 0 0 0 0
-                0 0 0 0 0 0 0 1 1 1 1 1 1 1
-                1 0 1 0 1 0 1 1 0 1 0 1 0 1
-                0 1 1 0 0 1 1 0 1 1 0 0 1 1
-                0 0 0 1 1 1 1 0 0 0 1 1 1 1]
+    M_tri_orth = [
+        1 1 1 1 1 1 1 0 0 0 0 0 0 0
+        0 0 0 0 0 0 0 1 1 1 1 1 1 1
+        1 0 1 0 1 0 1 1 0 1 0 1 0 1
+        0 1 1 0 0 1 1 0 1 1 0 0 1 1
+        0 0 0 1 1 1 1 0 0 0 1 1 1 1
+    ]
     @test is_triorthogonal(M_tri_orth) # test for Matrix{Int}
     @test is_triorthogonal(matrix(GF2, M_tri_orth)) # test for fpMatrix
 
@@ -221,7 +230,7 @@
     basis, _ = normal_basis(E, F)
     flag, _ = is_basis(E, F, basis)
     @test flag
-    basis2 = [α * basis[i] for i in 1:2]
+    basis2 = [α * basis[i] for i = 1:2]
     @test are_equivalent_basis(basis, basis2)
 
     # TODO: work these in
@@ -264,13 +273,19 @@
     l = 3
     R, _ = residue_ring(S, x^l - 1)
     A = matrix(R, 2, 3, [1, 0, 1 + x^2, 1 + x, 1 + x + x^2, x^2])
-    @test lift(A) == matrix(F, 6, 9,
-        [1, 0, 0, 0, 0, 0, 1, 1, 0,
-        0, 1, 0, 0, 0, 0, 0, 1, 1,
-        0, 0, 1, 0, 0, 0, 1, 0, 1,
-        1, 0, 1, 1, 1, 1, 0, 1, 0,
-        1, 1, 0, 1, 1, 1, 0, 0, 1,
-        0, 1, 1, 1, 1, 1, 1, 0, 0])
+    @test lift(A) == matrix(
+        F,
+        6,
+        9,
+        [
+            1 0 0 0 0 0 1 1 0;
+            0 1 0 0 0 0 0 1 1;
+            0 0 1 0 0 0 1 0 1;
+            1 0 1 1 1 1 0 1 0;
+            1 1 0 1 1 1 0 0 1;
+            0 1 1 1 1 1 1 0 0
+        ],
+    )
     @test weight_matrix(A) == [1 0 2; 2 3 1]
 
     # Nonpivots tests

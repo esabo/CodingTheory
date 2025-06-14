@@ -13,17 +13,17 @@ function GraphState(G::SimpleGraph{Int})
     # probably need some checks on G here but maybe the function args are good enough
     A = adjacency_matrix(G)
     _, nc = size(A)
-    for i in 1:nc
+    for i = 1:nc
         iszero(A[i, i]) || throw(ArgumentError("Graph cannot have self-loops."))
     end
     # are there non-binary graph states?
     F = Oscar.Nemo.Native.GF(2)
     Fone = F(1)
     sym_stabs = zero_matrix(F, nc, 2 * nc)
-    for r in 1:nc
+    for r = 1:nc
         sym_stabs[r, r] = Fone
-        for c in 1:nc
-            isone(A[r, c]) && (sym_stabs[r, c + nc] = Fone;)
+        for c = 1:nc
+            isone(A[r, c]) && (sym_stabs[r, c+nc] = Fone;)
         end
     end
     # this should automatically compute everything for the GraphState constructor
@@ -44,13 +44,13 @@ function ClusterState(w::Int, h::Int)
     Eone = E(1)
     A = zero_matrix(E, w * h, w * h)
     curr = 1
-    for r in 1:h
-        for c in 1:w
+    for r = 1:h
+        for c = 1:w
             A[curr, curr] = Eone
-            c != 1 && (A[curr, curr - 1] = ω;)
-            c != w && (A[curr, curr + 1] = ω;)
-            r != 1 && (A[curr, curr - w] = ω;)
-            r != h && (A[curr, curr + w] = ω;)
+            c != 1 && (A[curr, curr-1] = ω;)
+            c != w && (A[curr, curr+1] = ω;)
+            r != 1 && (A[curr, curr-w] = ω;)
+            r != h && (A[curr, curr+w] = ω;)
             curr += 1
         end
     end

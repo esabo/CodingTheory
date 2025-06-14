@@ -5,27 +5,39 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 function GeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem)
     LR = parent(f)
     LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
+    length(symbols(LR)) == 2 || throw(
+        ArgumentError(
+            "The polynomials must be over a Laurent polynomial ring in two variables.",
+        ),
+    )
     return GeneralizedToricCode(LR, base_ring(LR), f, g)
 end
 
-function FiniteGeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int},
-    a2::Tuple{Int, Int})
+function FiniteGeneralizedToricCode(
+    f::CTLRPolyElem,
+    g::CTLRPolyElem,
+    a1::Tuple{Int,Int},
+    a2::Tuple{Int,Int},
+)
 
     LR = parent(f)
     LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
+    length(symbols(LR)) == 2 || throw(
+        ArgumentError(
+            "The polynomials must be over a Laurent polynomial ring in two variables.",
+        ),
+    )
     return FiniteGeneralizedToricCode(LR, base_ring(LR), f, g, a1, a2)
 end
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 Laurent_polynomial_ring(S::AbstractGeneralizedToricCode) = S.LR
@@ -37,11 +49,11 @@ defining_polynomials(S::AbstractGeneralizedToricCode) = S.f, S.g
 twist_vectors(S::FiniteGeneralizedToricCode) = S.a1, S.a2
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
 function maximum_dimension(S::AbstractGeneralizedToricCode)
@@ -76,8 +88,8 @@ function CSSCode(S::FiniteGeneralizedToricCode)
     mono = monomial_basis(Q)
     len_mon = length(mono)
     n = 2 * len_mon
-    LR_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i for i in 1:len_mon)
-    TB_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i + len_mon for i in 1:len_mon)
+    LR_edge_index = Dict{fpMPolyRingElem,Int}(mono[i] => i for i = 1:len_mon)
+    TB_edge_index = Dict{fpMPolyRingElem,Int}(mono[i] => i + len_mon for i = 1:len_mon)
 
     Fone = S.F(1)
     row = 1

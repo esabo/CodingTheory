@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-    # Weight Enumerators
+# Weight Enumerators
 #############################
 
 # """
@@ -21,14 +21,18 @@
 # # Note
 # - Run `using Makie` to activate this extension.
 # """
-function CodingTheory.weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto,
-    type::Symbol = :stabilizer)
+function CodingTheory.weight_plot(
+    S::AbstractStabilizerCode;
+    alg::Symbol = :auto,
+    type::Symbol = :stabilizer,
+)
 
-    type ∈ (:stabilizer, :normalizer, :quotient) || throw(ArgumentError("Unknown value $type for parameter type."))
+    type ∈ (:stabilizer, :normalizer, :quotient) ||
+        throw(ArgumentError("Unknown value $type for parameter type."))
 
     wt_dist = weight_distribution(S, alg = alg, type = type, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
     if type == :stabilizer
         title_str = "Stabilizer Weight Distribution"
     elseif type == :normalizer
@@ -37,7 +41,7 @@ function CodingTheory.weight_plot(S::AbstractStabilizerCode; alg::Symbol = :auto
         title_str = "Quotient Weight Distribution"
     end
     ismissing(S.d) ? (title = "$title_str - [$(S.n), $(S.k)]";) :
-        title = "$title_str - [$(S.n), $(S.k), $(S.d)]"
+    title = "$title_str - [$(S.n), $(S.k), $(S.d)]"
 
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms", title = title)
@@ -60,10 +64,14 @@ function CodingTheory.weight_plot_CSS_X(S::AbstractStabilizerCodeCSS; alg::Symbo
     C = LinearCode(S.X_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
     fig = Figure()
-    ax = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms",
-        title = "X-Weight Distribution")
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Weight",
+        ylabel = "Number of Terms",
+        title = "X-Weight Distribution",
+    )
     barplot!(ax, 0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks)
     # fig = bar(0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks,
     #     legend = false, xlabel = "Weight", ylabel = "Number of Terms",
@@ -84,10 +92,14 @@ function CodingTheory.weight_plot_CSS_Z(S::AbstractStabilizerCodeCSS; alg::Symbo
     C = LinearCode(S.Z_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
     fig = Figure()
-    ax = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms",
-        title = "Z-Weight Distribution")
+    ax = Axis(
+        fig[1, 1],
+        xlabel = "Weight",
+        ylabel = "Number of Terms",
+        title = "Z-Weight Distribution",
+    )
     barplot!(ax, 0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks)
     # fig = bar(0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks,
     #     legend = false, xlabel = "Weight", ylabel = "Number of Terms",
@@ -108,10 +120,14 @@ function CodingTheory.weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol 
     C = LinearCode(S.X_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
     fig = Figure()
-    ax1 = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms",
-        title = "X-Weight Distribution")
+    ax1 = Axis(
+        fig[1, 1],
+        xlabel = "Weight",
+        ylabel = "Number of Terms",
+        title = "X-Weight Distribution",
+    )
     barplot!(ax1, 0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks)
     # f_X = bar(0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks,
     #     legend = false, xlabel = "Weight", ylabel = "Number of Terms",
@@ -121,9 +137,13 @@ function CodingTheory.weight_plot_CSS(S::AbstractStabilizerCodeCSS; alg::Symbol 
     C = LinearCode(S.Z_stabs)
     wt_dist = weight_distribution(C, alg = alg, compact = false)
     x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    ax2 = Axis(fig[1, 2], xlabel = "Weight", ylabel = "Number of Terms",
-        title = "Z-Weight Distribution")
+    y_ticks = [wt_dist[i] for i = 1:length(wt_dist) if !iszero(wt_dist[i])]
+    ax2 = Axis(
+        fig[1, 2],
+        xlabel = "Weight",
+        ylabel = "Number of Terms",
+        title = "Z-Weight Distribution",
+    )
     barplot!(ax2, 0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks)
     display(fig)
     return fig

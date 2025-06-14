@@ -5,14 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # LP Decoders
+# LP Decoders
 #############################
 
-function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatrix{<:Number}})
+function _init_LP_decoder_LDPC(
+    H::Union{CodingTheory.CTMatrixTypes,AbstractMatrix{<:Number}},
+)
     check_adj_list, _ = CodingTheory._node_adjacencies(H)
     subsets = Vector{Vector{Vector{Int}}}()
     nr, nc = size(H)
-    hasi = [[Vector{Int}() for _ in 1:nc] for _ in 1:nr]
+    hasi = [[Vector{Int}() for _ = 1:nc] for _ = 1:nr]
     wmap = zeros(Int, nr)
     curr = 1
     for (j, cn) in enumerate(check_adj_list)
@@ -32,28 +34,31 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
 
     model = Model(GLPK.Optimizer)
     @variable(model, 0 <= f[1:nc] <= 1)
-    @variable(model, 0 <= w[1:curr - 1] <= 1)
-    for i in 1:nr
+    @variable(model, 0 <= w[1:(curr-1)] <= 1)
+    for i = 1:nr
         if i != nr
-            @constraint(model, sum(w[wmap[i]:wmap[i + 1] - 1]) == 1)
+            @constraint(model, sum(w[wmap[i]:(wmap[i+1]-1)]) == 1)
         else
             @constraint(model, sum(w[wmap[i]:end]) == 1)
         end
     end
-    for j in 1:nr
-        for i in 1:nc
+    for j = 1:nr
+        for i = 1:nc
             if !isempty(hasi[j][i])
                 @constraint(model, f[i] == sum(w[hasi[j][i]]))
             end
         end
     end
-    @objective(model, Min, sum(0 * f[i] for i in 1:nc))
+    @objective(model, Min, sum(0 * f[i] for i = 1:nc))
     return model
 end
 _init_LP_decoder_LDPC(C::AbstractLinearCode) = _init_LP_decoder_LDPC(parity_check_matrix(C))
 
-function _LP_decoder_LDPC(model::JuMP.Model, v::Union{CodingTheory.CTMatrixTypes,
-    Vector{<:Integer}}, Ch::BinarySymmetricChannel)
+function _LP_decoder_LDPC(
+    model::JuMP.Model,
+    v::Union{CodingTheory.CTMatrixTypes,Vector{<:Integer}},
+    Ch::BinarySymmetricChannel,
+)
 
     γ = CodingTheory._channel_init_BSC(isa(v, Vector) ? v : Int.(data.(v))[:], Ch.param)
     @objective(model, Min, dot(γ, model[:f]))
@@ -65,11 +70,17 @@ function _LP_decoder_LDPC(model::JuMP.Model, v::Union{CodingTheory.CTMatrixTypes
     return w
 end
 
-function CodingTheory.LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatrix{<:Number}}, v::Union{CodingTheory.CTMatrixTypes, Vector{<:Integer}}, Ch::BinarySymmetricChannel)
-    
+function CodingTheory.LP_decoder_LDPC(
+    H::Union{CodingTheory.CTMatrixTypes,AbstractMatrix{<:Number}},
+    v::Union{CodingTheory.CTMatrixTypes,Vector{<:Integer}},
+    Ch::BinarySymmetricChannel,
+)
+
     model = _init_LP_decoder_LDPC(H)
     return _LP_decoder_LDPC(model, v, Ch)
 end
-CodingTheory.LP_decoder_LDPC(C::AbstractLinearCode, v::Union{CodingTheory.CTMatrixTypes,
-    Vector{<:Integer}}, Ch::BinarySymmetricChannel) = CodingTheory.LP_decoder_LDPC(
-        parity_check_matrix(C), v, Ch)
+CodingTheory.LP_decoder_LDPC(
+    C::AbstractLinearCode,
+    v::Union{CodingTheory.CTMatrixTypes,Vector{<:Integer}},
+    Ch::BinarySymmetricChannel,
+) = CodingTheory.LP_decoder_LDPC(parity_check_matrix(C), v, Ch)

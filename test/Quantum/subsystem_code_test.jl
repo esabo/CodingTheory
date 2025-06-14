@@ -4,9 +4,18 @@
     @testset "Stabilizer Subsystem code" begin
         # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
         # [[9, 1, 4, 3]] gauged Shor code
-        S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
+        S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI", "IZZIZZIZZ"]
         # these are the {X, Z} pairings
-        G_ops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+        G_ops = [
+            "IZZIIIIII",
+            "IIXIIIIIX",
+            "IIIIZZIII",
+            "IIIIIXIIX",
+            "ZZIIIIIII",
+            "XIIIIIXII",
+            "IIIZZIIII",
+            "IIIXIIXII",
+        ]
         G = S ∪ G_ops
         L = ["ZZZZZZZZZ", "XXXXXXXXX"]
         Q = SubsystemCode(G)
@@ -17,7 +26,7 @@
         @test LogicalTrait(typeof(Q)) == HasLogicals()
         @test GaugeTrait(typeof(Q)) == HasGauges()
 
-        Q2 = SubsystemCode(S, L,  G_ops)
+        Q2 = SubsystemCode(S, L, G_ops)
         @test are_equivalent(Q, Q2)
 
         # # TODO: BaconShorCode
@@ -32,6 +41,6 @@
         @test are_equivalent(Q3, Q4)
     end
 
-        # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
+    # # Klappenecker and Sarvepalli (2007) give a CSS construction equivalent to Bacon-Shor
 
 end

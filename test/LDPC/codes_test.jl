@@ -3,12 +3,16 @@
 
     # example from Ryan & Lin
     F = Oscar.Nemo.Native.GF(2)
-    H = matrix(F, [
-        1 1 1 1 0 0 0 0 0 0;
-        1 0 0 0 1 1 1 0 0 0;
-        0 1 0 0 1 0 0 1 1 0;
-        0 0 1 0 0 1 0 1 0 1;
-        0 0 0 1 0 0 1 0 1 1])
+    H = matrix(
+        F,
+        [
+            1 1 1 1 0 0 0 0 0 0;
+            1 0 0 0 1 1 1 0 0 0;
+            0 1 0 0 1 0 0 1 1 0;
+            0 0 1 0 0 1 0 1 0 1;
+            0 0 0 1 0 0 1 0 1 1
+        ],
+    )
     C = LDPCCode(H)
     @test column_row_bounds(C) == (2, 4)
     # @test rate(C) == 3 / 5

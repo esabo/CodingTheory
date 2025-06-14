@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 """
@@ -49,7 +49,7 @@ BAWGNC(σ::Float64) = BAWGNChannel(σ)
 # TODO: add an issymmetric parameter to simplify DE later
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -81,7 +81,7 @@ Return the variance of the BAWGN channel.
 variance(Ch::BAWGNChannel) = Ch.param^2
 
 #############################
-     # general functions
+# general functions
 #############################
 
 """
@@ -91,7 +91,7 @@ Return the capacity of the noise channel.
 """
 function capacity(Ch::AbstractClassicalNoiseChannel)
     ismissing(Ch.capacity) || return Ch.capacity
-    
+
     # TODO: compute capacity functional
     error("Not yet written")
 end
@@ -100,9 +100,12 @@ function show(io::IO, Ch::AbstractClassicalNoiseChannel)
     if isa(Ch, BinaryErasureChannel)
         print(io, "Binary erasure channel with erasure probability $(Ch.param)")
     elseif isa(Ch, BinarySymmetricChannel)
-            print(io, "Binary symmetric channel with crossover probability $(Ch.param)")
+        print(io, "Binary symmetric channel with crossover probability $(Ch.param)")
     elseif isa(Ch, BAWGNChannel)
-        print(io, "Binary (input) additive white Gaussian noise channel with standard deviation $(Ch.param)")
+        print(
+            io,
+            "Binary (input) additive white Gaussian noise channel with standard deviation $(Ch.param)",
+        )
     else
         print(io, "Classical noise channel with parameter $(Ch.param)")
     end

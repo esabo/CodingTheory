@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-         # General
+# General
 #############################
 
 mutable struct Vertex
@@ -14,27 +14,27 @@ mutable struct Vertex
     next::Int64
     value::Float64
     edge_loc::Int64
-    polynomial::Union{ZZMPolyRingElem, AbsSimpleNumFieldElem, Missing}
+    polynomial::Union{ZZMPolyRingElem,AbsSimpleNumFieldElem,Missing}
 end
 
 # could redo this for classical to remove sign
 # for a trellis with 10 million edges, this would save 10 MB
 # to do this, make EdgeC and EdgeQ and change all following functions to Union both
 mutable struct Edge
-    label::Union{FqFieldElem, fpFieldElem, fpMatrix, FqMatrix}
+    label::Union{FqFieldElem,fpFieldElem,fpMatrix,FqMatrix}
     weight::Float64
     out_vertex::Int64
-    sign::Union{Missing, zzModRingElem}
+    sign::Union{Missing,zzModRingElem}
 end
 
 mutable struct Trellis
     vertices::Vector{Vector{Vertex}}
     edges::Vector{Vector{Vector{Edge}}}
-    code::T where T <: AbstractCode
+    code::T where {T<:AbstractCode}
     # complete weight enumerator
-    CWE::Union{WeightEnumerator, Missing}
+    CWE::Union{WeightEnumerator,Missing}
     # shifted::Bool
-    shift::Union{FqMatrix, fpMatrix}
+    shift::Union{FqMatrix,fpMatrix}
 end
 
 """
@@ -60,8 +60,12 @@ code.
 is_shifted(T::Trellis) = !iszero(T.shift)
 
 function ==(a::Vertex, b::Vertex)
-    return a.label == b.label && a.prev == b.prev && a.next == b.next &&
-        a.value == b.value && a.edge_loc == b.edge_loc && a.polynomial == b.polynomial
+    return a.label == b.label &&
+           a.prev == b.prev &&
+           a.next == b.next &&
+           a.value == b.value &&
+           a.edge_loc == b.edge_loc &&
+           a.polynomial == b.polynomial
 end
 
 function ==(a::Vector{Vertex}, b::Vector{Vertex})
@@ -69,7 +73,7 @@ function ==(a::Vector{Vertex}, b::Vector{Vertex})
         return false
     end
 
-    for i in 1:length(a)
+    for i = 1:length(a)
         if a[i] != b[i]
             return false
         end
@@ -86,7 +90,7 @@ function ==(a::Vector{Edge}, b::Vector{Edge})
         return false
     end
 
-    for i in 1:length(a)
+    for i = 1:length(a)
         if a[i] != b[i]
             return false
         end
@@ -100,7 +104,7 @@ function ==(a::Vector{Vector{Edge}}, b::Vector{Vector{Edge}})
         return false
     end
 
-    for i in 1:length(a)
+    for i = 1:length(a)
         if a[i] != b[i]
             return false
         end
@@ -114,7 +118,7 @@ function ==(a::Vector{Vector{Vector{Edge}}}, b::Vector{Vector{Vector{Edge}}})
         return false
     end
 
-    for i in 1:length(a)
+    for i = 1:length(a)
         if a[i] != b[i]
             return false
         end
@@ -127,7 +131,7 @@ function is_isomorphic(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}})
     if length(V1) != length(V2)
         return false
     else
-        for i in 1:length(V1)
+        for i = 1:length(V1)
             if length(V1[i]) != length(V2[i])
                 return false
             end
@@ -140,7 +144,7 @@ function is_isomorphic(E1::Vector{Vector{Vector{Edge}}}, E2::Vector{Vector{Vecto
     if length(E1) != length(E2)
         return false
     else
-        for i in 1:length(E1)
+        for i = 1:length(E1)
             if length(E1[i]) != length(E2[i]) || length(E1[i][1]) != length(E2[i][1])
                 return false
             end
@@ -149,8 +153,12 @@ function is_isomorphic(E1::Vector{Vector{Vector{Edge}}}, E2::Vector{Vector{Vecto
     end
 end
 
-function is_isomorphic(V1::Vector{Vector{Vertex}}, E1::Vector{Vector{Vector{Edge}}},
-    V2::Vector{Vector{Vertex}}, E2::Vector{Vector{Vector{Edge}}})
+function is_isomorphic(
+    V1::Vector{Vector{Vertex}},
+    E1::Vector{Vector{Vector{Edge}}},
+    V2::Vector{Vector{Vertex}},
+    E2::Vector{Vector{Vector{Edge}}},
+)
 
     iso_V = is_isomorphic(V1, V2)
     if !iso_V
@@ -159,14 +167,18 @@ function is_isomorphic(V1::Vector{Vector{Vertex}}, E1::Vector{Vector{Vector{Edge
     return is_isomorphic(E1, E2)
 end
 
-function is_isomorphic(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}},
-    E1::Vector{Vector{Vector{Edge}}}, E2::Vector{Vector{Vector{Edge}}})
+function is_isomorphic(
+    V1::Vector{Vector{Vertex}},
+    V2::Vector{Vector{Vertex}},
+    E1::Vector{Vector{Vector{Edge}}},
+    E2::Vector{Vector{Vector{Edge}}},
+)
 
     return is_isomorphic(V1, E1, V2, E2)
 end
 
 # provide "sorted" option
-function is_equal(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}}, verbose=false)
+function is_equal(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}}, verbose = false)
     is_iso = is_isomorphic(V1, V2)
     verbose && println("V1 and V2 are isomorphic.")
 
@@ -202,9 +214,14 @@ function ==(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}})
     return is_equal(V1, V2, false)
 end
 
-function is_equal(V1::Vector{Vector{Vertex}}, E1::Vector{Vector{Vector{Edge}}},
-    V2::Vector{Vector{Vertex}}, E2::Vector{Vector{Vector{Edge}}},
-    verbose=false, rhs_sorted=false)
+function is_equal(
+    V1::Vector{Vector{Vertex}},
+    E1::Vector{Vector{Vector{Edge}}},
+    V2::Vector{Vector{Vertex}},
+    E2::Vector{Vector{Vector{Edge}}},
+    verbose = false,
+    rhs_sorted = false,
+)
 
     is_iso = is_isomorphic(V1, E1, V2, E2)
     verbose && println("V1 and V2 and E1 and E2 are isomorphic, respectively.")
@@ -253,18 +270,46 @@ function is_equal(V1::Vector{Vector{Vertex}}, E1::Vector{Vector{Vector{Edge}}},
             else
                 if i != 1
                     verbose && println("Checking for equality in corresponding edges")
-                    for (k, e1) in enumerate(E1[i - 1][j])
+                    for (k, e1) in enumerate(E1[i-1][j])
                         found_e = false
-                        for (l, e2) in enumerate(E2[i - 1][v_loc])
-                            if e1.label == e2.label && e1.weight == e2.weight && V1[i - 1][e1.out_vertex].label == V2[i - 1][e2.out_vertex].label
+                        for (l, e2) in enumerate(E2[i-1][v_loc])
+                            if e1.label == e2.label &&
+                               e1.weight == e2.weight &&
+                               V1[i-1][e1.out_vertex].label == V2[i-1][e2.out_vertex].label
                                 found_e = true
-                                verbose && println("E1[", i - 1, "][", j, "][", k, "] = E2[", i - 1, "][", v_loc, "][", l, "]")
+                                verbose && println(
+                                    "E1[",
+                                    i - 1,
+                                    "][",
+                                    j,
+                                    "][",
+                                    k,
+                                    "] = E2[",
+                                    i - 1,
+                                    "][",
+                                    v_loc,
+                                    "][",
+                                    l,
+                                    "]",
+                                )
                                 break
                             end
                         end
 
                         if !found_e
-                            verbose && println("Edge E1[", i - 1, "][", j, "][", k, "] not found in E2[", i - 1, "][", v_loc, "]")
+                            verbose && println(
+                                "Edge E1[",
+                                i - 1,
+                                "][",
+                                j,
+                                "][",
+                                k,
+                                "] not found in E2[",
+                                i - 1,
+                                "][",
+                                v_loc,
+                                "]",
+                            )
                             return false
                         end
                     end
@@ -275,18 +320,23 @@ function is_equal(V1::Vector{Vector{Vertex}}, E1::Vector{Vector{Vector{Edge}}},
     return true
 end
 
-function is_equal(V1::Vector{Vector{Vertex}}, V2::Vector{Vector{Vertex}},
-    E1::Vector{Vector{Vector{Edge}}}, E2::Vector{Vector{Vector{Edge}}},
-    verbose=false, rhs_sorted=false)
+function is_equal(
+    V1::Vector{Vector{Vertex}},
+    V2::Vector{Vector{Vertex}},
+    E1::Vector{Vector{Vector{Edge}}},
+    E2::Vector{Vector{Vector{Edge}}},
+    verbose = false,
+    rhs_sorted = false,
+)
 
     return is_equal(V1, E1, V2, E2, verbose, rhs_sorted)
 end
 
-function _sort_by_left_index(A::Union{FqMatrix, fpMatrix})
+function _sort_by_left_index(A::Union{FqMatrix,fpMatrix})
     nr, nc = size(A)
     arr = []
-    for r in 1:nr
-        for c in 1:nc
+    for r = 1:nr
+        for c = 1:nc
             if !iszero(A[r, c])
                 push!(arr, [c, A[r:r, :]])
                 break
@@ -299,14 +349,14 @@ function _sort_by_left_index(A::Union{FqMatrix, fpMatrix})
     # println("sort2: $arr")
     # vcat is faster and cheaper than the following
     # return A[[arr2[i][2] for i in 1:num_rows], :]
-    return vcat([arr[i][2] for i in 1:nr]...)
+    return vcat([arr[i][2] for i = 1:nr]...)
 end
 
-function _sort_by_right_index(A::Union{FqMatrix, fpMatrix})
+function _sort_by_right_index(A::Union{FqMatrix,fpMatrix})
     nr, nc = size(A)
     arr = []
-    for r in 1:nr
-        for c in nc:-1:1
+    for r = 1:nr
+        for c = nc:-1:1
             if !iszero(A[r, c])
                 push!(arr, [c, A[r, :]])
                 break
@@ -315,20 +365,20 @@ function _sort_by_right_index(A::Union{FqMatrix, fpMatrix})
         # push!(arr, [1, A[r, :]])
     end
     sort!(arr, by = x -> x[1]) #, rev=true
-    return vcat([arr[i][2] for i in 1:nr]...)
+    return vcat([arr[i][2] for i = 1:nr]...)
 end
 
-function _left_right_indices(A::Union{FqMatrix, fpMatrix})
+function _left_right_indices(A::Union{FqMatrix,fpMatrix})
     # iseven(size(A, 2)) || error("Vectors in leftrightindices must have even length.")
     # n = div(size(A, 2), 2)
 
-#take quadratic only here
+    #take quadratic only here
 
     nr, nc = size(A)
     left = Vector{Int64}()
     right = Vector{Int64}()
-    for r in 1:nr
-        for c in 1:nc
+    for r = 1:nr
+        for c = 1:nc
             if !iszero(A[r, c])
                 push!(left, c)
                 break
@@ -336,8 +386,8 @@ function _left_right_indices(A::Union{FqMatrix, fpMatrix})
         end
     end
 
-    for r in 1:nr
-        for c in nc:-1:1
+    for r = 1:nr
+        for c = nc:-1:1
             if !iszero(A[r, c])
                 push!(right, c)
                 break
@@ -347,12 +397,12 @@ function _left_right_indices(A::Union{FqMatrix, fpMatrix})
     return left, right
 end
 
-function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
+function _find_active(A::Union{FqMatrix,fpMatrix}, edges::Bool = false)
     # need to make sure quadratic extension
     nr, nc = size(A)
-    left_right = [[0, 0] for _ in 1:nr]
-    for r in 1:nr
-        for c in 1:nc
+    left_right = [[0, 0] for _ = 1:nr]
+    for r = 1:nr
+        for c = 1:nc
             if !iszero(A[r, c])
                 left_right[r][1] = c
                 break
@@ -360,8 +410,8 @@ function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
         end
     end
 
-    for r in 1:nr
-        for c in nc:-1:1
+    for r = 1:nr
+        for c = nc:-1:1
             if !iszero(A[r, c])
                 left_right[r][2] = c
                 break
@@ -373,9 +423,9 @@ function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
 
     active = Vector{Vector{Int64}}()
     if edges
-        for c in 1:nc
+        for c = 1:nc
             arr_c = Vector{Int64}()
-            for r in 1:nr
+            for r = 1:nr
                 # c == 5 && println(c, ", ", r, ", ", left_right[r])
                 if left_right[r][1] <= c <= left_right[r][2]
                     # c == 5 && println("added")
@@ -387,9 +437,9 @@ function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
             end
         end
     else
-        for c in 1:nc
+        for c = 1:nc
             arr_c = Vector{Int64}()
-            for r in 1:nr
+            for r = 1:nr
                 if left_right[r][1] <= c < left_right[r][2]
                     push!(arr_c, r)
                 end
@@ -404,10 +454,16 @@ function _find_active(A::Union{FqMatrix, fpMatrix}, edges::Bool = false)
 end
 
 # finds all elements of B which have zero symplectic inner product with all of A
-function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpMatrix},
-    inner_prod::String="Euclidean", return_ker::Bool=false)
+function _kernel_inner_prod(
+    A::Union{FqMatrix,fpMatrix},
+    B::Union{FqMatrix,fpMatrix},
+    inner_prod::String = "Euclidean",
+    return_ker::Bool = false,
+)
 
-    inner_prod ∈ ["Euclidean", "symplectic"] || error("Unsupported inner product type in _kernel_inner_prod; expected: `Euclidean`, `symplectic`, received: $inner_prod.")
+    inner_prod ∈ ["Euclidean", "symplectic"] || error(
+        "Unsupported inner product type in _kernel_inner_prod; expected: `Euclidean`, `symplectic`, received: $inner_prod.",
+    )
     size(A, 2) == size(B, 2) || error("Length mismatch in _kernel_inner_prod.")
     if inner_prod == "symplectic"
         iseven(size(A, 2)) || error("Vectors in symplectic_kernel must have even length.")
@@ -423,8 +479,8 @@ function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpM
     if inner_prod == "symplectic"
         if return_ker
             ker = []
-            for rb in 1:nr_B
-                for ra in 1:nr_A
+            for rb = 1:nr_B
+                for ra = 1:nr_A
                     @views if !iszero(symplectic_inner_product(A[ra, :], B[rb, :]))
                         push!(ker, B[rb, :])
                         break
@@ -433,12 +489,12 @@ function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpM
             end
             return length(ker), reduce(vcat, ker)
         else
-            A_Euc = hcat(A[:, half_nc_A + 1:end], -A[:, 1:half_nc_A])
+            A_Euc = hcat(A[:, (half_nc_A+1):end], -A[:, 1:half_nc_A])
             prod = A_Euc * transpose(B)
             iszero(prod) && return 0
             nc_prod = ncols(prod)
             count = 0
-            for i in 1:nc_prod
+            for i = 1:nc_prod
                 if !iszero(prod[:, i])
                     count += 1
                 end
@@ -448,10 +504,10 @@ function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpM
     else
         if return_ker
             ker = []
-            for rb in 1:nr_B
-                for ra in 1:nr_A
-                    @views if !iszero(sum([A[ra, i] * B[rb, i] for i in 1:ncols(A)]))
-                    # @views if !iszero(A[ra, :] ⋅ B[rb, :])
+            for rb = 1:nr_B
+                for ra = 1:nr_A
+                    @views if !iszero(sum([A[ra, i] * B[rb, i] for i = 1:ncols(A)]))
+                        # @views if !iszero(A[ra, :] ⋅ B[rb, :])
                         push!(ker, B[rb, :])
                         break
                     end
@@ -463,7 +519,7 @@ function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpM
             iszero(prod) && return 0
             nc_prod = ncols(prod)
             count = 0
-            for i in 1:nc_prod
+            for i = 1:nc_prod
                 if !iszero(prod[:, i])
                     count += 1
                 end
@@ -473,16 +529,16 @@ function _kernel_inner_prod(A::Union{FqMatrix, fpMatrix}, B::Union{FqMatrix, fpM
     end
 end
 
-function _past_future(A::Union{FqMatrix, fpMatrix})
+function _past_future(A::Union{FqMatrix,fpMatrix})
     nr, nc = size(A)
     past = zeros(Int64, nc + 1)
     future = zeros(Int64, nc + 1)
     left, right = _left_right_indices(A)
     past[1] = 0
     future[1] = nr
-    for i in 2:nc + 1
-        past[i] = length(right[right .<= i - 1])
-        future[i] = length(left[left .> i - 1])
+    for i = 2:(nc+1)
+        past[i] = length(right[right .<= i-1])
+        future[i] = length(left[left .> i-1])
     end
     return past, future
 end
@@ -506,7 +562,8 @@ function load_balanced_code(profile::Vector{Int64})
 end
 
 function load_balanced_code(profiles::Vector{Vector{Int64}})
-    length(profiles) == 4 || error("Expected a length 4 profile vector. Pass in all or just the edges.")
+    length(profiles) == 4 ||
+        error("Expected a length 4 profile vector. Pass in all or just the edges.")
     return load_balanced_code(profiles[2])
 end
 
@@ -516,10 +573,10 @@ end
 Return the trellis oriented form of the matrix `A` assuming the row space is
 linear.
 """
-function trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
+function trellis_oriented_form_linear(A::Union{FqMatrix,fpMatrix})
     A = _sort_by_left_index(A)
     nc = ncols(A)
-    for c in 1:nc
+    for c = 1:nc
         left, right = _left_right_indices(A)
         rows = findall(x -> x == c, left)
         if length(rows) == 1
@@ -543,7 +600,7 @@ function trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
             #take first row, normalize to 1
             @views A[rows[1]:rows[1], :] *= inv(A[rows[1], c])
             # for rest of them, remove
-            for i in 2:length(rows)
+            for i = 2:length(rows)
                 @views A[rows[i]:rows[i], :] -= A[rows[i], c] * A[rows[1]:rows[1], :]
             end
         end
@@ -551,7 +608,7 @@ function trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
     A = _sort_by_left_index(A)
     left, right = _left_right_indices(A)
 
-    for c in nc:-1:1
+    for c = nc:-1:1
         rows = findall(x -> x == c, right)
         if length(rows) == 1
             @views A[rows[1]:rows[1], :] *= inv(A[rows[1], c])
@@ -575,7 +632,7 @@ function trellis_oriented_form_linear(A::Union{FqMatrix, fpMatrix})
             #take last row, normalize to 1
             @views A[rows[end]:rows[end], :] *= inv(A[rows[end], c])
             # for rest of them, remove
-            for i in length(rows) - 1:-1:1
+            for i = (length(rows)-1):-1:1
                 @views A[rows[i]:rows[i], :] -= A[rows[i], c] * A[rows[end]:rows[end], :]
             end
         end
@@ -596,15 +653,17 @@ additive.
 # Note
 * So far this is only implemented for quadratic extensions over a prime subfield, i.e., `GF(p^2)`.
 """
-function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
+function trellis_oriented_form_additive(A::Union{FqMatrix,fpMatrix})
     E = base_ring(A)
-    degree(E) == 2 || error("So far this is only implemented for quadratic extensions over a prime subfield.")
+    degree(E) == 2 || error(
+        "So far this is only implemented for quadratic extensions over a prime subfield.",
+    )
 
     A = _sort_by_left_index(A)
     nc = ncols(A)
     # display(A)
     # println(" ")
-    @views for c in 1:nc
+    @views for c = 1:nc
         left, right = _left_right_indices(A)
         rows = findall(x -> x == c, left)
         if length(rows) == 1
@@ -632,7 +691,10 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
             # println(Z_edges)
             # println(mixed_edges)
 
-            if length(X_edges) <= 1 && length(Z_edges) <= 1 && length(mixed_edges) <= 1 && (length(X_edges) + length(Z_edges) + length(mixed_edges)) <= 2
+            if length(X_edges) <= 1 &&
+               length(Z_edges) <= 1 &&
+               length(mixed_edges) <= 1 &&
+               (length(X_edges) + length(Z_edges) + length(mixed_edges)) <= 2
                 continue
             else
                 X_pivot = false
@@ -645,7 +707,7 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                     # display(A)
                     # println(" ")
                     # no problems here if this is only length 1
-                    for i in 2:length(X_edges)
+                    for i = 2:length(X_edges)
                         A[X_edges[i][1], :] -= E(coeff(X_edges[i][2], 0)) * A[row, :]
                     end
                 end
@@ -657,38 +719,54 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                     # display(A)
                     # println(" ")
                     # no problems here if this is only length 1
-                    for i in 2:length(Z_edges)
+                    for i = 2:length(Z_edges)
                         A[Z_edges[i][1], :] -= E(coeff(Z_edges[i][2], 1)) * A[row, :]
                     end
                 end
                 if !isempty(mixed_edges)
                     if X_pivot && Z_pivot
-                        for i in 1:length(mixed_edges)
-                            A[mixed_edges[i][1], :] -= E(coeff(mixed_edges[i][2], 0)) * A[X_edges[1][1], :] + E(coeff(mixed_edges[i][2], 1)) * A[Z_edges[1][1], :]
+                        for i = 1:length(mixed_edges)
+                            A[mixed_edges[i][1], :] -=
+                                E(coeff(mixed_edges[i][2], 0)) * A[X_edges[1][1], :] +
+                                E(coeff(mixed_edges[i][2], 1)) * A[Z_edges[1][1], :]
                         end
                     elseif X_pivot
-                        A[mixed_edges[1][1], :] -= E(coeff(mixed_edges[1][2], 0)) * A[X_edges[1][1], :]
+                        A[mixed_edges[1][1], :] -=
+                            E(coeff(mixed_edges[1][2], 0)) * A[X_edges[1][1], :]
                         # no problems here if this is only length 1
-                        for i in 2:length(mixed_edges)
-                            A[mixed_edges[i][1], :] -= E(coeff(mixed_edges[i][2], 0)) * A[X_edges[1][1], :] + E(coeff(mixed_edges[i][2], 1)) * A[mixed_edges[1][1], :]
+                        for i = 2:length(mixed_edges)
+                            A[mixed_edges[i][1], :] -=
+                                E(coeff(mixed_edges[i][2], 0)) * A[X_edges[1][1], :] +
+                                E(coeff(mixed_edges[i][2], 1)) * A[mixed_edges[1][1], :]
                         end
                     elseif Z_pivot
-                        A[mixed_edges[1][1], :] -= E(coeff(mixed_edges[1][2], 1)) * A[Z_edges[1][1], :]
+                        A[mixed_edges[1][1], :] -=
+                            E(coeff(mixed_edges[1][2], 1)) * A[Z_edges[1][1], :]
                         # no problems here if this is only length 1
-                        for i in 2:length(mixed_edges)
-                            A[mixed_edges[i][1], :] -= E(coeff(mixed_edges[i][2], 0)) * A[mixed_edges[1][1], :] + E(coeff(mixed_edges[i][2], 1)) * A[Z_edges[1][1], :]
+                        for i = 2:length(mixed_edges)
+                            A[mixed_edges[i][1], :] -=
+                                E(coeff(mixed_edges[i][2], 0)) * A[mixed_edges[1][1], :] +
+                                E(coeff(mixed_edges[i][2], 1)) * A[Z_edges[1][1], :]
                         end
                     else
                         A[mixed_edges[1][1], :] *= inv(E(coeff(mixed_edges[1][2], 0)))
                         if length(mixed_edges) > 1
-                            A[mixed_edges[2][1], :] -= E(coeff(mixed_edges[2][2], 0)) * A[mixed_edges[1][1], :]
-                            A[mixed_edges[2][1], :] *= inv(E(coeff(A[mixed_edges[2][1], c], 1)))
+                            A[mixed_edges[2][1], :] -=
+                                E(coeff(mixed_edges[2][2], 0)) * A[mixed_edges[1][1], :]
+                            A[mixed_edges[2][1], :] *=
+                                inv(E(coeff(A[mixed_edges[2][1], c], 1)))
                             if length(mixed_edges) > 2
-                                A[mixed_edges[3][1], :] -= E(coeff(mixed_edges[3][2], 1)) * A[mixed_edges[2][1], :]
-                                A[mixed_edges[3][1], :] *= inv(E(coeff(A[mixed_edges[3][1], c], 0)))
+                                A[mixed_edges[3][1], :] -=
+                                    E(coeff(mixed_edges[3][2], 1)) * A[mixed_edges[2][1], :]
+                                A[mixed_edges[3][1], :] *=
+                                    inv(E(coeff(A[mixed_edges[3][1], c], 0)))
                                 # no problems here if this is only length 3
-                                for i in 3:length(mixed_edges)
-                                    A[mixed_edges[i][1], :] -= E(coeff(mixed_edges[i][2], 0)) * A[mixed_edges[3][1], :] + E(coeff(mixed_edges[i][2], 1)) * A[mixed_edges[2][1], :]
+                                for i = 3:length(mixed_edges)
+                                    A[mixed_edges[i][1], :] -=
+                                        E(coeff(mixed_edges[i][2], 0)) *
+                                        A[mixed_edges[3][1], :] +
+                                        E(coeff(mixed_edges[i][2], 1)) *
+                                        A[mixed_edges[2][1], :]
                                 end
                             end
                         end
@@ -706,7 +784,7 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
     # display(A)
     # println(" ")
 
-    @views for c in nc:-1:1
+    @views for c = nc:-1:1
         rows = findall(x -> x == c, right)
         if length(rows) == 1
             if !iszero(coeff(A[rows[1], c], 0)) && !iszero(coeff(A[rows[1], c], 1))
@@ -730,7 +808,10 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                 end
             end
 
-            if length(X_edges) <= 1 && length(Z_edges) <= 1 && length(mixed_edges) <= 1 && (length(X_edges) + length(Z_edges) + length(mixed_edges)) <= 2
+            if length(X_edges) <= 1 &&
+               length(Z_edges) <= 1 &&
+               length(mixed_edges) <= 1 &&
+               (length(X_edges) + length(Z_edges) + length(mixed_edges)) <= 2
                 continue
             else
                 # need to determine if X and/or Z pivots are below Y and if not, use Y to
@@ -739,24 +820,26 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                     # can only set one coefficient of a + bω to 1 in additive, do a
                     row, Y = mixed_edges[end]
                     A[row, :] *= inv(E(coeff(Y, 0)))
-                    for i in length(mixed_edges) - 1:-1:1
+                    for i = (length(mixed_edges)-1):-1:1
                         # can't use a + bω to eliminate a c + dω, so first use 1 + b'ω to eliminate c
-                        A[mixed_edges[i][1], :] -= E(coeff(mixed_edges[i][2], 0)) * A[row, :]
+                        A[mixed_edges[i][1], :] -=
+                            E(coeff(mixed_edges[i][2], 0)) * A[row, :]
                         # now turn d to 1 - these are all pure Z's now and some could be pivots
                         if !iszero(coeff(A[mixed_edges[i][1], c], 1))
-                            A[mixed_edges[i][1], :] *= inv(E(coeff(A[mixed_edges[i][1], c], 1)))
+                            A[mixed_edges[i][1], :] *=
+                                inv(E(coeff(A[mixed_edges[i][1], c], 1)))
                             append!(Z_edges, (mixed_edges[i][1], A[mixed_edges[i][1], c]))
                         end
                     end
                     mixed_edges = [mixed_edges[end]]
-                    sort!(Z_edges, by=x->x[1])
+                    sort!(Z_edges, by = x->x[1])
                 end
 
                 if !isempty(X_edges)
                     row, X = X_edges[end]
                     A[row, :] *= inv(E(coeff(X, 0)))
                     # no problems here if this is only length 1
-                    for i in length(X_edges) - 1:-1:1
+                    for i = (length(X_edges)-1):-1:1
                         A[X_edges[i][1], :] -= E(coeff(X_edges[i][2], 0)) * A[row, :]
                     end
                     X_edges = [X_edges[end]]
@@ -765,7 +848,7 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                     row, Z = Z_edges[end]
                     A[row, :] *= inv(E(coeff(Z, 1)))
                     # no problems here if this is only length 1
-                    for i in length(Z_edges) - 1:-1:1
+                    for i = (length(Z_edges)-1):-1:1
                         A[Z_edges[i][1], :] -= E(coeff(Z_edges[i][2], 1)) * A[row, :]
                     end
                     Z_edges = [Z_edges[end]]
@@ -778,17 +861,21 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
                         # Y edge is top, apply both X and Z pivots to remove it
                         # pivot to be removed is of the form 1 + bω
                         A[mixed_edges[1][1], :] -= A[X_edges[1][1], :]
-                        A[mixed_edges[1][1], :] -= E(coeff(A[mixed_edges[1][1], c], 1)) * A[Z_edges[1][1], :]
+                        A[mixed_edges[1][1], :] -=
+                            E(coeff(A[mixed_edges[1][1], c], 1)) * A[Z_edges[1][1], :]
                     elseif loc == 2
                         # X edge is top, apply both Y and Z pivots to remove it
                         A[X_edges[1][1], :] -= A[mixed_edges[1][1], :]
                         # pivot to be remove is now of the form bω coming from the Y
-                        A[X_edges[1][1], :] -= E(coeff(A[X_edges[1][1], c], 1)) * A[Z_edges[1][1], :]
+                        A[X_edges[1][1], :] -=
+                            E(coeff(A[X_edges[1][1], c], 1)) * A[Z_edges[1][1], :]
                     else
                         # Z edge is top, apply both Y and X pivots to remove it
-                        A[Z_edges[1][1], :] -= inv(E(coeff(mixed_edges[1][2], 1))) * A[mixed_edges[1][1], :]
+                        A[Z_edges[1][1], :] -=
+                            inv(E(coeff(mixed_edges[1][2], 1))) * A[mixed_edges[1][1], :]
                         # pivot to be remove is now of the form b^{-1}
-                        A[Z_edges[1][1], :] -= E(coeff(A[Z_edges[1][1], c], 0)) * A[X_edges[1][1], :]
+                        A[Z_edges[1][1], :] -=
+                            E(coeff(A[Z_edges[1][1], c], 0)) * A[X_edges[1][1], :]
                     end
                 end
             end
@@ -799,13 +886,19 @@ function trellis_oriented_form_additive(A::Union{FqMatrix, fpMatrix})
 end
 
 # need to brainstorem parallel edges
-function trellis_profiles(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatrix, fpMatrix},
-    boundaries::Union{Vector{Int64}, Missing}, inner_prod::String="Euclidean")
+function trellis_profiles(
+    wrt_V::Union{FqMatrix,fpMatrix},
+    wrt_E::Union{FqMatrix,fpMatrix},
+    boundaries::Union{Vector{Int64},Missing},
+    inner_prod::String = "Euclidean",
+)
 
-    inner_prod ∈ ["Euclidean", "symplectic"] || error("Unsupported inner product type in _trellisprofiles; expected: `Euclidean`, `symplectic`, received: $inner_prod.")
+    inner_prod ∈ ["Euclidean", "symplectic"] || error(
+        "Unsupported inner product type in _trellisprofiles; expected: `Euclidean`, `symplectic`, received: $inner_prod.",
+    )
 
     if ismissing(boundaries)
-        bds = [1:size(wrt_V, 2) + 1...]
+        bds = [1:(size(wrt_V, 2)+1)...]
     else
         bds = deepcopy(boundaries)
         if 0 ∈ bds
@@ -831,7 +924,7 @@ function trellis_profiles(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatri
     dim_ker = 0
 
     p = Int64(characteristic(base_ring(wrt_V)))
-    for i in 1:n + 1
+    for i = 1:(n+1)
         state_profile[i] = p^(size(wrt_V, 1) - past[i] - future[i] - dim_ker)
     end
 
@@ -839,27 +932,33 @@ function trellis_profiles(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatri
     past, future = _past_future(wrt_E)
     past = past[bds]
     future = future[bds]
-    for i in 1:n
+    for i = 1:n
         dim_parallel = 0
-        branch_profile[i] = p^(size(wrt_E, 1) - past[i] - future[i + 1] - dim_ker - dim_parallel)
-        in_degrees[i] = div(branch_profile[i], state_profile[i + 1])
+        branch_profile[i] =
+            p^(size(wrt_E, 1) - past[i] - future[i+1] - dim_ker - dim_parallel)
+        in_degrees[i] = div(branch_profile[i], state_profile[i+1])
         out_degrees[i] = div(branch_profile[i], state_profile[i])
     end
     return [state_profile, branch_profile, in_degrees, out_degrees]
 end
 
 #############################
-        # Classical
+# Classical
 #############################
 
 # TODO: handle lookup table better - temporarily skipping
 # TODO: remove dictionaries, iterate once to find left, once for right
 # keep first bipartite structure and shift it as a coset to find the next ones - fix for sectionalization
-function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=true,
-    verbose::Bool=false)
+function syndrome_trellis(
+    C::AbstractCode,
+    type::String = "primal",
+    sect::Bool = true,
+    verbose::Bool = false,
+)
 
-    (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) ||
-        error("Syndrome trellises are so far only implemented for linear and stabilizer codes.")
+    (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) || error(
+        "Syndrome trellises are so far only implemented for linear and stabilizer codes.",
+    )
 
     if typeof(C) <: AbstractLinearCode
         wrt_V = trellis_oriented_form_linear(parity_check_matrix(C))
@@ -940,18 +1039,21 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
     end
     p = Int64(characteristic(K))
     n = length(C)
-    V = Vector{Vertex}[Vertex[] for _ in 1:length(bds)]
-    Threads.@threads for i in 1:length(profiles[1])
-        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ in 1:profiles[1][i]]
+    V = Vector{Vertex}[Vertex[] for _ = 1:length(bds)]
+    Threads.@threads for i = 1:length(profiles[1])
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ = 1:profiles[1][i]]
     end
     V[1] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     V[end] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     verbose && println("Vertex preallocation completed.")
 
-    E = Vector{Vector{Edge}}[[Edge[]] for _ in 1:length(profiles[3])]
-    Threads.@threads for i in 1:length(profiles[3])
+    E = Vector{Vector{Edge}}[[Edge[]] for _ = 1:length(profiles[3])]
+    Threads.@threads for i = 1:length(profiles[3])
         # the j-th element of Ei is going to be all of the edges going into Vi[j]
-        E[i] = [[Edge(K(0), 0.0, 0, missing) for j in 1:profiles[3][i]] for _ in 1:profiles[1][i + 1]]
+        E[i] = [
+            [Edge(K(0), 0.0, 0, missing) for j = 1:profiles[3][i]] for
+            _ = 1:profiles[1][i+1]
+        ]
     end
     verbose && println("Edge preallocation completed.")
 
@@ -959,25 +1061,25 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
     bio = BigInt(1)
     syn_len = size(wrt_V, 1)
     active = _find_active(wrt_V)
-    active = active[bds[2:end - 1]]
-    Threads.@threads for i in 2:length(bds) - 1
+    active = active[bds[2:(end-1)]]
+    Threads.@threads for i = 2:(length(bds)-1)
         Vi_size = profiles[1][i]
-        for num in 0:Vi_size - 1
-            bin = reverse(digits(num, base=2, pad=length(active[i - 1])))
+        for num = 0:(Vi_size-1)
+            bin = reverse(digits(num, base = 2, pad = length(active[i-1])))
             temp_label = zeros(Int64, syn_len)
             loc = 1
-            for j in active[i - 1]
+            for j in active[i-1]
                 temp_label[j] = bin[loc]
                 loc += 1
             end
 
             cur_label = biz
-            for (shift, val) in enumerate(reverse(temp_label, dims=1))
+            for (shift, val) in enumerate(reverse(temp_label, dims = 1))
                 if val == 1
                     cur_label += bio << (shift - 1)
                 end
             end
-            V[i][num + 1].label = cur_label
+            V[i][num+1].label = cur_label
         end
     end
     verbose && println("Vertex construction completed.")
@@ -989,13 +1091,16 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
         active_temp = active
     else
         active_temp = Vector{Vector{Int64}}()
-        for i in 1:length(bds) - 1
+        for i = 1:(length(bds)-1)
             # temp = Vector{Int64}()
             # for j in bds[i] + 1:bds[i + 1]
             #     append!(temp, active[j])
             # end
             # push!(active_temp, sort!(unique!(temp)))
-            push!(active_temp, sort!(unique!(vcat([active[j] for j in bds[i] + 1:bds[i + 1]]...))))
+            push!(
+                active_temp,
+                sort!(unique!(vcat([active[j] for j = (bds[i]+1):bds[i+1]]...))),
+            )
         end
     end
 
@@ -1003,18 +1108,20 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
         H = _Flint_matrix_to_Julia_int_matrix(wrt_V)
     else
         sym_wrt_V = quadratic_to_symplectic(wrt_V)
-        H = _Flint_matrix_to_Julia_int_matrix(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
+        H = _Flint_matrix_to_Julia_int_matrix(
+            hcat(sym_wrt_V[:, (n+1):end], -sym_wrt_V[:, 1:n]),
+        )
     end
     # Threads.@threads 
-    for i in length(bds) - 1:-1:1
+    for i = (length(bds)-1):-1:1
         verbose && println("Starting E[$i]")
         # seclen = bds[i + 1] - bds[i]
         valid_edges = Vector{FqMatrix}()
-        edge_contrib = Dict{FqMatrix, Vector{Int64}}()
-        contrib_edge = Dict{Vector{Int64}, FqMatrix}()
+        edge_contrib = Dict{FqMatrix,Vector{Int64}}()
+        contrib_edge = Dict{Vector{Int64},FqMatrix}()
 
         for a in active_temp[i]
-            temp = wrt_E[a, bds[i] + 1:bds[i + 1]]
+            temp = wrt_E[a, (bds[i]+1):bds[i+1]]
             if !iszero(temp)
                 push!(valid_edges, temp)
             end
@@ -1023,9 +1130,10 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
         # i == 1 && display(valid_edges)
 
         # may need to use Oscar here now that the import is switched
-        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(valid_edges))
+        for iter in
+            Nemo.AbstractAlgebra.ProductIterator(collect(0:(p-1)), length(valid_edges))
             e = K(iter[1]) * valid_edges[1]
-            for r in 2:length(valid_edges)
+            for r = 2:length(valid_edges)
                 if !iszero(iter[r])
                     e += K(iter[r]) * valid_edges[r]
                 end
@@ -1034,13 +1142,13 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
             if typeof(C) <: AbstractLinearCode
                 P = zeros(Int64, n)
                 for (j, k) in enumerate(e)
-                    P[bds[i] + j] = coeff(k, 0)
+                    P[bds[i]+j] = coeff(k, 0)
                 end
             else
                 P = zeros(Int64, 2 * n)
                 for (j, k) in enumerate(e)
-                    P[bds[i] + j] = coeff(k, 0)
-                    P[bds[i] + j + n] = coeff(k, 1)
+                    P[bds[i]+j] = coeff(k, 0)
+                    P[bds[i]+j+n] = coeff(k, 1)
                 end
             end
             syn = H * P .% p
@@ -1056,7 +1164,7 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
         # display(contrib_edge)
 
         V_left = V[i]
-        V_right = V[i + 1]
+        V_right = V[i+1]
         len_left = length(V_left)
         len_right = length(V_right)
         V_right_locs = trues(len_right)
@@ -1067,21 +1175,25 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
 
         while starting_right_index <= len_right
             starting_right_v = V_right[starting_right_index].label
-            left_vertices = Vector{Tuple{Int64, BigInt, Vector{Int64}}}()
-            right_vertices = Vector{Tuple{Int64, BigInt, Vector{Int64}}}()
+            left_vertices = Vector{Tuple{Int64,BigInt,Vector{Int64}}}()
+            right_vertices = Vector{Tuple{Int64,BigInt,Vector{Int64}}}()
             sizehint!(left_vertices, profiles[4][i])
             sizehint!(right_vertices, profiles[3][i])
 
-            starting_right_v_syn = reverse(digits(starting_right_v, base=2, pad=syn_len))
+            starting_right_v_syn =
+                reverse(digits(starting_right_v, base = 2, pad = syn_len))
             # println("i: $i, syn_len: $syn_len, srsyn: $starting_right_v_syn, srv: $starting_right_v")
-            push!(right_vertices, (starting_right_index, starting_right_v, starting_right_v_syn))
+            push!(
+                right_vertices,
+                (starting_right_index, starting_right_v, starting_right_v_syn),
+            )
             connecting_starts = blank
             starting_left_v = biz
 
             # start with a fixed right vertex and find all left vertices
             for lab in keys(edge_contrib)
                 temp = (starting_right_v_syn .- edge_contrib[lab])
-                for t in 1:length(temp)
+                for t = 1:length(temp)
                     if temp[t] < 0
                         temp[t] = p + temp[t]
                     end
@@ -1089,7 +1201,7 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
                 temp = temp .% p
 
                 left_label = biz
-                for (shift, val) in enumerate(reverse(temp, dims=1))
+                for (shift, val) in enumerate(reverse(temp, dims = 1))
                     if val == 1
                         left_label += bio << (shift - 1)
                     end
@@ -1124,7 +1236,7 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
                     if lab != connecting_starts
                         temp = (starting_left_v .+ edge_contrib[lab]) .% p
                         right_label = biz
-                        for (shift, val) in enumerate(reverse(temp, dims=1))
+                        for (shift, val) in enumerate(reverse(temp, dims = 1))
                             if val == 1
                                 right_label += bio << (shift - 1)
                             end
@@ -1158,7 +1270,7 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
                 count = 1
                 for (left_index, _, left_syn) in left_vertices
                     temp = right_syn .- left_syn
-                    for t in 1:length(temp)
+                    for t = 1:length(temp)
                         if temp[t] < 0
                             temp[t] = p + temp[t]
                         end
@@ -1172,10 +1284,10 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
                         sign = R(0)
                         for (j, k) in enumerate(lab)
                             if !iszero(coeff(k, 0))
-                                sign += character_vector(C)[bds[i] + j]
+                                sign += character_vector(C)[bds[i]+j]
                             end
                             if !iszero(coeff(k, 1))
-                                sign += character_vector(C)[bds[i] + j + n]
+                                sign += character_vector(C)[bds[i]+j+n]
                             end
                         end
                         E[i][right_index][count].sign = sign
@@ -1208,7 +1320,7 @@ function syndrome_trellis(C::AbstractCode, type::String="primal", sect::Bool=tru
 end
 
 # should probably return missing to unify if statements in the function below
-function trellis_profiles(C::AbstractLinearCode, sect::Bool=false)
+function trellis_profiles(C::AbstractLinearCode, sect::Bool = false)
     G_TOF = trellis_oriented_form_linear(generator_matrix(C))
     H_TOF = trellis_oriented_form_linear(parity_check_matrix(C))
     if sect
@@ -1234,18 +1346,21 @@ end
 # end
 
 #############################
-         # Quantum
+# Quantum
 #############################
 
 # only valid for quantum codes
-function optimal_sectionalization_Q(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Union{FqMatrix, fpMatrix})
+function optimal_sectionalization_Q(
+    wrt_V::Union{FqMatrix,fpMatrix},
+    wrt_E::Union{FqMatrix,fpMatrix},
+)
     K = base_ring(wrt_E)
     base_ring(wrt_V) == K || error("Vertices and edges must have the same base ring.")
 
     n = size(wrt_V, 2)
     p = Int64(characteristic(K))
-    V = [Vertex(i, 0, 0, 0.0, 0, missing) for i in 1:n + 1]
-    E = [[Edge(K(0), 0.0, 0, missing) for i in 1:j] for j in n:-1:1]
+    V = [Vertex(i, 0, 0, 0.0, 0, missing) for i = 1:(n+1)]
+    E = [[Edge(K(0), 0.0, 0, missing) for i = 1:j] for j = n:-1:1]
 
     sym_V = quadratic_to_symplectic(wrt_V)
     sym_E = quadratic_to_symplectic(wrt_E)
@@ -1253,18 +1368,18 @@ function optimal_sectionalization_Q(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Uni
     dim_ker = 0
     # println(dim_ker)
     past, future = _past_future(wrt_E)
-    for i in 1:n
-        for j in i:n
+    for i = 1:n
+        for j = i:n
             # arbitrary size cutoff
-            if size(wrt_E, 1) - past[i] - future[j + 1] - dim_ker > 50
-                E[i][j - i + 1].weight = Inf
+            if size(wrt_E, 1) - past[i] - future[j+1] - dim_ker > 50
+                E[i][j-i+1].weight = Inf
             else
-                E[i][j - i + 1].weight = p^(size(wrt_E, 1) - past[i] - future[j + 1] - dim_ker)
+                E[i][j-i+1].weight = p^(size(wrt_E, 1) - past[i] - future[j+1] - dim_ker)
             end
         end
     end
 
-    for i in 1:n
+    for i = 1:n
         left_b = 1
         right_b = i
         arr = [E[left_b][right_b].weight + V[left_b].value]
@@ -1276,8 +1391,8 @@ function optimal_sectionalization_Q(wrt_V::Union{FqMatrix, fpMatrix}, wrt_E::Uni
         end
 
         m, arg = findmin(arr)
-        V[i + 1].prev = arg
-        V[i + 1].value = m
+        V[i+1].prev = arg
+        V[i+1].value = m
     end
 
     sect_boundaries = [n]
@@ -1555,25 +1670,30 @@ end
 # Pauli == 'Z'
 # I -> I + Z
 # X -> X + Y
-function weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, err_models::Vector{Dict{String, Float64}},
-    weight_type::String="additive")
+function weight_Q!(
+    T::Trellis,
+    Ps::Union{FqMatrix,fpMatrix},
+    err_models::Vector{Dict{String,Float64}},
+    weight_type::String = "additive",
+)
 
-    weight_type ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
+    weight_type ∈ ["additive", "multiplicative"] ||
+        error("Weight type needs to be 'additive' or 'multiplicative'.")
 
     V = vertices(T)
     E = edges(T)
-    for i in 1:length(E)
+    for i = 1:length(E)
         model = err_models[i]
-        for j in 1:length(V[i + 1])
+        for j = 1:length(V[i+1])
             Threads.@threads for e in E[i][j]
                 if weight_type == "additive"
                     weight = 0.0
-                    for k in 1:length(e.label)
+                    for k = 1:length(e.label)
                         weight += model[e.label[k]]
                     end
                 else
                     weight = 1.0
-                    for k in 1:length(e.label)
+                    for k = 1:length(e.label)
                         weight *= model[e.label[k]]
                     end
                 end
@@ -1591,13 +1711,22 @@ end
 # I -> I + Z
 # X -> X + Y
 # remove wrt_V here
-function shift_and_weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
-    err_models::Vector{Dict{String, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
-    weight_type::String="additive")
+function shift_and_weight_Q!(
+    T::Trellis,
+    Ps::Union{FqMatrix,fpMatrix},
+    boundaries::Union{Vector{Int64},Missing},
+    err_models::Vector{Dict{String,Float64}},
+    char_vec::Vector{Int64},
+    Pauli::Char = ' ',
+    weight_type::String = "additive",
+)
 
-    Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
-    weight_type ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
-    length(char_vec) == 2 * length(err_models) || error("Lengths of character vector and error models are not consistent.")
+    Pauli ∈ [' ', 'X', 'Z'] ||
+        error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
+    weight_type ∈ ["additive", "multiplicative"] ||
+        error("Weight type needs to be 'additive' or 'multiplicative'.")
+    length(char_vec) == 2 * length(err_models) ||
+        error("Lengths of character vector and error models are not consistent.")
 
     K = base_ring(Ps)
     V = vertices(T)
@@ -1609,11 +1738,11 @@ function shift_and_weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundari
         bds = deepcopy(boundaries)
     end
 
-    for i in 1:length(E)
+    for i = 1:length(E)
         model = err_models[i]
-        for j in 1:length(V[i + 1])
+        for j = 1:length(V[i+1])
             Threads.@threads for e in E[i][j]
-                e.label += Ps[bds[i] + 1:bds[i + 1]]
+                e.label += Ps[(bds[i]+1):bds[i+1]]
                 if Pauli == 'X'
                     for k in e.label
                         k -= K(coeff(k, 0))
@@ -1632,10 +1761,10 @@ function shift_and_weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundari
                 end
                 for (l, k) in enumerate(e.label)
                     if !iszero(coeff(k, 0))
-                        sign *= char_vec[bds[i] + l]
+                        sign *= char_vec[bds[i]+l]
                     end
                     if !iszero(coeff(k, 1))
-                        sign *= char_vec[bds[i] + l + code_n]
+                        sign *= char_vec[bds[i]+l+code_n]
                     end
                     if weight_type == "additive"
                         weight += model[k]
@@ -1651,9 +1780,15 @@ function shift_and_weight_Q!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundari
 end
 
 # do I actually care about updating the signs here?
-function shift_and_decode_Q!!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
-    err_models::Vector{Dict{FqFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
-    weight_type::String="additive")
+function shift_and_decode_Q!!(
+    T::Trellis,
+    Ps::Union{FqMatrix,fpMatrix},
+    boundaries::Union{Vector{Int64},Missing},
+    err_models::Vector{Dict{FqFieldElem,Float64}},
+    char_vec::Vector{Int64},
+    Pauli::Char = ' ',
+    weight_type::String = "additive",
+)
 
     # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
     # weight_type ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
@@ -1669,12 +1804,12 @@ function shift_and_decode_Q!!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundar
         bds = deepcopy(boundaries)
     end
 
-    for i in 1:length(E)
+    for i = 1:length(E)
         model = err_models[i]
-        for (j, v) in enumerate(V[i + 1])
+        for (j, v) in enumerate(V[i+1])
             # don't Threads.@threads the below loop or you get a >100x slow down due to locking
             for e in E[i][j]
-                e.label += Ps[1, bds[i] + 1:bds[i + 1]]
+                e.label += Ps[1, (bds[i]+1):bds[i+1]]
                 if Pauli == 'X'
                     for k in e.label
                         k -= K(coeff(k, 0))
@@ -1720,18 +1855,24 @@ function shift_and_decode_Q!!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundar
     path = zero_matrix(base_ring(Ps), 1, code_n)
     curr = code_n
     prev = 1
-    for i in length(E) + 1:-1:2
-        e_label = E[i - 1][prev][V[i][prev].edge_loc].label
-        path[1, (curr - length(e_label) + 1):curr] = e_label
+    for i = (length(E)+1):-1:2
+        e_label = E[i-1][prev][V[i][prev].edge_loc].label
+        path[1, (curr-length(e_label)+1):curr] = e_label
         prev = V[i][prev].prev
         curr -= length(e_label)
     end
     return path
 end
 
-function shift!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vector{Int64}, Missing},
-    err_models::Vector{Dict{FqFieldElem, Float64}}, char_vec::Vector{Int64}, Pauli::Char=' ',
-    weight_type::String="additive")
+function shift!(
+    T::Trellis,
+    Ps::Union{FqMatrix,fpMatrix},
+    boundaries::Union{Vector{Int64},Missing},
+    err_models::Vector{Dict{FqFieldElem,Float64}},
+    char_vec::Vector{Int64},
+    Pauli::Char = ' ',
+    weight_type::String = "additive",
+)
 
     # Pauli ∈ [' ', 'X', 'Z'] || error("Pauli parameter needs to be ' ', 'X', or 'Z'; received $Pauli.")
     # weight_type ∈ ["additive", "multiplicative"] || error("Weight type needs to be 'additive' or 'multiplicative'.")
@@ -1747,11 +1888,11 @@ function shift!(T::Trellis, Ps::Union{FqMatrix, fpMatrix}, boundaries::Union{Vec
         bds = deepcopy(boundaries)
     end
 
-    for i in 1:length(E)
+    for i = 1:length(E)
         model = err_models[i]
-        for j in 1:length(V[i + 1])
+        for j = 1:length(V[i+1])
             Threads.@threads for e in E[i][j]
-                e.label += Ps[1, bds[i] + 1:bds[i + 1]]
+                e.label += Ps[1, (bds[i]+1):bds[i+1]]
                 if Pauli == 'X'
                     for k in e.label
                         k -= K(coeff(k, 0))
@@ -1790,12 +1931,17 @@ end
 
 # think of more scenarios
 # could allow general trellises given partial stabilizers for use in trellis product
-function trellis_profiles(Q::AbstractStabilizerCode, type::String="weight", Pauli::Char=' ',
-    sect::Bool=false)
+function trellis_profiles(
+    Q::AbstractStabilizerCode,
+    type::String = "weight",
+    Pauli::Char = ' ',
+    sect::Bool = false,
+)
 
     type ∈ ["weight", "decoding"] || error("Unknown type parameter in trellis_profiles.")
     # (Pauli != ' ' && typeof(Q) <: CSSCode) && error("Pauli parameter is non-empty but the code is not CSS.")
-    Pauli ∈ [' ', 'X', 'Z'] || error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
+    Pauli ∈ [' ', 'X', 'Z'] ||
+        error("Unknown Pauli parameter $Pauli; must be ' ', 'X', or 'Z'.")
 
     if type == "weight"
         if Pauli == ' '
@@ -1808,8 +1954,14 @@ function trellis_profiles(Q::AbstractStabilizerCode, type::String="weight", Paul
             end
             return trellis_profiles(n_TOF, S_TOF, missing, "symplectic")
         elseif Pauli == 'X'
-            _, _, Z_perp, _, _, _ = split_symplectic_stabilizers(quadratic_to_symplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
-            X = hcat(X_stabilizers(Q), zero_matrix(field(Q), size(X_stabilizers(Q), 1), size(X_stabilizers(Q), 2)))
+            _, _, Z_perp, _, _, _ = split_symplectic_stabilizers(
+                quadratic_to_symplectic(normalizermatrix(Q)),
+                ones(Int64, size(normalizermatrix(Q), 1)),
+            )
+            X = hcat(
+                X_stabilizers(Q),
+                zero_matrix(field(Q), size(X_stabilizers(Q), 1), size(X_stabilizers(Q), 2)),
+            )
             Z_perp_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(Z_perp))
             X_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(X))
             if sect
@@ -1818,8 +1970,14 @@ function trellis_profiles(Q::AbstractStabilizerCode, type::String="weight", Paul
             end
             return trellis_profiles(Z_perp_TOF, X_TOF, missing, "symplectic")
         else
-            X_perp, _, _, _, _, _ = split_symplectic_stabilizers(quadratic_to_symplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
-            Z = hcat(zero_matrix(field(Q), size(Z_stabilizers(Q), 1), size(Z_stabilizers(Q), 2)), Z_stabilizers(Q))
+            X_perp, _, _, _, _, _ = split_symplectic_stabilizers(
+                quadratic_to_symplectic(normalizermatrix(Q)),
+                ones(Int64, size(normalizermatrix(Q), 1)),
+            )
+            Z = hcat(
+                zero_matrix(field(Q), size(Z_stabilizers(Q), 1), size(Z_stabilizers(Q), 2)),
+                Z_stabilizers(Q),
+            )
             X_perp_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(X_perp))
             Z_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(Z))
             if sect
@@ -1838,8 +1996,14 @@ function trellis_profiles(Q::AbstractStabilizerCode, type::String="weight", Paul
             end
             return trellis_profiles(S_TOF, n_TOF, missing, "symplectic")
         elseif Pauli == 'X'
-            _, _, Z_perp, _, _, _ = split_symplectic_stabilizers(quadratic_to_symplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
-            X = hcat(X_stabilizers(Q), zero_matrix(field(Q), size(X_stabilizers(Q), 1), size(X_stabilizers(Q), 2)))
+            _, _, Z_perp, _, _, _ = split_symplectic_stabilizers(
+                quadratic_to_symplectic(normalizermatrix(Q)),
+                ones(Int64, size(normalizermatrix(Q), 1)),
+            )
+            X = hcat(
+                X_stabilizers(Q),
+                zero_matrix(field(Q), size(X_stabilizers(Q), 1), size(X_stabilizers(Q), 2)),
+            )
             Z_perp_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(Z_perp))
             X_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(X))
             if sect
@@ -1848,8 +2012,14 @@ function trellis_profiles(Q::AbstractStabilizerCode, type::String="weight", Paul
             end
             return trellis_profiles(X_TOF, Z_perp_TOF, missing, "symplectic")
         else
-            X_perp, _, _, _, _, _ = split_symplectic_stabilizers(quadratic_to_symplectic(normalizermatrix(Q)), ones(Int64, size(normalizermatrix(Q), 1)))
-            Z = hcat(zero_matrix(field(Q), size(Z_stabilizers(Q), 1), size(Z_stabilizers(Q), 2)), Z_stabilizers(Q))
+            X_perp, _, _, _, _, _ = split_symplectic_stabilizers(
+                quadratic_to_symplectic(normalizermatrix(Q)),
+                ones(Int64, size(normalizermatrix(Q), 1)),
+            )
+            Z = hcat(
+                zero_matrix(field(Q), size(Z_stabilizers(Q), 1), size(Z_stabilizers(Q), 2)),
+                Z_stabilizers(Q),
+            )
             X_perp_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(X_perp))
             Z_TOF = trellis_oriented_form_additive(symplectic_to_quadratic(Z))
             if sect
@@ -1945,10 +2115,16 @@ end
 
 
 
-function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::Bool=false)
+function sect(
+    C::AbstractCode,
+    type::String = "primal",
+    sect::Bool = true,
+    verbose::Bool = false,
+)
 
-    (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) ||
-        error("Syndrome trellises are so far only implemented for linear and stabilizer codes.")
+    (typeof(C) <: AbstractLinearCode || typeof(C) <: AbstractStabilizerCode) || error(
+        "Syndrome trellises are so far only implemented for linear and stabilizer codes.",
+    )
 
     if typeof(C) <: AbstractLinearCode
         wrt_V = trellis_oriented_form_linear(parity_check_matrix(C))
@@ -1981,7 +2157,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
     else
         if type == "primal"
             wrt_V = trellis_oriented_form_additive(stabilizers(C))
-            wrt_E = trellis_oriented_form_additive(normalizermatrix(C))           
+            wrt_E = trellis_oriented_form_additive(normalizermatrix(C))
         else
             wrt_V = trellis_oriented_form_additive(normalizermatrix(C))
             wrt_E = trellis_oriented_form_additive(stabilizers(C))
@@ -2030,44 +2206,47 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
     end
     p = Int64(characteristic(K))
     n = C.n
-    V = Vector{Vertex}[Vertex[] for _ in 1:length(bds)]
-    Threads.@threads for i in 1:length(profiles[1])
-        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ in 1:profiles[1][i]]
+    V = Vector{Vertex}[Vertex[] for _ = 1:length(bds)]
+    Threads.@threads for i = 1:length(profiles[1])
+        V[i] = [Vertex(999, 0, 0, 0.0, 0, missing) for _ = 1:profiles[1][i]]
     end
     V[1] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     V[end] = [Vertex(0, 0, 0, 0.0, 0, missing)]
     verbose && println("Vertex preallocation completed.")
 
-    E = Vector{Vector{Edge}}[[Edge[]] for _ in 1:length(profiles[3])]
-    Threads.@threads for i in 1:length(profiles[3])
+    E = Vector{Vector{Edge}}[[Edge[]] for _ = 1:length(profiles[3])]
+    Threads.@threads for i = 1:length(profiles[3])
         # the j-th element of Ei is going to be all of the edges going into Vi[j]
-        E[i] = [[Edge(K(0), 0.0, 0, missing) for _ in 1:profiles[3][i]] for _ in 1:profiles[1][i + 1]]
+        E[i] = [
+            [Edge(K(0), 0.0, 0, missing) for _ = 1:profiles[3][i]] for
+            _ = 1:profiles[1][i+1]
+        ]
     end
     verbose && println("Edge preallocation completed.")
 
     bio = BigInt(1)
     syn_len = nrows(wrt_V)
     active_Vs = _find_active(wrt_V)
-    active_Vs = active_Vs[bds[2:end - 1]]
-    Threads.@threads for i in 2:length(bds) - 1
+    active_Vs = active_Vs[bds[2:(end-1)]]
+    Threads.@threads for i = 2:(length(bds)-1)
         Vi_size = profiles[1][i]
-        len_act = length(active_Vs[i - 1])
+        len_act = length(active_Vs[i-1])
         # TODO: can I get away with not reversing throughout
         # TODO: do I gain anything from making the V.label correct?
-        for num in 0:Vi_size - 1
+        for num = 0:(Vi_size-1)
             # int to small active digits array
-            bin = reverse(digits(num, base=p, pad=len_act))
+            bin = reverse(digits(num, base = p, pad = len_act))
             # to full syn length size
             temp_label = zeros(Int64, syn_len)
             loc = 1
-            for j in active_Vs[i - 1]
+            for j in active_Vs[i-1]
                 temp_label[j] = bin[loc]
                 loc += 1
             end
             # i == 3 && println("i = 3: $temp_label")
             # i == 2 && println("i = 2: $temp_label")
             # back to int
-            V[i][num + 1].label = digitstoint(reverse(temp_label, dims=1), p)
+            V[i][num+1].label = digitstoint(reverse(temp_label, dims = 1), p)
         end
     end
     verbose && println("Vertex construction completed.")
@@ -2086,8 +2265,8 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
     else
         active_temp = Vector{Vector{Int64}}()
         parallel = Vector{Vector{Int64}}()
-        for i in 1:length(bds) - 1
-            temp = sort!(unique!(vcat([active[j] for j in bds[i] + 1:bds[i + 1]]...)))
+        for i = 1:(length(bds)-1)
+            temp = sort!(unique!(vcat([active[j] for j = (bds[i]+1):bds[i+1]]...)))
             # println("temp: $temp")
             act = Vector{Int64}()
             par = Vector{Int64}()
@@ -2095,7 +2274,8 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                 # i == 1 && println(a)
                 # i == 1 && println(bds[i] + 1, ", ", left[a], ", ", right[a], ", ", bds[i + 1])
                 # i == 1 && println(bds[i] + 1 <= left[a] && right[a] <= bds[i + 1])
-                (bds[i] + 1 <= left[a] && right[a] <= bds[i + 1]) ? append!(par, a) : append!(act, a)
+                (bds[i] + 1 <= left[a] && right[a] <= bds[i+1]) ? append!(par, a) :
+                append!(act, a)
             end
             push!(active_temp, act)
             push!(parallel, par)
@@ -2107,16 +2287,18 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         H = _Flint_matrix_to_Julia_int_matrix(wrt_V)
     else
         sym_wrt_V = quadratic_to_symplectic(wrt_V)
-        H = _Flint_matrix_to_Julia_int_matrix(hcat(sym_wrt_V[:, n + 1:end], -sym_wrt_V[:, 1:n]))
+        H = _Flint_matrix_to_Julia_int_matrix(
+            hcat(sym_wrt_V[:, (n+1):end], -sym_wrt_V[:, 1:n]),
+        )
     end
-    
+
     # Threads.@threads 
-    for i in length(bds) - 1:-1:1
+    for i = (length(bds)-1):-1:1
         verbose && println("Starting E[$i]")
-        
+
         valid_edges = Vector{FqMatrix}()
-        edge_contrib = Dict{FqMatrix, Vector{Int64}}()
-        contrib_edge = Dict{Vector{Int64}, FqMatrix}()
+        edge_contrib = Dict{FqMatrix,Vector{Int64}}()
+        contrib_edge = Dict{Vector{Int64},FqMatrix}()
 
         par_flag = false
         if !ismissing(parallel) && !isempty(parallel[i])
@@ -2125,24 +2307,34 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
             for a in parallel[i]
                 # should never be zero because the entire row is between this
                 # same argument says it's always unique
-                push!(p_edges, wrt_E[a, bds[i] + 1:bds[i + 1]])
+                push!(p_edges, wrt_E[a, (bds[i]+1):bds[i+1]])
             end
 
             parallel_edges = Vector{FqMatrix}()
-            for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(p_edges))
+            for iter in
+                Nemo.AbstractAlgebra.ProductIterator(collect(0:(p-1)), length(p_edges))
                 e = K(iter[1]) * p_edges[1]
-                for r in 2:length(p_edges)
+                for r = 2:length(p_edges)
                     if !iszero(iter[r])
                         e += K(iter[r]) * p_edges[r]
                     end
                 end
                 !iszero(e) && push!(parallel_edges, e)
             end
-            
+
             if length(parallel_edges) > 1
                 p_e_mat_sym = quadratic_to_symplectic(reduce(vcat, parallel_edges))
-                temp = symplectic_to_quadratic(_remove_empty(_rref_no_col_swap(p_e_mat_sym, 1:nrows(p_e_mat_sym), 1:ncols(p_e_mat_sym)), :rows))
-                parallel_edges = [temp[i, :] for i in 1:nrows(temp)]
+                temp = symplectic_to_quadratic(
+                    _remove_empty(
+                        _rref_no_col_swap(
+                            p_e_mat_sym,
+                            1:nrows(p_e_mat_sym),
+                            1:ncols(p_e_mat_sym),
+                        ),
+                        :rows,
+                    ),
+                )
+                parallel_edges = [temp[i, :] for i = 1:nrows(temp)]
             else
                 p_e_mat_sym = quadratic_to_symplectic(reduce(vcat, parallel_edges))
             end
@@ -2152,7 +2344,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         # i == 2 && return
 
         for a in active_temp[i]
-            temp = wrt_E[a, bds[i] + 1:bds[i + 1]]
+            temp = wrt_E[a, (bds[i]+1):bds[i+1]]
             if !iszero(temp)
                 push!(valid_edges, temp)
             end
@@ -2162,34 +2354,61 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
             v_e_mat_sym = quadratic_to_symplectic(reduce(vcat, valid_edges))
             F = base_ring(v_e_mat_sym)
             VS = vector_space(F, ncols(v_e_mat_sym))
-            U, U_to_VS = sub(VS, [VS(p_e_mat_sym[i, :]) for i in 1:nrows(p_e_mat_sym)])
-            W, W_to_VS = sub(VS, [VS(v_e_mat_sym[i, :]) for i in 1:nrows(v_e_mat_sym)])
+            U, U_to_VS = sub(VS, [VS(p_e_mat_sym[i, :]) for i = 1:nrows(p_e_mat_sym)])
+            W, W_to_VS = sub(VS, [VS(v_e_mat_sym[i, :]) for i = 1:nrows(v_e_mat_sym)])
             I, _ = intersect(U, W)
             if !iszero(AbstractAlgebra.dim(I))
                 println("i = $i, here quo")
                 gens_of_U_in_W = [preimage(W_to_VS, U_to_VS(g)) for g in gens(U)]
                 U_in_W, _ = sub(W, gens_of_U_in_W)
                 Q, W_to_Q = quo(W, U_in_W)
-                C2_mod_C1_basis = [W_to_VS(x) for x in [preimage(W_to_Q, g) for g in gens(Q)]]
-                F_basis = [[F(C2_mod_C1_basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))] for j in 1:length(C2_mod_C1_basis)]
-                temp = symplectic_to_quadratic(matrix(F, length(F_basis), length(F_basis[1]), vcat(F_basis...)))
-                valid_edges = [temp[i, :] for i in 1:nrows(temp)]
+                C2_mod_C1_basis =
+                    [W_to_VS(x) for x in [preimage(W_to_Q, g) for g in gens(Q)]]
+                F_basis = [
+                    [
+                        F(C2_mod_C1_basis[j][i]) for
+                        i = 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))
+                    ] for j = 1:length(C2_mod_C1_basis)
+                ]
+                temp = symplectic_to_quadratic(
+                    matrix(F, length(F_basis), length(F_basis[1]), vcat(F_basis...)),
+                )
+                valid_edges = [temp[i, :] for i = 1:nrows(temp)]
             else
-                temp = symplectic_to_quadratic(_remove_empty(_rref_no_col_swap(v_e_mat_sym, 1:nrows(v_e_mat_sym), 1:ncols(v_e_mat_sym)), :rows))
-                valid_edges = [temp[i, :] for i in 1:nrows(temp)]
+                temp = symplectic_to_quadratic(
+                    _remove_empty(
+                        _rref_no_col_swap(
+                            v_e_mat_sym,
+                            1:nrows(v_e_mat_sym),
+                            1:ncols(v_e_mat_sym),
+                        ),
+                        :rows,
+                    ),
+                )
+                valid_edges = [temp[i, :] for i = 1:nrows(temp)]
             end
         else
-            temp = symplectic_to_quadratic(_remove_empty(_rref_no_col_swap(v_e_mat_sym, 1:nrows(v_e_mat_sym), 1:ncols(v_e_mat_sym)), :rows))
-            valid_edges = [temp[i, :] for i in 1:nrows(temp)]
+            temp = symplectic_to_quadratic(
+                _remove_empty(
+                    _rref_no_col_swap(
+                        v_e_mat_sym,
+                        1:nrows(v_e_mat_sym),
+                        1:ncols(v_e_mat_sym),
+                    ),
+                    :rows,
+                ),
+            )
+            valid_edges = [temp[i, :] for i = 1:nrows(temp)]
         end
         println("i = $i")
         display(valid_edges)
         # return
         # i == 2 && return
 
-        for iter in Nemo.AbstractAlgebra.ProductIterator(collect(0:p - 1), length(valid_edges))
+        for iter in
+            Nemo.AbstractAlgebra.ProductIterator(collect(0:(p-1)), length(valid_edges))
             e = K(iter[1]) * valid_edges[1]
-            for r in 2:length(valid_edges)
+            for r = 2:length(valid_edges)
                 if !iszero(iter[r])
                     e += K(iter[r]) * valid_edges[r]
                 end
@@ -2198,19 +2417,19 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
             if typeof(C) <: AbstractLinearCode
                 P = zeros(Int64, n)
                 for (j, k) in enumerate(e)
-                    P[bds[i] + j] = coeff(k, 0)
+                    P[bds[i]+j] = coeff(k, 0)
                 end
             else
                 P = zeros(Int64, 2 * n)
                 for (j, k) in enumerate(e)
-                    P[bds[i] + j] = coeff(k, 0)
-                    P[bds[i] + j + n] = coeff(k, 1)
+                    P[bds[i]+j] = coeff(k, 0)
+                    P[bds[i]+j+n] = coeff(k, 1)
                 end
             end
             syn = H * P .% p
             # if !iszero(syn)
-                edge_contrib[e] = syn
-                contrib_edge[syn] = e
+            edge_contrib[e] = syn
+            contrib_edge[syn] = e
             # end
         end
         # i == 2 && display(edge_contrib)
@@ -2218,16 +2437,17 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         verbose && println("Edges dictionaries completed for E[$i].")
 
         Vl_len = profiles[1][i]
-        Vr_len = profiles[1][i + 1]
-        left_vertices = Vector{Tuple{BigInt, Vector{Int}}}()
-        right_vertices = Vector{Tuple{BigInt, Vector{Int}}}()
+        Vr_len = profiles[1][i+1]
+        left_vertices = Vector{Tuple{BigInt,Vector{Int}}}()
+        right_vertices = Vector{Tuple{BigInt,Vector{Int}}}()
         sizehint!(left_vertices, profiles[4][i])
         sizehint!(right_vertices, profiles[3][i])
 
         # find fundamental edge configuration
         # find all v-e-0
         left_syn = right_syn = zeros(Int64, syn_len)
-        fundamental = Vector{Tuple{BigInt, Vector{Int}, Vector{FqMatrix}, Vector{Int}, BigInt}}()
+        fundamental =
+            Vector{Tuple{BigInt,Vector{Int},Vector{FqMatrix},Vector{Int},BigInt}}()
         for lab in keys(edge_contrib)
             left_syn = (right_syn .- edge_contrib[lab] .+ p) .% p
             if i == 1 && iszero(left_syn)
@@ -2239,8 +2459,9 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                 end
                 push!(fundamental, (bio, left_syn, edgs, right_syn, bio))
                 push!(left_vertices, (bio, left_syn))
-            elseif i != 1 && iszero(left_syn[setdiff(1:syn_len, active_Vs[i - 1])])
-                left_loc = BigInt(digitstoint(reverse(left_syn[active_Vs[i - 1]], dims=1), p)) + 1
+            elseif i != 1 && iszero(left_syn[setdiff(1:syn_len, active_Vs[i-1])])
+                left_loc =
+                    BigInt(digitstoint(reverse(left_syn[active_Vs[i-1]], dims = 1), p)) + 1
                 if left_loc <= Vl_len
                     edgs = [lab]
                     if par_flag
@@ -2259,7 +2480,8 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
         for lab in keys(edge_contrib)
             right_syn = edge_contrib[lab]
             if i != length(bds) - 1 && iszero(right_syn[setdiff(1:syn_len, active_Vs[i])])
-                right_loc = BigInt(digitstoint(reverse(right_syn[active_Vs[i]], dims=1), p)) + 1
+                right_loc =
+                    BigInt(digitstoint(reverse(right_syn[active_Vs[i]], dims = 1), p)) + 1
                 if !isone(right_loc)
                     edgs = [lab]
                     if par_flag
@@ -2278,23 +2500,23 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
             for (rl, rv) in right_vertices
                 temp = (rv .- lv .+ p) .% p
                 # if !iszero(temp)
-                    lab = contrib_edge[temp]
-                    edgs = [lab]
-                    if par_flag
-                        for a in parallel_edges
-                            push!(edgs, a + lab)
-                        end
+                lab = contrib_edge[temp]
+                edgs = [lab]
+                if par_flag
+                    for a in parallel_edges
+                        push!(edgs, a + lab)
                     end
-                    tup = (ll, lv, edgs, rv, rl)
-                    if tup ∉ fundamental
-                        push!(fundamental, tup)
-                    end
+                end
+                tup = (ll, lv, edgs, rv, rl)
+                if tup ∉ fundamental
+                    push!(fundamental, tup)
+                end
                 # end
             end
         end
 
         # record fundamental in E[i1]
-        sort!(fundamental, by=last)
+        sort!(fundamental, by = last)
         # i == 2 && 
         println("i = $i")
         display(fundamental)
@@ -2313,12 +2535,12 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                     sign = R(0)
                     for (j, k) in enumerate(e)
                         if !iszero(coeff(k, 0))
-                            sign += character_vector(C)[bds[i] + j]
+                            sign += character_vector(C)[bds[i]+j]
                         end
                         if !iszero(coeff(k, 1))
-                            sign += character_vector(C)[bds[i] + j + n]
+                            sign += character_vector(C)[bds[i]+j+n]
                         end
-                    end                    
+                    end
                     E[i][rl][count].sign = sign
                 end
                 count += 1
@@ -2337,7 +2559,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                 for edg in keys(edge_contrib)
                     error_syn = edge_contrib[edg]
                     # int to small active digits array
-                    bin = reverse(digits(r_loc - 1, base=p, pad=len_act))
+                    bin = reverse(digits(r_loc - 1, base = p, pad = len_act))
                     # to full syn length size
                     right_syn = zeros(Int64, syn_len)
                     loc = 1
@@ -2349,7 +2571,7 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                     left_syn = (right_syn .- error_syn .+ p) .% p
                     # i == 2 && println("left: $left_syn")
                     # check if this exists and only shift if it does
-                    if iszero(left_syn[setdiff(1:syn_len, active_Vs[i - 1])])
+                    if iszero(left_syn[setdiff(1:syn_len, active_Vs[i-1])])
                         # now have v-e-v' not in the fundamental edge configuration
                         # use it to shift
                         # i == 2 && println("in")
@@ -2359,9 +2581,21 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                             rl == cur || (count = 1; cur = rl;)
                             right_v = (rv .+ right_syn .+ p) .% p
                             # okay to reuse variable here
-                            rl = BigInt(digitstoint(reverse(right_v[active_Vs[i]], dims=1), p)) + 1
+                            rl =
+                                BigInt(
+                                    digitstoint(
+                                        reverse(right_v[active_Vs[i]], dims = 1),
+                                        p,
+                                    ),
+                                ) + 1
                             left_v = (lv .+ left_syn .+ p) .% p
-                            E[i][rl][count].out_vertex = BigInt(digitstoint(reverse(left_v[active_Vs[i - 1]], dims=1), p)) + 1
+                            E[i][rl][count].out_vertex =
+                                BigInt(
+                                    digitstoint(
+                                        reverse(left_v[active_Vs[i-1]], dims = 1),
+                                        p,
+                                    ),
+                                ) + 1
                             for e in edgs
                                 newe = e + edg
                                 E[i][rl][count].label = newe
@@ -2369,10 +2603,10 @@ function sect(C::AbstractCode, type::String="primal", sect::Bool=true, verbose::
                                     sign = R(0)
                                     for (j, k) in enumerate(newe)
                                         if !iszero(coeff(k, 0))
-                                            sign += character_vector(C)[bds[i] + j]
+                                            sign += character_vector(C)[bds[i]+j]
                                         end
                                         if !iszero(coeff(k, 1))
-                                            sign += character_vector(C)[bds[i] + j + n]
+                                            sign += character_vector(C)[bds[i]+j+n]
                                         end
                                     end
                                     E[i][rl][count].sign = sign

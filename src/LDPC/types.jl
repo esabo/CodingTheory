@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-      # abstract types
+# abstract types
 #############################
 
 abstract type AbstractLDPCCode <: AbstractLinearCode end
@@ -17,18 +17,18 @@ abstract type AbstractBinarySymmetricChannel <: AbstractClassicalNoiseChannel en
 abstract type AbstractBAWGNChannel <: AbstractClassicalNoiseChannel end
 
 #############################
-      # concrete types
+# concrete types
 #############################
 
 #############################
-        # LDPC/codes.jl
+# LDPC/codes.jl
 #############################
 
 mutable struct LDPCCode <: AbstractLDPCCode
     F::CTFieldTypes # base field
     n::Int # length
     k::Int # dimension
-    d::Union{Int, Missing} # minimum distance
+    d::Union{Int,Missing} # minimum distance
     l_bound::Int # lower bound on d
     u_bound::Int # upper bound on d
     H::CTMatrixTypes
@@ -43,14 +43,14 @@ mutable struct LDPCCode <: AbstractLDPCCode
     # Tanner_graph::Union{Figure, Missing}
     λ::QQPolyRingElem
     ρ::QQPolyRingElem
-    girth::Union{Int, Missing}
+    girth::Union{Int,Missing}
     ACEs_per_var_node::Vector{Vector{Int}}
     simple_cycles::Vector{Vector{Int}}
     max_cyc_len::Int
 end
 
 #############################
-      # LDPC/channels.jl
+# LDPC/channels.jl
 #############################
 
 struct BinaryErasureChannel <: AbstractBinaryErasureChannel
@@ -65,11 +65,11 @@ end
 
 mutable struct BAWGNChannel <: AbstractBAWGNChannel
     param::Float64
-    capacity::Union{Float64, Missing}
+    capacity::Union{Float64,Missing}
 end
 
 #############################
-    # LDPC/ensembles.jl
+# LDPC/ensembles.jl
 #############################
 
 mutable struct LDPCEnsemble
@@ -80,6 +80,6 @@ mutable struct LDPCEnsemble
     l_avg::Float64
     r_avg::Float64
     design_rate::Float64
-    density_evo::Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}
-    threshold::Dict{Type, Float64}
+    density_evo::Dict{AbstractClassicalNoiseChannel,NTuple{2,Vector{Float64}}}
+    threshold::Dict{Type,Float64}
 end

@@ -13,14 +13,14 @@ struct SubsetGrayCode
 end
 
 Base.IteratorEltype(::SubsetGrayCode) = Base.HasEltype()
-Base.eltype(::SubsetGrayCode) = Array{Int, 1}
+Base.eltype(::SubsetGrayCode) = Array{Int,1}
 Base.IteratorSize(::SubsetGrayCode) = Base.HasLength()
 @inline function Base.length(G::SubsetGrayCode)
     return G.len
 end
-Base.in(v::Vector{Int}, G::SubsetGrayCode) = length(v) == G.k 
+Base.in(v::Vector{Int}, G::SubsetGrayCode) = length(v) == G.k
 
-@inline function Base.isdone(G::SubsetGrayCode, state) 
+@inline function Base.isdone(G::SubsetGrayCode, state)
     (_, rank, _) = state
     return rank == G.len
 end
@@ -48,12 +48,12 @@ end
     =#
     subset_vec = zeros(Int, G.k)
     if G.init_rank == 1
-        subset_vec = Int.(collect(1 : G.k))
+        subset_vec = Int.(collect(1:G.k))
     else
         CodingTheory._subset_unrank!(G.init_rank, UInt(G.n), subset_vec)
     end
 
-    inds = fill(-1, 3) 
+    inds = fill(-1, 3)
     (inds, (subset_vec, 1, inds))
 end
 
@@ -62,7 +62,7 @@ end
     v, rank, inds = state
 
     if rank == G.len
-        return nothing 
+        return nothing
     end
     rank += 1
 
@@ -77,41 +77,41 @@ end
         end
         if Base.rem(G.k - i, 2) != 0
             if i == 1
-                v[1] != (v[1] - 1) && _update_indices!(inds, v[1], v[1] - 1) 
+                v[1] != (v[1] - 1) && _update_indices!(inds, v[1], v[1] - 1)
                 v[1] = (v[1] - 1)
-            else 
-                v[i - 1] != i && _update_indices!(inds,v[i - 1], i) 
-                v[i - 1] = i
+            else
+                v[i-1] != i && _update_indices!(inds, v[i-1], i)
+                v[i-1] = i
                 if i > 2
-                    v[i - 2] != (i - 1) && _update_indices!(inds,v[i - 2], i - 1) 
-                    v[i - 2] = (i - 1)
+                    v[i-2] != (i - 1) && _update_indices!(inds, v[i-2], i - 1)
+                    v[i-2] = (i - 1)
                 end
             end
-        else 
+        else
             if i == G.k
                 if G.n != v[i]
                     if (i > 1)
-                      v[i - 1] != v[i] && _update_indices!(inds,v[i - 1], v[i]) 
-                      v[i - 1] = v[i]
+                        v[i-1] != v[i] && _update_indices!(inds, v[i-1], v[i])
+                        v[i-1] = v[i]
                     end
-                    v[i] != (v[i] + 1) && _update_indices!(inds,v[i], v[i] + 1) 
+                    v[i] != (v[i] + 1) && _update_indices!(inds, v[i], v[i] + 1)
                     v[i] = (v[i] + 1)
                 else
-                    v[i] != i && _update_indices!(inds, v[i], i) 
+                    v[i] != i && _update_indices!(inds, v[i], i)
                     v[i] = i
                 end
             else
-                if v[i + 1] != (v[i] + 1)
+                if v[i+1] != (v[i] + 1)
                     if i > 1
-                        v[i - 1] != v[i] && _update_indices!(inds, v[i - 1], v[i]) 
-                        v[i - 1] = v[i]
+                        v[i-1] != v[i] && _update_indices!(inds, v[i-1], v[i])
+                        v[i-1] = v[i]
                     end
-                    v[i] != (v[i] + 1) && _update_indices!(inds, v[i], v[i] + 1) 
+                    v[i] != (v[i] + 1) && _update_indices!(inds, v[i], v[i] + 1)
                     v[i] = (v[i] + 1)
                 else
-                    v[i + 1] != v[i] && _update_indices!(inds, v[i + 1], v[i]) 
-                    v[i + 1] = v[i]
-                    v[i] != i && _update_indices!(inds, v[i], i) 
+                    v[i+1] != v[i] && _update_indices!(inds, v[i+1], v[i])
+                    v[i+1] = v[i]
+                    v[i] != i && _update_indices!(inds, v[i], i)
                     v[i] = i
                 end
             end
@@ -139,7 +139,7 @@ function _update_indices!(indices::Vector{Int}, x::Int)
         indices[2] = x
     elseif indices[3] == -1
         indices[3] = x
-    else 
+    else
         error("No index positions remaining")
     end
     return nothing
@@ -152,7 +152,7 @@ function _subset_rank(v::Vector{UInt}, k::UInt)
     =#
     r = UInt128(0)
     s = UInt128(1)
-    for i in k:-1:1
+    for i = k:-1:1
         r = r + extended_binomial(v[i], i) * s
         s = -s
     end
@@ -175,25 +175,25 @@ end
 
 function _subset_unrank!(r::UInt128, n::UInt, T::Vector{Int})
     # Based on Algorithm 2.12 in kreher1999combinatorial
-    r = r - 1 
+    r = r - 1
 
     k = length(T)
     subset_size_str::String = "subset size k = $k must be smaller than the set size n = $n"
     k > n && throw(ArgumentError(subset_size_str))
- 
+
     x = 0
     i = 0
-    y = 0 
+    y = 0
     x = n
-    for i::UInt in k:-1:1
+    for i::UInt = k:-1:1
         y = extended_binomial(x, i)
         while y > r
-           x = x - 1
-           y = extended_binomial(x, i)
-        end 
+            x = x - 1
+            y = extended_binomial(x, i)
+        end
         T[i] = x + 1
         r = extended_binomial(x + 1, i) - r - 1
-    end 
+    end
 end
 
 struct GrayCode
@@ -209,12 +209,19 @@ end
 GrayCode(n::Int, k::Int; mutate::Bool = false) = GrayCode(n, k, Int[]; mutate = mutate)
 
 function GrayCode(n::Int, k::Int, prefix::Vector{Int}; mutate::Bool = false)
-    GrayCode(n, k, n - length(prefix), k - count(prefix .!= 0), prefix,
-        length(prefix), mutate)
+    GrayCode(
+        n,
+        k,
+        n - length(prefix),
+        k - count(prefix .!= 0),
+        prefix,
+        length(prefix),
+        mutate,
+    )
 end
 
 Base.IteratorEltype(::GrayCode) = Base.HasEltype()
-Base.eltype(::GrayCode) = Array{Int, 1}
+Base.eltype(::GrayCode) = Array{Int,1}
 Base.IteratorSize(::GrayCode) = Base.HasLength()
 @inline function Base.length(G::GrayCode)
     if 0 <= G.ks <= G.ns
@@ -223,17 +230,18 @@ Base.IteratorSize(::GrayCode) = Base.HasLength()
         0
     end
 end
-Base.in(v::Vector{Int}, G::GrayCode) = length(v) == G.n && count(v .!= 0) == G.k && (view(v, 1:G.prefix_length) == G.prefix)
+Base.in(v::Vector{Int}, G::GrayCode) =
+    length(v) == G.n && count(v .!= 0) == G.k && (view(v, 1:G.prefix_length) == G.prefix)
 
 @inline function Base.iterate(G::GrayCode)
     0 <= G.ks <= G.ns || return nothing
 
-    g = [i <= G.ks ? 1 : 0 for i in 1:G.ns + 1]
-    τ = collect(2:G.ns + 2)
+    g = [i <= G.ks ? 1 : 0 for i = 1:(G.ns+1)]
+    τ = collect(2:(G.ns+2))
     τ[1] = G.ks + 1
     # to force stopping with returning the only valid vector when ks == 0 and ns > 0
     iszero(G.ks) && (τ[1] = G.ns + 1;)
-    v = [G.prefix; g[end - 1:-1:1]]
+    v = [G.prefix; g[(end-1):-1:1]]
     ((G.mutate ? v : copy(v);), (g, τ, G.ks, v))
 end
 
@@ -253,25 +261,25 @@ end
             if t != 0
                 g[t] = g[t] == 0 ? 1 : 0
                 if t < G.ns + 1
-                    v[G.prefix_length + G.ns + 1 - t] = g[t]
+                    v[G.prefix_length+G.ns+1-t] = g[t]
                 end
             else
-                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                g[i-1] = g[i-1] == 0 ? 1 : 0
                 if i - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                    v[G.prefix_length+G.ns+2-i] = g[i-1]
                 end
             end
             t = t + 1
         else
             if t != 1
-                g[t - 1] = g[t - 1] == 0 ? 1 : 0
+                g[t-1] = g[t-1] == 0 ? 1 : 0
                 if t - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - t] = g[t - 1]
+                    v[G.prefix_length+G.ns+2-t] = g[t-1]
                 end
             else
-                g[i - 1] = g[i - 1] == 0 ? 1 : 0
+                g[i-1] = g[i-1] == 0 ? 1 : 0
                 if i - 1 < G.ns + 1
-                    v[G.prefix_length + G.ns + 2 - i] = g[i - 1]
+                    v[G.prefix_length+G.ns+2-i] = g[i-1]
                 end
             end
             t = t - 1
@@ -279,14 +287,14 @@ end
 
         g[i] = g[i] == 0 ? 1 : 0
         if i < G.ns + 1
-            v[G.prefix_length + G.ns + 1 - i] = g[i]
+            v[G.prefix_length+G.ns+1-i] = g[i]
         end
 
         if t == i - 1 || t == 0
             t = t + 1
         else
-            t = t - g[i - 1]
-            τ[i - 1] = τ[1]
+            t = t - g[i-1]
+            τ[i-1] = τ[1]
             if t == 0
                 τ[1] = i - 1
             else

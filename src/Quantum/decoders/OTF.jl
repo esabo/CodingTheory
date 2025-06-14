@@ -4,26 +4,40 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel; BP_alg::Symbol = :SP,
-    max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol =
-    :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
+function ordered_Tanner_forest(
+    H::T,
+    v::T,
+    chn::AbstractClassicalNoiseChannel;
+    BP_alg::Symbol = :SP,
+    max_iter::Int = 100,
+    chn_inits::Union{Missing,Vector{Float64}} = missing,
+    schedule::Symbol = :parallel,
+    rand_sched::Bool = false,
+    erasures::Vector{Int} = Int[],
+) where {T<:CTMatrixTypes}
 
     # TODO add MS_C
     # TODO decimation
     BP_alg ∈ (:SP, :MS) || throw(ArgumentError("`BP_alg` should be `:SP` or `:MS`"))
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
+    Int(order(base_ring(H))) == 2 ||
+        throw(ArgumentError("Currently only implemented for binary codes"))
     nr, nc = size(H)
     (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("H cannot have a zero dimension"))
     2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
+    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) ||
         throw(ArgumentError("Unknown schedule algorithm"))
     schedule == :flooding && (schedule = :parallel;)
     schedule == :semiserial && (schedule = :layered;)
 
     # TODO search for wt 1 columns and add new row
-    H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-            current_bits, syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial,
-            erasures)
+    H_Int,
+    v_Int,
+    syndrome_based,
+    check_adj_list,
+    check_to_var_messages,
+    var_to_check_messages,
+    current_bits,
+    syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial, erasures)
 
     if BP_alg == :SP
         # H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
@@ -32,30 +46,71 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel; B
 
         if schedule == :layered
             layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-            flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
-                check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                ϕ_test, ϕ_test, max_iter, layers)
+            flag, e, _, posteriors = _message_passing_fast_layered(
+                H_Int,
+                v_Int,
+                syndrome_based,
+                check_adj_list,
+                check_to_var_messages,
+                var_to_check_messages,
+                current_bits,
+                syn,
+                ϕ_test,
+                ϕ_test,
+                max_iter,
+                layers,
+            )
         else
-            flag, e, _, posteriors = _message_passing_fast(H_Int, v_Int, syndrome_based,
-                check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                ϕ_test, ϕ_test, max_iter)
+            flag, e, _, posteriors = _message_passing_fast(
+                H_Int,
+                v_Int,
+                syndrome_based,
+                check_adj_list,
+                check_to_var_messages,
+                var_to_check_messages,
+                current_bits,
+                syn,
+                ϕ_test,
+                ϕ_test,
+                max_iter,
+            )
         end
     elseif BP_alg == :MS
-        H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-            var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-            :MS, chn_inits, schedule, erasures)
+        H_Int,
+        _,
+        var_adj_list,
+        check_adj_list,
+        chn_inits_2,
+        check_to_var_messages,
+        var_to_check_messages,
+        current_bits,
+        totals,
+        syn = _message_passing_init(H, v, chn, :MS, chn_inits, schedule, erasures)
         layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-        flag, e, _, posteriors = _message_passing_layered(H_Int, missing, chn_inits_2,
-            _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule,
-            current_bits, totals, syn, check_to_var_messages, var_to_check_messages,
-            attenuation, layers)
+        flag, e, _, posteriors = _message_passing_layered(
+            H_Int,
+            missing,
+            chn_inits_2,
+            _MS_check_node_message,
+            var_adj_list,
+            check_adj_list,
+            max_iter,
+            schedule,
+            current_bits,
+            totals,
+            syn,
+            check_to_var_messages,
+            var_to_check_messages,
+            attenuation,
+            layers,
+        )
     end
 
     if !flag
         # initial BP did not converge
-        var_adj_list = [Int[] for _ in 1:size(H_Int, 2)];
-        for r in 1:size(H_Int, 1)
-            for c in 1:size(H_Int, 2)
+        var_adj_list = [Int[] for _ = 1:size(H_Int, 2)];
+        for r = 1:size(H_Int, 1)
+            for c = 1:size(H_Int, 2)
                 if !iszero(H_Int[r, c])
                     push!(var_adj_list[c], r)
                 end
@@ -69,13 +124,15 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel; B
                 # since negative implies an error is more likely here, the selection process will allow BP to run on columns which are still positive while fixing columns which are more likely to have an error to have an error
                 # this is similar to selecting a test pattern in OSD
                 ordered_indices = sortperm(posteriors, rev = true)
-                erased_columns = _select_erased_columns(H_Int, ordered_indices, var_adj_list)
+                erased_columns =
+                    _select_erased_columns(H_Int, ordered_indices, var_adj_list)
                 for i in erased_columns
                     posteriors[i] = -20.0
                 end
             else
                 ordered_indices = sortperm(posteriors, by = abs)
-                erased_columns = _select_erased_columns(H_Int, ordered_indices, var_adj_list)
+                erased_columns =
+                    _select_erased_columns(H_Int, ordered_indices, var_adj_list)
                 for i in erased_columns
                     if posteriors[i] < 0
                         posteriors[i] = -20.0
@@ -100,43 +157,95 @@ function ordered_Tanner_forest(H::T, v::T, chn::AbstractClassicalNoiseChannel; B
         println(posteriors)
 
         if BP_alg == :SP
-            H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-                current_bits, syn = _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial,
-                erasures)
-    
+            H_Int,
+            v_Int,
+            syndrome_based,
+            check_adj_list,
+            check_to_var_messages,
+            var_to_check_messages,
+            current_bits,
+            syn =
+                _message_passing_init_fast(H, v, chn, BP_alg, chn_inits, :serial, erasures)
+
             if schedule == :layered
                 layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-                flag, e, _, posteriors = _message_passing_fast_layered(H_Int, v_Int, syndrome_based,
-                    check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                    ϕ_test, ϕ_test, max_iter, layers)
+                flag, e, _, posteriors = _message_passing_fast_layered(
+                    H_Int,
+                    v_Int,
+                    syndrome_based,
+                    check_adj_list,
+                    check_to_var_messages,
+                    var_to_check_messages,
+                    current_bits,
+                    syn,
+                    ϕ_test,
+                    ϕ_test,
+                    max_iter,
+                    layers,
+                )
             else
-                flag, e, _, posteriors = _message_passing_fast(H_Int, v_Int, syndrome_based,
-                    check_adj_list, check_to_var_messages, var_to_check_messages, current_bits, syn,
-                    ϕ_test, ϕ_test, max_iter)
+                flag, e, _, posteriors = _message_passing_fast(
+                    H_Int,
+                    v_Int,
+                    syndrome_based,
+                    check_adj_list,
+                    check_to_var_messages,
+                    var_to_check_messages,
+                    current_bits,
+                    syn,
+                    ϕ_test,
+                    ϕ_test,
+                    max_iter,
+                )
             end
         elseif BP_alg == :MS
-            H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-                var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-                :MS, chn_inits, schedule, erasures)
+            H_Int,
+            _,
+            var_adj_list,
+            check_adj_list,
+            chn_inits_2,
+            check_to_var_messages,
+            var_to_check_messages,
+            current_bits,
+            totals,
+            syn = _message_passing_init(H, v, chn, :MS, chn_inits, schedule, erasures)
             layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-            flag, e, _, posteriors = _message_passing_layered(H_Int, missing, chn_inits_2,
-                _MS_check_node_message, var_adj_list, check_adj_list, max_iter, schedule,
-                current_bits, totals, syn, check_to_var_messages, var_to_check_messages,
-                attenuation, layers)
+            flag, e, _, posteriors = _message_passing_layered(
+                H_Int,
+                missing,
+                chn_inits_2,
+                _MS_check_node_message,
+                var_adj_list,
+                check_adj_list,
+                max_iter,
+                schedule,
+                current_bits,
+                totals,
+                syn,
+                check_to_var_messages,
+                var_to_check_messages,
+                attenuation,
+                layers,
+            )
         end
     end
 
     return flag, e
 end
 
-function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, var_adj_list::Vector{Vector{Int}})
+function _select_erased_columns(
+    H::Matrix{UInt8},
+    ordered_indices::Vector{Int},
+    var_adj_list::Vector{Vector{Int}},
+)
 
     # this is using the disjoint-set data structure/union find algorithm for merging them
     nr = size(H, 1)
     parents = collect(1:nr)
     depths = ones(Int, nr)
     output_indices = Vector{Int}()
-    seen_roots_list = [[-1 for _ in 1:length(var_adj_list[c])] for c in 1:length(var_adj_list)]
+    seen_roots_list =
+        [[-1 for _ = 1:length(var_adj_list[c])] for c = 1:length(var_adj_list)]
     flag = false
     for col in ordered_indices
         # count = 0
@@ -149,7 +258,7 @@ function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, 
                 break
             end
         end
-        
+
         if !flag
             # Find maximum of depths[see_roots_list[col][count]], also, see if there are two or more roots of maximum depth. In which case we should grow.
             merged_root = -1
@@ -158,7 +267,7 @@ function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, 
             for row_root in seen_roots_list[col]
                 if depths[row_root] > merged_depth
                     merged_root = row_root
-                    merged_depth = depths[row_root] 
+                    merged_depth = depths[row_root]
                     growth = false
                 elseif depths[row_root] == merged_depth
                     growth = true
@@ -177,7 +286,7 @@ function _select_erased_columns(H::Matrix{UInt8}, ordered_indices::Vector{Int}, 
         # println(parents)
         # println(depths)
     end
-    
+
     return output_indices
 end
 
@@ -270,4 +379,3 @@ end
 #     we are unable to assign an interpretation to 0's and 1's in the received vector
 #     we could do standard reliability decoding where we take a parameter and look for test patterns inside the k least-reliable bits
 #     or we could proceed as above with the BP picture
-
