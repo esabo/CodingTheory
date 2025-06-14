@@ -4,18 +4,18 @@ using LinearAlgebra
 using BenchmarkTools
 
 function visit_all_subsets(mutate, g_len, v_weight, subset)
-  if subset
-    gi=CodingTheory.SubsetGrayCode(g_len, v_weight)
-  else
-    gi=CodingTheory.GrayCode(g_len, v_weight; mutate = mutate)
-  end
-  for subset in gi
-    # BenchmarkTools can elide simple computations so we need to do some nontrivial calculation here.
-    # In any realistic situation we need to look at least look at all entries of the vector. 
-    # Ill model the task of looking at the entries using the 'all' function
-    Base.all(i->(i==0), subset) 
-  end
-  return 
+    if subset
+        gi=CodingTheory.SubsetGrayCode(g_len, v_weight)
+    else
+        gi=CodingTheory.GrayCode(g_len, v_weight; mutate = mutate)
+    end
+    for subset in gi
+        # BenchmarkTools can elide simple computations so we need to do some nontrivial calculation here.
+        # In any realistic situation we need to look at least look at all entries of the vector. 
+        # Ill model the task of looking at the entries using the 'all' function
+        Base.all(i->(i==0), subset)
+    end
+    return
 end
 
 #=

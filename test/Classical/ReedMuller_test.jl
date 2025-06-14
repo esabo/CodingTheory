@@ -5,41 +5,69 @@
         F = Oscar.Nemo.Native.GF(2)
         # Huffman, Pless, p. 34
         # identity used for RM(1, 1)
-        @test CodingTheory._Reed_Muller_generator_matrix(1, 1, true) == matrix(F,
-                [1 0;
-                 0 1]);
-        @test generator_matrix(ReedMullerCode(1, 2, true)) == matrix(F,
-                [1 0 1 0;
-                 0 1 0 1;
-                 0 0 1 1]);
-        @test generator_matrix(ReedMullerCode(1, 3, true)) == matrix(F,
-                [1 0 1 0 1 0 1 0;
-                 0 1 0 1 0 1 0 1;
-                 0 0 1 1 0 0 1 1;
-                 0 0 0 0 1 1 1 1])
-        @test generator_matrix(ReedMullerCode(2, 3, true)) == matrix(F,
-                [1 0 0 0 1 0 0 0;
-                 0 1 0 0 0 1 0 0;
-                 0 0 1 0 0 0 1 0;
-                 0 0 0 1 0 0 0 1;
-                 0 0 0 0 1 0 1 0;
-                 0 0 0 0 0 1 0 1;
-                 0 0 0 0 0 0 1 1])
+        @test CodingTheory._Reed_Muller_generator_matrix(1, 1, true) == matrix(
+            F,
+            [
+                1 0;
+                0 1
+            ],
+        );
+        @test generator_matrix(ReedMullerCode(1, 2, true)) == matrix(
+            F,
+            [
+                1 0 1 0;
+                0 1 0 1;
+                0 0 1 1
+            ],
+        );
+        @test generator_matrix(ReedMullerCode(1, 3, true)) == matrix(
+            F,
+            [
+                1 0 1 0 1 0 1 0;
+                0 1 0 1 0 1 0 1;
+                0 0 1 1 0 0 1 1;
+                0 0 0 0 1 1 1 1
+            ],
+        )
+        @test generator_matrix(ReedMullerCode(2, 3, true)) == matrix(
+            F,
+            [
+                1 0 0 0 1 0 0 0;
+                0 1 0 0 0 1 0 0;
+                0 0 1 0 0 0 1 0;
+                0 0 0 1 0 0 0 1;
+                0 0 0 0 1 0 1 0;
+                0 0 0 0 0 1 0 1;
+                0 0 0 0 0 0 1 1
+            ],
+        )
 
         # Ling & Xing, p. 119
         # other sources, using [1 1; 0 1] for RM(1, 1)
-        @test CodingTheory._Reed_Muller_generator_matrix(1, 1) == matrix(F,
-                [1 1;
-                 0 1]);
-        @test generator_matrix(ReedMullerCode(1, 2)) == matrix(F,
-                [1 1 1 1;
-                 0 1 0 1;
-                 0 0 1 1]);
-        @test generator_matrix(ReedMullerCode(1, 3)) == matrix(F,
-                [1 1 1 1 1 1 1 1;
-                 0 1 0 1 0 1 0 1;
-                 0 0 1 1 0 0 1 1;
-                 0 0 0 0 1 1 1 1])
+        @test CodingTheory._Reed_Muller_generator_matrix(1, 1) == matrix(
+            F,
+            [
+                1 1;
+                0 1
+            ],
+        );
+        @test generator_matrix(ReedMullerCode(1, 2)) == matrix(
+            F,
+            [
+                1 1 1 1;
+                0 1 0 1;
+                0 0 1 1
+            ],
+        );
+        @test generator_matrix(ReedMullerCode(1, 3)) == matrix(
+            F,
+            [
+                1 1 1 1 1 1 1 1;
+                0 1 0 1 0 1 0 1;
+                0 0 1 1 0 0 1 1;
+                0 0 0 0 1 1 1 1
+            ],
+        )
     end
 
     @testset "self-dual property" begin
@@ -75,7 +103,7 @@
     @testset "Nested and Even-weight Property" begin
         # Reed-Muller codes are nested
         m = rand(3:6)
-        r = rand(1:m - 2)
+        r = rand(1:(m-2))
         C = ReedMullerCode(r, m)
         C2 = ReedMullerCode(r + 1, m)
         @test C ⊆ C2
@@ -96,15 +124,15 @@
         sup = support(C)
         flag = true
         for i in sup
-                if isodd(i)
-                        flag = false
-                        break
-                end
+            if isodd(i)
+                flag = false
+                break
+            end
         end
         @test flag == true
 
         C = ReedMullerCode(2, 5)
-        @test weight_distribution(C, alg = :auto, compact = true) == [(32, 1), (24, 620),
-                (20, 13888), (16, 36518), (12, 13888), (8, 620), (0, 1)]
+        @test weight_distribution(C, alg = :auto, compact = true) ==
+              [(32, 1), (24, 620), (20, 13888), (16, 36518), (12, 13888), (8, 620), (0, 1)]
     end
 end

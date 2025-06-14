@@ -4,37 +4,51 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-function _find_lambda_given_rho(ρ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
-    ε::Float64, l_max::Int; Δ = 0.001)
+function _find_lambda_given_rho(
+    ρ::Union{Vector{Float64},CodingTheory.Oscar.PolyRingElem},
+    ε::Float64,
+    l_max::Int;
+    Δ = 0.001,
+)
 
     model = Model(GLPK.Optimizer)
-    @variable(model, λ[1:l_max - 1] >= 0)
+    @variable(model, λ[1:(l_max-1)] >= 0)
     @constraint(model, sum(λ) == 1)
-    for x in 0:Δ:1
-        @constraint(model, ε * sum(λ[i] * (1 - CodingTheory._poly_eval(1 - x, ρ))^i for i in
-            1:l_max - 1) - x <= 0)
+    for x = 0:Δ:1
+        @constraint(
+            model,
+            ε * sum(λ[i] * (1 - CodingTheory._poly_eval(1 - x, ρ))^i for i = 1:(l_max-1)) -
+            x <= 0
+        )
     end
     @constraint(model, ε * CodingTheory._d_poly_eval(1, ρ) * λ[1] <= 1)
-    @objective(model, Max, sum(λ[i] / (i + 1) for i in 1:l_max - 1))
+    @objective(model, Max, sum(λ[i] / (i + 1) for i = 1:(l_max-1)))
     optimize!(model)
     termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
     @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
     return [0.0; value.(λ)], model
 end
 
-function _find_rho_given_lambda(λ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
-    ε::Float64, r_max::Int; Δ = 0.001)
+function _find_rho_given_lambda(
+    λ::Union{Vector{Float64},CodingTheory.Oscar.PolyRingElem},
+    ε::Float64,
+    r_max::Int;
+    Δ = 0.001,
+)
 
     model = Model(GLPK.Optimizer)
-    @variable(model, ρ[1:r_max - 1] >= 0)
+    @variable(model, ρ[1:(r_max-1)] >= 0)
     @constraint(model, sum(ρ) == 1)
-    for x in 0:Δ:1
-        @constraint(model, 1 - x - sum(ρ[i] * (1 - ε * CodingTheory._poly_eval(x, λ))^i for i in
-            1:r_max - 1) <= 0)
+    for x = 0:Δ:1
+        @constraint(
+            model,
+            1 - x -
+            sum(ρ[i] * (1 - ε * CodingTheory._poly_eval(x, λ))^i for i = 1:(r_max-1)) <= 0
+        )
     end
     temp = isa(λ, PolyRingElem) ? Float64(coeff(λ, 1)) : λ[2]
     @constraint(model, ε * sum(i * ρ[i] for i in eachindex(ρ)) * temp <= 1)
-    @objective(model, Min, sum(ρ[i] / (i + 1) for i in 1:r_max - 1))
+    @objective(model, Min, sum(ρ[i] / (i + 1) for i = 1:(r_max-1)))
     optimize!(model)
     termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
     @assert termination_status(model) == MOI.OPTIMAL "Didn't find an optimal point"
@@ -51,13 +65,21 @@ distribution `ρ`, maximum variable node degree `l_max`, and target parameter
 # Notes
 * `Δ` refers to the step size for `x` in the LP to solve for `λ`.
 """
-function CodingTheory.optimal_lambda(ρ, l_max::Int, param::Float64, var_type::Symbol; Δ = 0.001)
-    var_type ∈ (:r, :ε) || throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
-    var_type == :r && param >= 1 - 2 * CodingTheory._integrate_poly_0_1(ρ) && throw(
-        ArgumentError("This rate is unachieveable with the given ρ."))
+function CodingTheory.optimal_lambda(
+    ρ,
+    l_max::Int,
+    param::Float64,
+    var_type::Symbol;
+    Δ = 0.001,
+)
+    var_type ∈ (:r, :ε) ||
+        throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
+    var_type == :r &&
+        param >= 1 - 2 * CodingTheory._integrate_poly_0_1(ρ) &&
+        throw(ArgumentError("This rate is unachieveable with the given ρ."))
     # TODO: check for when var_type == :ε as well
 
-    λ_vec, r, ε =  _optimal_distributions(ρ, :ρ, l_max, param, var_type, Δλ = 0.001)
+    λ_vec, r, ε = _optimal_distributions(ρ, :ρ, l_max, param, var_type, Δλ = 0.001)
     _, x = CodingTheory.Oscar.PolynomialRing(CodingTheory.Oscar.RealField(), :x)
     λ = sum(c * x^(i - 1) for (i, c) in enumerate(λ_vec))
     return (λ = λ, r = r, ε = ε)
@@ -74,8 +96,10 @@ which refers to threshold if `var_type == :ε` or rate if `var_type == :r`.
 * `Δ` refers to the step size for x in the LP to solve for ρ.
 """
 function CodingTheory.optimal_rho(λ, r_max::Int, param::Float64, var_type::Symbol, Δ = 1e-3)
-    var_type ∈ (:r, :ε) || throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
-    var_type == :r && param >= 1 - 1 / (r_max * CodingTheory._integrate_poly_0_1(λ)) &&
+    var_type ∈ (:r, :ε) ||
+        throw(ArgumentError("var_type must be :r for target rate or :ε for threshold"))
+    var_type == :r &&
+        param >= 1 - 1 / (r_max * CodingTheory._integrate_poly_0_1(λ)) &&
         throw(ArgumentError("This rate is unachieveable with the given r_max and λ."))
     # TODO: check for when var_type == :ε as well
 
@@ -86,8 +110,15 @@ function CodingTheory.optimal_rho(λ, r_max::Int, param::Float64, var_type::Symb
 end
 
 # TODO: add a type on poly
-function _optimal_distributions(poly, poly_type::Symbol, var_max::Int, real_param::Float64,
-    var_type::Symbol; Δλ = 0.001, Δρ = 0.001)
+function _optimal_distributions(
+    poly,
+    poly_type::Symbol,
+    var_max::Int,
+    real_param::Float64,
+    var_type::Symbol;
+    Δλ = 0.001,
+    Δρ = 0.001,
+)
 
     int_poly = CodingTheory._integrate_poly_0_1(poly)
     if var_type == :r
@@ -115,7 +146,9 @@ function _optimal_distributions(poly, poly_type::Symbol, var_max::Int, real_para
             end
             Δ > 0 ? (low = mid;) : (high = mid;)
         end
-        0 <= Δ <= tolerance || error("Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
+        0 <= Δ <= tolerance || error(
+            "Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations",
+        )
         return sol, sol_rate, mid
     else
         if poly_type == :ρ
@@ -136,14 +169,17 @@ function _find_lambda_and_rho(l_max::Int, r_max::Int, ε::Float64; Δρ = 0.01, 
     ρ = zeros(r_max, iters)
     λ = zeros(l_max, iters)
     rates = fill(-Inf, iters)
-    for i in 1:iters
+    for i = 1:iters
         ρ[end, i] = c[i]
-        ρ[end - 1, i] = (1 - c[i])
+        ρ[end-1, i] = (1 - c[i])
         try
             λ[:, i] .= _find_lambda_given_rho(ρ[:, i], ε, l_max, Δ = Δλ)[1]
-            rates[i] = 1 - CodingTheory._integrate_poly_0_1(ρ[:, i]) /
+            rates[i] =
+                1 -
+                CodingTheory._integrate_poly_0_1(ρ[:, i]) /
                 CodingTheory._integrate_poly_0_1(λ[:, i])
-        catch end
+        catch
+        end
     end
     i = argmax(rates)
     isfinite(rates[i]) || throw(ArgumentError("No solution for given parameters"))
@@ -161,8 +197,14 @@ either a threshold if `var_type == :ε` or a target rate if `var_type == :r`.
     ρ = (1 - c) * x^(r_max - 2) + c * x^(r_max - 1)
 * `Δλ` gives the step size for values of `x` in the LP for finding λ given ρ.
 """
-function CodingTheory.optimal_lambda_and_rho(l_max::Int, r_max::Int, param::Float64,
-    var_type::Symbol; Δρ = 0.01, Δλ = 0.001)
+function CodingTheory.optimal_lambda_and_rho(
+    l_max::Int,
+    r_max::Int,
+    param::Float64,
+    var_type::Symbol;
+    Δρ = 0.01,
+    Δλ = 0.001,
+)
 
     if var_type == :r
         tolerance = 1e-6
@@ -183,7 +225,9 @@ function CodingTheory.optimal_lambda_and_rho(l_max::Int, r_max::Int, param::Floa
             end
             Δ > 0 ? (low = mid;) : (high = mid;)
         end
-        0 <= Δ <= tolerance || error("Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
+        0 <= Δ <= tolerance || error(
+            "Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations",
+        )
         _, x = CodingTheory.Oscar.PolynomialRing(CodingTheory.Oscar.RealField(), :x)
         λ = sum(c * x^(i - 1) for (i, c) in enumerate(λ_vec))
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρ_vec))

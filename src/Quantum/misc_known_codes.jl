@@ -5,15 +5,40 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-      # Subsystem codes
+# Subsystem codes
 #############################
 
+"""
+    GaugedShorCode
+
+Constructs the `[[9,1,4,3]]` subsystem code, an optimized version of
+Shor's 9-qubit code that reduces stabilizer measurements through gauge symmetry.
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = GaugedShorCode();
+
+julia> c.n, c.k, c.r, c.d_dressed
+(9, 1, 4, 3)
+```
+
+See: [`Poulin_2005`](@cite)
+"""
 function GaugedShorCode()
-    # Poulin, "Stabilizer Formalism for Operator Quantum Error Correction", (2008)
     # [[9, 1, 4, 3]] gauged Shor code
-    S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI","IZZIZZIZZ"]
+    S = ["XXXXXXIII", "XXXIIIXXX", "ZZIZZIZZI", "IZZIZZIZZ"]
     # these are the {X, Z} pairings
-    Gops = ["IZZIIIIII", "IIXIIIIIX", "IIIIZZIII", "IIIIIXIIX", "ZZIIIIIII", "XIIIIIXII", "IIIZZIIII", "IIIXIIXII"]
+    Gops = [
+        "IZZIIIIII",
+        "IIXIIIIIX",
+        "IIIIZZIII",
+        "IIIIIXIIX",
+        "ZZIIIIIII",
+        "XIIIIIXII",
+        "IIIZZIIII",
+        "IIIXIIXII",
+    ]
     # G = S ∪ Gops
     L = ["ZZZZZZZZZ", "XXXXXXXXX"]
     Q = SubsystemCode(S, L, Gops)
@@ -27,6 +52,18 @@ Q9143() = GaugedShorCode()
     BaconShorCode(m::Int, n::Int)
 
 Return the Bacon-Shor subsystem code on a `m x n` lattice.
+
+# Example
+
+```jldoctest
+julia> using CodingTheory: BaconShorCode
+
+julia> c = BaconShorCode(4,4);
+
+julia> c.n, c.k, c.r, c.d_dressed
+(16, 1, 9, 4)
+
+```
 """
 function BaconShorCode(m::Int, n::Int)
     F = Oscar.Nemo.Native.GF(2)
@@ -39,12 +76,12 @@ function BaconShorCode(m::Int, n::Int)
     X_gauges = zero_matrix(F, (m - 1) * n, num_qubits)
     curr_row = 1
     curr_row_G = 1
-    for r in 1:m - 1
-        for c in 1:n
-            X_stabs[curr_row, (r - 1) * m + c] = F_one
-            X_stabs[curr_row, r * m + c] = F_one
-            X_gauges[curr_row_G, (r - 1) * m + c] = F_one
-            X_gauges[curr_row_G, r * m + c] = F_one
+    for r = 1:(m-1)
+        for c = 1:n
+            X_stabs[curr_row, (r-1)*m+c] = F_one
+            X_stabs[curr_row, r*m+c] = F_one
+            X_gauges[curr_row_G, (r-1)*m+c] = F_one
+            X_gauges[curr_row_G, r*m+c] = F_one
             curr_row_G += 1
         end
         curr_row += 1
@@ -56,12 +93,12 @@ function BaconShorCode(m::Int, n::Int)
     Z_gauges = zero_matrix(F, (n - 1) * m, num_qubits)
     curr_row = 1
     curr_row_G = 1
-    for c in 1:n - 1
-        for r in 1:m
-            Z_stabs[curr_row, (r - 1) * m + c] = F_one
-            Z_stabs[curr_row, (r - 1) * m + c + 1] = F_one
-            Z_gauges[curr_row_G, (r - 1) * m + c] = F_one
-            Z_gauges[curr_row_G, (r - 1) * m + c + 1] = F_one
+    for c = 1:(n-1)
+        for r = 1:m
+            Z_stabs[curr_row, (r-1)*m+c] = F_one
+            Z_stabs[curr_row, (r-1)*m+c+1] = F_one
+            Z_gauges[curr_row_G, (r-1)*m+c] = F_one
+            Z_gauges[curr_row_G, (r-1)*m+c+1] = F_one
             curr_row_G += 1
         end
         curr_row += 1
@@ -70,17 +107,17 @@ function BaconShorCode(m::Int, n::Int)
     # X logical: X[1, :] = 1
     X_logical = zero_matrix(F, 1, num_qubits)
     # TODO: consider @simd or @unroll here
-    for c in 1:n
+    for c = 1:n
         X_logical[1, c] = F_one
     end
 
     # Z logical: Z[:, 1] = 1
     Z_logical = zero_matrix(F, 1, num_qubits)
     # TODO: consider @simd or @unroll here
-    for r in 1:m
-        Z_logical[1, (r - 1) * m + 1] = F_one
+    for r = 1:m
+        Z_logical[1, (r-1)*m+1] = F_one
     end
-    
+
     stabs = X_stabs ⊕ Z_stabs
     logs = X_logical ⊕ Z_logical
     gauges = X_gauges ⊕ Z_gauges
@@ -108,21 +145,40 @@ BaconShorCode(d::Int) = BaconShorCode(d, d)
     BravyiBaconShorCode(A::fqPolyRepMatrix)
     GeneralizedBaconShorCode(A::fqPolyRepMatrix)
 
-Return the generalied Bacon-Shor code defined by Bravyi in "Subsystem Codes With Spatially Local
-Generators", (2011).
+Return the generalied Bacon-Shor code defined by Bravyi in [`Bravyi_2011`](@cite).
+
+# Example
+
+```jldoctest
+julia> using CodingTheory: BravyiBaconShorCode
+
+julia> using Nemo;
+
+julia> F = Nemo.fpField(UInt(2));
+
+julia> A = Nemo.matrix(F, [1 1 0;
+                           0 1 1;
+                           1 0 1]);
+
+julia> c = BravyiBaconShorCode(A);
+
+julia> c.n, c.k, c.r, c.d_dressed
+(6, 2, 2, 2)
+```
 """
 function BravyiBaconShorCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
     F = base_ring(A)
-    Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
+    Int(order(F)) == 2 ||
+        throw(ArgumentError("Construction is only valid for binary martices."))
 
     n = 0
     nr, nc = size(A)
     row_wts = zeros(Int, 1, nr)
     col_wts = zeros(Int, 1, nc)
-    linear_index = Dict{Tuple{Int, Int}, Int}()
-    for r in 1:nr
-        for c in 1:nc
+    linear_index = Dict{Tuple{Int,Int},Int}()
+    for r = 1:nr
+        for c = 1:nc
             if !iszero(A[r, c])
                 n += 1
                 row_wts[r] += 1
@@ -132,25 +188,27 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
         end
     end
 
-    for i in 1:nr
-        row_wts[i] == 1 && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+    for i = 1:nr
+        row_wts[i] == 1 &&
+            throw(ArgumentError("The input matrix cannot have a row of weight one."))
     end
-    for i in 1:nc
-        col_wts[i] == 1 && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+    for i = 1:nc
+        col_wts[i] == 1 &&
+            throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
     # the original paper appears to switch X and Z compared to Bacon-Shor
     # but this is corrected here to match
     # X - consequetive column pairs
-    X_gauges = zero_matrix(F, sum([col_wts[i] - 1 for i in 1:length(col_wts)]), n)
+    X_gauges = zero_matrix(F, sum([col_wts[i] - 1 for i = 1:length(col_wts)]), n)
     curr_row = 1
     F_one = F(1)
-    for c in 1:nc
+    for c = 1:nc
         r1 = 1
         while r1 < nr
             if !iszero(A[r1, c])
                 at_end = true
-                for r2 in r1 + 1:nr
+                for r2 = (r1+1):nr
                     if !iszero(A[r2, c])
                         X_gauges[curr_row, linear_index[r1, c]] = F_one
                         X_gauges[curr_row, linear_index[r2, c]] = F_one
@@ -168,14 +226,14 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     # Z - consequetive row pairs
-    Z_gauges = zero_matrix(F, sum([row_wts[i] - 1 for i in 1:length(row_wts)]), n)
+    Z_gauges = zero_matrix(F, sum([row_wts[i] - 1 for i = 1:length(row_wts)]), n)
     curr_row = 1
-    for r in 1:nr
+    for r = 1:nr
         c1 = 1
         while c1 < nc
             if !iszero(A[r, c1])
                 at_end = true
-                for c2 in c1 + 1:nc
+                for c2 = (c1+1):nc
                     if !iszero(A[r, c2])
                         Z_gauges[curr_row, linear_index[r, c1]] = F_one
                         Z_gauges[curr_row, linear_index[r, c2]] = F_one
@@ -199,24 +257,47 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
 end
 GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
 
+"""
+```jldoctest
+julia> using CodingTheory: LocalBravyiBaconShorCode
+
+julia> using Nemo;
+
+julia> F = Nemo.fpField(UInt(2));
+
+julia> A = Nemo.matrix(F, [1 1 0;
+                           0 1 1;
+                           1 0 1]);
+
+julia> c = LocalBravyiBaconShorCode(A);
+
+julia> c.stabs
+[1   1   0   1   1   1   1   1   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   1   1   1   1   1   0   1]
+
+julia> c.n, c.k, c.r
+(8, 2, 4)
+```
+"""
 function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
     F = base_ring(A)
-    Int(order(F)) == 2 || throw(ArgumentError("Construction is only valid for binary martices."))
+    Int(order(F)) == 2 ||
+        throw(ArgumentError("Construction is only valid for binary martices."))
 
     nr, nc = size(A)
     row_firsts = zeros(Int, 1, nr)
     row_lasts = zeros(Int, 1, nr)
-    for r in 1:nr
-        for c in 1:nc
+    for r = 1:nr
+        for c = 1:nc
             if !iszero(A[r, c])
                 row_firsts[r] = c
                 break
             end
         end
     end
-    for r in 1:nr
-        for c in nc:-1:1
+    for r = 1:nr
+        for c = nc:-1:1
             if !iszero(A[r, c])
                 row_lasts[r] = c
                 break
@@ -224,22 +305,23 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
         end
     end
 
-    for i in 1:nr
-        row_firsts[i] == row_lasts[i] && throw(ArgumentError("The input matrix cannot have a row of weight one."))
+    for i = 1:nr
+        row_firsts[i] == row_lasts[i] &&
+            throw(ArgumentError("The input matrix cannot have a row of weight one."))
     end
 
     col_firsts = zeros(Int, 1, nc)
     col_lasts = zeros(Int, 1, nc)
-    for c in 1:nc
-        for r in 1:nr
+    for c = 1:nc
+        for r = 1:nr
             if !iszero(A[r, c])
                 col_firsts[c] = r
                 break
             end
         end
     end
-    for c in 1:nc
-        for r in nr:-1:1
+    for c = 1:nc
+        for r = nr:-1:1
             if !iszero(A[r, c])
                 col_lasts[c] = r
                 break
@@ -247,16 +329,17 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
         end
     end
 
-    for i in 1:nc
-        col_firsts[i] == col_lasts[i] && throw(ArgumentError("The input matrix cannot have a column of weight one."))
+    for i = 1:nc
+        col_firsts[i] == col_lasts[i] &&
+            throw(ArgumentError("The input matrix cannot have a column of weight one."))
     end
 
     n = 0
     extra_Xs = 0
     extra_Zs = 0
-    linear_index = Dict{Tuple{Int, Int}, Int}()
-    for r in 1:nr
-        for c in 1:nc
+    linear_index = Dict{Tuple{Int,Int},Int}()
+    for r = 1:nr
+        for c = 1:nc
             if row_firsts[r] <= c <= row_lasts[r] || col_firsts[c] <= r <= col_lasts[c]
                 n += 1
                 linear_index[(r, c)] = n
@@ -269,20 +352,22 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     end
 
     # X - consequetive column pairs + single qubit operators for each 0 in a row
-    X_gauges = zero_matrix(F, sum([row_lasts[i] - row_firsts[i] for i in 1:nr]) + extra_Xs, n)
+    X_gauges =
+        zero_matrix(F, sum([row_lasts[i] - row_firsts[i] for i = 1:nr]) + extra_Xs, n)
     # Z - consequetive row pairs + single qubit operators for each 0 in a column
-    Z_gauges = zero_matrix(F, sum([col_lasts[i] - col_firsts[i] for i in 1:nc]) + extra_Zs, n)
+    Z_gauges =
+        zero_matrix(F, sum([col_lasts[i] - col_firsts[i] for i = 1:nc]) + extra_Zs, n)
     curr_row_X = 1
     curr_row_Z = 1
 
     # the original paper appears to switch X and Z compared to Bacon-Shor
     # but this is corrected here to match
     F_one = F(1)
-    for c in 1:nc
-        for r in col_firsts[c]:col_lasts[c]
+    for c = 1:nc
+        for r = col_firsts[c]:col_lasts[c]
             if r != col_lasts[c]
                 X_gauges[curr_row_X, linear_index[r, c]] = F_one
-                X_gauges[curr_row_X, linear_index[r + 1, c]] = F_one
+                X_gauges[curr_row_X, linear_index[r+1, c]] = F_one
                 curr_row_X += 1
             end
             if iszero(A[r, c])
@@ -292,11 +377,11 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
         end
     end
 
-    for r in 1:nr
-        for c in row_firsts[r]:row_lasts[r]
+    for r = 1:nr
+        for c = row_firsts[r]:row_lasts[r]
             if c != row_lasts[r]
                 Z_gauges[curr_row_Z, linear_index[r, c]] = F_one
-                Z_gauges[curr_row_Z, linear_index[r, c + 1]] = F_one
+                Z_gauges[curr_row_Z, linear_index[r, c+1]] = F_one
                 curr_row_Z += 1
             end
             if iszero(A[r, c])
@@ -315,18 +400,39 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
 end
 AugmentedBravyiBaconShorCode(A::CTMatrixTypes) = LocalBravyiBaconShorCode(A)
 
-# subsystem codes were described by Bacon and Casaccino in [19]. The construction of [19] starts from a pair of classical linear codes C1 = [n1, k1, d1] and C2 = [n2, k2, d2]. A quantum subsystem code is then defined by placing a physical qubit at every cell of a ma- trix A of size n1 × n2. The X-part of the gauge group is defined by replicating the parity checks of C1 in every col- umn of A (in the X-basis). Similarly, the Z-part of the gauge group is defined by replicating the parity checks of C2 in every row of A (in the Z-basis). The resulting subsystem code has parameters [n1n2, k1k2, min (d1, d2)].
-
-# Napp & Preskill, "Optimal Bacon-Shor Codes", (2012)
 """
     NappPreskill3DCode(m::Int, n::Int, k::Int)
 
-Return the Napp and Preskill 3D, modifed Bacon-Shor code.
+Return the Napp and Preskill 3D [`napp2012optimalbaconshorcodes`](@cite), modifed Bacon-Shor code.
+
+Constructs a Napp and Preskill `3D` [`napp2012optimalbaconshorcodes`](@cite), modifed Bacon-Shor code.
+It generalizes the Bacon-Casaccino framework [`bacon2006qecsubsystem`](@cite), where physical qubits
+are placed on a lattice. For their original `2D` construction, given classical codes `C₁ = [n₁,k₁,d₁]` and
+`C₂ = [n₂,k₂,d₂]`, qubits occupy an `n₁ × n₂` matrix. The `X`-type gauge operators replicate `C₁`'s parity checks
+vertically (acting on columns in `X`-basis), while `Z`-type gauges replicate `C₂`'s checks horizontally
+(rows in `Z`-basis). This yields a subsystem code with parameters `[[n₁n₂, k₁k₂, min(d₁,d₂)]]`. The `3D` variant
+extends this logic to cubic lattices with modified gauge groupings.
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = NappPreskill3DCode(2,2,2);
+
+julia> c.stabs
+[1   0   0   1   1   0   0   1   0   0   0   0   0   0   0   0]
+[0   1   0   1   0   1   0   1   0   0   0   0   0   0   0   0]
+[0   0   1   1   0   0   1   1   0   0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0   0   1   1   1   1   1   1   1   1]
+
+julia> c.n, c.k, c.r, c.d_dressed
+(8, 1, 3, 2)
+```
 """
 function NappPreskill3DCode(m::Int, n::Int, k::Int)
-    (2 <= m && 2 <= n && 2 <= k) || throw(DomainError("Lattice dimensions must be at least two"))
+    (2 <= m && 2 <= n && 2 <= k) ||
+        throw(DomainError("Lattice dimensions must be at least two"))
 
-    linear_index = Dict{Tuple{Int, Int, Int}, Int}()
+    linear_index = Dict{Tuple{Int,Int,Int},Int}()
     for (i, tup) in enumerate(Base.Iterators.product(1:m, 1:n, 1:k))
         linear_index[tup] = i
     end
@@ -337,15 +443,17 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     gauges = zero_matrix(F, (m - 1) * n * k + m * (n - 1) * k + m * n * (k - 1), 2 * len)
     curr_row = 1
     # X's
-    for l in 1:k
-        for i in 1:m
-            for j in 1:n
+    for l = 1:k
+        for i = 1:m
+            for j = 1:n
                 if j != n
-                    gauges[curr_row, linear_index[i, j, l]] = gauges[curr_row, linear_index[i, j + 1, l]] = F_one
+                    gauges[curr_row, linear_index[i, j, l]] =
+                        gauges[curr_row, linear_index[i, j+1, l]] = F_one
                     curr_row += 1
                 end
                 if i != m
-                    gauges[curr_row, linear_index[i, j, l]] = gauges[curr_row, linear_index[i + 1, j, l]] = F_one
+                    gauges[curr_row, linear_index[i, j, l]] =
+                        gauges[curr_row, linear_index[i+1, j, l]] = F_one
                     curr_row += 1
                 end
             end
@@ -353,10 +461,11 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
     end
 
     # Z's
-    for i in 1:m
-        for j in 1:n
-            for l in 1:k - 1
-                gauges[curr_row, linear_index[i, j, l] + len] = gauges[curr_row, linear_index[i, j, l + 1] + len] = F_one
+    for i = 1:m
+        for j = 1:n
+            for l = 1:(k-1)
+                gauges[curr_row, linear_index[i, j, l]+len] =
+                    gauges[curr_row, linear_index[i, j, l+1]+len] = F_one
                 curr_row += 1
             end
         end
@@ -372,12 +481,22 @@ end
 """
     NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
 
-Return the Napp and Preskill 4D, modifed Bacon-Shor code.
+Return the Napp and Preskill `4D`, modifed Bacon-Shor code [`napp2012optimalbaconshorcodes`](@cite).
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = NappPreskill4DCode(2,2,2,2);
+
+julia> c.n, c.k, c.r
+(16, 1, 9)
+```
 """
 function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
-    (2 <= x && 2 <= y && 2 <= z && 2 <= w) || throw(DomainError("Lattice dimensions must be at least two"))
+    (2 <= x && 2 <= y && 2 <= z && 2 <= w) ||
+        throw(DomainError("Lattice dimensions must be at least two"))
 
-    linear_index = Dict{Tuple{Int, Int, Int, Int}, Int}()
+    linear_index = Dict{Tuple{Int,Int,Int,Int},Int}()
     for (i, tup) in enumerate(Base.Iterators.product(1:x, 1:y, 1:z, 1:w))
         linear_index[tup] = i
     end
@@ -385,22 +504,31 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     len = x * y * z * w
     F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
-    gauges = zero_matrix(F, (x - 1) * y * z * w + x * (y - 1) * z * w + x * y * (z - 1) * w + x * y * z * (w - 1), 2 * len)
+    gauges = zero_matrix(
+        F,
+        (x - 1) * y * z * w +
+        x * (y - 1) * z * w +
+        x * y * (z - 1) * w +
+        x * y * z * (w - 1),
+        2 * len,
+    )
     curr_row = 1
     ## XX acting on each neighboring qubits in each xy-plane with z, w fixed
     ## ZZ in zw-plane with x, y fixed
 
     # X's
-    for k in 1:z
-        for l in 1:w
-            for i in 1:x
-                for j in 1:y
+    for k = 1:z
+        for l = 1:w
+            for i = 1:x
+                for j = 1:y
                     if i != x
-                        gauges[curr_row, linear_index[i, j, k, l]] = gauges[curr_row, linear_index[i + 1, j, k, l]] = F_one
+                        gauges[curr_row, linear_index[i, j, k, l]] =
+                            gauges[curr_row, linear_index[i+1, j, k, l]] = F_one
                         curr_row += 1
                     end
                     if j != y
-                        gauges[curr_row, linear_index[i, j, k, l]] = gauges[curr_row, linear_index[i, j + 1, k, l]] = F_one
+                        gauges[curr_row, linear_index[i, j, k, l]] =
+                            gauges[curr_row, linear_index[i, j+1, k, l]] = F_one
                         curr_row += 1
                     end
                 end
@@ -409,16 +537,18 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     end
 
     # Z's
-    for i in 1:x
-        for j in 1:y
-            for k in 1:z
-                for l in 1:w
+    for i = 1:x
+        for j = 1:y
+            for k = 1:z
+                for l = 1:w
                     if k != z
-                        gauges[curr_row, linear_index[i, j, k, l] + len] = gauges[curr_row, linear_index[i, j, k + 1, l] + len] = F_one
+                        gauges[curr_row, linear_index[i, j, k, l]+len] =
+                            gauges[curr_row, linear_index[i, j, k+1, l]+len] = F_one
                         curr_row += 1
                     end
                     if l != w
-                        gauges[curr_row, linear_index[i, j, k, l] + len] = gauges[curr_row, linear_index[i, j, k, l + 1] + len] = F_one
+                        gauges[curr_row, linear_index[i, j, k, l]+len] =
+                            gauges[curr_row, linear_index[i, j, k, l+1]+len] = F_one
                         curr_row += 1
                     end
                 end
@@ -429,12 +559,20 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
     return SubsystemCode(gauges, logs_alg = :VS)
 end
 
-# Bravyi et al, "Subsystem surface codes with three-qubit check operators", (2013)
 """
     SubsystemToricCode(m::Int, n::Int)
 
 Return the subsystem toric code on a rectangular lattice with `m` rows and `n`
-columns of squares.
+columns of squares [`bravyi2013subsystemsurfacecodesthreequbit`](@cite).
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = SubsystemToricCode(2,2);
+
+julia> c.n, c.k, c.r
+(12, 2, 4)
+```
 """
 function SubsystemToricCode(m::Int, n::Int)
     (2 <= m && 2 <= n) || throw(DomainError("Lattice dimensions must be at least two"))
@@ -446,118 +584,118 @@ function SubsystemToricCode(m::Int, n::Int)
     stabs = zero_matrix(F, 2 * m * n, 2 * len)
     curr_row_stab = 1
     curr_row_gauge = 1
-    for r in 1:m
+    for r = 1:m
         top_left = 3 * n * (r - 1) + 1
         row_right = top_left + 2 * n - 1
-        for c in 1:n
+        for c = 1:n
             # top left - Z
-            gauges[curr_row_gauge, top_left + len] = F_one
-            gauges[curr_row_gauge, top_left + 1 + len] = F_one
-            gauges[curr_row_gauge, row_right + c + len] = F_one
+            gauges[curr_row_gauge, top_left+len] = F_one
+            gauges[curr_row_gauge, top_left+1+len] = F_one
+            gauges[curr_row_gauge, row_right+c+len] = F_one
             curr_row_gauge += 1
 
             # top right - X
-            gauges[curr_row_gauge, top_left + 1] = F_one
+            gauges[curr_row_gauge, top_left+1] = F_one
             if c != n
-                gauges[curr_row_gauge, top_left + 2] = F_one
-                gauges[curr_row_gauge, row_right + c + 1] = F_one
+                gauges[curr_row_gauge, top_left+2] = F_one
+                gauges[curr_row_gauge, row_right+c+1] = F_one
             else
-                gauges[curr_row_gauge, row_right - 2 * n + 1] = F_one
-                gauges[curr_row_gauge, row_right + 1] = F_one
+                gauges[curr_row_gauge, row_right-2*n+1] = F_one
+                gauges[curr_row_gauge, row_right+1] = F_one
             end
             curr_row_gauge += 1
 
             # bottom left - X
-            gauges[curr_row_gauge, row_right + c] = F_one
+            gauges[curr_row_gauge, row_right+c] = F_one
             if r != m
-                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 1] = F_one
-                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2] = F_one
+                gauges[curr_row_gauge, row_right+n+2*(c-1)+1] = F_one
+                gauges[curr_row_gauge, row_right+n+2*(c-1)+2] = F_one
             else
-                gauges[curr_row_gauge, 2 * (c - 1) + 1] = F_one
-                gauges[curr_row_gauge, 2 * (c - 1) + 2] = F_one
+                gauges[curr_row_gauge, 2*(c-1)+1] = F_one
+                gauges[curr_row_gauge, 2*(c-1)+2] = F_one
             end
             curr_row_gauge += 1
 
             # bottom right - Z
             if r == m && c == n
-                gauges[curr_row_gauge, 1 + len] = F_one
-                gauges[curr_row_gauge, 2 * n + len] = F_one
-                gauges[curr_row_gauge, row_right + 1 + len] = F_one
+                gauges[curr_row_gauge, 1+len] = F_one
+                gauges[curr_row_gauge, 2*n+len] = F_one
+                gauges[curr_row_gauge, row_right+1+len] = F_one
             elseif r == m
-                gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
-                gauges[curr_row_gauge, 2 * (c - 1) + 2 + len] = F_one
-                gauges[curr_row_gauge, 2 * (c - 1) + 3 + len] = F_one
+                gauges[curr_row_gauge, row_right+c+1+len] = F_one
+                gauges[curr_row_gauge, 2*(c-1)+2+len] = F_one
+                gauges[curr_row_gauge, 2*(c-1)+3+len] = F_one
             elseif c != n
-                gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
-                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2 + len] = F_one
-                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3 + len] = F_one
+                gauges[curr_row_gauge, row_right+c+1+len] = F_one
+                gauges[curr_row_gauge, row_right+n+2*(c-1)+2+len] = F_one
+                gauges[curr_row_gauge, row_right+n+2*(c-1)+3+len] = F_one
             else
-                gauges[curr_row_gauge, row_right + 1 + len] = F_one
-                gauges[curr_row_gauge, row_right + n + 1 + len] = F_one
-                gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2 + len] = F_one
+                gauges[curr_row_gauge, row_right+1+len] = F_one
+                gauges[curr_row_gauge, row_right+n+1+len] = F_one
+                gauges[curr_row_gauge, row_right+n+2*(c-1)+2+len] = F_one
             end
             curr_row_gauge += 1
 
             # X
-            stabs[curr_row_stab, top_left + 1] = F_one
+            stabs[curr_row_stab, top_left+1] = F_one
             if c != n
-                stabs[curr_row_stab, top_left + 2] = F_one
-                stabs[curr_row_stab, row_right + c + 1] = F_one
+                stabs[curr_row_stab, top_left+2] = F_one
+                stabs[curr_row_stab, row_right+c+1] = F_one
             else
-                stabs[curr_row_stab, row_right - 2 * n + 1] = F_one
-                stabs[curr_row_stab, row_right + 1] = F_one
+                stabs[curr_row_stab, row_right-2*n+1] = F_one
+                stabs[curr_row_stab, row_right+1] = F_one
             end
-            stabs[curr_row_stab, row_right + c] = F_one
+            stabs[curr_row_stab, row_right+c] = F_one
             if r != m
-                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 1] = F_one
-                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2] = F_one
+                stabs[curr_row_stab, row_right+n+2*(c-1)+1] = F_one
+                stabs[curr_row_stab, row_right+n+2*(c-1)+2] = F_one
             else
-                stabs[curr_row_stab, 2 * (c - 1) + 1] = F_one
-                stabs[curr_row_stab, 2 * (c - 1) + 2] = F_one
+                stabs[curr_row_stab, 2*(c-1)+1] = F_one
+                stabs[curr_row_stab, 2*(c-1)+2] = F_one
             end
             curr_row_stab += 1
 
             # Z
-            stabs[curr_row_stab, top_left + len] = F_one
-            stabs[curr_row_stab, top_left + 1 + len] = F_one
-            stabs[curr_row_stab, row_right + c + len] = F_one
+            stabs[curr_row_stab, top_left+len] = F_one
+            stabs[curr_row_stab, top_left+1+len] = F_one
+            stabs[curr_row_stab, row_right+c+len] = F_one
             if r == m && c == n
-                stabs[curr_row_stab, 1 + len] = F_one
-                stabs[curr_row_stab, 2 * n + len] = F_one
-                stabs[curr_row_stab, row_right + 1 + len] = F_one
+                stabs[curr_row_stab, 1+len] = F_one
+                stabs[curr_row_stab, 2*n+len] = F_one
+                stabs[curr_row_stab, row_right+1+len] = F_one
             elseif r == m
-                stabs[curr_row_stab, row_right + c + 1 + len] = F_one
-                stabs[curr_row_stab, 2 * (c - 1) + 2 + len] = F_one
-                stabs[curr_row_stab, 2 * (c - 1) + 3 + len] = F_one
+                stabs[curr_row_stab, row_right+c+1+len] = F_one
+                stabs[curr_row_stab, 2*(c-1)+2+len] = F_one
+                stabs[curr_row_stab, 2*(c-1)+3+len] = F_one
             elseif c != n
-                stabs[curr_row_stab, row_right + c + 1 + len] = F_one
-                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2 + len] = F_one
-                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3 + len] = F_one
+                stabs[curr_row_stab, row_right+c+1+len] = F_one
+                stabs[curr_row_stab, row_right+n+2*(c-1)+2+len] = F_one
+                stabs[curr_row_stab, row_right+n+2*(c-1)+3+len] = F_one
             else
-                stabs[curr_row_stab, row_right + 1 + len] = F_one
-                stabs[curr_row_stab, row_right + n + 1 + len] = F_one
-                stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2 + len] = F_one
+                stabs[curr_row_stab, row_right+1+len] = F_one
+                stabs[curr_row_stab, row_right+n+1+len] = F_one
+                stabs[curr_row_stab, row_right+n+2*(c-1)+2+len] = F_one
             end
             curr_row_stab += 1
             top_left += 2
         end
     end
-    
+
     logs = zero_matrix(F, 4, 2 * len)
     # top row is an X for pair one and a Z for pair two
-    for c in 1:2 * n
+    for c = 1:(2*n)
         logs[1, c] = F_one
-        logs[4, c + len] = F_one
+        logs[4, c+len] = F_one
     end
     # left column is a Z for pair one and an X for pair two
-    for r in 1:m
+    for r = 1:m
         top_left = 3 * n * (r - 1) + 1
-        logs[2, top_left + len] = F_one
-        logs[2, top_left + 2 * n + len] = F_one
+        logs[2, top_left+len] = F_one
+        logs[2, top_left+2*n+len] = F_one
         logs[3, top_left] = F_one
-        logs[3, top_left + 2 * n] = F_one
+        logs[3, top_left+2*n] = F_one
     end
-    
+
     S = SubsystemCode(gauges, logs_alg = :VS)
     S.k == 2 || error("Got wrong dimension for periodic case.")
     set_stabilizers!(S, stabs)
@@ -573,7 +711,7 @@ end
     SubsystemToricCode(d::Int)
 
 Return the subsystem toric code on a square lattice with `d` rows and `d`
-columns of squares.
+columns of squares [`bravyi2013subsystemsurfacecodesthreequbit`](@cite).
 """
 SubsystemToricCode(d::Int) = SubsystemToricCode(d, d)
 
@@ -594,115 +732,115 @@ function SubsystemSurfaceCode(m::Int, n::Int)
     stabs = zero_matrix(F, 2 * m * n + 2 * n + 2 * m, 2 * len)
     curr_row_stab = 1
     curr_row_gauge = 1
-    for r in 1:m
+    for r = 1:m
         top_left = (3 * n + 2) * (r - 1) + 1
         row_right = top_left + 2 * n
-        for c in 1:n
+        for c = 1:n
             # top left - Z
-            gauges[curr_row_gauge, top_left + len] = F_one
-            gauges[curr_row_gauge, top_left + 1 + len] = F_one
-            gauges[curr_row_gauge, row_right + c + len] = F_one
+            gauges[curr_row_gauge, top_left+len] = F_one
+            gauges[curr_row_gauge, top_left+1+len] = F_one
+            gauges[curr_row_gauge, row_right+c+len] = F_one
             curr_row_gauge += 1
 
             # top right - X
-            gauges[curr_row_gauge, top_left + 1] = F_one
-            gauges[curr_row_gauge, top_left + 2] = F_one
-            gauges[curr_row_gauge, row_right + c + 1] = F_one
+            gauges[curr_row_gauge, top_left+1] = F_one
+            gauges[curr_row_gauge, top_left+2] = F_one
+            gauges[curr_row_gauge, row_right+c+1] = F_one
             curr_row_gauge += 1
 
             # bottom left - X
-            gauges[curr_row_gauge, row_right + c] = F_one
-            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 2] = F_one
-            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3] = F_one
+            gauges[curr_row_gauge, row_right+c] = F_one
+            gauges[curr_row_gauge, row_right+n+2*(c-1)+2] = F_one
+            gauges[curr_row_gauge, row_right+n+2*(c-1)+3] = F_one
             curr_row_gauge += 1
 
             # bottom right - Z
-            gauges[curr_row_gauge, row_right + c + 1 + len] = F_one
-            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 3 + len] = F_one
-            gauges[curr_row_gauge, row_right + n + 2 * (c - 1) + 4 + len] = F_one
+            gauges[curr_row_gauge, row_right+c+1+len] = F_one
+            gauges[curr_row_gauge, row_right+n+2*(c-1)+3+len] = F_one
+            gauges[curr_row_gauge, row_right+n+2*(c-1)+4+len] = F_one
             curr_row_gauge += 1
 
             # X
-            stabs[curr_row_stab, top_left + 1] = F_one
-            stabs[curr_row_stab, top_left + 2] = F_one
-            stabs[curr_row_stab, row_right + c + 1] = F_one
-            stabs[curr_row_stab, row_right + c] = F_one
-            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 2] = F_one
-            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3] = F_one
+            stabs[curr_row_stab, top_left+1] = F_one
+            stabs[curr_row_stab, top_left+2] = F_one
+            stabs[curr_row_stab, row_right+c+1] = F_one
+            stabs[curr_row_stab, row_right+c] = F_one
+            stabs[curr_row_stab, row_right+n+2*(c-1)+2] = F_one
+            stabs[curr_row_stab, row_right+n+2*(c-1)+3] = F_one
             curr_row_stab += 1
 
             # Z
-            stabs[curr_row_stab, top_left + len] = F_one
-            stabs[curr_row_stab, top_left + 1 + len] = F_one
-            stabs[curr_row_stab, row_right + c + len] = F_one
-            stabs[curr_row_stab, row_right + c + 1 + len] = F_one
-            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 3 + len] = F_one
-            stabs[curr_row_stab, row_right + n + 2 * (c - 1) + 4 + len] = F_one
+            stabs[curr_row_stab, top_left+len] = F_one
+            stabs[curr_row_stab, top_left+1+len] = F_one
+            stabs[curr_row_stab, row_right+c+len] = F_one
+            stabs[curr_row_stab, row_right+c+1+len] = F_one
+            stabs[curr_row_stab, row_right+n+2*(c-1)+3+len] = F_one
+            stabs[curr_row_stab, row_right+n+2*(c-1)+4+len] = F_one
             curr_row_stab += 1
             top_left += 2
         end
     end
 
     # left - X
-    for r in 1:m
+    for r = 1:m
         top_left = (3 * n + 2) * (r - 1) + 1
         shift = 2 * n + 1
         stabs[curr_row_stab, top_left] = F_one
-        stabs[curr_row_stab, top_left + shift] = F_one
+        stabs[curr_row_stab, top_left+shift] = F_one
         curr_row_stab += 1
         gauges[curr_row_gauge, top_left] = F_one
-        gauges[curr_row_gauge, top_left + shift] = F_one
+        gauges[curr_row_gauge, top_left+shift] = F_one
         curr_row_gauge += 1
     end
 
     # right - X
-    for r in 1:m
+    for r = 1:m
         top_left = (3 * n + 2) * (r - 1) + 1
         row_right = top_left + 2 * n
-        stabs[curr_row_stab, row_right + n + 1] = F_one
-        stabs[curr_row_stab, row_right + 3 * n + 2] = F_one
+        stabs[curr_row_stab, row_right+n+1] = F_one
+        stabs[curr_row_stab, row_right+3*n+2] = F_one
         curr_row_stab += 1
-        gauges[curr_row_gauge, row_right + n + 1] = F_one
-        gauges[curr_row_gauge, row_right + 3 * n + 2] = F_one
+        gauges[curr_row_gauge, row_right+n+1] = F_one
+        gauges[curr_row_gauge, row_right+3*n+2] = F_one
         curr_row_gauge += 1
     end
 
     # top - Z
     top_left = 1
-    for c in 1:n
-        stabs[curr_row_stab, top_left + 1 + len] = F_one
-        stabs[curr_row_stab, top_left + 2 + len] = F_one
+    for c = 1:n
+        stabs[curr_row_stab, top_left+1+len] = F_one
+        stabs[curr_row_stab, top_left+2+len] = F_one
         curr_row_stab += 1
-        gauges[curr_row_gauge, top_left + 1 + len] = F_one
-        gauges[curr_row_gauge, top_left + 2 + len] = F_one
+        gauges[curr_row_gauge, top_left+1+len] = F_one
+        gauges[curr_row_gauge, top_left+2+len] = F_one
         curr_row_gauge += 1
         top_left += 2
     end
 
     # bottom - Z
     bottom_left = len - 2 * n
-    for c in 1:n
-        stabs[curr_row_stab, bottom_left + len] = F_one
-        stabs[curr_row_stab, bottom_left + 1 + len] = F_one
+    for c = 1:n
+        stabs[curr_row_stab, bottom_left+len] = F_one
+        stabs[curr_row_stab, bottom_left+1+len] = F_one
         curr_row_stab += 1
-        gauges[curr_row_gauge, bottom_left + len] = F_one
-        gauges[curr_row_gauge, bottom_left + 1 + len] = F_one
+        gauges[curr_row_gauge, bottom_left+len] = F_one
+        gauges[curr_row_gauge, bottom_left+1+len] = F_one
         curr_row_gauge += 1
         bottom_left += 2
     end
 
     logs = zero_matrix(F, 2, 2 * len)
     # top row is a logical X
-    for c in 1:2 * n + 1
+    for c = 1:(2*n+1)
         logs[1, c] = F_one
     end
     # left column is a logical Z 
-    for r in 1:m
-        logs[2, (3 * n + 2) * (r - 1) + 1 + len] = F_one
-        logs[2, (3 * n + 2) * (r - 1) + 2 * n + 2 + len] = F_one
+    for r = 1:m
+        logs[2, (3*n+2)*(r-1)+1+len] = F_one
+        logs[2, (3*n+2)*(r-1)+2*n+2+len] = F_one
     end
-    logs[2, 2 * len -  2 * n] = F_one
-    
+    logs[2, 2*len-2*n] = F_one
+
     S = SubsystemCode(gauges, logs_alg = :VS)
     S.k == 1 || error("Got wrong dimension for non-periodic case.")
     set_stabilizers!(S, stabs)
@@ -725,11 +863,11 @@ SubsystemSurfaceCode(d::Int) = SubsystemSurfaceCode(d, d)
 # TODO: charvec in all of these
 
 #############################
-      # Stabilizer codes
+# Stabilizer codes
 #############################
 
 #############################
-        # Misc codes
+# Misc codes
 #############################
 
 """
@@ -781,8 +919,16 @@ Q713() = SteaneCode()
 Return the `[[9, 1, 3]]` Shor code.
 """
 function ShorCode()
-    S = CSSCode(["ZZIIIIIII", "IZZIIIIII", "IIIZZIIII", "IIIIZZIII", "IIIIIIZZI", "IIIIIIIZZ",
-    "XXXXXXIII", "IIIXXXXXX"])
+    S = CSSCode([
+        "ZZIIIIIII",
+        "IZZIIIIII",
+        "IIIZZIIII",
+        "IIIIZZIII",
+        "IIIIIIZZI",
+        "IIIIIIIZZ",
+        "XXXXXXIII",
+        "IIIXXXXXX",
+    ])
     set_minimum_distance!(S, 3)
     return S
 end
@@ -815,12 +961,17 @@ end
 
 function Q823()
     F = Oscar.Nemo.Native.GF(2)
-    stabs = matrix(F, [1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
-    0 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0;
-    0 1 0 0 1 1 1 0 0 0 1 1 1 0 1 0;
-    0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
-    0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
-    0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0]);
+    stabs = matrix(
+        F,
+        [
+            1 0 0 0 1 0 0 0 1 1 1 1 0 0 0 0;
+            0 0 0 1 0 1 0 0 1 0 0 0 0 1 0 0;
+            0 1 0 0 1 1 1 0 0 0 1 1 1 0 1 0;
+            0 0 1 0 1 1 1 0 0 1 1 0 1 1 0 0;
+            0 0 1 1 1 0 1 0 0 0 0 1 0 1 1 1;
+            0 0 0 0 0 0 1 1 0 0 1 0 0 0 1 0
+        ],
+    );
     S = StabilizerCode(stabs)
     set_minimum_distance!(S, 3)
     return S
@@ -840,9 +991,22 @@ SmallestInterestingColorCode() = Q832()
 Return the `[[15, 1, 3]]` quantum Reed-Muller code.
 """
 function Q15RM()
-    S = StabilizerCode(["ZIZIZIZIZIZIZIZ", "IZZIIZZIIZZIIZZ", "IIIZZZZIIIIZZZZ", "IIIIIIIZZZZZZZZ",
-    "IIZIIIZIIIZIIIZ", "IIIIZIZIIIIIZIZ", "IIIIIZZIIIIIIZZ", "IIIIIIIIIZZIIZZ", "IIIIIIIIIIIZZZZ",
-    "IIIIIIIIZIZIZIZ", "XIXIXIXIXIXIXIX", "IXXIIXXIIXXIIXX", "IIIXXXXIIIIXXXX", "IIIIIIIXXXXXXXX"])
+    S = StabilizerCode([
+        "ZIZIZIZIZIZIZIZ",
+        "IZZIIZZIIZZIIZZ",
+        "IIIZZZZIIIIZZZZ",
+        "IIIIIIIZZZZZZZZ",
+        "IIZIIIZIIIZIIIZ",
+        "IIIIZIZIIIIIZIZ",
+        "IIIIIZZIIIIIIZZ",
+        "IIIIIIIIIZZIIZZ",
+        "IIIIIIIIIIIZZZZ",
+        "IIIIIIIIZIZIZIZ",
+        "XIXIXIXIXIXIXIX",
+        "IXXIIXXIIXXIIXX",
+        "IIIXXXXIIIIXXXX",
+        "IIIIIIIXXXXXXXX",
+    ])
     set_minimum_distance!(S, 3)
     return S
 end
@@ -854,8 +1018,16 @@ Q1513() = Q15RM()
 Return the `[[15, 7, 3]]` quantum Hamming code.
 """
 function Q1573()
-    S = StabilizerCode(["IIIIIIIXXXXXXXX", "IIIXXXXIIIIXXXX", "IXXIIXXIIXXIIXX", "XIXIXIXIXIXIXIX",
-    "IIIIIIIZZZZZZZZ", "IIIZZZZIIIIZZZZ", "IZZIIZZIIZZIIZZ", "ZIZIZIZIZIZIZIZ"])
+    S = StabilizerCode([
+        "IIIIIIIXXXXXXXX",
+        "IIIXXXXIIIIXXXX",
+        "IXXIIXXIIXXIIXX",
+        "XIXIXIXIXIXIXIX",
+        "IIIIIIIZZZZZZZZ",
+        "IIIZZZZIIIIZZZZ",
+        "IZZIIZZIIZZIIZZ",
+        "ZIZIZIZIZIZIZIZ",
+    ])
     # one can use a basis for this such that the first logical pair is transversal X, Z
     set_minimum_distance!(S, 3)
     return S
@@ -879,7 +1051,7 @@ function GrossCode()
 end
 
 #############################
- # Triangular Surface Codes
+# Triangular Surface Codes
 #############################
 
 function _triangular_lattice(L::Int)
@@ -888,9 +1060,9 @@ function _triangular_lattice(L::Int)
     # 2 - diagonal
     numbering = zeros(Int, L, L, 3)
     num = 1
-    for i in 1:L
-        for j in 1:L
-            for k in 1:3
+    for i = 1:L
+        for j = 1:L
+            for k = 1:3
                 numbering[i, j, k] = num
                 num += 1
             end
@@ -899,33 +1071,33 @@ function _triangular_lattice(L::Int)
     return numbering
 end
 
-function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64,3})
     F = Oscar.Nemo.Native.GF(2)
     stabilizers = zero_matrix(F, L^2, 3 * L^2)
     r = 1
-    for i in 1:L
-        for j in 1:L
+    for i = 1:L
+        for j = 1:L
             stabilizers[r, numbering[i, j, 1]] = 1
             stabilizers[r, numbering[i, j, 2]] = 1
             stabilizers[r, numbering[i, j, 3]] = 1
             if i == 1
                 stabilizers[r, numbering[end, j, 1]] = 1
             else
-                stabilizers[r, numbering[i - 1, j, 1]] = 1
+                stabilizers[r, numbering[i-1, j, 1]] = 1
             end
             if j == 1
                 stabilizers[r, numbering[i, end, 2]] = 1
             else
-                stabilizers[r, numbering[i, j - 1, 2]] = 1
+                stabilizers[r, numbering[i, j-1, 2]] = 1
             end
             if i == 1 && j == 1
                 stabilizers[r, numbering[end, end, 3]] = 1
             elseif i != 1 && j == 1
-                stabilizers[r, numbering[i - 1, end, 3]] = 1
+                stabilizers[r, numbering[i-1, end, 3]] = 1
             elseif i == 1 && j != 1
-                stabilizers[r, numbering[end, j - 1, 3]] = 1
+                stabilizers[r, numbering[end, j-1, 3]] = 1
             else
-                stabilizers[r, numbering[i - 1, j - 1, 3]] = 1
+                stabilizers[r, numbering[i-1, j-1, 3]] = 1
             end
             r += 1
         end
@@ -933,18 +1105,18 @@ function _triangular_lattice_X_stabilizers(L::Int, numbering::Array{Int64, 3})
     return hcat(stabilizers, zero_matrix(F, L^2, 3 * L^2))
 end
 
-function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64,3})
     F = Oscar.Nemo.Native.GF(2)
     stabilizers = zero_matrix(F, 2 * L^2, 3 * L^2)
     r = 1
-    for i in 1:L
-        for j in 1:L
+    for i = 1:L
+        for j = 1:L
             stabilizers[r, numbering[i, j, 2]] = 1
             stabilizers[r, numbering[i, j, 3]] = 1
             if j == L
                 stabilizers[r, numbering[i, 1, 1]] = 1
             else
-                stabilizers[r, numbering[i, j + 1, 1]] = 1
+                stabilizers[r, numbering[i, j+1, 1]] = 1
             end
 
             r += 1
@@ -953,7 +1125,7 @@ function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64, 3})
             if i == L
                 stabilizers[r, numbering[1, j, 2]] = 1
             else
-                stabilizers[r, numbering[i + 1, j, 2]] = 1
+                stabilizers[r, numbering[i+1, j, 2]] = 1
             end
             r += 1
         end
@@ -961,32 +1133,32 @@ function _triangular_lattice_Z_stabilizers(L::Int, numbering::Array{Int64, 3})
     return hcat(zero_matrix(F, 2 * L^2, 3 * L^2), stabilizers)
 end
 
-function _triangular_lattice_X_logicals(L::Int, numbering::Array{Int64, 3})
+function _triangular_lattice_X_logicals(L::Int, numbering::Array{Int64,3})
     # should be 0110110110
     z = zeros(UInt8, 3 * L^2)
     logical1 = zeros(UInt8, 3 * L^2)
-    for j in 0:L - 1
-        for k in 0:2
+    for j = 0:(L-1)
+        for k = 0:2
             if k == 0
-                logical1[3 * j + k + 1] = 0x01
+                logical1[3*j+k+1] = 0x01
             elseif k == 1
-                logical1[3 * j + k + 1] = 0x00
+                logical1[3*j+k+1] = 0x00
             else
-                logical1[3 * j + k + 1] = 0x01
+                logical1[3*j+k+1] = 0x01
             end
         end
     end
     logical1 = [logical1; z]
 
     logical2 = zeros(UInt8, 3 * L^2)
-    for j in 1:L
-        for k in 0:2
+    for j = 1:L
+        for k = 0:2
             if k == 0
-                logical2[3 * j + k + 1] = 0x01
+                logical2[3*j+k+1] = 0x01
             elseif k == 1
-                logical2[3 * j + k + 1] = 0x00
+                logical2[3*j+k+1] = 0x00
             else
-                logical2[3 * j + k + 1] = 0x01
+                logical2[3*j+k+1] = 0x01
             end
         end
     end
@@ -994,32 +1166,36 @@ function _triangular_lattice_X_logicals(L::Int, numbering::Array{Int64, 3})
     return [logical1, logical2]
 end
 
-function _triangular_lattice_Z_logicals(L::Int, numbering::Array{Int64, 3}, symp::Bool=true)
+function _triangular_lattice_Z_logicals(
+    L::Int,
+    numbering::Array{Int64,3},
+    symp::Bool = true,
+)
     # should be 1001001001
     x = zeros(UInt8, 3 * L^2)
     logical1 = zeros(UInt8, 3 * L^2)
-    for j in 0:L - 1
-        for k in 0:2
+    for j = 0:(L-1)
+        for k = 0:2
             if k == 0
-                logical1[3 * j + k + 1] = 0x01
+                logical1[3*j+k+1] = 0x01
             elseif k == 1
-                logical1[3 * j + k + 1] = 0x00
+                logical1[3*j+k+1] = 0x00
             else
-                logical1[3 * j + k + 1] = 0x01
+                logical1[3*j+k+1] = 0x01
             end
         end
     end
     logical1 = [z; logical1]
 
     logical2 = zeros(UInt8, 3 * L^2)
-    for j in 1:L
-        for k in 0:2
+    for j = 1:L
+        for k = 0:2
             if k == 0
-                logical2[3 * j + k + 1] = 0x01
+                logical2[3*j+k+1] = 0x01
             elseif k == 1
-                logical2[3 * j + k + 1] = 0x00
+                logical2[3*j+k+1] = 0x00
             else
-                logical2[3 * j + k + 1] = 0x01
+                logical2[3*j+k+1] = 0x01
             end
         end
     end
@@ -1027,6 +1203,16 @@ function _triangular_lattice_Z_logicals(L::Int, numbering::Array{Int64, 3}, symp
     return [logical1, logical2]
 end
 
+"""
+```jldoctest
+julia> using CodingTheory
+
+julia> c = TriangularSurfaceCode(2);
+
+julia> c.n, c.k
+(24, 14)
+```
+"""
 function TriangularSurfaceCode(L::Int)
     numbering = _triangular_lattice(L)
     X_stabs = _triangular_lattice_X_stabilizers(L, numbering)
@@ -1035,11 +1221,11 @@ function TriangularSurfaceCode(L::Int)
     # println(Z_stabs)
     # logicals = [_triangular_lattice_X_logicals(L, numbering), _triangular_lattice_Z_logicals(L, numbering)]
     # TODO distances
-    return CSSCode(X_stabs[1:end - 1, :], Z_stabs[1:end - 1, :])
+    return CSSCode(X_stabs[1:(end-1), :], Z_stabs[1:(end-1), :])
 end
 
 #############################
-   # Rotated Surface Codes
+# Rotated Surface Codes
 #############################
 
 function _R_Surf_stabs(d::Int)
@@ -1053,9 +1239,9 @@ function _R_Surf_stabs(d::Int)
     i = 1
     while i <= n - d
         S[row, i] = F_one
-        S[row, i + 1] = F_one
-        S[row, i + d] = F_one
-        S[row, i + d + 1] = F_one
+        S[row, i+1] = F_one
+        S[row, i+d] = F_one
+        S[row, i+d+1] = F_one
         row += 1
         if (i + 2) % d == 0
             i += 4
@@ -1068,7 +1254,7 @@ function _R_Surf_stabs(d::Int)
     i = 2
     while i <= d - 1
         S[row, i] = F_one
-        S[row, i + 1] = F_one
+        S[row, i+1] = F_one
         row += 1
         i += 2
     end
@@ -1077,7 +1263,7 @@ function _R_Surf_stabs(d::Int)
     i = d * (d - 1) + 1
     while i <= d * d - 2
         S[row, i] = F_one
-        S[row, i + 1] = F_one
+        S[row, i+1] = F_one
         row += 1
         i += 2
     end
@@ -1085,10 +1271,10 @@ function _R_Surf_stabs(d::Int)
     # Z's
     i = 2
     while i < n - d
-        S[row, i + n] = F_one
-        S[row, i + 1 + n] = F_one
-        S[row, i + d + n] = F_one
-        S[row, i + d + 1 + n] = F_one
+        S[row, i+n] = F_one
+        S[row, i+1+n] = F_one
+        S[row, i+d+n] = F_one
+        S[row, i+d+1+n] = F_one
         row += 1
         if (i + 2) % d == 0
             i += 4
@@ -1100,8 +1286,8 @@ function _R_Surf_stabs(d::Int)
     # left Z's
     i = 1
     while i < d * (d - 1)
-        S[row, i + n] = F_one
-        S[row, i + d + n] = F_one
+        S[row, i+n] = F_one
+        S[row, i+d+n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1109,8 +1295,8 @@ function _R_Surf_stabs(d::Int)
     # right Z's
     i = 2 * d
     while i < d * d
-        S[row, i + n] = F_one
-        S[row, i + d + n] = F_one
+        S[row, i+n] = F_one
+        S[row, i+d+n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1129,7 +1315,7 @@ function _R_Surf_logs(F::CTFieldTypes, d::Int)
     end
     i = 1
     while i <= d
-        logs[2, i + n] = F_one
+        logs[2, i+n] = F_one
         i += 1
     end
 
@@ -1141,9 +1327,20 @@ end
 
 Return the `[[d^2, 1, d]]` rotated surface code.
 
-This is the surface-13/17 configuration found in "Low-distance surface codes under realistic quantum noise"
-by Tomita and Svore. The standard planar surface code is equivalent to their surface-25 configuration, which
+This is the surface-`13/17` configuration by Tomita and Svore [`Tomita_2014`](@cite). The
+standard planar surface code is equivalent to their surface-`25` configuration, which
 can be seen by viewing the stabilizers of PlanarSurfaceCode as an adjacency matrix.
+
+# Example
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = RotatedSurfaceCode(3);
+
+julia> c.n, c.k, c.d
+(9, 1, 3)
+```
 """
 # BUG: doesn't work for even distances
 function RotatedSurfaceCode(d::Int)
@@ -1157,7 +1354,7 @@ function RotatedSurfaceCode(d::Int)
 end
 
 #############################
-     # XZZX Surface Codes
+# XZZX Surface Codes
 #############################
 
 function _XZZX_stabs_logs(d::Int)
@@ -1168,12 +1365,12 @@ function _XZZX_stabs_logs(d::Int)
     F_one = F(1)
 
     i = 1
-    for i in 1:n - d
+    for i = 1:(n-d)
         if i % d != 0
             S[row, i] = F_one
-            S[row, i + 1 + n] = F_one
-            S[row, i + d + n] = F_one
-            S[row, i + d + 1] = F_one
+            S[row, i+1+n] = F_one
+            S[row, i+d+n] = F_one
+            S[row, i+d+1] = F_one
             row += 1;
         end
     end
@@ -1181,8 +1378,8 @@ function _XZZX_stabs_logs(d::Int)
     # top row ZX's
     i = 2
     while i <= d - 1
-        S[row, i + n] = F_one
-        S[row, i + 1] = F_one
+        S[row, i+n] = F_one
+        S[row, i+1] = F_one
         row += 1
         i += 2
     end
@@ -1191,7 +1388,7 @@ function _XZZX_stabs_logs(d::Int)
     i = d * (d - 1) + 1
     while i <= d * d - 2
         S[row, i] = F_one
-        S[row, i + 1 + n] = F_one
+        S[row, i+1+n] = F_one
         row += 1
         i += 2
     end
@@ -1199,8 +1396,8 @@ function _XZZX_stabs_logs(d::Int)
     # left ZX's
     i = 1
     while i < d * (d - 1)
-        S[row, i + n] = F_one
-        S[row, i + d] = F_one
+        S[row, i+n] = F_one
+        S[row, i+d] = F_one
         row += 1
         i += 2 * d
     end
@@ -1209,7 +1406,7 @@ function _XZZX_stabs_logs(d::Int)
     i = 2 * d
     while i < d * d
         S[row, i] = F_one
-        S[row, i + d + n] = F_one
+        S[row, i+d+n] = F_one
         row += 1
         i += 2 * d
     end
@@ -1221,7 +1418,7 @@ function _XZZX_stabs_logs(d::Int)
         if count % 2 == 1
             logs[1, i] = F_one
         else
-            logs[1, i + n] = F_one
+            logs[1, i+n] = F_one
         end
         i += d
         count += 1
@@ -1230,7 +1427,7 @@ function _XZZX_stabs_logs(d::Int)
     count = 1
     while i <= d
         if count % 2 == 1
-            logs[2, i + n] = F_one
+            logs[2, i+n] = F_one
         else
             logs[2, i] = F_one
         end
@@ -1245,6 +1442,15 @@ end
     XZZXSurfaceCode(d::Int)
 
 Return the `[[d^2, 1, d]]` XZZX surface code.
+
+```jldoctest
+julia> using CodingTheory: XZZXSurfaceCode
+
+julia> c = XZZXSurfaceCode(3);
+
+julia> c.n, c.k, c.d
+(9, 1, 3)
+```
 """
 function XZZXSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
@@ -1257,7 +1463,7 @@ function XZZXSurfaceCode(d::Int)
 end
 
 ################################
- # Triangular Color Codes 4.8.8
+# Triangular Color Codes 4.8.8
 ################################
 
 """
@@ -1271,7 +1477,7 @@ Return the 4.8.8 triangular color code of distance `d` with trellis numbering.
 function TriangularColorCode488 end
 
 ################################
- # Triangular Color Codes 6.6.6
+# Triangular Color Codes 6.6.6
 ################################
 
 """
@@ -1285,13 +1491,22 @@ Return the 6.6.6 triangular color code of distance `d` with trellis numbering.
 function TriangularColorCode666 end
 
 ################################
-         # Toric Codes
+# Toric Codes
 ################################
 
 """
     ToricCode(d::Int)
 
 Return the `[[2d^2, 2, d]]` toric code.
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = ToricCode(2);
+
+julia> c.n, c.k, c.d
+(8, 2, 2)
+```
 
 The lattice orientation used here follows the picture at https://errorcorrectionzoo.org/c/surface.
 """
@@ -1305,37 +1520,50 @@ function ToricCode(d::Int)
     qubit = 1
     row_A = 1
     row_B = 1
-    for r in 1:2 * d
+    for r = 1:(2*d)
         if isodd(r)
-            for c in 1:d
+            for c = 1:d
                 # println("r = $r, c = $c, row_A = $row_A")
                 if r != 2 * d - 1 && c != d
-                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + d + 1] = A[row_A, qubit + 2 * d] = F_one
+                    A[row_A, qubit] =
+                        A[row_A, qubit+d] =
+                            A[row_A, qubit+d+1] = A[row_A, qubit+2*d] = F_one
                 elseif r == 2 * d - 1 && c != d
-                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + d + 1] = A[row_A, c] = F_one
+                    A[row_A, qubit] =
+                        A[row_A, qubit+d] = A[row_A, qubit+d+1] = A[row_A, c] = F_one
                 elseif r != 2 * d - 1 && c == d
-                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + 1] = A[row_A, qubit + 2 * d] = F_one
+                    A[row_A, qubit] =
+                        A[row_A, qubit+d] = A[row_A, qubit+1] = A[row_A, qubit+2*d] = F_one
                 elseif r == 2 * d - 1 && c == d
-                    A[row_A, qubit] = A[row_A, qubit + d] = A[row_A, qubit + 1] = A[row_A, c] = F_one
+                    A[row_A, qubit] =
+                        A[row_A, qubit+d] = A[row_A, qubit+1] = A[row_A, c] = F_one
                 else
-                    error("Ran into unaccounted for case in creating the toric code lattice.")
+                    error(
+                        "Ran into unaccounted for case in creating the toric code lattice.",
+                    )
                 end
                 row_A += 1
                 qubit += 1
             end
         else
-            for c in 1:d
+            for c = 1:d
                 # println("r = $r, c = $c, row_B = $row_B")
                 if r != 2 * d && c == 1
-                    B[row_B, qubit] = B[row_B, qubit + d] = B[row_B, qubit + 2 * d] = B[row_B, qubit + 2 * d - 1] = F_one
+                    B[row_B, qubit] =
+                        B[row_B, qubit+d] =
+                            B[row_B, qubit+2*d] = B[row_B, qubit+2*d-1] = F_one
                 elseif r != 2 * d && c != 1
-                    B[row_B, qubit] = B[row_B, qubit + d - 1] = B[row_B, qubit + d] = B[row_B, qubit + 2 * d] = F_one
+                    B[row_B, qubit] =
+                        B[row_B, qubit+d-1] =
+                            B[row_B, qubit+d] = B[row_B, qubit+2*d] = F_one
                 elseif r == 2 * d && c == 1
-                    B[row_B, qubit] = B[row_B, d] = B[row_B, d + 1] = B[row_B, 1] = F_one
+                    B[row_B, qubit] = B[row_B, d] = B[row_B, d+1] = B[row_B, 1] = F_one
                 elseif r == 2 * d && c != 1
-                    B[row_B, qubit] = B[row_B, c - 1] = B[row_B, c] = B[row_B, c + d] = F_one
+                    B[row_B, qubit] = B[row_B, c-1] = B[row_B, c] = B[row_B, c+d] = F_one
                 else
-                    error("Ran into unaccounted for case in creating the toric code lattice.")
+                    error(
+                        "Ran into unaccounted for case in creating the toric code lattice.",
+                    )
                 end
                 row_B += 1
                 qubit += 1
@@ -1345,19 +1573,19 @@ function ToricCode(d::Int)
     S = CSSCode(A, B)
 
     Z1 = zero_matrix(S.F, 1, 4 * d^2)
-    for c in 1:d
-        Z1[1, c + d + S.n] = F_one
+    for c = 1:d
+        Z1[1, c+d+S.n] = F_one
     end
     X1 = zero_matrix(S.F, 1, 4 * d^2)
-    for r in 1:2:2 * d
-        X1[1, r * d + 1] = F_one
+    for r = 1:2:(2*d)
+        X1[1, r*d+1] = F_one
     end
     Z2 = zero_matrix(S.F, 1, 4 * d^2)
-    for r in 1:2:2 * d
-        Z2[1, (r - 1) * d + 1 + S.n] = F_one
+    for r = 1:2:(2*d)
+        Z2[1, (r-1)*d+1+S.n] = F_one
     end
     X2 = zero_matrix(S.F, 1, 4 * d^2)
-    for c in 1:d
+    for c = 1:d
         X2[1, c] = F_one
     end
     set_logicals!(S, vcat(X1, Z1, X2, Z2))
@@ -1367,7 +1595,7 @@ function ToricCode(d::Int)
 end
 
 ################################
-     # Planar Surface Codes
+# Planar Surface Codes
 ################################
 
 """
@@ -1389,30 +1617,35 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
     qubit = 1
     row_A = 1
     row_B = 1
-    for r in 1:d_z
-        for c in 1:d_x
+    for r = 1:d_z
+        for c = 1:d_x
             if r != d_z
                 if c == 1
-                    B[row_B, qubit] = B[row_B, qubit + d_x] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    B[row_B, qubit] = B[row_B, qubit+d_x] = B[row_B, qubit+2*d_x-1] = F_one
                     row_B += 1
                 elseif c == d_x
-                    B[row_B, qubit] = B[row_B, qubit + d_x - 1] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    B[row_B, qubit] =
+                        B[row_B, qubit+d_x-1] = B[row_B, qubit+2*d_x-1] = F_one
                     row_B += 1
                 else
-                    B[row_B, qubit] = B[row_B, qubit + d_x - 1] = B[row_B, qubit + d_x] = B[row_B, qubit + 2 * d_x - 1] = F_one
+                    B[row_B, qubit] =
+                        B[row_B, qubit+d_x-1] =
+                            B[row_B, qubit+d_x] = B[row_B, qubit+2*d_x-1] = F_one
                     row_B += 1
                 end
             end
 
             if c != d_x
                 if r == 1
-                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit + d_x] = F_one
+                    A[row_A, qubit] = A[row_A, qubit+1] = A[row_A, qubit+d_x] = F_one
                     row_A += 1
                 elseif r == d_z
-                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit - d_x + 1] = F_one
+                    A[row_A, qubit] = A[row_A, qubit+1] = A[row_A, qubit-d_x+1] = F_one
                     row_A += 1
                 else
-                    A[row_A, qubit] = A[row_A, qubit + 1] = A[row_A, qubit + d_x] = A[row_A, qubit - d_x + 1] = F_one
+                    A[row_A, qubit] =
+                        A[row_A, qubit+1] =
+                            A[row_A, qubit+d_x] = A[row_A, qubit-d_x+1] = F_one
                     row_A += 1
                 end
             end
@@ -1423,12 +1656,12 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
     S = CSSCode(A, B)
 
     X1 = zero_matrix(S.F, 1, 2 * S.n)
-    for r in 1:2:d_x
-        X1[1, d_z * (r - 1) + (d_z - 1) * (r - 1) + 1] = F_one
+    for r = 1:2:d_x
+        X1[1, d_z*(r-1)+(d_z-1)*(r-1)+1] = F_one
     end
     Z1 = zero_matrix(S.F, 1, 2 * S.n)
-    for c in 1:d_z
-        Z1[1, c + S.n] = F_one
+    for c = 1:d_z
+        Z1[1, c+S.n] = F_one
     end
     set_logicals!(S, vcat(X1, Z1))
     set_dressed_X_minimum_distance!(S, d_x)
@@ -1438,7 +1671,7 @@ end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
 
 ################################
-     # 3D PlanarSurfaceCode
+# 3D PlanarSurfaceCode
 ################################
 
 """
@@ -1454,12 +1687,12 @@ Return the 3D planar surface code of distance `d`.
 function PlanarSurfaceCode3D_X end
 
 ################################
-       # XY Surface Codes
+# XY Surface Codes
 ################################
 
 # TODO remove quadratic
 """
-    XYSurfaceCode(d_x::Int, d_z::Int)
+    XYSurfaceCode(d_x::Int, d_y::Int)
     XYSurfaceCode(d::Int)
 
 Return the `[[d_x * d_y + (d_x - 1) * (d_y - 1), 1, d_x/d_y]]` XY surface code of
@@ -1476,33 +1709,40 @@ function XYSurfaceCode(d_x::Int, d_y::Int)
     M = zero_matrix(F, num_V - 1, 2 * num_V)
     qubit = 1
     row = 1
-    for r in 1:d_y
-        for c in 1:d_x
-            if r != d_z
+    for r = 1:d_y
+        for c = 1:d_x
+            if r != d_y
                 if c == 1
-                    M[row, qubit] = M[row, qubit + d_x] = M[row, qubit + 2 * d_x - 1] = F_one
-                    M[row, qubit + num_V] = M[row, qubit + d_x + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
+                    M[row, qubit] = M[row, qubit+d_x] = M[row, qubit+2*d_x-1] = F_one
+                    M[row, qubit+num_V] =
+                        M[row, qubit+d_x+num_V] = M[row, qubit+2*d_x-1+num_V] = F_one
                     row += 1
                 elseif c == d_x
-                    M[row, qubit] = M[row, qubit + d_x - 1] = M[row, qubit + 2 * d_x - 1] = F_one
-                    M[row, qubit + num_V] = M[row, qubit + d_x - 1 + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
+                    M[row, qubit] = M[row, qubit+d_x-1] = M[row, qubit+2*d_x-1] = F_one
+                    M[row, qubit+num_V] =
+                        M[row, qubit+d_x-1+num_V] = M[row, qubit+2*d_x-1+num_V] = F_one
                     row += 1
                 else
-                    M[row, qubit] = M[row, qubit + d_x - 1] = M[row, qubit + d_x] = M[row, qubit + 2 * d_x - 1] = F_one
-                    M[row, qubit + num_V] = M[row, qubit + d_x - 1 + num_V] = M[row, qubit + d_x + num_V] = M[row, qubit + 2 * d_x - 1 + num_V] = F_one
+                    M[row, qubit] =
+                        M[row, qubit+d_x-1] =
+                            M[row, qubit+d_x] = M[row, qubit+2*d_x-1] = F_one
+                    M[row, qubit+num_V] =
+                        M[row, qubit+d_x-1+num_V] =
+                            M[row, qubit+d_x+num_V] = M[row, qubit+2*d_x-1+num_V] = F_one
                     row += 1
                 end
             end
 
             if c != d_x
                 if r == 1
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + d_x] = F_one
+                    M[row, qubit] = M[row, qubit+1] = M[row, qubit+d_x] = F_one
                     row += 1
-                elseif r == d_z
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit - d_x + 1] = F_one
+                elseif r == d_y
+                    M[row, qubit] = M[row, qubit+1] = M[row, qubit-d_x+1] = F_one
                     row += 1
                 else
-                    M[row, qubit] = M[row, qubit + 1] = M[row, qubit + d_x] = M[row, qubit - d_x + 1] = F_one
+                    M[row, qubit] =
+                        M[row, qubit+1] = M[row, qubit+d_x] = M[row, qubit-d_x+1] = F_one
                     row += 1
                 end
             end
@@ -1582,21 +1822,30 @@ XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
 #     display(M)
 #     return
 #     # Y distance is also 2 * d^2
-    # set_dressed_X_minimum_distance!(S, d)
-    # set_dressed_Z_minimum_distance!(S, 2 * d^2)
+# set_dressed_X_minimum_distance!(S, d)
+# set_dressed_Z_minimum_distance!(S, 2 * d^2)
 # end
 
 ################################
-           # H Codes
+# H Codes
 ################################
 
 """
     HCode(k::Int)
 
 Return the `[[k + 4, k, 2]]` H code from `https://errorcorrectionzoo.org/c/quantum_h`.
+
+```jldoctest
+julia> using CodingTheory
+
+julia> c = HCode(4);
+
+julia> c.n, c.k, c.d
+(8, 4, 2)
+```
 """
 function HCode(k::Int)
-    (2 <= k && iseven(k)) || throw(DomainError("Input must be >= 2 and even.")) 
+    (2 <= k && iseven(k)) || throw(DomainError("Input must be >= 2 and even."))
 
     F = Oscar.Nemo.Native.GF(2)
     F_one = F(1)
@@ -1606,9 +1855,9 @@ function HCode(k::Int)
     Z[1, 1] = Z[1, 2] = Z[1, 3] = Z[1, 4] = F_one
     X[2, 1] = X[2, 2] = F_one
     Z[2, 1] = Z[2, 2] = F_one
-    for c in 5:k + 3
-        X[2, c] = X[2, c + 1] = F_one
-        Z[2, c] = Z[2, c + 1] = F_one
+    for c = 5:(k+3)
+        X[2, c] = X[2, c+1] = F_one
+        Z[2, c] = Z[2, c+1] = F_one
     end
     S = CSSCode(X, Z)
     set_minimum_distance!(S, 2)
@@ -1616,7 +1865,7 @@ function HCode(k::Int)
 end
 
 #################################
-        # 3D Toric codes
+# 3D Toric codes
 #################################
 
 """
@@ -1632,7 +1881,7 @@ Return the 3D toric code of distance `d`.
 function ToricCode3D_X end
 
 #################################
-        # 4D Toric codes
+# 4D Toric codes
 #################################
 
 @auto_hash_equals struct _Vertex
@@ -1647,13 +1896,13 @@ end
     Compute the n-cells of a periodic d-dimensional hypercubic lattice with linear size l.
 """
 function _compute_cells_periodic(l::Int, n::Int, d::Int = 4)
-    cells = Set{_Cell}()    
+    cells = Set{_Cell}()
     coords_to_change = collect(combinations(1:d, n))
-    for coord in Iterators.product([0:l - 1 for i in 1:d]...)
+    for coord in Iterators.product([0:(l-1) for i = 1:d]...)
         for directions in coords_to_change
             coord = collect(coord)
-            new_coords = Vector([copy(coord) for _ in 1:2^n - 1])
-            for i in 1:2^n - 1, j in 1:n
+            new_coords = Vector([copy(coord) for _ = 1:(2^n-1)])
+            for i = 1:(2^n-1), j = 1:n
                 # TODO: convert to binary operator
                 (i >> (j - 1)) & 1 == 1 ? new_coords[i][directions[j]] += 1 : nothing
             end
@@ -1664,7 +1913,7 @@ function _compute_cells_periodic(l::Int, n::Int, d::Int = 4)
                 push!(vertices, _Vertex(new_coord))
             end
 
-            push!(cells, _Cell(vertices) )
+            push!(cells, _Cell(vertices))
         end
     end
     return cells
@@ -1675,12 +1924,14 @@ end
     where n is the dimension of the sub_cells, and l the linear size of the system. 
 """
 function _contains(cells::Set{_Cell}, sub_cells::Set{_Cell}, n::Int, l::Int)
-    cell_dict = Dict{_Cell, Set{_Cell}}()
+    cell_dict = Dict{_Cell,Set{_Cell}}()
     for cell in cells
-        for sub_cell in combinations(collect(cell.vertices), 2^n)
-            l == 2 ? new_cell = _Cell(Set(_identify_cells(sub_cell))) : new_cell = _Cell(Set(sub_cell))
+        for sub_cell in Combinatorics.combinations(collect(cell.vertices), 2^n)
+            l == 2 ? new_cell = _Cell(Set(_identify_cells(sub_cell))) :
+            new_cell = _Cell(Set(sub_cell))
             !(new_cell in sub_cells) && continue
-            haskey(cell_dict, cell) ? push!(cell_dict[cell], new_cell) : cell_dict[cell] = Set([new_cell])
+            haskey(cell_dict, cell) ? push!(cell_dict[cell], new_cell) :
+            cell_dict[cell] = Set([new_cell])
         end
     end
     return cell_dict
@@ -1690,7 +1941,7 @@ end
     Inverts a dictionary.
 """
 function _inverse_dict(d::Dict)
-    d_inv = Dict{_Cell, Set{_Cell}}()
+    d_inv = Dict{_Cell,Set{_Cell}}()
     for (k, v) in d, c in v
         haskey(d_inv, c) ? push!(d_inv[c], k) : d_inv[c] = Set([k])
     end
@@ -1703,7 +1954,7 @@ end
 function _identify_cells(c::Vector{_Vertex})
     new_c = deepcopy(c)
     l = length(c[1].coordinates)
-    for i in 1:l
+    for i = 1:l
         fix_boundary::Bool = true
         for v in c
             v.coordinates[i] < 2 ? fix_boundary = false : nothing
@@ -1721,8 +1972,8 @@ end
     Create and fills check_matrices. 
 """
 function _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
-    X_stabs = spzeros(Bool, length(X_dict), length(q_dict) )
-    Z_stabs = spzeros(Bool, length(Z_dict), length(q_dict) )
+    X_stabs = spzeros(Bool, length(X_dict), length(q_dict))
+    Z_stabs = spzeros(Bool, length(Z_dict), length(q_dict))
 
     for (e, v) in X_dict
         for c in v
@@ -1768,12 +2019,12 @@ end
     Build qubit dictionary.
 """
 function _build_q_dict(faces::Set{_Cell})
-    q_dict = Dict{_Cell, Int}()
+    q_dict = Dict{_Cell,Int}()
     n = 0
     for f in faces
         n += 1
         q_dict[f] = n
-    end 
+    end
     return q_dict
 end
 
@@ -1781,20 +2032,20 @@ end
     Compute logical operators.
 """
 function _compute_logicals(l::Int, n::Int = 2, d::Int = 4)
-    Z_logicals = Dict{Vector{Int}, Set{_Cell}}()
-    X_logicals = Dict{Vector{Int}, Set{_Cell}}()
+    Z_logicals = Dict{Vector{Int},Set{_Cell}}()
+    X_logicals = Dict{Vector{Int},Set{_Cell}}()
     dirs = collect(1:d)
     coords_to_change = collect(combinations(1:d, n))
     for directions in coords_to_change
         original_face = []
-        for c in Iterators.product([0:l - 1 for i in 1:2]...)
+        for c in Iterators.product([0:(l-1) for i = 1:2]...)
             z_coord = [0, 0, 0, 0]
-            for i in 1:length(directions)
+            for i = 1:length(directions)
                 z_coord[directions[i]] = c[i]
             end
             other_directions = setdiff(dirs, directions)
-            z_new_coords = Vector([copy(z_coord) for _ in 1:2^n - 1])
-            for i in 1:2^n - 1, j in 1:n
+            z_new_coords = Vector([copy(z_coord) for _ = 1:(2^n-1)])
+            for i = 1:(2^n-1), j = 1:n
                 (i >> (j - 1)) & 1 == 1 ? z_new_coords[i][directions[j]] += 1 : nothing
             end
             vertices = Set{_Vertex}()
@@ -1803,22 +2054,26 @@ function _compute_logicals(l::Int, n::Int = 2, d::Int = 4)
                 l > 2 ? new_coord .%= l : nothing
                 push!(vertices, _Vertex(new_coord))
             end
-            haskey(Z_logicals, directions) ? push!(Z_logicals[directions], _Cell(vertices)) : Z_logicals[directions] = Set([_Cell(vertices)])
+            haskey(Z_logicals, directions) ?
+            push!(Z_logicals[directions], _Cell(vertices)) :
+            Z_logicals[directions] = Set([_Cell(vertices)])
             if isempty(original_face)
                 original_face = copy(z_new_coords)
                 push!(original_face, z_coord)
             end
             vertices = Set{_Vertex}()
             new_face = deepcopy(original_face)
-            for pt in new_face, i in 1:length(other_directions)
+            for pt in new_face, i = 1:length(other_directions)
                 pt[other_directions[i]] = c[i]
             end
             vertices = Set{_Vertex}()
             for new_coord in new_face
                 l > 2 ? new_coord .%= l : nothing
-                push!(vertices, _Vertex(new_coord)) 
+                push!(vertices, _Vertex(new_coord))
             end
-            haskey(X_logicals, directions) ? push!(X_logicals[directions], _Cell(vertices)) : X_logicals[directions] = Set([_Cell(vertices)])
+            haskey(X_logicals, directions) ?
+            push!(X_logicals[directions], _Cell(vertices)) :
+            X_logicals[directions] = Set([_Cell(vertices)])
         end
     end
     return X_logicals, Z_logicals
@@ -1827,7 +2082,7 @@ end
 """
     Get the indices of the redundant stabilizers.
 """
-function _compute_redundant(redundancy::Dict{_Cell, Set{_Cell}}, re_dict::Dict{_Cell, Int})
+function _compute_redundant(redundancy::Dict{_Cell,Set{_Cell}}, re_dict::Dict{_Cell,Int})
     redundant = Vector{Vector{Int}}()
     for (_, stabs) in redundancy
         new_v = Vector{Int}()
@@ -1862,7 +2117,8 @@ function ToricCode4D(l::Int)
     volume_dict = _build_q_dict(volumes)
     edge_dict = _build_q_dict(edges)
 
-    X_stabs, Z_stabs = _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
+    X_stabs, Z_stabs =
+        _compute_check_matrices(X_dict, Z_dict, q_dict, edge_dict, volume_dict)
     Z_redundant = _compute_redundant(Z_redundancy, volume_dict)
     X_redundant = _compute_redundant(X_redundancy, edge_dict)
 
@@ -1877,11 +2133,11 @@ function ToricCode4D(l::Int)
     Z = zero_matrix(F, size(Z_stabs)[1], size(Z_stabs)[2])
 
     I, J, _ = findnz(X_stabs)
-    for i in 1:length(I)
+    for i = 1:length(I)
         X[I[i], J[i]] = F_one
     end
     I, J, _ = findnz(Z_stabs)
-    for i in 1:length(I)
+    for i = 1:length(I)
         Z[I[i], J[i]] = F_one
     end
 

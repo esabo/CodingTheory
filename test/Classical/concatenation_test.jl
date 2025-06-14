@@ -5,16 +5,28 @@
         # same field examples come from https://benjamin-hackl.at/downloads/BA-Thesis_Hackl.pdf
         # "Concatenated Error Correcting Codes: Galois and Binary Concatenation"
         F = Oscar.Nemo.Native.GF(2)
-        Ham = matrix(F, 4, 8, [
+        Ham = matrix(
+            F,
+            4,
+            8,
+            [
                 1 0 0 0 0 1 1 1;
                 0 1 0 0 1 0 1 1;
                 0 0 1 0 1 1 0 1;
-                0 0 0 1 1 1 1 0])
-        G_in = matrix(F, 4, 8, [
+                0 0 0 1 1 1 1 0
+            ],
+        )
+        G_in = matrix(
+            F,
+            4,
+            8,
+            [
                 1 0 0 0 0 1 0 0;
                 0 1 0 0 0 0 1 0;
                 0 0 1 0 1 0 0 1;
-                0 0 0 1 1 1 1 0])
+                0 0 0 1 1 1 1 0
+            ],
+        )
         # G_out should be the [8, 4, 4] extended binary Hamming code
         C_Ham = LinearCode(Ham)
         @test dimension(C_Ham) == 4
@@ -24,59 +36,99 @@
         @test dimension(C_in) == 4
         @test minimum_distance(C_in) == 2
         C = concatenate(C_Ham, C_in)
-        G_final = matrix(F, 4, 16, [
+        G_final = matrix(
+            F,
+            4,
+            16,
+            [
                 1 0 0 0 0 1 0 0 0 1 1 1 0 1 0 1;
                 0 1 0 0 0 0 1 0 1 0 1 1 0 0 1 1;
                 0 0 1 0 1 0 0 1 1 1 0 1 1 0 0 0;
-                0 0 0 1 1 1 1 0 1 1 1 0 1 1 1 1])
+                0 0 0 1 1 1 1 0 1 1 1 0 1 1 1 1
+            ],
+        )
         @test generator_matrix(C) == G_final
         @test_broken minimum_distance(C) == 7
 
         C = concatenate(C_Ham, C_Ham)
-        G_final = matrix(F, 4, 16, [
+        G_final = matrix(
+            F,
+            4,
+            16,
+            [
                 1 0 0 0 0 1 1 1 0 1 1 1 1 0 0 0;
                 0 1 0 0 1 0 1 1 1 0 1 1 0 1 0 0;
                 0 0 1 0 1 1 0 1 1 1 0 1 0 0 1 0;
-                0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1])
+                0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1
+            ],
+        )
         @test generator_matrix(C) == G_final
         @test_broken minimum_distance(C) == 8
 
-        G_out = matrix(F, 4, 12, [
+        G_out = matrix(
+            F,
+            4,
+            12,
+            [
                 1 0 0 0 0 0 1 1 0 1 1 0
                 0 1 0 0 1 0 0 0 1 0 0 1
                 0 0 1 0 1 1 0 0 1 0 0 0
-                0 0 0 1 0 0 1 1 0 0 1 1])
+                0 0 0 1 0 0 1 1 0 0 1 1
+            ],
+        )
         C_out = LinearCode(G_out)
         @test dimension(C_out) == 4
         @test minimum_distance(C_out) == 4
         C = concatenate(C_out, C_Ham)
-        G_final = matrix(F, 4, 24, [
+        G_final = matrix(
+            F,
+            4,
+            24,
+            [
                 1 0 0 0 0 1 1 1 0 0 1 1 0 0 1 1 0 1 1 0 0 1 1 0;
                 0 1 0 0 1 0 1 1 1 0 0 0 0 1 1 1 1 0 0 1 1 0 0 1;
                 0 0 1 0 1 1 0 1 1 1 0 0 1 1 0 0 1 0 0 0 0 1 1 1;
-                0 0 0 1 1 1 1 0 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1])
+                0 0 0 1 1 1 1 0 0 0 1 1 0 0 1 1 0 0 1 1 0 0 1 1
+            ],
+        )
         @test generator_matrix(C) == G_final
         @test_broken minimum_distance(C) == 8
 
-        G_out = matrix(F, 4, 12, [
+        G_out = matrix(
+            F,
+            4,
+            12,
+            [
                 1 0 0 0 1 0 1 1 0 0 1 0;
                 0 1 0 0 0 1 1 1 1 0 0 0;
                 0 0 1 0 1 1 1 1 0 1 1 1;
-                0 0 0 1 1 1 1 0 1 1 1 0])
+                0 0 0 1 1 1 1 0 1 1 1 0
+            ],
+        )
         C_out = LinearCode(G_out)
         @test dimension(C_out) == 4
         @test minimum_distance(C_out) == 5
         C = concatenate(C_out, C_Ham)
-        G_final = matrix(F, 4, 24, [
+        G_final = matrix(
+            F,
+            4,
+            24,
+            [
                 1 0 0 0 0 1 1 1 1 0 1 1 0 1 0 0 0 0 1 0 1 1 0 1;
                 0 1 0 0 1 0 1 1 0 1 1 1 1 0 0 0 1 0 0 0 0 1 1 1;
                 0 0 1 0 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 0 0 0;
-                0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1])
+                0 0 0 1 1 1 1 0 1 1 1 0 0 0 0 1 1 1 1 0 0 0 0 1
+            ],
+        )
         @test generator_matrix(C) == G_final
         @test_broken minimum_distance(C) == 12
 
         # claims this is ExtendedGolayCode(2) but I can't find the equivalence
-        G_in = matrix(F, 12, 24, [
+        G_in = matrix(
+            F,
+            12,
+            24,
+            [
                 1 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 0 0 0 1 1;
                 0 1 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 0 0 1 0 0 1 0;
                 0 0 1 0 0 0 0 0 0 0 0 0 1 1 0 1 0 0 1 0 1 0 1 1;
@@ -88,14 +140,22 @@
                 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 1 1 0 1 1 1 1 0 0;
                 0 0 0 0 0 0 0 0 0 1 0 0 0 0 1 0 1 1 0 1 1 1 1 0;
                 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 0 0 0 1 1 0 1;
-                0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 0 0 0 1 1 1])
+                0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1 1 1 0 0 0 1 1 1
+            ],
+        )
         C_in = LinearCode(G_in)
         C = concatenate(C_out, C_in)
-        G_final = matrix(F, 4, 24, [
+        G_final = matrix(
+            F,
+            4,
+            24,
+            [
                 1 0 0 0 1 0 1 1 0 0 1 0 0 1 0 1 1 1 1 1 1 0 0 0
                 0 1 0 0 0 1 1 1 1 0 0 0 0 1 0 0 0 0 0 0 1 1 0 0
                 0 0 1 0 1 1 1 1 0 1 1 1 0 0 1 1 0 1 0 0 0 1 0 0
-                0 0 0 1 1 1 1 0 1 1 1 0 1 0 0 1 0 0 0 1 1 0 1 0])
+                0 0 0 1 1 1 1 0 1 1 1 0 1 0 0 1 0 0 0 1 1 0 1 0
+            ],
+        )
         @test generator_matrix(C) == G_final
         @test_broken minimum_distance(C) == 8
 

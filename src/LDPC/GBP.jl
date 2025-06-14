@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-       # Region Graphs
+# Region Graphs
 #############################
 
 mutable struct Region
@@ -19,16 +19,31 @@ mutable struct Region
     # size of parents, element is indices of parent marginalized to get child (this) 
     missing_parent_indices::Vector{Vector{Int}}
     # size of parents, element is numerator for each edge in (region index, parent index) pairs
-    message_numerators::Vector{Vector{Tuple{Int, Int}}}
+    message_numerators::Vector{Vector{Tuple{Int,Int}}}
     # size of parents, element is denominator for each edge in (region index, parent index) pairs
-    message_denominators::Vector{Vector{Tuple{Int, Int}}}
+    message_denominators::Vector{Vector{Tuple{Int,Int}}}
 end
 
-Region(id::Vector{Int}) = Region(id, Vector{Region}(), Vector{Region}(), Vector{Region}(), 1,
-    Vector{Vector{Int}}(), Vector{Vector{Tuple{Int, Int}}}(), Vector{Vector{Tuple{Int, Int}}}())
-Region(id::Vector{Int}, c_r::Int) = Region(id, Vector{Region}(), Vector{Region}(),
-    Vector{Region}(), c_r, Vector{Vector{Int}}(), Vector{Vector{Tuple{Int, Int}}}(),
-    Vector{Vector{Tuple{Int, Int}}}())
+Region(id::Vector{Int}) = Region(
+    id,
+    Vector{Region}(),
+    Vector{Region}(),
+    Vector{Region}(),
+    1,
+    Vector{Vector{Int}}(),
+    Vector{Vector{Tuple{Int,Int}}}(),
+    Vector{Vector{Tuple{Int,Int}}}(),
+)
+Region(id::Vector{Int}, c_r::Int) = Region(
+    id,
+    Vector{Region}(),
+    Vector{Region}(),
+    Vector{Region}(),
+    c_r,
+    Vector{Vector{Int}}(),
+    Vector{Vector{Tuple{Int,Int}}}(),
+    Vector{Vector{Tuple{Int,Int}}}(),
+)
 
 id(r::Region) = r.id
 label(r::Region) = id(r)
@@ -45,7 +60,7 @@ message_denominators(r::Region) = r.message_denominators
 message_denominators(r::Region, i::Int) = r.message_denominators[i]
 
 function ==(r1::Region, r2::Region)
-# do this entirely in terms of id's at every comparison
+    # do this entirely in terms of id's at every comparison
 
 end
 
@@ -63,9 +78,9 @@ leaves(R::RegionGraph) = [r for r in R.regions if isempty(r.subregions)]
 
 function canonical_region_graph(H::CTMatrixTypes)
     num_check, num_var = size(H)
-    check_adj_list = [Int[] for _ in 1:num_check]
-    for r in 1:num_check
-        for c in 1:num_var
+    check_adj_list = [Int[] for _ = 1:num_check]
+    for r = 1:num_check
+        for c = 1:num_var
             iszero(H[r, c]) || push!(check_adj_list[r], c)
         end
     end
@@ -79,8 +94,8 @@ function region_graph_from_base_nodes(regions::Vector{Region})
     left = 1
     right = length(regions)
     while left < right
-        for r1 in left:right - 1
-            for r2 in left + 1:right
+        for r1 = left:(right-1)
+            for r2 = (left+1):right
                 if r1 ≠ r2
                     cap = regions[r1].id ∩ regions[r2].id
                     if !isempty(cap) && cap ≠ regions[r1].id && cap ≠ regions[r2].id
@@ -103,8 +118,13 @@ function region_graph_from_base_nodes(regions::Vector{Region})
                                 #### TODO here find missing labels between parents and child
 
 
-                                
-                                r.ancestors = unique!(reduce(vcat, [[r3.ancestors for r3 in r.parents]; r.parents]))
+
+                                r.ancestors = unique!(
+                                    reduce(
+                                        vcat,
+                                        [[r3.ancestors for r3 in r.parents]; r.parents],
+                                    ),
+                                )
                                 # do I want to blank this out?
                                 # r.subregions = Vector{Region}()
 
@@ -116,15 +136,30 @@ function region_graph_from_base_nodes(regions::Vector{Region})
                         end
 
                         if !found
-                            ancestors = unique!([regions[r1].ancestors; regions[r2].ancestors; [regions[r1], regions[r2]]])
+                            ancestors = unique!(
+                                [
+                                    regions[r1].ancestors;
+                                    regions[r2].ancestors;
+                                    [regions[r1], regions[r2]]
+                                ],
+                            )
 
                             c_r = 1
                             for r3 in ancestors
                                 c_r -= r3.overcounting_number
                             end
 
-                            push!(regions, Region(cap, [regions[r1], regions[r2]], ancestors, Vector{Region}(), c_r))
-                            
+                            push!(
+                                regions,
+                                Region(
+                                    cap,
+                                    [regions[r1], regions[r2]],
+                                    ancestors,
+                                    Vector{Region}(),
+                                    c_r,
+                                ),
+                            )
+
                             # can we combine this with the above loop?
                             for r3 in ancestors
                                 push!(r3.subregions, regions[end])
@@ -271,6 +306,5 @@ end
 # end
 
 #############################
-            # GBP
+# GBP
 #############################
-

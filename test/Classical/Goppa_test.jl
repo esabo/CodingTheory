@@ -10,7 +10,7 @@
         # julia> minimal_polynomial(α)
         # x^3 + x + 1
         g = α^3 + z + z^2
-        L = [E(0); [α^i for i in 0:6]]
+        L = [E(0); [α^i for i = 0:6]]
         F = GF(2)
         C = GoppaCode(F, L, g)
         @test length(C) == 8
@@ -20,7 +20,7 @@
         # Ling & Xing, Corollary 9.3.4, p. 198
         n = length(L)
         # v = [g(a)^(-1) for a in L]
-        v = [g(L[i]) * prod(L[i] - L[j] for j in 1:n if i ≠ j)^-1 for i in 1:n]
+        v = [g(L[i]) * prod(L[i] - L[j] for j = 1:n if i ≠ j)^-1 for i = 1:n]
         t = degree(g)
         C2 = AlternateCode(F, n - t, v, L)
         # TODO I highly suspect this result comes from using different bases and scalars throughout different books and the expansion is highly basis dependent
@@ -66,7 +66,7 @@
         E = GF(2^5, :α)
         S, z = polynomial_ring(E, :z)
         α = gen(E)
-        L = [E(0); [α^i for i in 0:Int(order(E)) - 2]]
+        L = [E(0); [α^i for i = 0:(Int(order(E))-2)]]
         g = z^3 + z + 1
         C = GoppaCode(F, L, g)
         @test is_irreducible(C)
@@ -79,7 +79,7 @@
         S, z = polynomial_ring(E, :z)
         α = gen(E)
         g = z^2 + z + α^3
-        L = [E(0); [α^i for i in 0:Int(order(E)) - 2]]
+        L = [E(0); [α^i for i = 0:(Int(order(E))-2)]]
         C = GoppaCode(GF(2), L, g)
         @test is_irreducible(C)
         @test length(C) == 16
@@ -91,7 +91,7 @@
         S, z = polynomial_ring(E, :z)
         α = gen(E)
         g = z^3 + z + 1
-        L = [α^i for i in 0:14]
+        L = [α^i for i = 0:14]
         C = GoppaCode(GF(2), L, g)
         @test length(C) == 15
         @test dimension(C) == 3

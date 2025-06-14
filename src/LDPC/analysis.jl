@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 # TODO: in tutorial, make sure we explain why we can't pass in L, R here
@@ -22,10 +22,19 @@ function LDPCEnsemble(λ::PolyRingElem, ρ::PolyRingElem)
     r_avg = _compute_avg_degree(ρ)
     L, R = _compute_L_R(λ, ρ, l_avg, r_avg)
     design_rate = Float64(1 - l_avg / r_avg)
-    density_evo = Dict{AbstractClassicalNoiseChannel, NTuple{2, Vector{Float64}}}()
-    threshold = Dict{Type, Float64}()
-    return LDPCEnsemble(λ, ρ, L, R, Float64(l_avg), Float64(r_avg), design_rate, density_evo,
-        threshold)
+    density_evo = Dict{AbstractClassicalNoiseChannel,NTuple{2,Vector{Float64}}}()
+    threshold = Dict{Type,Float64}()
+    return LDPCEnsemble(
+        λ,
+        ρ,
+        L,
+        R,
+        Float64(l_avg),
+        Float64(r_avg),
+        design_rate,
+        density_evo,
+        threshold,
+    )
 end
 
 # TODO: ERROR: MethodError: no method matching LDPCEnsemble(::QQPolyRingElem, ::QQPolyRingElem)
@@ -38,31 +47,33 @@ degree distribution `ρ` of `L`, both from an edge perspective.
 LDPCEnsemble(L::AbstractLDPCCode) = LDPCEnsemble(L.λ, L.ρ)
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 # do we not have getter functions for this type?
 
 #############################
-      # setter functions
+# setter functions
 #############################
 
 #############################
-     # general functions
+# general functions
 #############################
 
 # TODO: are _d_poly(...) and _integrate_poly(...) useful? currently unused, probably delete
-_d_poly(vec::Vector{<:Real}) = [vec[i] * (i - 1) for i in 2:length(vec)]
+_d_poly(vec::Vector{<:Real}) = [vec[i] * (i - 1) for i = 2:length(vec)]
 _d_poly(f::PolyRingElem) = derivative(f)
 
-_integrate_poly(vec::Vector{T}) where T <: Real = [zero(T); [c / i for (i, c) in enumerate(vec)]]
+_integrate_poly(vec::Vector{T}) where {T<:Real} =
+    [zero(T); [c / i for (i, c) in enumerate(vec)]]
 _integrate_poly(f::PolyRingElem) = integral(f)
 
 # _poly_eval, _d_poly_eval, and _integrate_poly_0_1 are all used
 _poly_eval(x::Real, vec::Vector{<:Real}) = sum(c * x^(i - 1) for (i, c) in enumerate(vec))
 _poly_eval(x::Real, f::PolyRingElem) = _poly_eval(x, Float64.(coeff.(f, 0:degree(f))))
 
-_d_poly_eval(x::Real, vec::Vector{<:Real}) = sum((i - 1) * c * x^(i - 2) for (i, c) in enumerate(vec))
+_d_poly_eval(x::Real, vec::Vector{<:Real}) =
+    sum((i - 1) * c * x^(i - 2) for (i, c) in enumerate(vec))
 _d_poly_eval(x::Real, f::PolyRingElem) = _d_poly_eval(x, Float64.(coeff.(f, 0:degree(f))))
 
 _integrate_poly_0_1(vec::Vector{<:Real}) = sum(c / i for (i, c) in enumerate(vec))
@@ -73,21 +84,29 @@ _integrate_poly_0_1(f::PolyRingElem) = _integrate_poly_0_1(Float64.(coeff.(f, 0:
 _binary_entropy(x::Real) = x * log2(1 / x) + (1 - x) * log2(1 / (1 - x))
 
 # these should all be useful. Note that the QQ version of _compute_λ_ρ is necessary for the output to also be a QQPoly. The non-QQ version is for when the poly isn't directly callable (as in RealPoly)
-_compute_avg_degree(f::PolyRingElem) = inv(sum(coeff(f, i) / (i + 1) for i in 0:degree(f)))
-_compute_L_R(λ::PolyRingElem, ρ::PolyRingElem, l_avg, r_avg) = (integral(λ) * l_avg, integral(ρ) * r_avg)
-_compute_L_R(λ::PolyRingElem, ρ::PolyRingElem) = _compute_L_R(λ, ρ, _compute_avg_degree(λ), _compute_avg_degree(ρ))
-_compute_λ_ρ(L::PolyRingElem, R::PolyRingElem) = (derivative(L) / _d_poly_eval(1, L), derivative(R) / _d_poly_eval(1, R))
-_compute_λ_ρ(L::QQPolyRingElem, R::QQPolyRingElem) = (derivative(L) / derivative(L)(1), derivative(R) / derivative(R)(1))
+_compute_avg_degree(f::PolyRingElem) = inv(sum(coeff(f, i) / (i + 1) for i = 0:degree(f)))
+_compute_L_R(λ::PolyRingElem, ρ::PolyRingElem, l_avg, r_avg) =
+    (integral(λ) * l_avg, integral(ρ) * r_avg)
+_compute_L_R(λ::PolyRingElem, ρ::PolyRingElem) =
+    _compute_L_R(λ, ρ, _compute_avg_degree(λ), _compute_avg_degree(ρ))
+_compute_λ_ρ(L::PolyRingElem, R::PolyRingElem) =
+    (derivative(L) / _d_poly_eval(1, L), derivative(R) / _d_poly_eval(1, R))
+_compute_λ_ρ(L::QQPolyRingElem, R::QQPolyRingElem) =
+    (derivative(L) / derivative(L)(1), derivative(R) / derivative(R)(1))
 
 function _L2_dist_sq(p1::Vector{Float64}, p2::Vector{Float64})
     @assert length(p1) == length(p2)
     v = p1 .- p2
-    v2 = [sum(v[j] * v[k + 1 - j] for j in max(1, k + 1 - length(v)):min(k, length(v))) for k in 1:2length(v) - 1]
+    v2 = [
+        sum(v[j] * v[k+1-j] for j = max(1, k+1-length(v)):min(k, length(v))) for
+        k = 1:(2length(v)-1)
+    ]
     return _integrate_poly_0_1(v2)
 end
 
 Base.hash(Ch::AbstractClassicalNoiseChannel) = hash(Ch.param, hash(typeof(Ch)))
-Base.isequal(Ch1::AbstractClassicalNoiseChannel, Ch2::AbstractClassicalNoiseChannel) = typeof(Ch1) == typeof(Ch2) && Ch1.param == Ch2.param
+Base.isequal(Ch1::AbstractClassicalNoiseChannel, Ch2::AbstractClassicalNoiseChannel) =
+    typeof(Ch1) == typeof(Ch2) && Ch1.param == Ch2.param
 
 # function Base.setproperty!(Ch::BAWGNChannel, key, val)
 #     key == :capacity && (setfield!(Ch, key, val);)
@@ -111,12 +130,18 @@ end
 Return the density evolution of the LDPC ensemble given the noise channel.
 """
 function density_evolution(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
-    Ch ∈ keys(E.density_evo) || _density_evolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
+    Ch ∈ keys(E.density_evo) ||
+        _density_evolution!(E::LDPCEnsemble, Ch::AbstractClassicalNoiseChannel)
     return E.density_evo[Ch]
 end
 
-function _density_evolution_BEC(λ::Vector{<:Real}, ρ::Vector{<:Real}, ε::Real;
-    max_iters::Int=500, tol::Float64=1e-9)
+function _density_evolution_BEC(
+    λ::Vector{<:Real},
+    ρ::Vector{<:Real},
+    ε::Real;
+    max_iters::Int = 500,
+    tol::Float64 = 1e-9,
+)
 
     iter = 0
     evo_x = [ε]
@@ -155,7 +180,9 @@ Return the multiplicative gap of the ensemble with respect to channel.
 
 Return a lower bound on the multiplicative gap of the ensemble
 """
-multiplicative_gap_lower_bound(E::LDPCEnsemble) = (E.design_rate^E.r_avg * (1 - E.design_rate)) / (1 + E.design_rate^E.r_avg * (1 - E.design_rate))
+multiplicative_gap_lower_bound(E::LDPCEnsemble) =
+    (E.design_rate^E.r_avg * (1 - E.design_rate)) /
+    (1 + E.design_rate^E.r_avg * (1 - E.design_rate))
 
 """
     density_lower_bound(Ch::AbstractClassicalNoiseChannel, gap::Real)
@@ -167,7 +194,8 @@ function density_lower_bound(Ch::AbstractClassicalNoiseChannel, gap::Real)
     0 < gap < 1 || throw(DomainError("Multiplicative gap should be in (0, 1)"))
     if isa(Ch, BinaryErasureChannel)
         temp = log(1 - Ch.param)
-        return (Ch.param * (log(gap) - (log(Ch.param) - temp))) / ((1 - Ch.param) * (1 - gap) * temp)
+        return (Ch.param * (log(gap) - (log(Ch.param) - temp))) /
+               ((1 - Ch.param) * (1 - gap) * temp)
     else
         @error "Not yet implemented"
     end
@@ -197,8 +225,8 @@ function check_concentrated_degree_distribution(Ch::BinaryErasureChannel, gap::R
 
     λ_vec = zeros(N - 1)
     λ_vec[1] = α
-    for i in 2:N - 1
-        λ_vec[i] = ((i - 1) / i) * (1 - α / (i - 1)) * λ_vec[i - 1]
+    for i = 2:(N-1)
+        λ_vec[i] = ((i - 1) / i) * (1 - α / (i - 1)) * λ_vec[i-1]
     end
     norm = sum(λ_vec)
     λ_vec ./= norm
@@ -255,7 +283,11 @@ Given distributions λ and ρ, find the optimal threshold under BP.
 # Notes
 * For checking stability, it can be useful to use, e.g., `Δ = BigFloat("1e-7")`
 """
-function optimal_threshold(λ::Union{Vector{<:Real}, PolyRingElem}, ρ::Union{Vector{<:Real}, PolyRingElem}; Δ::T = 1e-4) where T <: Real
+function optimal_threshold(
+    λ::Union{Vector{<:Real},PolyRingElem},
+    ρ::Union{Vector{<:Real},PolyRingElem};
+    Δ::T = 1e-4,
+) where {T<:Real}
 
     xs = Δ:Δ:one(T)
     minimum(x / (_poly_eval(1 - _poly_eval(1 - x, ρ), λ)) for x in xs)

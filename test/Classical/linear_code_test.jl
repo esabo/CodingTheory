@@ -3,10 +3,15 @@
 
     @testset "Linear Code" begin
         F = Oscar.Nemo.Native.GF(2)
-        G = matrix(F, [1 0 0 0 0 1 1;
-                   0 1 0 0 1 0 1;
-                   0 0 1 0 1 1 0;
-                   0 0 0 1 1 1 1]);
+        G = matrix(
+            F,
+            [
+                1 0 0 0 0 1 1;
+                0 1 0 0 1 0 1;
+                0 0 1 0 1 1 0;
+                0 0 0 1 1 1 1
+            ],
+        );
         C = LinearCode(G);
         @test field(C) == F
         @test length(C) == 7
@@ -43,8 +48,8 @@
         @test iszero(syndrome(C, v))
         @test is_overcomplete(ZeroCode(5))
         @test is_overcomplete(IdentityCode(5), :H)
-        @test !is_overcomplete(HammingCode(2,3))
-        @test !is_overcomplete(HammingCode(2,3), :H)
+        @test !is_overcomplete(HammingCode(2, 3))
+        @test !is_overcomplete(HammingCode(2, 3), :H)
 
         # lower rank test
         G_and_G = vcat(G, G);
@@ -94,13 +99,16 @@
         C = TetraCode()
         exC = extend(C)
         @test generator_matrix(exC) == matrix(field(C), [1 0 1 1 0; 0 1 1 -1 -1])
-        @test parity_check_matrix(exC) == matrix(field(C), [1 1 1 1 1; -1 -1 1 0 0; -1 1 0 1 0])
+        @test parity_check_matrix(exC) ==
+              matrix(field(C), [1 1 1 1 1; -1 -1 1 0 0; -1 1 0 1 0])
         G = matrix(F, [1 1 0 0 1; 0 0 1 1 0])
         C = LinearCode(G)
-        @test generator_matrix(extend(puncture(C, [5]))) == matrix(F, [1 1 0 0 0; 0 0 1 1 0])
+        @test generator_matrix(extend(puncture(C, [5]))) ==
+              matrix(F, [1 1 0 0 0; 0 0 1 1 0])
         G = matrix(F, [1 0 0 1 1 1; 0 1 0 1 1 1; 0 0 1 1 1 1])
         C = LinearCode(G)
-        @test generator_matrix(puncture(C, [5, 6])) == matrix(F, [1 0 0 1; 0 1 0 1; 0 0 1 1])
+        @test generator_matrix(puncture(C, [5, 6])) ==
+              matrix(F, [1 0 0 1; 0 1 0 1; 0 0 1 1])
         # shortening examples from Huffman/Pless
         shC = shorten(C, [5, 6])
         shCtest = LinearCode(matrix(F, [1 0 1 0; 0 1 1 0]))
@@ -110,7 +118,10 @@
         D = Hermitian_dual(C)
         @test are_equivalent(C, D)
         # verify our definition of Hermitian_dual is equivalent:
-        @test are_equivalent(D, LinearCode(Hermitian_conjugate_matrix(generator_matrix(dual(C)))))
+        @test are_equivalent(
+            D,
+            LinearCode(Hermitian_conjugate_matrix(generator_matrix(dual(C)))),
+        )
 
         C = HammingCode(2, 3)
         C2 = LinearCode(words(C))
@@ -139,8 +150,8 @@
         C3 = permute_code(C, Perm(σ))
         #C4 = permute_code(C, S7(σ))
         #@test C1.G == C2.G == C3.G == C4.G == C.G[:, σ]
-        C1 = permute_code(C, [2,1,3,4,5,6,7])
-        C2 = permute_code(C, [1,4,3,2,5,6,7])
+        C1 = permute_code(C, [2, 1, 3, 4, 5, 6, 7])
+        C2 = permute_code(C, [1, 4, 3, 2, 5, 6, 7])
         flag, P = are_permutation_equivalent(C1, C2)
         @test flag
         @test are_equivalent(permute_code(C1, P), C2)
@@ -162,11 +173,11 @@
         bool2, permutation2 = CodingTheory._are_perm_equivalent_exhaustive_search(C1, C3)
         @test !bool2
         @test permutation2 === missing
- 
+
     end
 
     @testset "Random Linear Code Functions" begin
-        C_ham = HammingCode(2, 3) 
+        C_ham = HammingCode(2, 3)
         @test ncols(C_ham.G) == 7
         pivs = random_information_set(C_ham)
         mat = C_ham.G[:, pivs]
@@ -174,12 +185,12 @@
         @test ncols(mat) == 4
         @test rank(mat) == 4
 
-        C_ham = HammingCode(2, 4) 
+        C_ham = HammingCode(2, 4)
         number_of_tests = 5
-        for i in 1:number_of_tests
+        for i = 1:number_of_tests
             rng = CodingTheory.Random.seed!(i)
-            infoset = random_information_set(C_ham, rng = rng) 
-            @test det(C_ham.G[:, infoset]) != 0 
+            infoset = random_information_set(C_ham, rng = rng)
+            @test det(C_ham.G[:, infoset]) != 0
         end
 
         p = 2
@@ -189,13 +200,13 @@
         C = random_linear_code(p, n, k, rng = rng)
         @test C.n == n
         @test C.k == k
-    
+
         rng = CodingTheory.Random.seed!(0)
         prime_power = p^2
         C = random_linear_code(prime_power, n, k, rng = rng)
         @test C.n == n
         @test C.k == k
-    
+
         rng_from_field = CodingTheory.Random.seed!(0)
         C2 = random_linear_code(GF(p, 2, :x), n, k, rng = rng_from_field)
         @test C2.n == n
@@ -203,10 +214,10 @@
         @test C.G == C2.G
     end
 
-        # "On the Schur Product of Vector Spaces over Finite Fields"
-        # Christiaan Koster
-        # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
+    # "On the Schur Product of Vector Spaces over Finite Fields"
+    # Christiaan Koster
+    # Lemma 14: If C is cyclic and dim(C) > (1/2)(n + 1), then C * C = F^n
 
-        # simplex code itself has dimension k(k + 1)/2
-        #
+    # simplex code itself has dimension k(k + 1)/2
+    #
 end

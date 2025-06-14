@@ -64,7 +64,8 @@
         C = BCHCode(2, 31, 5, 1)
         @test dimension(C) == 21
         @test_broken minimum_distance(C) == 5
-        @test_broken polynomial(MacWilliams_identity(C, weight_enumerator(C, :Hamming))) == y^31 + 310x^12*y^19 + 527x^16*y^15 + 186x^20*y^11
+        @test_broken polynomial(MacWilliams_identity(C, weight_enumerator(C, :Hamming))) ==
+                     y^31 + 310x^12*y^19 + 527x^16*y^15 + 186x^20*y^11
 
         # example: Huffman & Pless
         C = ReedSolomonCode(13, 5, 1)
@@ -81,13 +82,15 @@
         @test minimum_distance(D) == 9
         @test is_MDS(D) == true
         @test defining_set(D) == [0, 1, 2, 3, 4, 5, 6, 7]
-        @test generator_polynomial(D) == 3 + 12x + x^2 + 5x^3 + 11x^4 + 4x^5 + 10x^6 + 5x^7 + x^8
+        @test generator_polynomial(D) ==
+              3 + 12x + x^2 + 5x^3 + 11x^4 + 4x^5 + 10x^6 + 5x^7 + x^8
         Cc = complement(C)
         @test length(Cc) == 12
         @test dimension(Cc) == 4
         @test_broken minimum_distance(Cc) == 9
         @test defining_set(Cc) == [0, 5, 6, 7, 8, 9, 10, 11]
-        @test generator_polynomial(Cc) == 9 + 6x + 12x^2 + 10x^3 + 8x^4 + 6x^5 + 9x^6 + 4x^7 + x^8
+        @test generator_polynomial(Cc) ==
+              9 + 6x + 12x^2 + 10x^3 + 8x^4 + 6x^5 + 9x^6 + 4x^7 + x^8
 
         # example: Huffman & Pless
         C = ReedSolomonCode(16, 7, 1)
@@ -98,7 +101,8 @@
         R = polynomial_ring(C)
         x = gen(R)
         α = primitive_root(C)
-        @test generator_polynomial(C) == α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
+        @test generator_polynomial(C) ==
+              α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
 
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(5, 3, 1)
@@ -142,7 +146,7 @@
         @test C2 ⊆ C
         @test C2 ⊂ C
         @test is_subcode(C2, C)
-        @test C == CyclicCode(16, 15, defining_set([i for i in 0:(0 + 5 - 2)], 16, 15, false))
+        @test C == CyclicCode(16, 15, defining_set([i for i = 0:(0+5-2)], 16, 15, false))
         @test C == BCHCode(16, 15, 5)
         @test design_distance(C) == 5
         @test is_narrowsense(C)

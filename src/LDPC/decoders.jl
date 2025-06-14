@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # MP Decoders
+# MP Decoders
 #############################
 
 # Example of using Gallager A and B (out should end up [1 1 1 0 0 0 0]
@@ -18,8 +18,8 @@
 
 struct MPNoiseModel
     type::Symbol
-    cross_over_prob::Union{Float64, Missing}
-    sigma::Union{Float64, Missing}
+    cross_over_prob::Union{Float64,Missing}
+    sigma::Union{Float64,Missing}
 end
 
 function MPNoiseModel(type::Symbol, x::Float64)
@@ -32,72 +32,151 @@ function MPNoiseModel(type::Symbol, x::Float64)
     end
 end
 
-function Gallager_A(H::T, v::T, max_iter::Int = 100) where T <: CTMatrixTypes
-    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, missing, max_iter, :A, 2)
-    return _message_passing(H_Int, w, missing, _Gallager_A_check_node_message, var_adj_list,
-        check_adj_list, max_iter, :A)
+function Gallager_A(H::T, v::T, max_iter::Int = 100) where {T<:CTMatrixTypes}
+    H_Int, w, var_adj_list, check_adj_list =
+        _message_passing_init(H, v, missing, max_iter, :A, 2)
+    return _message_passing(
+        H_Int,
+        w,
+        missing,
+        _Gallager_A_check_node_message,
+        var_adj_list,
+        check_adj_list,
+        max_iter,
+        :A,
+    )
 end
 
-function Gallager_B(H::T, v::T, max_iter::Int = 100, threshold::Int=2) where T <: CTMatrixTypes
-    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, missing, max_iter, :B,
-        threshold)
-    return _message_passing(H_Int, w, missing, _Gallager_B_check_node_message, var_adj_list,
-        check_adj_list, max_iter, :B, threshold)
+function Gallager_B(
+    H::T,
+    v::T,
+    max_iter::Int = 100,
+    threshold::Int = 2,
+) where {T<:CTMatrixTypes}
+    H_Int, w, var_adj_list, check_adj_list =
+        _message_passing_init(H, v, missing, max_iter, :B, threshold)
+    return _message_passing(
+        H_Int,
+        w,
+        missing,
+        _Gallager_B_check_node_message,
+        var_adj_list,
+        check_adj_list,
+        max_iter,
+        :B,
+        threshold,
+    )
 end
 
-function sum_product(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100) where {S <: CTMatrixTypes,
-    T <: Union{Vector{<:Real}, CTMatrixTypes}}
+function sum_product(
+    H::S,
+    v::T,
+    chn::MPNoiseModel,
+    max_iter::Int = 100,
+) where {S<:CTMatrixTypes,T<:Union{Vector{<:Real},CTMatrixTypes}}
 
-    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :SP, 2)
-    return _message_passing(H_Int, w, chn, _SP_check_node_message, var_adj_list, check_adj_list,
-        max_iter, :SP)
+    H_Int, w, var_adj_list, check_adj_list =
+        _message_passing_init(H, v, chn, max_iter, :SP, 2)
+    return _message_passing(
+        H_Int,
+        w,
+        chn,
+        _SP_check_node_message,
+        var_adj_list,
+        check_adj_list,
+        max_iter,
+        :SP,
+    )
 end
 
-function sum_product_box_plus(H::S, v::T, chn::MPNoiseModel, max_iter::Int = 100) where {S <:
-    CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+function sum_product_box_plus(
+    H::S,
+    v::T,
+    chn::MPNoiseModel,
+    max_iter::Int = 100,
+) where {S<:CTMatrixTypes,T<:Union{Vector{<:Real},CTMatrixTypes}}
 
-    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :SP, 2)
-    return _message_passing(H_Int, w, chn, _SP_check_node_message_box_plus, var_adj_list,
-        check_adj_list, max_iter, :SP)
+    H_Int, w, var_adj_list, check_adj_list =
+        _message_passing_init(H, v, chn, max_iter, :SP, 2)
+    return _message_passing(
+        H_Int,
+        w,
+        chn,
+        _SP_check_node_message_box_plus,
+        var_adj_list,
+        check_adj_list,
+        max_iter,
+        :SP,
+    )
 end
 
-function min_sum(H::T, v::T, chn::MPNoiseModel, max_iter::Int = 100, attenuation::Float64 =
-    0.5) where T <: CTMatrixTypes
+function min_sum(
+    H::T,
+    v::T,
+    chn::MPNoiseModel,
+    max_iter::Int = 100,
+    attenuation::Float64 = 0.5,
+) where {T<:CTMatrixTypes}
 
-    H_Int, w, var_adj_list, check_adj_list = _message_passing_init(H, v, chn, max_iter, :MS, 2)
-    return _message_passing(H_Int, w, chn, _MS_check_node_message, var_adj_list, check_adj_list,
-        max_iter, :MS, 0, attenuation)
+    H_Int, w, var_adj_list, check_adj_list =
+        _message_passing_init(H, v, chn, max_iter, :MS, 2)
+    return _message_passing(
+        H_Int,
+        w,
+        chn,
+        _MS_check_node_message,
+        var_adj_list,
+        check_adj_list,
+        max_iter,
+        :MS,
+        0,
+        attenuation,
+    )
 end
 
-function _message_passing_init(H::S, v::T, chn::Union{Missing, MPNoiseModel}, max_iter::Int,
-    kind::Symbol, Bt::Int) where {S <: CTMatrixTypes, T <: Union{Vector{<:Real}, CTMatrixTypes}}
+function _message_passing_init(
+    H::S,
+    v::T,
+    chn::Union{Missing,MPNoiseModel},
+    max_iter::Int,
+    kind::Symbol,
+    Bt::Int,
+) where {S<:CTMatrixTypes,T<:Union{Vector{<:Real},CTMatrixTypes}}
 
     kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
-    kind ∈ (:SP, :MS) && ismissing(chn) && throw(ArgumentError(":SP and :MS require a noise model"))
+    kind ∈ (:SP, :MS) &&
+        ismissing(chn) &&
+        throw(ArgumentError(":SP and :MS require a noise model"))
     Int(order(base_ring(H))) == 2 ||
         throw(ArgumentError("Currently only implemented for binary codes"))
     num_check, num_var = size(H)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
+    num_check > 0 && num_var > 0 ||
+        throw(ArgumentError("Input matrix of improper dimension"))
     length(v) == num_var || throw(ArgumentError("Vector has incorrect dimension"))
     (kind == :B && !(1 <= Bt <= num_check)) &&
         throw(DomainError("Improper threshold for Gallager B"))
     2 <= max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
-    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) &&
+    kind ∈ (:SP, :MS) &&
+        chn.type == :BAWGNC &&
+        !isa(v, Vector{<:AbstractFloat}) &&
         throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
+    kind ∈ (:SP, :MS) &&
+        chn.type == :BSC &&
+        !isa(v, Vector{Int}) &&
+        !isa(v, CTMatrixTypes) &&
         throw(DomainError("Received message should be a vector of Ints for BSC."))
-    
+
     H_Int = FpmattoJulia(H)
     w = if T <: CTMatrixTypes
         Int.(data.(v)[:])
     else
         copy(v)
     end
-    check_adj_list = [[] for _ in 1:num_check]
-    var_adj_list = [[] for _ in 1:num_var]
+    check_adj_list = [[] for _ = 1:num_check]
+    var_adj_list = [[] for _ = 1:num_var]
 
-    for r in 1:num_check
-        for c in 1:num_var
+    for r = 1:num_check
+        for c = 1:num_var
             if !iszero(H_Int[r, c])
                 push!(check_adj_list[r], c)
                 push!(var_adj_list[c], r)
@@ -113,10 +192,18 @@ function _message_passing_init(H::S, v::T, chn::Union{Missing, MPNoiseModel}, ma
 end
 
 # TODO: scheduling
-function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, MPNoiseModel},
-    c_to_v_mess::Function, var_adj_list::Vector{Vector{Any}}, check_adj_list::Vector{Vector{Any}},
-    max_iter::Int, kind::Symbol, Bt::Int = 2, attenuation::Float64 = 0.5) where T <: Union{Int,
-    AbstractFloat}
+function _message_passing(
+    H::Matrix{UInt64},
+    w::Vector{T},
+    chn::Union{Missing,MPNoiseModel},
+    c_to_v_mess::Function,
+    var_adj_list::Vector{Vector{Any}},
+    check_adj_list::Vector{Vector{Any}},
+    max_iter::Int,
+    kind::Symbol,
+    Bt::Int = 2,
+    attenuation::Float64 = 0.5,
+) where {T<:Union{Int,AbstractFloat}}
 
     num_check, num_var = size(H)
     S = kind ∈ (:A, :B) ? Int : Float64
@@ -128,7 +215,7 @@ function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, M
     max_iter += 1 # probably should copy this
     check_to_var_messages = zeros(S, num_check, num_var, max_iter)
     var_to_check_messages = zeros(S, num_var, num_check, max_iter)
-    
+
     iter = 1
     if kind in (:SP, :MS)
         chn_inits = if chn.type == :BSC
@@ -138,25 +225,31 @@ function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, M
         elseif chn.type == :BAWGNC && kind == :MS
             _channel_init_BAWGNC_MS(w)
         end
-        for vn in 1:num_var
+        for vn = 1:num_var
             var_to_check_messages[vn, var_adj_list[vn], 1] .= chn_inits[vn]
         end
     elseif kind in (:A, :B)
-        for vn in 1:num_var
+        for vn = 1:num_var
             var_to_check_messages[vn, var_adj_list[vn], :] .= w[vn]
         end
     end
 
     while iter < max_iter
-        for cn in 1:num_check
+        for cn = 1:num_check
             for v1 in check_adj_list[cn]
-                check_to_var_messages[cn, v1, iter] = c_to_v_mess(cn, v1, iter, check_adj_list,
-                    var_to_check_messages, attenuation)
+                check_to_var_messages[cn, v1, iter] = c_to_v_mess(
+                    cn,
+                    v1,
+                    iter,
+                    check_adj_list,
+                    var_to_check_messages,
+                    attenuation,
+                )
             end
         end
 
         if kind in (:SP, :MS)
-            for vn in 1:num_var
+            for vn = 1:num_var
                 totals[vn] = chn_inits[vn]
                 for c in var_adj_list[vn]
                     totals[vn] += check_to_var_messages[c, vn, iter]
@@ -165,13 +258,14 @@ function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, M
         end
 
         if kind in (:SP, :MS)
-            @simd for i in 1:num_var
+            @simd for i = 1:num_var
                 curr[i] = totals[i] >= 0 ? 0 : 1
             end
         elseif kind in (:A, :B)
-            @simd for i in 1:num_var
+            @simd for i = 1:num_var
                 len = length(var_adj_list[i])
-                one_count = count(isone, view(check_to_var_messages, var_adj_list[i], i, iter))
+                one_count =
+                    count(isone, view(check_to_var_messages, var_adj_list[i], i, iter))
                 d = fld(len, 2)
                 curr[i] = one_count + (isone(w[i]) && iseven(len)) > d
             end
@@ -180,26 +274,33 @@ function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, M
         LinearAlgebra.mul!(syn, H, curr)
         # @show curr
         # @show syn .% 2
-        iszero(syn .% 2) && return true, curr, iter, var_to_check_messages, check_to_var_messages
+        iszero(syn .% 2) &&
+            return true, curr, iter, var_to_check_messages, check_to_var_messages
         iter += 1
 
         if iter <= max_iter
-            for vn in 1:num_var
+            for vn = 1:num_var
                 for c1 in var_adj_list[vn]
                     if kind in (:SP, :MS)
-                        var_to_check_messages[vn, c1, iter] = totals[vn] -
-                            check_to_var_messages[c1, vn, iter - 1]
+                        var_to_check_messages[vn, c1, iter] =
+                            totals[vn] - check_to_var_messages[c1, vn, iter-1]
                     elseif kind == :A && length(var_adj_list[vn]) > 1
-                        if all(!Base.isequal(w[vn]), check_to_var_messages[c2, vn, iter - 1] for c2 
-                            in var_adj_list[vn] if c1 != c2)
+                        if all(
+                            !Base.isequal(w[vn]),
+                            check_to_var_messages[c2, vn, iter-1] for
+                            c2 in var_adj_list[vn] if c1 != c2
+                        )
 
-                            var_to_check_messages[vn, c1, iter] ⊻= 1 
+                            var_to_check_messages[vn, c1, iter] ⊻= 1
                         end
                     elseif kind == :B && length(var_adj_list[vn]) >= Bt
-                        if count(!Base.isequal(w[vn]), check_to_var_messages[c2, vn, iter - 1] for 
-                            c2 in var_adj_list[vn] if c1 != c2) >= Bt
+                        if count(
+                            !Base.isequal(w[vn]),
+                            check_to_var_messages[c2, vn, iter-1] for
+                            c2 in var_adj_list[vn] if c1 != c2
+                        ) >= Bt
 
-                            var_to_check_messages[vn, c1, iter] ⊻= 1 
+                            var_to_check_messages[vn, c1, iter] ⊻= 1
                         end
                     end
                 end
@@ -210,7 +311,7 @@ function _message_passing(H::Matrix{UInt64}, w::Vector{T}, chn::Union{Missing, M
     return false, curr, iter, var_to_check_messages, check_to_var_messages
 end
 
-function _channel_init_BSC(v::Vector{T}, p::Float64) where T <: Integer
+function _channel_init_BSC(v::Vector{T}, p::Float64) where {T<:Integer}
     temp = log((1 - p) / p)
     chn_init = zeros(Float64, length(v))
     for i in eachindex(v)
@@ -219,7 +320,7 @@ function _channel_init_BSC(v::Vector{T}, p::Float64) where T <: Integer
     return chn_init
 end
 
-function _channel_init_BAWGNC_SP(v::Vector{T}, σ::Float64) where T <: AbstractFloat
+function _channel_init_BAWGNC_SP(v::Vector{T}, σ::Float64) where {T<:AbstractFloat}
     temp = 2 / σ^2
     chn_init = zeros(Float64, length(v))
     for i in eachindex(v)
@@ -228,10 +329,16 @@ function _channel_init_BAWGNC_SP(v::Vector{T}, σ::Float64) where T <: AbstractF
     return chn_init
 end
 
-_channel_init_BAWGNC_MS(v::Vector{T}) where T <: AbstractFloat = v
+_channel_init_BAWGNC_MS(v::Vector{T}) where {T<:AbstractFloat} = v
 
-function _SP_check_node_message(cn::Int, v1::Int, iter, check_adj_list, var_to_check_messages,
-    atten = missing)
+function _SP_check_node_message(
+    cn::Int,
+    v1::Int,
+    iter,
+    check_adj_list,
+    var_to_check_messages,
+    atten = missing,
+)
 
     phi(x) = -log(tanh(0.5 * x))
     temp = 0.0
@@ -255,14 +362,26 @@ end
 
 ⊞(a, b) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
 ⊞(a...) = reduce(⊞, a...)
-function _SP_check_node_message_box_plus(cn::Int, v1::Int, iter, check_adj_list,
-    var_to_check_messages, atten = missing)
+function _SP_check_node_message_box_plus(
+    cn::Int,
+    v1::Int,
+    iter,
+    check_adj_list,
+    var_to_check_messages,
+    atten = missing,
+)
 
     ⊞(var_to_check_messages[v2, cn, iter] for v2 in check_adj_list[cn] if v2 != v1)
 end
 
-function _MS_check_node_message(cn::Int, v1::Int, iter, check_adj_list, var_to_check_messages,
-    attenuation::Float64 = 0.5)
+function _MS_check_node_message(
+    cn::Int,
+    v1::Int,
+    iter,
+    check_adj_list,
+    var_to_check_messages,
+    attenuation::Float64 = 0.5,
+)
 
     temp = var_to_check_messages[check_adj_list[cn][1], cn, iter]
     s = 1
@@ -281,47 +400,66 @@ function _MS_check_node_message(cn::Int, v1::Int, iter, check_adj_list, var_to_c
     return s * attenuation * temp
 end
 
-function _Gallager_A_check_node_message(cn::Int, v1::Int, iter::Int, check_adj_list,
-    var_to_check_messages, atten = missing)
+function _Gallager_A_check_node_message(
+    cn::Int,
+    v1::Int,
+    iter::Int,
+    check_adj_list,
+    var_to_check_messages,
+    atten = missing,
+)
 
     reduce(⊻, var_to_check_messages[v, cn, iter] for v in check_adj_list[cn] if v != v1)
 end
-_Gallager_B_check_node_message(cn::Int, v1::Int, iter::Int, check_adj_list, var_to_check_messages,
-    atten = missing) = _Gallager_A_check_node_message(cn, v1, iter, check_adj_list,
-    var_to_check_messages, atten)
+_Gallager_B_check_node_message(
+    cn::Int,
+    v1::Int,
+    iter::Int,
+    check_adj_list,
+    var_to_check_messages,
+    atten = missing,
+) = _Gallager_A_check_node_message(
+    cn,
+    v1,
+    iter,
+    check_adj_list,
+    var_to_check_messages,
+    atten,
+)
 
 # Mansour, Shanbhag, "Turbo Decoder Architectures for Low-Density Parity-Check Codes" (2002)
 
 function find_MP_schedule(H::CodingTheory.CTMatrixTypes)
     num_check, num_var = size(H)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
+    num_check > 0 && num_var > 0 ||
+        throw(ArgumentError("Input matrix of improper dimension"))
 
-    check_adj_list = [[] for _ in 1:num_check]
-    for r in 1:num_check
-        for c in 1:num_var
+    check_adj_list = [[] for _ = 1:num_check]
+    for r = 1:num_check
+        for c = 1:num_var
             iszero(H[r, c]) || push!(check_adj_list[r], c)
         end
     end
 
     sched_list = [[1]]
-    for cn in 2:num_check
+    for cn = 2:num_check
         found = false
         for sched in sched_list
             if !any(x ∈ check_adj_list[y] for y in sched for x ∈ check_adj_list[cn])
                 push!(sched, cn)
-                sort!(sched_list, lt=(x, y) -> length(x) < length(y))
+                sort!(sched_list, lt = (x, y) -> length(x) < length(y))
                 found = true
                 break
             end
         end
         !found && push!(sched_list, [cn])
     end
-    
+
     return sched_list
 end
 
 #############################
-        # LP Decoders
+# LP Decoders
 #############################
 
 # function _init_LP_decoder_LDPC end
@@ -341,7 +479,7 @@ Return
 function LP_decoder_LDPC end
 
 #############################
-          # Methods
+# Methods
 #############################
 
 function _channel_to_SNR(chn::MPNoiseModel)
@@ -361,7 +499,7 @@ function _channel_to_SNR(type::Symbol, sigma::Real)
 end
 
 #############################
-        # Simulations
+# Simulations
 #############################
 
 # function decodersimulation(H::CTMatrixTypes, decoder::Symbol, noisetype::Symbol,

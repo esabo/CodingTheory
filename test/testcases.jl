@@ -1,6 +1,6 @@
-****************************
+# ****************************
 linearcode.jl
-****************************
+# ****************************
 # we can preform several standard methods of building new codes from old ones
 # direct sum
 D = C ⊕ C;
@@ -42,7 +42,7 @@ generatormatrix(D)
 # we note that the all 1's vector is actually already in the code so the code
 # shouldn't change
 # M = MatrixSpace(Nemo.GF(2), 1, 7);
-v = matrix(F, [1 for i in 1:7]')
+v = matrix(F, [1 for i = 1:7]')
 v ∈ C
 D = augment(C, v);
 generatormatrix(D) == generatormatrix(C)
@@ -72,9 +72,9 @@ generatormatrix(uuplusv(C2, C3)) #- ex p. 19
 
 
 
-****************************
+# ****************************
 cyclotomic.jl
-****************************
+# ****************************
 # ord_n(q)
 q = 2;
 n = 15;
@@ -93,13 +93,18 @@ qcosetpairings(q, n)
 qcosettable(10, 13, q)
 
 
-****************************
+# ****************************
 cycliccode.jl
-****************************
-G = matrix(F, [1 0 0 0 0 1 1;
-       0 1 0 0 1 0 1;
-       0 0 1 0 1 1 0;
-       0 0 0 1 1 1 1]);
+# ****************************
+G = matrix(
+    F,
+    [
+        1 0 0 0 0 1 1;
+        0 1 0 0 1 0 1;
+        0 0 1 0 1 1 0;
+        0 0 0 1 1 1 1
+    ],
+);
 D = LinearCode(G);
 CD = directsum(C, D);
 generatormatrix(CD)
@@ -118,11 +123,3 @@ C ∩ B == C
 B = BCHCode(q, n, δ - 1, b + 4)
 D = C ∩ B # check later that this is == repetition code
 C + B
-
-
-# Remove?
-We will only be concerned with cyclic Reed-Solomon codes, but the more general, and original, definition of Reed-Solomon codes will lead us into the final family of codes we will use in this work. Let $\mathcal{P}_k(x)$ denote the set of polynomials of degree less than $k$ in $\mathbb{F}_{p^m}[x]$. The Reed-Solomon code of length $n \leq p^m$ and dimension $k < n$ is given by
-
-$$\mathrm{RS}_{p^m}(n, k) = \{ (f(\alpha_1), \dots, f(\alpha_n)) \mid f(x) \in \mathcal{P}_k(x)\},$$
-
-where $\alpha_i \in \mathbb{F}_{p^m}$. The most common case $n = p^m$ is the extended code of the cyclic definition, but only the case $n = p^m -1$ is, in general, cyclic. The proof of this is direct application of the Chinese Remainder Theorem.

@@ -22,14 +22,14 @@ Return the `SimpleGraph` object repesenting the Tanner graph of the parity-check
 matrix `H` along with the indices of the left and right vertices representing
 the bits and parity checks, respectively.
 """
-function Tanner_graph(H::Union{CTMatrixTypes, Matrix{Int}})
+function Tanner_graph(H::Union{CTMatrixTypes,Matrix{Int}})
     typeof(H) <: CTMatrixTypes ? (I = _Flint_matrix_to_Julia_int_matrix(H);) : (I = H;)
     nr, nc = size(I)
     B = vcat(hcat(zeros(Int, nc, nc), transpose(I)), hcat(I, zeros(Int, nr, nr)))
     G = SimpleGraph(B)
     # lhs - bits
     # rhs - parity checks
-    return G, collect(1:nr), collect(nr + 1:nr + nc)
+    return G, collect(1:nr), collect((nr+1):(nr+nc))
 end
 
 """
@@ -70,48 +70,61 @@ Tanner_graph(C::AbstractLinearCode) = Tanner_graph(parity_check_matrix(C))
 Return the Tanner code obtained by applying the local code `C` to the edges of the graph with
 edge-vertex incidence matrix `EVI`.
 """
-function Tanner_code(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
+function Tanner_code(EVI::SparseMatrixCSC{Int,Int}, C::AbstractLinearCode)
     num_E = EVI.m # rows
     num_V = EVI.n # columns
-    num_E > num_V || throw(ArgumentError("The number of rows (edges) must be larger than the number of columns (vertices)."))
-    nnz(EVI) % num_E == 0 || throw(ArgumentError("The number of vertices does not divide the number of non-zero entries, cannot be regular."))
-    nnz(EVI) % (C.n - C.k) == 0 || throw(ArgumentError("The dimension of the local code does not divide the number of non-zero entries."))
-    
+    num_E > num_V || throw(
+        ArgumentError(
+            "The number of rows (edges) must be larger than the number of columns (vertices).",
+        ),
+    )
+    nnz(EVI) % num_E == 0 || throw(
+        ArgumentError(
+            "The number of vertices does not divide the number of non-zero entries, cannot be regular.",
+        ),
+    )
+    nnz(EVI) % (C.n - C.k) == 0 || throw(
+        ArgumentError(
+            "The dimension of the local code does not divide the number of non-zero entries.",
+        ),
+    )
+
     # pre-store all the information about H_loc
     # this could be a bit redundant if H_loc is sparse
     # H_loc = _Flint_matrix_to_Julia_int_matrix(parity_check_matrix(C))
     H_loc = parity_check_matrix(C)
     nr_H_loc, nc_H_loc = size(H_loc)
-    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]), Int}}}()
-    for r in 1:nr_H_loc
-        temp = Vector{Tuple{typeof(H_loc[1, 1]), Int}}()
-        for c in 1:nc_H_loc
+    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]),Int}}}()
+    for r = 1:nr_H_loc
+        temp = Vector{Tuple{typeof(H_loc[1, 1]),Int}}()
+        for c = 1:nc_H_loc
             H_loc[r, c] != 0 && (push!(temp, (H_loc[r, c], c)))
         end
         push!(H_loc_ind, temp)
     end
     H_rows_I_tr_loc = ones(Int, 1, nr_H_loc)
-    H_loc_ind_lens = [length(H_loc_ind[i]) for i in 1:nr_H_loc]
+    H_loc_ind_lens = [length(H_loc_ind[i]) for i = 1:nr_H_loc]
 
     curr_row = 0
     # H = zeros(Int, num_V * nr_H_loc, num_E)
     H = zero_matrix(C.F, num_V * nr_H_loc, num_E)
     # look at every edge attached to a vertex, so check every row for a fixed column
-    for c in 1:num_V
+    for c = 1:num_V
         count = 0
         # since these graphs are regular this is always the same gap and could be exploited to save a few clock cycles
-        for r in EVI.colptr[c]:EVI.colptr[c + 1] - 1
+        for r = EVI.colptr[c]:(EVI.colptr[c+1]-1)
             count += 1
             # this is the count-th edge, is the count-th entry of any row of H_loc
             # this loop handles all rows of H_loc in a single pass
             # doesn't actually do anything here because there's the if statement I think
-            @simd for i in 1:nr_H_loc
+            @simd for i = 1:nr_H_loc
                 # instead of looping through a col of H_loc every time
                 # H_loc_ind stores the next column index and since this is sorted
                 # if the 2nd element of H_loc_ind at this index is count then
                 # there is a 1 there, otherwise a zero since it wasn't stored
-                if H_loc_ind_lens[i] >= H_rows_I_tr_loc[i] && H_loc_ind[i][H_rows_I_tr_loc[i]][2] == count
-                    H[curr_row + i, EVI.rowval[r]] = H_loc_ind[i][H_rows_I_tr_loc[i]][1]
+                if H_loc_ind_lens[i] >= H_rows_I_tr_loc[i] &&
+                   H_loc_ind[i][H_rows_I_tr_loc[i]][2] == count
+                    H[curr_row+i, EVI.rowval[r]] = H_loc_ind[i][H_rows_I_tr_loc[i]][1]
                     H_rows_I_tr_loc[i] += 1
                 end
             end
@@ -120,7 +133,7 @@ function Tanner_code(EVI::SparseMatrixCSC{Int, Int}, C::AbstractLinearCode)
         H_rows_I_tr_loc[:] .= 1
     end
     return LinearCode(H, true)
-end 
+end
 
 """
     Tanner_code(G::SimpleGraph{Int}, C::AbstractLinearCode)
@@ -129,7 +142,11 @@ Return the Tanner code obtained by applying the local code `C` to the edges of `
 """
 function Tanner_code(G::SimpleGraph{Int}, C::AbstractLinearCode)
     isregular(G) || throw(ArgumentError("Graph must be regular."))
-    length(G.fadjlist[1]) == C.n || throw(ArgumentError("The degree of the verties must be equal to the length of the local code."))
+    length(G.fadjlist[1]) == C.n || throw(
+        ArgumentError(
+            "The degree of the verties must be equal to the length of the local code.",
+        ),
+    )
     # can use G.fadjlist directly?
     # would need to make sure we don't use the same edge twice
     return Tanner_code(sparse(transpose(incidence_matrix(G))), C)
@@ -141,19 +158,25 @@ end
 Return the Tanner code obtained by applying the local code `C` to the vertices `right` in the
 bipartition of `G` and treating the vertices of `left` as bits.
 """
-function Tanner_code(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int}, C::AbstractLinearCode)
+function Tanner_code(
+    G::SimpleGraph{Int},
+    left::Vector{Int},
+    right::Vector{Int},
+    C::AbstractLinearCode,
+)
     # remove this to allow for overcomplete matrices like quasi-cyclic codes?
     # length(left) > length(right) || throw(ArgumentError("The size of `left` (bits) must be greater than the size of `right` (parity checks)."))
-    is_valid_bipartition(G, left, right) || throw(ArgumentError("The input vectors are not a valid partition for the graph."))
-    
+    is_valid_bipartition(G, left, right) ||
+        throw(ArgumentError("The input vectors are not a valid partition for the graph."))
+
     # pre-store all the information about H_loc
     # this could be a bit redundant if H_loc is sparse
     H_loc = parity_check_matrix(C)
     nr_H_loc, nc_H_loc = size(H_loc)
-    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]), Int}}}()
-    for r in 1:nr_H_loc
-        temp = Vector{Tuple{typeof(H_loc[1, 1]), Int}}()
-        for c in 1:nc_H_loc
+    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]),Int}}}()
+    for r = 1:nr_H_loc
+        temp = Vector{Tuple{typeof(H_loc[1, 1]),Int}}()
+        for c = 1:nc_H_loc
             H_loc[r, c] != 0 && (push!(temp, (H_loc[r, c], c)))
         end
         push!(H_loc_ind, temp)
@@ -165,9 +188,9 @@ function Tanner_code(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int},
     curr_row = 0
     H = zero_matrix(C.F, length(right) * nr_H_loc, length(left))
     for rv in right
-        for r in 1:nr_H_loc
+        for r = 1:nr_H_loc
             @simd for c in H_loc_ind[r]
-                H[curr_row + r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
+                H[curr_row+r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
             end
         end
         curr_row += nr_H_loc
@@ -182,19 +205,27 @@ end
 Return the Tanner code obtained by applying the local code `C1` to the vertices `right1` and the local code `C2` to the vertices
 `right2` in the bipartition of `G` and treating the vertices of `left` as bits.
 """
-function Tanner_code(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int}, right2::Vector{Int}, C1::AbstractLinearCode, C2::AbstractLinearCode)
+function Tanner_code(
+    G::SimpleGraph{Int},
+    left::Vector{Int},
+    right1::Vector{Int},
+    right2::Vector{Int},
+    C1::AbstractLinearCode,
+    C2::AbstractLinearCode,
+)
     # remove this to allow for overcomplete matrices like quasi-cyclic codes?
     # length(left) > length(right) || throw(ArgumentError("The size of `left` (bits) must be greater than the size of `right` (parity checks)."))
-    is_valid_bipartition(G, left, right1 ∪ right2) || throw(ArgumentError("The input vectors are not a valid partition for the graph."))
-    
+    is_valid_bipartition(G, left, right1 ∪ right2) ||
+        throw(ArgumentError("The input vectors are not a valid partition for the graph."))
+
     # pre-store all the information about H_loc
     # this could be a bit redundant if H_loc is sparse
     H_loc = parity_check_matrix(C1)
     nr_H_loc, nc_H_loc = size(H_loc)
-    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]), Int}}}()
-    for r in 1:nr_H_loc
-        temp = Vector{Tuple{typeof(H_loc[1, 1]), Int}}()
-        for c in 1:nc_H_loc
+    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]),Int}}}()
+    for r = 1:nr_H_loc
+        temp = Vector{Tuple{typeof(H_loc[1, 1]),Int}}()
+        for c = 1:nc_H_loc
             H_loc[r, c] != 0 && (push!(temp, (H_loc[r, c], c)))
         end
         push!(H_loc_ind, temp)
@@ -206,9 +237,9 @@ function Tanner_code(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int}
     curr_row = 0
     H = zero_matrix(C.F, (length(right1) + length(right2)) * nr_H_loc, length(left))
     for rv in right1
-        for r in 1:nr_H_loc
+        for r = 1:nr_H_loc
             @simd for c in H_loc_ind[r]
-                H[curr_row + r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
+                H[curr_row+r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
             end
         end
         curr_row += nr_H_loc
@@ -217,19 +248,19 @@ function Tanner_code(G::SimpleGraph{Int}, left::Vector{Int}, right1::Vector{Int}
     # do second code
     H_loc = parity_check_matrix(C2)
     nr_H_loc, nc_H_loc = size(H_loc)
-    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]), Int}}}()
-    for r in 1:nr_H_loc
-        temp = Vector{Tuple{typeof(H_loc[1, 1]), Int}}()
-        for c in 1:nc_H_loc
+    H_loc_ind = Vector{Vector{Tuple{typeof(H_loc[1, 1]),Int}}}()
+    for r = 1:nr_H_loc
+        temp = Vector{Tuple{typeof(H_loc[1, 1]),Int}}()
+        for c = 1:nc_H_loc
             H_loc[r, c] != 0 && (push!(temp, (H_loc[r, c], c)))
         end
         push!(H_loc_ind, temp)
     end
 
     for rv in right2
-        for r in 1:nr_H_loc
+        for r = 1:nr_H_loc
             @simd for c in H_loc_ind[r]
-                H[curr_row + r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
+                H[curr_row+r, edge_map[G.fadjlist[rv][c[2]]]] = c[1]
             end
         end
         curr_row += nr_H_loc

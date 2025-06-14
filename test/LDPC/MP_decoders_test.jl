@@ -52,7 +52,7 @@
         # not particularly creative...
         temp = log((1 - p) / p);
         chn_inits = zeros(Float64, length(v));
-        @inbounds for i in 1:nrows(v)
+        @inbounds for i = 1:nrows(v)
             iszero(v[i]) ? (chn_inits[i] = temp;) : (chn_inits[i] = -temp;)
         end
         flag, out, iter, _ = sum_product(H, v, nm, chn_inits = chn_inits);

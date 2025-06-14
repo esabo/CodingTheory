@@ -21,8 +21,12 @@
         C = HammingCode(2, 7)
         col = rand(1:length(C))
         # columns are 1, 2, ... 2^r - 1 written as binary numerals
-        @test parity_check_matrix(C)[:, col:col] == matrix(F, length(C) -
-                dimension(C), 1, reverse(digits(col, base=2, pad=7)))
+        @test parity_check_matrix(C)[:, col:col] == matrix(
+            F,
+            length(C) - dimension(C),
+            1,
+            reverse(digits(col, base = 2, pad = 7)),
+        )
         # should be [2^r - 1, 2^r - 1 - r, 3]
         @test length(C) == 2^7 - 1
         @test dimension(C) == 2^7 - 1 - 7
@@ -33,7 +37,8 @@
         @test polynomial(ham_WE) == x^7 + 7*x^3*y^4 + 7*x^4*y^3 + y^7
         n = length(C)
         C.weight_enum = missing
-        @test polynomial(ham_WE) == divexact((x + y)^n + n*(x + y)^div(n - 1, 2)*(y - x)^div(n + 1, 2), n + 1)
+        @test polynomial(ham_WE) ==
+              divexact((x + y)^n + n*(x + y)^div(n - 1, 2)*(y - x)^div(n + 1, 2), n + 1)
 
         # simplex codes
         # random simplex code
@@ -58,7 +63,10 @@
         @test length(C) == 2^4 - 1
         @test CodingTheory.dimension(C) == 4
         C = SimplexCode(2, 3)
-        @test MacWilliams_identity(C, weight_enumerator(C, type = :Hamming, alg = :bruteforce)) == ham_WE
+        @test MacWilliams_identity(
+            C,
+            weight_enumerator(C, type = :Hamming, alg = :bruteforce),
+        ) == ham_WE
     end
 
     @testset "Golay code" begin
@@ -68,18 +76,28 @@
         C = ExtendedGolayCode(2)
         @test is_self_dual(C)
         C.weight_enum = missing
-        @test polynomial(weight_enumerator(C, type = :Hamming)) == y^24 + 759*x^8*y^16 + 2576*x^12*y^12 + 759*x^16*y^8 + x^24
+        @test polynomial(weight_enumerator(C, type = :Hamming)) ==
+              y^24 + 759*x^8*y^16 + 2576*x^12*y^12 + 759*x^16*y^8 + x^24
         C = GolayCode(2)
         C.weight_enum = missing
-        @test polynomial(weight_enumerator(C, type = :Hamming)) == y^23 + 253*x^7*y^16 +
-                506*x^8*y^15 + 1288*x^11*y^12 + 1288*x^12*y^11 + 506*x^15*y^8 + 253*x^16*y^7 + x^23
+        @test polynomial(weight_enumerator(C, type = :Hamming)) ==
+              y^23 +
+              253*x^7*y^16 +
+              506*x^8*y^15 +
+              1288*x^11*y^12 +
+              1288*x^12*y^11 +
+              506*x^15*y^8 +
+              253*x^16*y^7 +
+              x^23
         C = ExtendedGolayCode(3)
         @test is_self_dual(C)
         # well-known weight enumerators
         C.weight_enum = missing
-        @test polynomial(weight_enumerator(C, type = :Hamming)) == y^12 + 264*x^6*y^6 + 440*x^9*y^3 + 24*x^12
+        @test polynomial(weight_enumerator(C, type = :Hamming)) ==
+              y^12 + 264*x^6*y^6 + 440*x^9*y^3 + 24*x^12
         C = GolayCode(3)
-        @test polynomial(weight_enumerator(C, type = :Hamming)) == y^11 + 132*x^5*y^6 + 132*x^6*y^5 + 330*x^8*y^3 + 110*x^9*y^2 + 24*x^11
+        @test polynomial(weight_enumerator(C, type = :Hamming)) ==
+              y^11 + 132*x^5*y^6 + 132*x^6*y^5 + 330*x^8*y^3 + 110*x^9*y^2 + 24*x^11
         # cyclic code with generator polynomial g(x) = -1 + x^2 - x^3 + x^4 + x^5
         # and idempotent e(x) = -(x^2 + x^6 + x^7 + x^8 + x^10)
         # should be eqivalent to the [11, 6, 5] Golay code (maybe permutation?)
@@ -88,7 +106,7 @@
         C = ExtendedGolayCode(3)
         C2 = extend(puncture(C, 7), 7)
         T = identity_matrix(C.F, 12)
-        T[7,7] = C.F(-1)
+        T[7, 7] = C.F(-1)
         C3 = LinearCode(C2.G * T)
         @test are_equivalent(C, C3)
     end
@@ -99,11 +117,15 @@
         C.weight_enum = missing
         CWE = polynomial(weight_enumerator(C, type = :complete))
         vars = gens(parent(CWE))
-        @test CWE == vars[1]^4 + vars[1]*vars[2]^3 + 3*vars[1]*vars[2]^2*vars[3] +
-                3*vars[1]*vars[2]*vars[3]^2 + vars[1]*vars[3]^3
+        @test CWE ==
+              vars[1]^4 +
+              vars[1]*vars[2]^3 +
+              3*vars[1]*vars[2]^2*vars[3] +
+              3*vars[1]*vars[2]*vars[3]^2 +
+              vars[1]*vars[3]^3
     end
-        # Hadamard code
-        # the dual code of the Hamming code is the shortened Hadamard code
-        # equivalent to RM(1, m)
+    # Hadamard code
+    # the dual code of the Hamming code is the shortened Hadamard code
+    # equivalent to RM(1, m)
 
 end

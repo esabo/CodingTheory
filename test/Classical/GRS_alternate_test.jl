@@ -9,8 +9,8 @@
         # MacWilliams & Sloane, p. 335
         E = GF(8)
         α = gen(E)
-        γ = [α^i for i in 0:6]
-        v = [E(1) for _ in 1:7]
+        γ = [α^i for i = 0:6]
+        v = [E(1) for _ = 1:7]
         A = AlternateCode(GF(2), 2, v, γ)
         @test length(A) == 7
         @test dimension(A) == 3
@@ -51,13 +51,13 @@
         n = 6
         α = gen(E)
         # α is root of α^3 + α + 1 = 0
-        v = [E(1) for _ in 1:n]
+        v = [E(1) for _ = 1:n]
         γ = [α, α^2, α^3, α^4, α^5, α^6]
         A = AlternateCode(GF(2), 3, v, γ)
         @test length(A) == 6
         @test dimension(A) == 2
         @test minimum_distance(A) == 4
-        
+
         # TODO write tests for GRS(Γ), GRS(A), etc
     end
 
@@ -67,20 +67,20 @@
         α = gen(E)
         a = [E(0), E(1), α^9, α^18, α^27, α^36, α^45, α^54]
         w = [α]
-        z = [E(1) for _ in 1:8]
+        z = [E(1) for _ = 1:8]
         F = GF(2)
         C = GeneralizedSrivastavaCode(F, a, w, z, 2)
         @test Int(order(field(C))) == 2
         @test length(C) == 8
         @test dimension(C) == 2
         @test minimum_distance(C) == 5
-        
+
         # from Goppa_test.jl
         E2 = GF(8, :α)
         S, z = polynomial_ring(E2, :z)
         β = gen(E2)
         g = β^3 + z + z^2
-        L = [E2(0); [β^i for i in 0:6]]
+        L = [E2(0); [β^i for i = 0:6]]
         C2 = GoppaCode(F, L, g)
         flag, _ = are_permutation_equivalent(C, C2)
         @test_broken flag
@@ -91,7 +91,7 @@
         α = gen(E)
         w = [E(0), E(1)]
         a = setdiff(collect(E), w)
-        z = [E(1) for _ in 1:length(a)]
+        z = [E(1) for _ = 1:length(a)]
         C = GeneralizedSrivastavaCode(F, a, w, z, 2)
         @test length(C) == 14
         @test dimension(C) == 6

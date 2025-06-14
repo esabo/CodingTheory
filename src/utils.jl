@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-  # Generic Helper Functions
+# Generic Helper Functions
 #############################
 
 """
@@ -13,7 +13,7 @@
 
 Returns a copy of the code `C`.
 """
-function copy(C::T) where T <: AbstractCode
+function copy(C::T) where {T<:AbstractCode}
     C2 = deepcopy(C)
     hasfield(T, :F) && (C2.F = C.F;)
     hasfield(T, :E) && (C2.E = C.E;)
@@ -28,7 +28,8 @@ function copy(C::T) where T <: AbstractCode
 end
 
 _has_equivalent_row_spaces(A::CTMatrixTypes, B::CTMatrixTypes) =
-    return _remove_empty(rref(deepcopy(A))[2], :rows) == _remove_empty(rref(deepcopy(B))[2], :rows)
+    return _remove_empty(rref(deepcopy(A))[2], :rows) ==
+           _remove_empty(rref(deepcopy(B))[2], :rows)
 
 # """
 #     reverse(v::CTMatrixTypes)
@@ -92,13 +93,16 @@ _has_equivalent_row_spaces(A::CTMatrixTypes, B::CTMatrixTypes) =
 
 Return the direct sum of the two matrices `A` and `B`.
 """
-function ⊕(A::T, B::T) where T <: CTMatrixTypes
-    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices must be over the same base ring in direct_sum."))
+function ⊕(A::T, B::T) where {T<:CTMatrixTypes}
+    base_ring(A) == base_ring(B) ||
+        throw(ArgumentError("Matrices must be over the same base ring in direct_sum."))
 
-    return vcat(hcat(A, zero_matrix(base_ring(B), nrows(A), ncols(B))),
-        hcat(zero_matrix(base_ring(A), nrows(B), ncols(A)), B))
+    return vcat(
+        hcat(A, zero_matrix(base_ring(B), nrows(A), ncols(B))),
+        hcat(zero_matrix(base_ring(A), nrows(B), ncols(A)), B),
+    )
 end
-direct_sum(A::T, B::T) where T <: CTMatrixTypes = A ⊕ B
+direct_sum(A::T, B::T) where {T<:CTMatrixTypes} = A ⊕ B
 
 """
     ⊗(A::CTMatrixTypes, B::CTMatrixTypes)
@@ -108,9 +112,18 @@ direct_sum(A::T, B::T) where T <: CTMatrixTypes = A ⊕ B
 
 Return the Kronecker product of the two matrices `A` and `B`.
 """
-⊗(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
-kron(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
-tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}, B::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAlgebra}}) = kronecker_product(A, B)
+⊗(
+    A::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+    B::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+) = kronecker_product(A, B)
+kron(
+    A::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+    B::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+) = kronecker_product(A, B)
+tensor_product(
+    A::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+    B::Union{CTMatrixTypes,MatElem{<: ResElem},MatElem{<: CTGroupAlgebra}},
+) = kronecker_product(A, B)
 
 # I think we should avoid length checking here and return it for entire matrix if given
 # Hamming_weight(v::T) where T <: Union{CTMatrixTypes, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
@@ -121,18 +134,48 @@ tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAl
 
 Return the Hamming weight of `v`.
 """
-function Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer
+function Hamming_weight(
+    v::T,
+) where {
+    T<:Union{
+        CTMatrixTypes,
+        Vector{<:CTFieldElem},
+        Vector{S},
+        Adjoint{S,Vector{S}},
+        AbstractMatrix{S},
+    },
+} where {S<:Integer}
     count(x -> !iszero(x), v)
 end
-weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
-wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
+weight(
+    v::T,
+) where {
+    T<:Union{
+        CTMatrixTypes,
+        Vector{<:CTFieldElem},
+        Vector{S},
+        Adjoint{S,Vector{S}},
+        AbstractMatrix{S},
+    },
+} where {S<:Integer} = Hamming_weight(v)
+wt(
+    v::T,
+) where {
+    T<:Union{
+        CTMatrixTypes,
+        Vector{<:CTFieldElem},
+        Vector{S},
+        Adjoint{S,Vector{S}},
+        AbstractMatrix{S},
+    },
+} where {S<:Integer} = Hamming_weight(v)
 
 # TODO polish and export?
-function row_wts_symplectic(A::Union{CTMatrixTypes, Matrix{<: Integer}, Matrix{Bool}})
+function row_wts_symplectic(A::Union{CTMatrixTypes,Matrix{<: Integer},Matrix{Bool}})
     nc = size(A, 2)
     iseven(nc) || throw(ArgumentError("Input does not have even length"))
     n = div(nc, 2)
-    return [count(!iszero(A[i, j]) || !iszero(A[i, j + n]) for j in 1:n) for i in axes(A, 1)]
+    return [count(!iszero(A[i, j]) || !iszero(A[i, j+n]) for j = 1:n) for i in axes(A, 1)]
 end
 
 # Hamming_weight(v::Matrix{Int}) = return sum(v)
@@ -151,26 +194,35 @@ wt(f::CTPolyRingElem) = Hamming_weight(collect(coefficients(f)))
 #
 # Return the minimum weight and corresponding index of the rows of `A`.
 # """
-function _min_wt_row(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}}) where S <: Integer
+function _min_wt_row(
+    A::Union{CTMatrixTypes,Matrix{S},LinearAlgebra.Adjoint{S,Matrix{S}}},
+) where {S<:Integer}
     w = size(A, 2) + 1
     i = 0
     for r in axes(A, 1)
         w_loc = 0
         for c in axes(A, 2)
-            iszero(A[r,c]) || (w_loc += 1)
+            iszero(A[r, c]) || (w_loc += 1)
         end
         w_loc < w && (w = w_loc; i = r;)
     end
     return w, i
 end
 
-function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S, Matrix{S}}, LinearAlgebra.Adjoint{Bool, BitMatrix}}) where S <: Integer
+function _min_wt_col(
+    A::Union{
+        CTMatrixTypes,
+        Matrix{S},
+        LinearAlgebra.Adjoint{S,Matrix{S}},
+        LinearAlgebra.Adjoint{Bool,BitMatrix},
+    },
+) where {S<:Integer}
     w = size(A, 1) + 1
     i = 0
     for c in axes(A, 2)
         w_loc = 0
         for r in axes(A, 1)
-            iszero(A[r,c]) || (w_loc += 1)
+            iszero(A[r, c]) || (w_loc += 1)
         end
         w_loc < w && (w = w_loc; i = c;)
     end
@@ -184,9 +236,12 @@ end
 
 Return the Hamming distance between `u` and `v`.
 """
-Hamming_distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
-distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
-dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
+Hamming_distance(u::T, v::T) where {T<:Union{CTMatrixTypes,Vector{S}}} where {S<:Integer} =
+    Hamming_weight(u - v)
+distance(u::T, v::T) where {T<:Union{CTMatrixTypes,Vector{S}}} where {S<:Integer} =
+    Hamming_weight(u - v)
+dist(u::T, v::T) where {T<:Union{CTMatrixTypes,Vector{S}}} where {S<:Integer} =
+    Hamming_weight(u - v)
 
 """
     symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
@@ -194,14 +249,26 @@ dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer =
 Return the symplectic inner product of `u` and `v`.
 """
 function symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
-    (nrows(u) == 1 || ncols(u) == 1) || throw(ArgumentError("First argument of symplectic inner product is not a vector: dims = $(size(u, 1))."))
-    (nrows(v) == 1 || ncols(v) == 1) || throw(ArgumentError("Second argument of symplectic inner product is not a vector: dims = $(size(v, 1))."))
-    length(u) == length(v) || throw(ArgumentError("Vectors must be the same length in symplectic inner product."))
-    iseven(length(u)) || throw(ArgumentError("Vectors must have even length in symplectic inner product."))
-    base_ring(u) == base_ring(v) || throw(ArgumentError("Vectors must be over the same field in symplectic inner product."))
-    
+    (nrows(u) == 1 || ncols(u) == 1) || throw(
+        ArgumentError(
+            "First argument of symplectic inner product is not a vector: dims = $(size(u, 1)).",
+        ),
+    )
+    (nrows(v) == 1 || ncols(v) == 1) || throw(
+        ArgumentError(
+            "Second argument of symplectic inner product is not a vector: dims = $(size(v, 1)).",
+        ),
+    )
+    length(u) == length(v) ||
+        throw(ArgumentError("Vectors must be the same length in symplectic inner product."))
+    iseven(length(u)) ||
+        throw(ArgumentError("Vectors must have even length in symplectic inner product."))
+    base_ring(u) == base_ring(v) || throw(
+        ArgumentError("Vectors must be over the same field in symplectic inner product."),
+    )
+
     ncols = div(length(u), 2)
-    return sum(u[i + ncols] * v[i] - v[i + ncols] * u[i] for i in 1:ncols)
+    return sum(u[i+ncols] * v[i] - v[i+ncols] * u[i] for i = 1:ncols)
 end
 
 """
@@ -210,9 +277,12 @@ end
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
 """
 function are_symplectic_orthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
-    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices in product must both be over the same base ring."))
-    
-    return iszero(hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)]) * transpose(B))
+    base_ring(A) == base_ring(B) ||
+        throw(ArgumentError("Matrices in product must both be over the same base ring."))
+
+    return iszero(
+        hcat(A[:, (div(ncols(A), 2)+1):end], -A[:, 1:div(ncols(A), 2)]) * transpose(B),
+    )
 end
 
 # function traceinnerproduct(u::CTMatrixTypes, v::CTMatrixTypes)
@@ -225,15 +295,30 @@ end
 Return the Hermitian inner product of `u` and `v`.
 """
 function Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
-    (nrows(u) == 1 || ncols(u) == 1) || throw(ArgumentError("First argument of Hermitian inner product is not a vector: dims = $(size(u, 1))."))
-    (nrows(v) == 1 || ncols(v) == 1) || throw(ArgumentError("Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1))."))
-    length(u) == length(v) || throw(ArgumentError("Vectors must be the same length in Hermitian inner product."))
-    base_ring(u) == base_ring(v) || throw(ArgumentError("Vectors must be over the same field in Hermitian inner product."))
+    (nrows(u) == 1 || ncols(u) == 1) || throw(
+        ArgumentError(
+            "First argument of Hermitian inner product is not a vector: dims = $(size(u, 1)).",
+        ),
+    )
+    (nrows(v) == 1 || ncols(v) == 1) || throw(
+        ArgumentError(
+            "Second argument of Hermitian inner product is not a vector: dims = $(size(v, 1)).",
+        ),
+    )
+    length(u) == length(v) ||
+        throw(ArgumentError("Vectors must be the same length in Hermitian inner product."))
+    base_ring(u) == base_ring(v) || throw(
+        ArgumentError("Vectors must be over the same field in Hermitian inner product."),
+    )
     q2 = order(base_ring(u))
-    is_square(q2) || throw(ArgumentError("The Hermitian inner product is only defined over quadratic field extensions."))
-    
+    is_square(q2) || throw(
+        ArgumentError(
+            "The Hermitian inner product is only defined over quadratic field extensions.",
+        ),
+    )
+
     q = Int(sqrt(q2, check = false))
-    return sum(u[i] * v[i]^q for i in 1:length(u))
+    return sum(u[i] * v[i]^q for i = 1:length(u))
 end
 
 """
@@ -244,7 +329,11 @@ Return the Hermitian conjugate of the matrix `A`.
 function Hermitian_conjugate_matrix(A::CTMatrixTypes)
     R = base_ring(A)
     q2 = order(R)
-    is_square(q2) || throw(ArgumentError("The Hermitian conjugate is only defined over quadratic field extensions."))
+    is_square(q2) || throw(
+        ArgumentError(
+            "The Hermitian conjugate is only defined over quadratic field extensions.",
+        ),
+    )
 
     q = Int(sqrt(q2, check = false))
     # return matrix(R, A .^ q)
@@ -265,11 +354,17 @@ end
 #     return x * (log(q, q - 1) - log(q, x)) - (1 - x) * log(q, 1 - x)
 # end
 
-_Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall((:nmod_mat_get_entry,
-    Oscar.Nemo.libflint), Int, (Ref{fpMatrix}, Int, Int), x, i - 1 , j - 1)
+_Flint_matrix_element_to_Julia_int(x::fpMatrix, i::Int, j::Int) = ccall(
+    (:nmod_mat_get_entry, Oscar.Nemo.libflint),
+    Int,
+    (Ref{fpMatrix}, Int, Int),
+    x,
+    i - 1,
+    j - 1,
+)
 
-_Flint_matrix_to_Julia_int_matrix(A) = [ _Flint_matrix_element_to_Julia_int(A, i, j) for i in
-    1:nrows(A), j in 1:ncols(A)]
+_Flint_matrix_to_Julia_int_matrix(A) =
+    [_Flint_matrix_element_to_Julia_int(A, i, j) for i = 1:nrows(A), j = 1:ncols(A)]
 
 _Flint_matrix_to_Julia_int_vector(A) = vec(_Flint_matrix_to_Julia_int_matrix(A))
 
@@ -283,7 +378,7 @@ function _Flint_matrix_to_Julia_bool_matrix(A::CTMatrixTypes)
     Matrix{Bool}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
-function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <: Number
+function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where {T<:Number}
     Matrix{T}(_Flint_matrix_to_Julia_int_matrix(A))
 end
 
@@ -292,7 +387,9 @@ Assumes the input is in rref form and returns the indexs of the columns that do 
 Note that rref form here requires pivot entries have been normalized to 1.
 """
 function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
-    type ∈ (:sp, :nsp) || throw(DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."))
+    type ∈ (:sp, :nsp) || throw(
+        DomainError(type, "Parameter should be `:sp` (sparse) or `:nsp` (not sparse)."),
+    )
 
     if type == :sp
         return setdiff(collect(1:ncols(A)), [x.pos[1] for x in A])
@@ -315,24 +412,29 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     end
 end
 
-function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMatrixTypes
+function _quotient_space(big::T, small::T, alg::Symbol = :sys_eqs) where {T<:CTMatrixTypes}
     alg ∈ [:VS, :sys_eqs] || throw(ArgumentError("Unknown algorithm type"))
 
     if alg == :VS
         F = base_ring(big)
         V = vector_space(F, ncols(big))
-        U, U_to_V = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
-        W, W_to_V = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
+        U, U_to_V = sub(V, [V(small[i, :]) for i = 1:nrows(small)])
+        W, W_to_V = sub(V, [V(big[i, :]) for i = 1:nrows(big)])
         gens_of_U_in_W = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
         # gens_of_U_in_W = [preimage(W_to_V, U_to_V(g)) for g in gens(U)]
-        Threads.@threads for i in 1:length(gens(U))
+        Threads.@threads for i = 1:length(gens(U))
             gens_of_U_in_W[i] = preimage(W_to_V, U_to_V(gens(U)[i]))
         end
         U_in_W, _ = sub(W, gens_of_U_in_W)
         Q, W_to_Q = quo(W, U_in_W)
         iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
         C2_mod_C1_basis = [W_to_V(x) for x in [preimage(W_to_Q, g) for g in gens(Q)]]
-        F_basis = [[F(C2_mod_C1_basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))] for j in 1:length(C2_mod_C1_basis)]
+        F_basis = [
+            [
+                F(C2_mod_C1_basis[j][i]) for
+                i = 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))
+            ] for j = 1:length(C2_mod_C1_basis)
+        ]
         return matrix(F, length(F_basis), length(F_basis[1]), reduce(vcat, F_basis))
     else
         # solve the system x big = small
@@ -341,10 +443,10 @@ function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMa
         # corresponding to the basis of the quotient
         # in the general case, anything without a pivot in the row reduction is not required to make
         # the elements of small and therefore lie in the quotient space
-        flag, sol = can_solve_with_solution(big, small, side=:left)
+        flag, sol = can_solve_with_solution(big, small, side = :left)
         !flag && error("Cannot solve system for quotient")
         _, rref_sol = rref(sol)
-        if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
+        if typeof(rref_sol) <: SMat{W,Vector{W}} where {W<:CTFieldElem}
             nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
             return reduce(vcat, [big[r, :] for r in nonpivots])
         else
@@ -372,11 +474,13 @@ end
 #     return maxlen
 # end
 
-function _has_empty_vec(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
-    type::Symbol)
-    
+function _has_empty_vec(
+    A::Union{CTMatrixTypes,Matrix{<: Number},BitMatrix,Matrix{Bool}},
+    type::Symbol,
+)
+
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
-    
+
     del = Vector{Int}()
     if type == :rows
         for r in axes(A, 1)
@@ -401,14 +505,16 @@ function _has_empty_vec(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Ma
             flag && append!(del, c)
         end
     end
-    return !isempty(del) 
+    return !isempty(del)
 end
 
-function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
-    type::Symbol)
-    
+function _remove_empty(
+    A::Union{CTMatrixTypes,Matrix{<: Number},BitMatrix,Matrix{Bool}},
+    type::Symbol,
+)
+
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
-    
+
     del = Vector{Int}()
     if type == :rows
         for r in axes(A, 1)
@@ -437,24 +543,33 @@ function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Mat
     end
 end
 
-function _rref_no_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
-    col_range::AbstractUnitRange{Int} = axes(M, 2))
+function _rref_no_col_swap(
+    M::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2),
+)
 
     A = deepcopy(M)
     _rref_no_col_swap!(A, row_range, col_range)
     return A
 end
 
-function _rref_no_col_swap_binary(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_no_col_swap_binary(
+    A::Union{BitMatrix,Matrix{Bool},Matrix{<: Integer}},
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     B = deepcopy(A)
     _rref_no_col_swap_binary!(B, row_range, col_range)
     return B
 end
 
-function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_no_col_swap!(
+    A::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     # don't do anything to A if the range is empty
     isempty(row_range) && return nothing
@@ -468,7 +583,7 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} 
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
@@ -504,19 +619,19 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} 
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
                 end
             end
-    
+
             if !iszero(ind)
                 # swap to put the pivot in the next row
                 if ind != i
                     A[i, :], A[ind, :] = A[ind, :], A[i, :]
                 end
-    
+
                 # eliminate
                 for k in row_range
                     if k != i
@@ -536,8 +651,11 @@ function _rref_no_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} 
     return nothing
 end
 
-function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: Integer}},
-    row_range::AbstractUnitRange{Int} = axes(A, 1), col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_no_col_swap_binary!(
+    A::Union{BitMatrix,Matrix{Bool},Matrix{<: Integer}},
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     isempty(row_range) && return nothing
     isempty(col_range) && return nothing
@@ -548,7 +666,7 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     while i <= nr && j <= nc
         # find first pivot
         ind = 0
-        for k in i:nr
+        for k = i:nr
             if !iszero(A[k, j])
                 ind = k
                 break
@@ -579,16 +697,22 @@ function _rref_no_col_swap_binary!(A::Union{BitMatrix, Matrix{Bool}, Matrix{<: I
     return nothing
 end
 
-function _rref_col_swap(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1),
-    col_range::AbstractUnitRange{Int} = axes(M, 2))
+function _rref_col_swap(
+    M::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2),
+)
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap!(A, row_range, col_range)
     return rnk, A, P
 end
 
-function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_col_swap!(
+    A::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
@@ -607,7 +731,7 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
@@ -616,8 +740,8 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
 
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             ismissing(P) && (P = identity_matrix(base_ring(A), nc_A);)
                             swap_cols!(A, k, j)
@@ -660,17 +784,17 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
                 end
             end
-    
+
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             ismissing(P) && (P = identity_matrix(base_ring(A), nc_A);)
                             swap_cols!(A, k, j)
@@ -681,14 +805,14 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
                     end
                 end
             end
-    
+
             # if true, the rest of the submatrix is zero
             if iszero(ind)
                 return rnk, P
-            else    
+            else
                 # swap to put the pivot in the next row
                 ind != i && swap_rows!(A, ind, i)
-    
+
                 # eliminate
                 for k = first(row_range):nr
                     if k != i
@@ -709,15 +833,22 @@ function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = a
     return rnk, P
 end
 
-function _rref_col_swap_perm(M::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(M, 1), col_range::AbstractUnitRange{Int} = axes(M, 2))
+function _rref_col_swap_perm(
+    M::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(M, 1),
+    col_range::AbstractUnitRange{Int} = axes(M, 2),
+)
 
     A = deepcopy(M)
     rnk, P = _rref_col_swap_perm!(A, row_range, col_range)
     return rnk, A, P
 end
 
-function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_col_swap_perm!(
+    A::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
@@ -732,12 +863,12 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     nc = last(col_range)
     sym_group = symmetric_group(nc)
     # permutation to return to rowspace if column swap done
-    P = cperm(sym_group) 
+    P = cperm(sym_group)
     if Int(order(base_ring(A))) != 2
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
@@ -746,11 +877,11 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
 
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             swap_cols!(A, k, j)
-                            P = P * cperm(sym_group, [k,j])
+                            P = P * cperm(sym_group, [k, j])
                             ind = l
                             break
                         end
@@ -789,34 +920,34 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
                 end
             end
-    
+
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             swap_cols!(A, k, j)
-                            P = P * cperm(sym_group, [k,j])
+                            P = P * cperm(sym_group, [k, j])
                             ind = l
                             break
                         end
                     end
                 end
             end
-    
+
             # if true, the rest of the submatrix is zero
             if iszero(ind)
                 return rnk, P
-            else    
+            else
                 # swap to put the pivot in the next row
                 ind != i && swap_rows!(A, ind, i)
-    
+
                 # eliminate
                 for k = first(row_range):nr
                     if k != i
@@ -837,15 +968,21 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, inv(P)
 end
 
-function _rref_symp_col_swap(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_symp_col_swap(
+    A::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
     B = deepcopy(A)
     _rref_symp_col_swap!(B, row_range, col_range)
     return B
 end
 
-function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
-    col_range::AbstractUnitRange{Int} = axes(A, 2))
+function _rref_symp_col_swap!(
+    A::CTMatrixTypes,
+    row_range::AbstractUnitRange{Int} = axes(A, 1),
+    col_range::AbstractUnitRange{Int} = axes(A, 2),
+)
 
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
     isempty(row_range) && return 0, missing
@@ -864,7 +1001,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
@@ -873,8 +1010,8 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
 
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             ismissing(P) && (P = identity_matrix(base_ring(A), nc_A);)
                             k_symp = mod1(k + div(nc_A, 2), nc_A)
@@ -921,7 +1058,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
         while i <= nr && j <= nc
             # find first pivot
             ind = 0
-            for k in i:nr
+            for k = i:nr
                 if !iszero(A[k, j])
                     ind = k
                     break
@@ -930,8 +1067,8 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
 
             # need to column swap
             if iszero(ind)
-                for k in j + 1:nc
-                    for l in i:nr
+                for k = (j+1):nc
+                    for l = i:nr
                         if !iszero(A[l, k])
                             ismissing(P) && (P = identity_matrix(base_ring(A), nc_A);)
                             k_symp = mod1(k + div(nc_A, 2), nc_A)
@@ -974,7 +1111,7 @@ function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
     return rnk, P
 end
 
-function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where {T}
     length(p) == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)`."))
     size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
     for j in axes(X, 2)
@@ -985,24 +1122,28 @@ function _col_permutation!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) w
     return nothing
 end
 
-function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{Int}) where T
+function _col_permutation_symp!(
+    X::Matrix{T},
+    A::Matrix{T},
+    p::AbstractVector{Int},
+) where {T}
     n = length(p)
     # 2n == size(A, 2) || throw(ArgumentError("`p` should have length `size(A, 2)/2`."))
     # size(X) == size(A) || throw(ArgumentError("`X` and `A` should have the same shape."))
-    for j in 1:n
+    for j = 1:n
         for i in axes(X, 1)
             X[i, j] = A[i, p[j]]
         end
     end
-    for j in 1:n
+    for j = 1:n
         for i in axes(X, 1)
-            X[i, j + n] = A[i, p[j] + n]
+            X[i, j+n] = A[i, p[j]+n]
         end
     end
     return nothing
 end
 
-function digits_to_int(x::Vector{Int}, base::Int=2)
+function digits_to_int(x::Vector{Int}, base::Int = 2)
     res = 0
     for digit in x
         res = digit + base * res
@@ -1010,7 +1151,7 @@ function digits_to_int(x::Vector{Int}, base::Int=2)
     return res
 end
 
-function _CT_adjoint(A::MatElem{T}) where T <: ResElem
+function _CT_adjoint(A::MatElem{T}) where {T<:ResElem}
     R = parent(A[1, 1])
     S = base_ring(A[1, 1])
     f = modulus(R)
@@ -1019,10 +1160,10 @@ function _CT_adjoint(A::MatElem{T}) where T <: ResElem
 
     A_tr = transpose(A)
     nr, nc = size(A_tr)
-    for c in 1:nc
-        for r in 1:nr
+    for c = 1:nc
+        for r = 1:nr
             h_coeffs = collect(coefficients(Nemo.lift(A_tr[r, c])))
-            for _ in 1:l - length(h_coeffs)
+            for _ = 1:(l-length(h_coeffs))
                 push!(h_coeffs, Fz)
             end
             h_coeffs[2:end] = reverse(h_coeffs[2:end])
@@ -1032,7 +1173,7 @@ function _CT_adjoint(A::MatElem{T}) where T <: ResElem
     return A_tr
 end
 
-function _CT_adjoint(A::MatElem{T}) where T <: CTGroupAlgebra
+function _CT_adjoint(A::MatElem{T}) where {T<:CTGroupAlgebra}
     FG = parent(A[1, 1])
     f = hom(FG, FG, basis_matrix([inv(g) for g in basis(FG)]))
     # for each element of A, map the sum \sum_i c_i g_i to \sum_i c_i (g_i)^-1
@@ -1044,7 +1185,7 @@ end
 
     Return the circulant matrix whose first row or column is the coefficients of `f` if `type` is `:row` or `:col`, respectively.
 """
-function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol=:col)
+function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol = :col)
     type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
 
     R = parent(f)
@@ -1061,19 +1202,19 @@ function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol=:col)
         temp = collect(coefficients(Nemo.lift(f)))
         F_coeffs[1:length(temp), 1] = temp
         A[:, 1] = F_coeffs
-        for c in 2:l
+        for c = 2:l
             # A[:, c] = circshift(F_coeffs, c - 1)
-            A[1:c - 1, c] = F_coeffs[l - (c - 1) + 1:l, 1]
-            A[c:end, c] = F_coeffs[1:l - (c - 1), 1]
+            A[1:(c-1), c] = F_coeffs[(l-(c-1)+1):l, 1]
+            A[c:end, c] = F_coeffs[1:(l-(c-1)), 1]
         end
     elseif type == :row
         F_coeffs = zero_matrix(F, 1, l)
         temp = collect(coefficients(Nemo.lift(f)))
         F_coeffs[1, 1:length(temp)] = temp
         A[1, :] = F_coeffs
-        for c in 2:l
-            A[c, 1:c - 1] = F_coeffs[1, l - (c - 1) + 1:l]
-            A[c, c:end] = F_coeffs[1, 1:l - (c - 1)]
+        for c = 2:l
+            A[c, 1:(c-1)] = F_coeffs[1, (l-(c-1)+1):l]
+            A[c, c:end] = F_coeffs[1, 1:(l-(c-1))]
         end
     end
     return A
@@ -1084,9 +1225,9 @@ end
 
 Return the circulant matrix whose first row or column is the coefficients of `x` if `type` is `:row` or `:col`, respectively.
 """
-function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symbol=:col)
+function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symbol = :col)
     type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
-    
+
     F = base_ring(parent(x))
     F_coeffs = coefficients(x)
     l = length(F_coeffs)
@@ -1094,16 +1235,16 @@ function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symb
     if type == :col
         F_coeffs = matrix(F, l, 1, F_coeffs)
         A[:, 1] = F_coeffs
-        for c in 2:l
-            A[1:c - 1, c] = F_coeffs[l - (c - 1) + 1:l, 1]
-            A[c:end, c] = F_coeffs[1:l - (c - 1), 1]
+        for c = 2:l
+            A[1:(c-1), c] = F_coeffs[(l-(c-1)+1):l, 1]
+            A[c:end, c] = F_coeffs[1:(l-(c-1)), 1]
         end
     elseif type == :row
         F_coeffs = matrix(F, 1, l, F_coeffs)
         A[1, :] = F_coeffs
-        for c in 2:l
-            A[c, 1:c - 1] = F_coeffs[1, l - (c - 1) + 1:l]
-            A[c, c:end] = F_coeffs[1, 1:l - (c - 1)]
+        for c = 2:l
+            A[c, 1:(c-1)] = F_coeffs[1, (l-(c-1)+1):l]
+            A[c, c:end] = F_coeffs[1, 1:(l-(c-1))]
         end
     end
     return A
@@ -1115,7 +1256,7 @@ end
 Return the matrix whose residue polynomial elements are converted to circulant matrices
 over the base field.
 """
-function lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
+function lift(A::MatElem{T}, type::Symbol = :col) where {T<:ResElem}
     type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
 
     R = parent(A[1, 1])
@@ -1131,7 +1272,7 @@ function lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
     for c in axes(A, 2)
         for r in axes(A, 1)
             if !iszero(A[r, c])
-                A_lift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] =
+                A_lift[((r-1)*l+1):(r*l), ((c-1)*l+1):(c*l)] =
                     residue_polynomial_to_circulant_matrix(A[r, c], type)
             end
         end
@@ -1145,7 +1286,7 @@ end
 Return the matrix whose group algebra elements are converted to circulant matrices
 over the base field.
 """
-function lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
+function lift(A::MatElem{T}, type::Symbol = :col) where {T<:CTGroupAlgebra}
     type ∈ (:col, :row) || throw(ArgumentError("Unknown type"))
 
     F = base_ring(parent(A[1, 1]))
@@ -1155,7 +1296,7 @@ function lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
     for c in axes(A, 2)
         for r in axes(A, 1)
             if !iszero(A[r, c])
-                A_lift[(r - 1) * l + 1:r * l, (c - 1) * l + 1:c * l] =
+                A_lift[((r-1)*l+1):(r*l), ((c-1)*l+1):(c*l)] =
                     group_algebra_element_to_circulant_matrix(A[r, c], type)
             end
         end
@@ -1164,15 +1305,15 @@ function lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
 end
 
 # Creates a matrix with copies of `M` at every nonzero entry of `locations`.
-function _concat(locations::Union{CTMatrixTypes, Matrix}, M::CTMatrixTypes)
+function _concat(locations::Union{CTMatrixTypes,Matrix}, M::CTMatrixTypes)
     nr_M, nc_M = size(M)
     nr_L, ncL = size(locations)
     output = zero_matrix(base_ring(M), nr_M * nr_L, nc_M * ncL)
-    for j_outer in 1:ncL
-        for i_outer in 1:nr_L
+    for j_outer = 1:ncL
+        for i_outer = 1:nr_L
             if !iszero(locations[i_outer, j_outer])
-                for j in 1:nc_M
-                    for i in 1:nr_M
+                for j = 1:nc_M
+                    for i = 1:nr_M
                         row = i + nr_M * (i_outer - 1)
                         col = j + nc_M * (j_outer - 1)
                         output[row, col] = M[i, j]
@@ -1190,8 +1331,9 @@ end
 Returns a vector where the ith entry lists the indices of the nonzero
 entries of `M[i, :]`
 """
-function row_supports(M::Union{CTMatrixTypes,
-    MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
+function row_supports(
+    M::Union{CTMatrixTypes,MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}},
+)
 
     output = [Int[] for _ in axes(M, 1)]
     for j in axes(M, 2)
@@ -1212,15 +1354,15 @@ function row_supports_symplectic(M::CTMatrixTypes)
     iseven(ncols(M)) || throw(ArgumentError("Matrix should have an even number of cols"))
     n = div(ncols(M), 2)
     X = row_supports(view(M, :, 1:n))
-    Z = row_supports(view(M, :, 1 + n:2n))
+    Z = row_supports(view(M, :, (1+n):2n))
     collect(zip(X, Z))
 end
 
 function _node_adjacencies(H::CTMatrixTypes)
-    check_adj_list = [Int[] for _ in 1:nrows(H)]
-    var_adj_list = [Int[] for _ in 1:ncols(H)]
-    for r in 1:nrows(H)
-        for c in 1:ncols(H)
+    check_adj_list = [Int[] for _ = 1:nrows(H)]
+    var_adj_list = [Int[] for _ = 1:ncols(H)]
+    for r = 1:nrows(H)
+        for c = 1:ncols(H)
             if !iszero(H[r, c])
                 push!(check_adj_list[r], c)
                 push!(var_adj_list[c], r)
@@ -1246,7 +1388,7 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
     id_mat = identity_matrix(F, nc)
     κ = deepcopy(id_mat)
     π = collect(1:nc)
-    for j in 1:nc
+    for j = 1:nc
         i = 1
         while i < nr && !isone(B[i, j])
             i += 1
@@ -1255,7 +1397,7 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
         if isone(B[i, j])
             # more natural and probably faster to push pivots to a list
             π = setdiff(π, [j])
-            for l in j+1:nc
+            for l = (j+1):nc
                 if isone(B[i, l])
                     B[:, l] += B[:, j]
                     κ[:, l] += κ[:, j]
@@ -1282,33 +1424,47 @@ Return a `Matrix{Int}` object from the matrix stored in the alist file format in
 """
 function load_alist(file::String)
     contents = split.(readlines(file))
-    length(contents[1]) == 2 || throw(ArgumentError("Not a valid alist file. First line wrong."))
-    length(contents[2]) == 2 || throw(ArgumentError("Not a valid alist file. Second line wrong."))
+    length(contents[1]) == 2 ||
+        throw(ArgumentError("Not a valid alist file. First line wrong."))
+    length(contents[2]) == 2 ||
+        throw(ArgumentError("Not a valid alist file. Second line wrong."))
     M = parse(Int, contents[1][1])
     N = parse(Int, contents[1][2])
-    length(contents) == M + N + 4 || throw(ArgumentError("Not a valid alist file. Wrong number of lines."))
+    length(contents) == M + N + 4 ||
+        throw(ArgumentError("Not a valid alist file. Wrong number of lines."))
     row_wts = parse.(Int, contents[3])
     col_wts = parse.(Int, contents[4])
-    length(row_wts) == M || throw(ArgumentError("Not a valid alist file. Wrong number of row weights."))
-    length(col_wts) == N || throw(ArgumentError("Not a valid alist file. Wrong number of column weights."))
-    maximum(row_wts) == parse(Int, contents[2][1]) || throw(ArgumentError("Not a valid alist file. Row weight mismatch."))
-    maximum(col_wts) == parse(Int, contents[2][2]) || throw(ArgumentError("Not a valid alist file. Col weight mismatch."))
-    all(allunique, contents[5:end]) || throw(ArgumentError("Not a valid alist file. Indices are repeated."))
-    all(length(contents[j]) == row_wts[i] for (i, j) in enumerate(5:M + 4)) || throw(ArgumentError("Not a valid alist file. Row weights don't match."))
-    all(length(contents[j]) == col_wts[i] for (i, j) in enumerate(M + 5:M + N + 4)) || throw(ArgumentError("Not a valid alist file. Column weights don't match."))
+    length(row_wts) == M ||
+        throw(ArgumentError("Not a valid alist file. Wrong number of row weights."))
+    length(col_wts) == N ||
+        throw(ArgumentError("Not a valid alist file. Wrong number of column weights."))
+    maximum(row_wts) == parse(Int, contents[2][1]) ||
+        throw(ArgumentError("Not a valid alist file. Row weight mismatch."))
+    maximum(col_wts) == parse(Int, contents[2][2]) ||
+        throw(ArgumentError("Not a valid alist file. Col weight mismatch."))
+    all(allunique, contents[5:end]) ||
+        throw(ArgumentError("Not a valid alist file. Indices are repeated."))
+    all(length(contents[j]) == row_wts[i] for (i, j) in enumerate(5:(M+4))) ||
+        throw(ArgumentError("Not a valid alist file. Row weights don't match."))
+    all(length(contents[j]) == col_wts[i] for (i, j) in enumerate((M+5):(M+N+4))) ||
+        throw(ArgumentError("Not a valid alist file. Column weights don't match."))
 
     mat = zeros(Int, M, N)
-    for (col, i) in enumerate(M + 5:M + N + 4)
+    for (col, i) in enumerate((M+5):(M+N+4))
         rows = parse.(Int, contents[i])
         for row in rows
             mat[row, col] = 1
         end
     end
 
-    for (row, i) in enumerate(5:M + 4)
+    for (row, i) in enumerate(5:(M+4))
         cols = parse.(Int, contents[i])
-        for col in 1:N
-            mat[row, col] == (col in cols) || throw(ArgumentError("Not a valid alist file. The two matrix representations don't match."))
+        for col = 1:N
+            mat[row, col] == (col in cols) || throw(
+                ArgumentError(
+                    "Not a valid alist file. The two matrix representations don't match.",
+                ),
+            )
         end
     end
     return mat
@@ -1333,7 +1489,7 @@ end
 # end
 
 #############################
-  # Quantum Helper Functions
+# Quantum Helper Functions
 #############################
 
 """
@@ -1346,17 +1502,18 @@ Return `true` if the binary matrix `G` is triorthogonal.
 * If the optional parameter `verbos` is set to `true`, the first pair or triple of
   non-orthogonal rows will be identified on the console.
 """
-function is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
-    Int(order(base_ring(G))) == 2 || throw(ArgumentError("Triothogonality is only defined over 𝔽₂."))
+function is_triorthogonal(G::CTMatrixTypes, verbose::Bool = false)
+    Int(order(base_ring(G))) == 2 ||
+        throw(ArgumentError("Triothogonality is only defined over 𝔽₂."))
     nr, nc = size(G)
-    for r1 in 1:nr
-        for r2 in (r1 + 1):nr
-            if !iszero(sum(G[r1, i] * G[r2, i] for i in 1:nc))
+    for r1 = 1:nr
+        for r2 = (r1+1):nr
+            if !iszero(sum(G[r1, i] * G[r2, i] for i = 1:nc))
                 verbose && println("Rows $r1 and $r2 are not orthogonal.")
                 return false
             end
-            for r3 in (r2 + 1):nr
-                if !iszero(sum(G[r1, i] * G[r2, i] * G[r3, i] for i in 1:nc))
+            for r3 = (r2+1):nr
+                if !iszero(sum(G[r1, i] * G[r2, i] * G[r3, i] for i = 1:nc))
                     verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
                     return false
                 end
@@ -1366,16 +1523,16 @@ function is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
     return true
 end
 
-function is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
+function is_triorthogonal(G::Matrix{Int}, verbose::Bool = false)
     nr, nc = size(G)
-    for r1 in 1:nr
-        for r2 in (r1 + 1):nr
-            if !iszero(sum(G[r1, i] * G[r2, i] for i in 1:nc) % 2)
+    for r1 = 1:nr
+        for r2 = (r1+1):nr
+            if !iszero(sum(G[r1, i] * G[r2, i] for i = 1:nc) % 2)
                 verbose && println("Rows $r1 and $r2 are not orthogonal.")
                 return false
             end
-            for r3 in (r2 + 1):nr
-                if !iszero(sum(G[r1, i] * G[r2, i] * G[r3, i] for i in 1:nc) % 2)
+            for r3 = (r2+1):nr
+                if !iszero(sum(G[r1, i] * G[r2, i] * G[r3, i] for i = 1:nc) % 2)
                     verbose && println("Rows $r1, $r2, and $r3 are not orthogonal.")
                     return false
                 end
@@ -1385,7 +1542,7 @@ function is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
     return true
 end
 
-function print_string_array(A::Vector{String}, without_Is=false)
+function print_string_array(A::Vector{String}, without_Is = false)
     for a in A
         if !withoutIs
             println(a)
@@ -1402,8 +1559,10 @@ function print_string_array(A::Vector{String}, without_Is=false)
     end
 end
 # BUG: do these set functions exist anymore?
-print_char_array(A::Vector{Vector{Char}}, without_Is=false) = print_string_array(set_char_to_string_array(A), without_Is)
-printsymplecticarray(A::Vector{Vector{T}}, without_Is=false) where T <: Int = print_string_array(set_symplectic_to_string_array(A), without_Is)
+print_char_array(A::Vector{Vector{Char}}, without_Is = false) =
+    print_string_array(set_char_to_string_array(A), without_Is)
+printsymplecticarray(A::Vector{Vector{T}}, without_Is = false) where {T<:Int} =
+    print_string_array(set_symplectic_to_string_array(A), without_Is)
 
 """
     pseudoinverse(M::CTMatrixTypes)
@@ -1424,18 +1583,23 @@ function pseudoinverse(M::CTMatrixTypes)
 
     nr, nc = size(M)
     _, E = rref(hcat(M, identity_matrix(base_ring(M), nr)))
-    E = E[:, (nc + 1):end]
+    E = E[:, (nc+1):end]
     p_inv = E[1:nc, :]
-    dual = E[nc + 1:nr, :]
+    dual = E[(nc+1):nr, :]
 
     # verify
     _, M_rref = rref(M)
     E * M == M_rref || error("Pseudoinverse calculation failed (transformation incorrect).")
-    M_rref[1:nc, 1:nc] == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (failed to get I).")
-    iszero(M_rref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-    p_inv * M == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 1).")
-    transpose(M) * transpose(p_inv) == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 2).")
-    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
+    M_rref[1:nc, 1:nc] == identity_matrix(base_ring(M), nc) ||
+        error("Pseudoinverse calculation failed (failed to get I).")
+    iszero(M_rref[(nc+1):nr, :]) ||
+        error("Pseudoinverse calculation failed (failed to get zero).")
+    p_inv * M == identity_matrix(base_ring(M), nc) ||
+        error("Pseudoinverse calculation failed (eq 1).")
+    transpose(M) * transpose(p_inv) == identity_matrix(base_ring(M), nc) ||
+        error("Pseudoinverse calculation failed (eq 2).")
+    iszero(transpose(M) * transpose(dual)) ||
+        error("Failed to correctly compute dual (rhs).")
     iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
     return p_inv
 end
@@ -1486,7 +1650,7 @@ end
 #     return Mquad
 # end
 
-function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Char}}
+function _Pauli_string_to_symplectic(str::T) where {T<:Union{String,Vector{Char}}}
     n = length(str)
     # F = GF(2, 1, :ω)
     F = Oscar.Nemo.Native.GF(2)
@@ -1495,21 +1659,24 @@ function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Cha
         if c == 'X'
             sym[1, i] = F(1)
         elseif c == 'Z'
-            sym[1, i + n] = F(1)
+            sym[1, i+n] = F(1)
         elseif c == 'Y'
             sym[1, i] = 1
-            sym[1, i + n] = F(1)
+            sym[1, i+n] = F(1)
         elseif c != 'I'
-            error("Encountered non-{I, X, Y, Z} character in Pauli string. This function is only defined for binary strings.")
+            error(
+                "Encountered non-{I, X, Y, Z} character in Pauli string. This function is only defined for binary strings.",
+            )
         end
     end
     return sym
 end
-_Pauli_string_to_symplectic(A::Vector{T}) where T <: Union{String, Vector{Char}} = reduce(vcat, [_Pauli_string_to_symplectic(s) for s in A])
+_Pauli_string_to_symplectic(A::Vector{T}) where {T<:Union{String,Vector{Char}}} =
+    reduce(vcat, [_Pauli_string_to_symplectic(s) for s in A])
 # need symplectictoPaulistring
 
 # charvec::Union{Vector{zzModRingElem}, Missing}=missing)
-function _process_strings(SPauli::Vector{T}) where T <: Union{String, Vector{Char}}
+function _process_strings(SPauli::Vector{T}) where {T<:Union{String,Vector{Char}}}
     # Paulisigns = Vector{Int}()
     S_tr_Pauli_stripped = Vector{String}()
     for (i, s) in enumerate(SPauli)
@@ -1523,14 +1690,17 @@ function _process_strings(SPauli::Vector{T}) where T <: Union{String, Vector{Cha
             # append!(Paulisigns, -1)
             push!(S_tr_Pauli_stripped, s[2:end])
         else
-            error("The first element of Pauli string $i is neither a Pauli character or +/-: $s.")
+            error(
+                "The first element of Pauli string $i is neither a Pauli character or +/-: $s.",
+            )
         end
     end
 
     n = length(S_tr_Pauli_stripped[1])
     for s in S_tr_Pauli_stripped
         for i in s
-            i ∈ ['I', 'X', 'Y', 'Z'] || error("Element of provided Pauli string is not a Pauli character: $s.")
+            i ∈ ['I', 'X', 'Y', 'Z'] ||
+                error("Element of provided Pauli string is not a Pauli character: $s.")
         end
         length(s) == n || error("Not all Pauli strings are the same length.")
     end
@@ -1549,7 +1719,7 @@ function _process_strings(SPauli::Vector{T}) where T <: Union{String, Vector{Cha
 end
 
 #############################
-        # Finite Fields
+# Finite Fields
 #############################
 
 """
@@ -1569,10 +1739,14 @@ function tr(x::CTFieldElem, K::CTFieldTypes; verify::Bool = false)
         # Int(characteristic(L)) == Int(characteristic(K)) || error("The given field is not a subfield of the base ring of the element.")
         # degree(L) % degree(K) == 0 || error("The given field is not a subfield of the base ring of the element.")
         flag, m = is_extension(L, K)
-        flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
+        flag || throw(
+            ArgumentError(
+                "The given field is not a subfield of the base ring of the matrix.",
+            ),
+        )
     end
     n = div(degree(L), degree(K))
-    return sum([x^(q^i) for i in 0:(n - 1)])
+    return sum([x^(q^i) for i = 0:(n-1)])
 end
 
 # function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
@@ -1592,7 +1766,7 @@ end
 function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldElem})
     m = div(degree(L), degree(K))
     L_elms = collect(L)
-    D = Dict{FqFieldElem, FqMatrix}()
+    D = Dict{FqFieldElem,FqMatrix}()
     for x in L_elms
         D[x] = matrix(L, 1, m, [CodingTheory.tr(x * λi, K) for λi in λ])
     end
@@ -1600,13 +1774,13 @@ function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldE
 end
 
 # BUG this is building the expanded matrix in the wrong ring, added change_base_ring below
-function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
+function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem,FqMatrix}, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
     M_exp = zero_matrix(base_ring(M), nrows(M), ncols(M) * m)
-    for r in 1:nrows(M)
-        for c in 1:ncols(M)
-            M_exp[r, (c - 1) * m + 1:c * m] = D[M[r, c]]
+    for r = 1:nrows(M)
+        for c = 1:ncols(M)
+            M_exp[r, ((c-1)*m+1):(c*m)] = D[M[r, c]]
         end
     end
     return M_exp
@@ -1622,8 +1796,11 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
     L = base_ring(M)
     L == K && return M
     flag, m = is_extension(L, K)
-    flag || throw(ArgumentError("The given field is not a subfield of the base ring of the matrix."))
-    m == length(β) || throw(ArgumentError("Basis does not have length degree of the extension."))
+    flag || throw(
+        ArgumentError("The given field is not a subfield of the base ring of the matrix."),
+    )
+    m == length(β) ||
+        throw(ArgumentError("Basis does not have length degree of the extension."))
     flag, λ = _is_basis(L, β, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
 
@@ -1638,8 +1815,10 @@ end
 Return the sets of quadratic resides and quadratic non-residues of `q` and `n`.
 """
 function quadratic_residues(q::Int, n::Int)
-    isodd(n) && is_prime(n) || throw(ArgumentError("n must be an odd prime in quadratic residues"))
-    q^div(n - 1, 2) % n == 1 || throw(ArgumentError("q^(n - 1)/2 ≅ 1 mod n in quadratic residues"))
+    isodd(n) && is_prime(n) ||
+        throw(ArgumentError("n must be an odd prime in quadratic residues"))
+    q^div(n - 1, 2) % n == 1 ||
+        throw(ArgumentError("q^(n - 1)/2 ≅ 1 mod n in quadratic residues"))
 
     # F = GF(n, 1, :α)
     # elms = collect(F)
@@ -1649,24 +1828,24 @@ function quadratic_residues(q::Int, n::Int)
     # return q_res, not_q_res
 
     # don't want this returning in the field
-    q_res = sort!(unique!([i^2 % n for i in 1:n - 1]))
-    not_q_res = setdiff(1:(n - 1), q_res)
+    q_res = sort!(unique!([i^2 % n for i = 1:(n-1)]))
+    not_q_res = setdiff(1:(n-1), q_res)
     return q_res, not_q_res
 end
 
 function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
     m = length(basis)
     B = zero_matrix(E, m, m)
-    for r in 1:m
-        for c in 1:m
+    for r = 1:m
+        for c = 1:m
             B[r, c] = basis[r]^(q^(c - 1))
         end
     end
     iszero(det(B)) && return false, missing
-    
+
     try
         B_inv = inv(B)
-        λ = [B_inv[1, i] for i in 1:m]
+        λ = [B_inv[1, i] for i = 1:m]
         return true, λ
     catch
         return false, missing
@@ -1712,9 +1891,11 @@ otherwise return `false, missing`.
 function is_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, m = is_extension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
-    length(basis) == m || throw(ArgumentError("Basis does not have length degree of the extension."))
-    for i in 1:m
-        parent(basis[i]) == E || throw(ArgumentError("The basis must be elements of the extension field."))
+    length(basis) == m ||
+        throw(ArgumentError("Basis does not have length degree of the extension."))
+    for i = 1:m
+        parent(basis[i]) == E ||
+            throw(ArgumentError("The basis must be elements of the extension field."))
     end
 
     return _is_basis(E, basis, Int(order(F)))
@@ -1729,7 +1910,7 @@ function primitive_basis(E::CTFieldTypes, F::CTFieldTypes)
     flag, m = is_extension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
     α = gen(E)
-    basis = [α^i for i in 0:m - 1]
+    basis = [α^i for i = 0:(m-1)]
     flag, λ = _is_basis(E, basis, Int(order(F)))
     return basis, λ
 end
@@ -1751,7 +1932,7 @@ function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
     q = Int(order(F))
     elms = collect(E)
     for e in elms
-        basis = [e^(q^i) for i in 0:m - 1]
+        basis = [e^(q^i) for i = 0:(m-1)]
         flag, dual_basis = _is_basis(E, basis, q)
         flag && return basis, dual_basis
     end
@@ -1769,7 +1950,8 @@ function dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldEle
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return λ
 end
-complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dual_basis(E, F, basis)
+complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) =
+    dual_basis(E, F, basis)
 
 """
     verify_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
@@ -1777,34 +1959,47 @@ complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldEle
 
 Return `true` if `basis` is the dual of `dual_basis` for `E/F`, otherwise return `false`.
 """
-function verify_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem})
+function verify_dual_basis(
+    E::CTFieldTypes,
+    F::CTFieldTypes,
+    basis::Vector{<:CTFieldElem},
+    dual_basis::Vector{<:CTFieldElem},
+)
     flag, m = is_extension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
 
     m = length(basis)
-    length(dual_basis) == m || throw(ArgumentError("The basis and dual basis must have the same length."))
+    length(dual_basis) == m ||
+        throw(ArgumentError("The basis and dual basis must have the same length."))
     E = parent(basis[1])
-    for i in 1:m
-        parent(basis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
-        parent(dual_basis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+    for i = 1:m
+        parent(basis[i]) == E ||
+            throw(ArgumentError("Elements must be over the same field."))
+        parent(dual_basis[i]) == E ||
+            throw(ArgumentError("Elements must be over the same field."))
     end
 
     q = Int(order(F))
     B = zero_matrix(E, m, m)
-    for r in 1:m
-        for c in 1:m
+    for r = 1:m
+        for c = 1:m
             B[r, c] = basis[r]^(q^(c - 1))
         end
     end
     B_inv = zero_matrix(E, m, m)
-    for r in 1:m
-        for c in 1:m
+    for r = 1:m
+        for c = 1:m
             B_inv[r, c] = dual_basis[c]^(q^(r - 1))
         end
     end
     return B * B_inv == identity_matrix(E, m)
 end
-verify_complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem}) = verify_dual_basis(E, F, basis, dual_basis)
+verify_complementary_basis(
+    E::CTFieldTypes,
+    F::CTFieldTypes,
+    basis::Vector{<:CTFieldElem},
+    dual_basis::Vector{<:CTFieldElem},
+) = verify_dual_basis(E, F, basis, dual_basis)
 
 """
     are_equivalent_basis(basis::Vector{fqPolyRepFieldElem}, basis2::Vector{fqPolyRepFieldElem})
@@ -1813,12 +2008,15 @@ Return `true` if `basis` is a scalar multiple of `basis2`.
 """
 function are_equivalent_basis(basis::Vector{<:CTFieldElem}, basis2::Vector{<:CTFieldElem})
     m = length(basis)
-    length(basis2) == m || throw(ArgumentError("The two vectors must have the same length."))
+    length(basis2) == m ||
+        throw(ArgumentError("The two vectors must have the same length."))
     c = basis[1] * basis2[1]^-1
     E = parent(basis[1])
-    for i in 1:m
-        parent(basis[i]) == E || throw(ArgumentError("Elements must be over the same field."))
-        parent(basis2[i]) == E || throw(ArgumentError("Elements must be over the same field."))
+    for i = 1:m
+        parent(basis[i]) == E ||
+            throw(ArgumentError("Elements must be over the same field."))
+        parent(basis2[i]) == E ||
+            throw(ArgumentError("Elements must be over the same field."))
         # for logical consistency should probably do this in a separate loop
         basis[i] == c * basis2[i] || return false
     end
@@ -1846,7 +2044,7 @@ function is_primitive_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     isone(basis[1]) ? (x = basis[2];) : (x = basis[1];)
     m = length(basis)
-    for i in 0:m - 1
+    for i = 0:(m-1)
         x^i ∈ basis || return false
     end
     return true
@@ -1863,7 +2061,7 @@ function is_normal_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFie
     isone(basis[1]) ? (return false;) : (x = basis[1];)
     m = length(basis)
     q = Int(order(F))
-    for i in 0:m - 1
+    for i = 0:(m-1)
         x^(q^i) ∈ basis || return false
     end
     return true
@@ -1875,7 +2073,7 @@ end
 # (Imamura 1983) The finite field F_q^n has no self-dual power bases.
 
 #############################
-          # Graphs
+# Graphs
 #############################
 
 """
@@ -1899,7 +2097,7 @@ function edge_vertex_incidence_matrix(G::SimpleGraph{Int})
     nr, nc = size(I)
     I_tr = transpose(I)
     B = vcat(hcat(zeros(Int, nc, nc), I_tr), hcat(I, zeros(Int, nr, nr)))
-    return B, collect(1:nc), collect(nc + 1:nr + nc)
+    return B, collect(1:nc), collect((nc+1):(nr+nc))
 end
 
 """
@@ -1919,7 +2117,8 @@ end
 Return `true` if the vertices indexed by `left` and `right` form a valid bipartition for `G`.
 """
 function is_valid_bipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int})
-    Grphs.nv(G) == length(left) + length(right) || throw(ArgumentError("Too few vertices in lists."))
+    Grphs.nv(G) == length(left) + length(right) ||
+        throw(ArgumentError("Too few vertices in lists."))
     l = sort(left)
     r = sort(right)
     temp = l ∩ r # can manually do using sorted knowledge if this is slow
@@ -1966,7 +2165,7 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     A = matrix(F, 1, 1, [rand(collect(F)[2:end])])
 
     # extend from (k-1)×(k-1) to k×k, repeat up to n×n
-    for k in 2:n
+    for k = 2:n
 
         # pick a random nonzero vector of length n
         v = zero_matrix(F, 1, k)
@@ -1984,8 +2183,8 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
         # copy data from A into the right places
         B = zero_matrix(F, k, k)
         B[1, r] = one(F)
-        B[2:end, 1:r - 1] = A[:, 1:r - 1]
-        B[2:end, r + 1:end] = A[:, r:end]
+        B[2:end, 1:(r-1)] = A[:, 1:(r-1)]
+        B[2:end, (r+1):end] = A[:, r:end]
 
         A = B * I_v
     end
@@ -1993,12 +2192,14 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
-function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
+function extended_binomial(x::Union{Int,UInt}, y::Union{Int,UInt})
     return y <= x ? UInt128.(binomial(x, y)) : UInt128(0)
 end
 
 function _value_distribution(vals)
-    return OrderedDict([(i, count(x -> (x == i), vals)) for i in collect(sort(unique(vals)))])
+    return OrderedDict([
+        (i, count(x -> (x == i), vals)) for i in collect(sort(unique(vals)))
+    ])
 end
 
 # #=

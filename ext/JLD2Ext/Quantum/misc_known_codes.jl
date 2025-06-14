@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 ################################
- # Triangular Color Codes 4.8.8
+# Triangular Color Codes 4.8.8
 ################################
 
 """
@@ -45,7 +45,7 @@ function CodingTheory.TriangularColorCode488(d::Int)
 end
 
 ################################
- # Triangular Color Codes 6.6.6
+# Triangular Color Codes 6.6.6
 ################################
 
 """
@@ -78,7 +78,7 @@ function CodingTheory.TriangularColorCode666(d::Int)
     elseif d == 19
         @load joinpath(path, "666d19stabslogs_trellis.jld2") S l
     elseif d == 21
-        @load joinpath(path, "666d21stabslogs_trellis.jld2") S l    
+        @load joinpath(path, "666d21stabslogs_trellis.jld2") S l
     end
     F = CodingTheory.Oscar.Nemo.Native.GF(2)
     Q = StabilizerCode(CodingTheory.Oscar.matrix(F, S))
@@ -88,7 +88,7 @@ function CodingTheory.TriangularColorCode666(d::Int)
 end
 
 ################################
-     # 3D PlanarSurfaceCode
+# 3D PlanarSurfaceCode
 ################################
 
 # TODO missing Z matrices
@@ -136,12 +136,13 @@ function CodingTheory.PlanarSurfaceCode3D_X(d::Int)
         X_meta = load_alist(joinpath(path, "surface3D_9_mx.alist"))
     end
     F = CodingTheory.Oscar.Nemo.Native.GF(2)
-    return CodingTheory.Oscar.matrix(F, X_stabs), CodingTheory.Oscar.matrix(F, X_logs),
-        CodingTheory.Oscar.matrix(F, X_meta)
+    return CodingTheory.Oscar.matrix(F, X_stabs),
+    CodingTheory.Oscar.matrix(F, X_logs),
+    CodingTheory.Oscar.matrix(F, X_meta)
 end
 
 #################################
-        # 3D Toric codes
+# 3D Toric codes
 #################################
 
 # TODO missing Z matrices
@@ -209,6 +210,7 @@ function CodingTheory.ToricCode3D_X(d::Int)
         X_meta = load_alist(joinpath(path, "toric3D_13_mx.alist"))
     end
     F = CodingTheory.Oscar.Nemo.Native.GF(2)
-    return CodingTheory.Oscar.matrix(F, X_stabs), CodingTheory.Oscar.matrix(F, X_logs),
-        CodingTheory.Oscar.matrix(F, X_meta)
+    return CodingTheory.Oscar.matrix(F, X_stabs),
+    CodingTheory.Oscar.matrix(F, X_logs),
+    CodingTheory.Oscar.matrix(F, X_meta)
 end

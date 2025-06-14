@@ -18,7 +18,7 @@
         η = [setdiff(α, sqs)[1]];
         C = TwistedReedSolomonCode(k, α, t, h, η);
         G = zero_matrix(F, k, length(α));
-        for c in 1:length(α)
+        for c = 1:length(α)
             G[1, c] = α[c]^0
             G[2, c] = α[c]^1
             G[3, c] = α[c]^2 + η[1] * α[c]^6
@@ -38,7 +38,7 @@
         η = [F(0), ω, ω^2];
         C = TwistedReedSolomonCode(k, α, t, h, η);
         G = zero_matrix(F, k, length(α));
-        for c in 1:length(α)
+        for c = 1:length(α)
             G[1, c] = α[c]^0
             G[2, c] = α[c]^1
             G[3, c] = α[c]^2 + η[3] * α[c]^7

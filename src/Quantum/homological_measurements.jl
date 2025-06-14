@@ -5,13 +5,20 @@
 # LICENSE file in the root directory of this source tree.
 
 #############################
-        # constructors
+# constructors
 #############################
 
 # TODO Check logicals are being used correctly throughout
 
-function _thickened_cone(S::AbstractStabilizerCodeCSS, HX_A::CTMatrixTypes, HZ_A::CTMatrixTypes,
-        f1::CTMatrixTypes, f0::CTMatrixTypes, type::Symbol, r::Int = 1)
+function _thickened_cone(
+    S::AbstractStabilizerCodeCSS,
+    HX_A::CTMatrixTypes,
+    HZ_A::CTMatrixTypes,
+    f1::CTMatrixTypes,
+    f0::CTMatrixTypes,
+    type::Symbol,
+    r::Int = 1,
+)
 
     r > 0 || (r == 0 && (return S;)) || throw(DomainError(r, "Must be a positive integer."))
     type in (:X, :Z) || throw(DomainError(type, "Must choose `type` to be `:X` or `:Z`."))
@@ -30,13 +37,27 @@ function _thickened_cone(S::AbstractStabilizerCodeCSS, HX_A::CTMatrixTypes, HZ_A
     @assert HZ_C * f1 == f0 * transpose(HX_A)
 
     # build stabilizers
-    HX = vcat(hcat(HX_C, zero_matrix(F, size(HX_C, 1), n - nC)),
-        hcat(vcat(transpose(f1), zero_matrix(F, (r - 1) * size(HX_A, 1), nC)),
-        identity_matrix(F, r) ⊗ HX_A, _rep_pcm_tr(F, r) ⊗ identity_matrix(F, size(HX_A, 1))))
-    HZ = vcat(hcat(HZ_C, f0, zero_matrix(F, size(HZ_C, 1), (r - 1) * (nA + size(HX_A, 1)))),
-        hcat(zero_matrix(F, (r - 1) * nA, nC), _rep_pcm(F, r) ⊗ identity_matrix(F, nA),
-        identity_matrix(F, r - 1) ⊗ transpose(HX_A)), hcat(zero_matrix(F, size(HZ_A, 1), nC +
-        (r - 1) * nA), HZ_A, zero_matrix(F, size(HZ_A, 1), (r - 1) * size(HX_A, 1))))
+    HX = vcat(
+        hcat(HX_C, zero_matrix(F, size(HX_C, 1), n - nC)),
+        hcat(
+            vcat(transpose(f1), zero_matrix(F, (r - 1) * size(HX_A, 1), nC)),
+            identity_matrix(F, r) ⊗ HX_A,
+            _rep_pcm_tr(F, r) ⊗ identity_matrix(F, size(HX_A, 1)),
+        ),
+    )
+    HZ = vcat(
+        hcat(HZ_C, f0, zero_matrix(F, size(HZ_C, 1), (r - 1) * (nA + size(HX_A, 1)))),
+        hcat(
+            zero_matrix(F, (r - 1) * nA, nC),
+            _rep_pcm(F, r) ⊗ identity_matrix(F, nA),
+            identity_matrix(F, r - 1) ⊗ transpose(HX_A),
+        ),
+        hcat(
+            zero_matrix(F, size(HZ_A, 1), nC + (r - 1) * nA),
+            HZ_A,
+            zero_matrix(F, size(HZ_A, 1), (r - 1) * size(HX_A, 1)),
+        ),
+    )
     stabs = type == :X ? direct_sum(HX, HZ) : direct_sum(HZ, HX)
 
     # build X logicals
@@ -67,30 +88,43 @@ function _thickened_cone(S::AbstractStabilizerCodeCSS, HX_A::CTMatrixTypes, HZ_A
         temp = CSSCode(HX_A, vcat(HZ_A, implied_stabs))
         if dimension(temp) > 0
             # TODO can preallocate as above
-            _remove_empty(logicals_matrix(temp)[:, 1 + nA:2nA], :rows)
+            _remove_empty(logicals_matrix(temp)[:, (1+nA):2nA], :rows)
         else
             zero_matrix(F, 0, nA)
         end
     end
     # Z_gauges = hcat(zero_matrix(F, size(Z_gauges, 1), nC), Z_gauges)
-    Z_gauges = hcat(zero_matrix(F, size(Z_gauges, 1), nC + (r - 1) * nA), Z_gauges,
-        zero_matrix(F, size(Z_gauges, 1), (r - 1) * size(HX_A, 1)))
+    Z_gauges = hcat(
+        zero_matrix(F, size(Z_gauges, 1), nC + (r - 1) * nA),
+        Z_gauges,
+        zero_matrix(F, size(Z_gauges, 1), (r - 1) * size(HX_A, 1)),
+    )
 
     # build full logs and gauges
-    new_X, new_Z, new_mixed, _ = _complete_pairs(stabs, type == :X ? direct_sum(X_logs, Z_gauges) :
-        direct_sum(Z_gauges, X_logs))
+    new_X, new_Z, new_mixed, _ = _complete_pairs(
+        stabs,
+        type == :X ? direct_sum(X_logs, Z_gauges) : direct_sum(Z_gauges, X_logs),
+    )
     isempty(new_mixed) || error() # TODO
-    logs = type == :X ? direct_sum(X_logs, new_Z[:, n + 1:2n]) : direct_sum(new_X[:, 1:n], X_logs)
-    gauges = type == :X ? direct_sum(new_X[:, 1:n], Z_gauges) : direct_sum(Z_gauges, new_Z[:, n +
-        1:2n])
+    logs =
+        type == :X ? direct_sum(X_logs, new_Z[:, (n+1):2n]) :
+        direct_sum(new_X[:, 1:n], X_logs)
+    gauges =
+        type == :X ? direct_sum(new_X[:, 1:n], Z_gauges) :
+        direct_sum(Z_gauges, new_Z[:, (n+1):2n])
 
     # TODO why are logs not also passed in here?
     # TODO can we remove the type instability here?
     return isempty(gauges) ? StabilizerCode(stabs) : SubsystemCode(stabs, logs, gauges)
 end
-_thickened_cone(S::AbstractStabilizerCodeCSS, A::AbstractStabilizerCodeCSS, f1::CTMatrixTypes,
-    f0::CTMatrixTypes, type::Symbol, r::Int = 1) = _thickened_cone(S, A.X_stabs, A.Z_stabs, f1, f0,
-    type, r)
+_thickened_cone(
+    S::AbstractStabilizerCodeCSS,
+    A::AbstractStabilizerCodeCSS,
+    f1::CTMatrixTypes,
+    f0::CTMatrixTypes,
+    type::Symbol,
+    r::Int = 1,
+) = _thickened_cone(S, A.X_stabs, A.Z_stabs, f1, f0, type, r)
 
 """
 $TYPEDSIGNATURES
@@ -106,31 +140,39 @@ All paramaters are aligned with their respective papers.
 - `improve_cycles` - used for `IBM`
 - `remove_and_improve_cycles` - used for `IBM`, supersedes previous parameter
 """
-function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes; style::Symbol =
-    :Xanadu, r::Int = 1, max_iters::Int = 50000, cellulate::Bool = false, improve_cycles::Bool =
-    true, remove_and_improve_cycles::Bool = false)
+function homological_measurement(
+    S::AbstractStabilizerCodeCSS,
+    L::CTMatrixTypes;
+    style::Symbol = :Xanadu,
+    r::Int = 1,
+    max_iters::Int = 50000,
+    cellulate::Bool = false,
+    improve_cycles::Bool = true,
+    remove_and_improve_cycles::Bool = false,
+)
 
     is_positive(r) || throw(DomainError(r, "Must be a positive integer."))
     is_positive(max_iters) || throw(DomainError(max_iters, "Must be a positive integer."))
     L_red = _remove_empty(L, :rows)
     nrows(L_red) == 1 || throw(ArgumentError("Requires a single logical of the code."))
-    is_logical(S, L_red) || throw(ArgumentError("The input matrix is not a logical of the code."))
+    is_logical(S, L_red) ||
+        throw(ArgumentError("The input matrix is not a logical of the code."))
     F = field(S)
     Int(order(F)) == 2 || throw(ArgumentError("Only defined for binary codes."))
     n = length(S)
     # k = dimension(S)
 
-    type, stabs, log = if iszero(L_red[1:1, 1 + n:2n])
+    type, stabs, log = if iszero(L_red[1:1, (1+n):2n])
         :X, Z_stabilizers(S), L_red[1:1, 1:n]
     elseif iszero(L_red[1:1, 1:n])
-        :Z, X_stabilizers(S), L_red[1:1, 1 + n:2n]
+        :Z, X_stabilizers(S), L_red[1:1, (1+n):2n]
     else
         throw(DomainError(L, "Only defined for pure X or Z logicals `L`."))
     end
 
     Q = getindex.(findall(!iszero, log), 2)
-    f1 = matrix(F, Int[Q[j] == i for i in 1:n, j in 1:length(Q)])
-    nonzero = findall(!iszero(stabs[i, Q]) for i in 1:size(stabs, 1))
+    f1 = matrix(F, Int[Q[j] == i for i = 1:n, j = 1:length(Q)])
+    nonzero = findall(!iszero(stabs[i, Q]) for i = 1:size(stabs, 1))
     f0 = identity_matrix(F, size(stabs, 1))[:, nonzero]
     HX = transpose(stabs[nonzero, Q])
 
@@ -183,13 +225,13 @@ function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes;
 end
 
 #############################
-     # general functions
+# general functions
 #############################
 
-_rep_pcm_tr(F::CTFieldTypes, d::Int) = matrix(F, diagm(d, d - 1, 0 => ones(Int, d - 1), -1 =>
-    ones(Int, d - 1)))
-_rep_pcm(F::CTFieldTypes, d::Int) = matrix(F, diagm(d - 1, d, 0 => ones(Int, d - 1), 1 => ones(Int,
-    d - 1)))
+_rep_pcm_tr(F::CTFieldTypes, d::Int) =
+    matrix(F, diagm(d, d - 1, 0 => ones(Int, d - 1), -1 => ones(Int, d - 1)))
+_rep_pcm(F::CTFieldTypes, d::Int) =
+    matrix(F, diagm(d - 1, d, 0 => ones(Int, d - 1), 1 => ones(Int, d - 1)))
 
 function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
     # we can remove some of these assertions since it's a private function and we control the input
@@ -199,12 +241,14 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
     @assert size(stabs, 2) == size(logs, 2)
     @assert rank(logs) == size(logs, 1)
     n = div(size(stabs, 2), 2)
-    Ω = vcat(hcat(zero_matrix(F, n, n), identity_matrix(F, n)), hcat(identity_matrix(F, n),
-        zero_matrix(F, n, n)))
+    Ω = vcat(
+        hcat(zero_matrix(F, n, n), identity_matrix(F, n)),
+        hcat(identity_matrix(F, n), zero_matrix(F, n, n)),
+    )
     # @assert iszero(vcat(stabs, logs) * Ω * transpose(stabs))
     find_pairs = logs * Ω * transpose(logs)
-    @assert all(count(!iszero, find_pairs[i:i, :]) in (0, 1) for i in 1:size(find_pairs, 1))
-    needs_pair = findall(iszero(find_pairs[i:i, :]) for i in 1:size(find_pairs, 1))
+    @assert all(count(!iszero, find_pairs[i:i, :]) in (0, 1) for i = 1:size(find_pairs, 1))
+    needs_pair = findall(iszero(find_pairs[i:i, :]) for i = 1:size(find_pairs, 1))
 
     new_X = zero_matrix(F, 0, 2n)
     new_Z = zero_matrix(F, 0, 2n)
@@ -216,7 +260,7 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
 
         # try pure X
         # TODO don't understand this line
-        LHS = vcat(logs, stabs, Ω[n + 1:2n, :])
+        LHS = vcat(logs, stabs, Ω[(n+1):2n, :])
         flag, sol = can_solve_with_solution(LHS * Ω, RHS, side = :right)
         if flag
             logs = vcat(logs, transpose(sol))
@@ -225,7 +269,7 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
         end
 
         # try pure Z
-        LHS[size(logs, 1) + size(stabs, 1) + 1:end, :] = Ω[1:n, :]
+        LHS[(size(logs, 1)+size(stabs, 1)+1):end, :] = Ω[1:n, :]
         flag, sol = can_solve_with_solution(LHS * Ω, RHS, side = :right)
         if flag
             logs = vcat(logs, transpose(sol))
@@ -234,7 +278,7 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
         end
 
         # try mixed
-        LHS[size(logs, 1) + size(stabs, 1) + 1:end, :] = zero_matrix(F, n, 2n)
+        LHS[(size(logs, 1)+size(stabs, 1)+1):end, :] = zero_matrix(F, n, 2n)
         flag, sol = can_solve_with_solution(LHS * Ω, RHS)
         if flag
             logs = vcat(logs, transpose(sol))
@@ -251,7 +295,7 @@ $TYPEDSIGNATURES
 
 Return the Cheeger constant of the matrix `M` assuming `M` is a vertex-edge incidence matrix.
 """
-function Cheeger_constant(M::Matrix{T}) where T <: Integer
+function Cheeger_constant(M::Matrix{T}) where {T<:Integer}
     m, n = size(M)
     # get one more bit in using an unsigned integer...
     U = UInt64
@@ -260,11 +304,11 @@ function Cheeger_constant(M::Matrix{T}) where T <: Integer
     end
     r = div(m, 2)
     h = Inf
-    for x in U(1):U(2)^U(m - 1)
+    for x = U(1):(U(2)^U(m-1))
         v = digits(T, x, base = 2, pad = m)
         s = sum(v)
         s > r && continue
-        h = min(h, count(isodd, dot(v, M[:, c]) for c in 1:n) / s)
+        h = min(h, count(isodd, dot(v, M[:, c]) for c = 1:n) / s)
     end
     return h
 end
@@ -281,23 +325,24 @@ function Cheeger_constant(S::AbstractSubsystemCode, L::CTMatrixTypes)
 
     L_red = _remove_empty(L, :rows)
     nrows(L_red) == 1 || throw(ArgumentError("Requires a single logical of the code."))
-    is_logical(S, L_red) || throw(ArgumentError("The input matrix is not a logical of the code."))
+    is_logical(S, L_red) ||
+        throw(ArgumentError("The input matrix is not a logical of the code."))
 
     n = length(S)
-    stabs, log = if iszero(L_red[1:1, 1 + n:2n])
+    stabs, log = if iszero(L_red[1:1, (1+n):2n])
         Z_stabilizers(S), L_red[1:1, 1:n]
     elseif iszero(L_red[1:1, 1:n])
-        X_stabilizers(S), L_red[1:1, 1 + n:2n]
+        X_stabilizers(S), L_red[1:1, (1+n):2n]
     else
         throw(DomainError(L_red, "Only defined for pure `X` or `Z` logicals `L`."))
     end
     Q = getindex.(findall(!iszero, log), 2)
-    nonzero = findall(!iszero(stabs[i:i, Q]) for i in 1:size(stabs, 1))
+    nonzero = findall(!iszero(stabs[i:i, Q]) for i = 1:size(stabs, 1))
     graph = transpose(stabs[nonzero, Q])
     return Cheeger_constant(_Flint_matrix_to_Julia_int_matrix(graph))
 end
 
-function _sparsest_cut(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
+function _sparsest_cut(M::Matrix{T}; rng = Xoshiro()) where {T<:Integer}
     m, n = size(M)
     r = div(m, 2)
     h = Inf
@@ -309,12 +354,12 @@ function _sparsest_cut(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
     end
 
     # the shuffle allows different choices of the sparsest cuts to be chosen
-    for x in shuffle(rng, U(1):U(2)^U(m - 1))
+    for x in shuffle(rng, U(1):(U(2)^U(m-1)))
         # v corresponds to a subset of the vertices
         v = digits(T, x, base = 2, pad = m)
         s = sum(v)
         s > r && continue
-        temp = count(isodd, dot(v, M[:, c]) for c in 1:n) / s
+        temp = count(isodd, dot(v, M[:, c]) for c = 1:n) / s
         if temp < h
             h = temp
             sparse_cut .= v
@@ -324,7 +369,7 @@ function _sparsest_cut(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
     return h, sparse_cut
 end
 
-function _add_edges(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
+function _add_edges(M::Matrix{T}; rng = Xoshiro()) where {T<:Integer}
     M_new = copy(M)
     while true
 
@@ -369,8 +414,12 @@ function _add_edges(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
     return M_new
 end
 
-function _find_low_weight_cycle_subspace(all_cycles::CTMatrixTypes,
-    already_covered_cycles::CTMatrixTypes, max_iters::Int, f::T = maximum) where T <: Function
+function _find_low_weight_cycle_subspace(
+    all_cycles::CTMatrixTypes,
+    already_covered_cycles::CTMatrixTypes,
+    max_iters::Int,
+    f::T = maximum,
+) where {T<:Function}
 
     @assert size(all_cycles, 2) == size(already_covered_cycles, 2)
     F = base_ring(all_cycles)
@@ -392,7 +441,7 @@ function _find_low_weight_cycle_subspace(all_cycles::CTMatrixTypes,
 
     w = size(A, 2) + 1
     C = zero_matrix(F, size(B, 1), size(B, 2))
-    for i in 1:max_iters
+    for i = 1:max_iters
         x = _random_invertible_matrix(F, size(B, 1))
         y = matrix(F, rand(F, size(B, 1), size(A, 1)))
         temp = x * B + y * A
@@ -411,15 +460,18 @@ function _find_low_weight_cycle_subspace(all_cycles::CTMatrixTypes,
     return C
 end
 
-function _find_low_weights_rand(M::CTMatrixTypes, max_iters::Int, f::T = maximum) where
-    T <: Function
+function _find_low_weights_rand(
+    M::CTMatrixTypes,
+    max_iters::Int,
+    f::T = maximum,
+) where {T<:Function}
 
     initial_w = f(count(!iszero(M[i, j]) for j in size(M, 2)) for i in size(M, 1))
     A = _remove_empty(rref(M)[2], :rows)
     isempty(A) && (return A;)
     F = base_ring(A)
     w = size(A, 2) + 1
-    for i in 1:max_iters
+    for i = 1:max_iters
         x = _random_invertible_matrix(F, size(A, 1))
         temp = x * A
         temp_w = f(count(!iszero(temp[i, j]) for j in size(temp, 2)) for i in size(temp, 1))
@@ -436,14 +488,14 @@ function _random_invertible_matrix(n::Int)
     inds = collect(1:n)
     A = zeros(UInt8, n, n)
     T = zeros(UInt8, n, n)
-    for k in 1:n
+    for k = 1:n
         v = rand(0x00:0x01, n - k + 1)
         while iszero(v)
             v .= rand(0x00:0x01, n - k + 1)
         end
         r = findfirst(!iszero, v)
         A[k, inds[r]] = 0x01
-        A[k + 1:end, inds[r]] .= rand(0x00:0x01, n - k)
+        A[(k+1):end, inds[r]] .= rand(0x00:0x01, n - k)
         T[inds[r], inds] .= v
         deleteat!(inds, r)
     end
@@ -456,14 +508,14 @@ function _random_invertible_matrix(F::CTFieldTypes, n::Int)
     A = zero_matrix(F, n, n)
     T = zero_matrix(F, n, n)
     Fone = F(1)
-    for k in 1:n
+    for k = 1:n
         v = matrix(F, rand(F, 1, n - k + 1))
         while iszero(v)
             v = matrix(F, rand(F, 1, n - k + 1))
         end
         r = findfirst(!iszero, v)[2]
         A[k, inds[r]] = Fone
-        for i in k + 1:n
+        for i = (k+1):n
             A[i, inds[r]] = rand(F)
         end
         for i in eachindex(inds)

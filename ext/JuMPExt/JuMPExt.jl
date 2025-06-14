@@ -1,7 +1,13 @@
 module JuMPExt
 
 import CodingTheory
-import CodingTheory: optimal_lambda, optimal_rho, optimal_lambda_and_rho, LP_decoder_LDPC, AbstractLinearCode, BinarySymmetricChannel
+import CodingTheory:
+    optimal_lambda,
+    optimal_rho,
+    optimal_lambda_and_rho,
+    LP_decoder_LDPC,
+    AbstractLinearCode,
+    BinarySymmetricChannel
 import JuMP
 import JuMP: @variable, @constraint, @objective
 import GLPK

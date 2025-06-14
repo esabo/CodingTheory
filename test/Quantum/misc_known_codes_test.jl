@@ -89,7 +89,7 @@
         # @test S.d == 3
         @test LogicalTrait(typeof(S)) == HasLogicals()
         @test GaugeTrait(typeof(S)) == HasNoGauges()
-        
+
         S = XZZXSurfaceCode(5)
         @test S.n == 25
         @test S.k == 1

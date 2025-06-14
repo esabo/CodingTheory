@@ -12,8 +12,8 @@
         a2 = (2, 1);
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 12
-        @test dimension(C) == 4 
-        
+        @test dimension(C) == 4
+
         f = 1 + x + y;
         g = 1 + y + x;
         a1 = (0, 7);
@@ -29,7 +29,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 18
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x * y;
         g = 1 + y + x * y;
         a1 = (0, 3);
@@ -37,7 +37,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 24
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x^-1 * y;
         g = 1 + y + x * y;
         a1 = (0, 7);
@@ -45,23 +45,23 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 28
         @test dimension(C) == 6
-       
+
         f = 1 + x + x^2;
         g = 1 + y + x^2;
         a1 = (0, 3);
         a2 = (5, 1);
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 30
-        @test dimension(C) == 4     
-        
-        f = 1 + x + x^-1; 
+        @test dimension(C) == 4
+
+        f = 1 + x + x^-1;
         g = 1 + y + y^-1;
         a1 = (0, 9);
         a2 = (2, 4);
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 36
-        @test dimension(C) == 4 
-                
+        @test dimension(C) == 4
+
         f = 1 + x + x * y;
         g = 1 + y + x * y^-1;
         a1 = (0, 7);
@@ -69,7 +69,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 42
         @test dimension(C) == 6
-        
+
         f = 1 + x + x^2;
         g = 1 + y + x^2;
         a1 = (0, 3);
@@ -77,7 +77,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 48
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x^-1;
         g = 1 + y + x^3 * y^2;
         a1 = (0, 3);
@@ -85,7 +85,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 54
         @test dimension(C) == 8
-                   
+
         f = 1 + x + y^-2;
         g = 1 + y + x^-2;
         a1 = (0, 7);
@@ -93,7 +93,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 56
         @test dimension(C) == 6
-                   
+
         f = 1 + x + y^-2;
         g = 1 + y + x^2;
         a1 = (0, 10);
@@ -101,7 +101,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 60
         @test dimension(C) == 8
-                   
+
         f = 1 + x + x^-1 * y;
         g = 1 + y + x^-1 * y^-1;
         a1 = (0, 31);
@@ -109,7 +109,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 62
         @test dimension(C) == 10
-                   
+
         f = 1 + x + x^-2 * y^-1;
         g = 1 + y + x^2 * y;
         a1 = (0, 3);
@@ -117,7 +117,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 66
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x * y;
         g = 1 + y + x * y^-1;
         a1 = (0, 7);
@@ -125,7 +125,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 70
         @test dimension(C) == 6
-                   
+
         f = 1 + x + x^-1 * y^3;
         g = 1 + y + x^3 * y^-1;
         a1 = (0, 12);
@@ -133,7 +133,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 72
         @test dimension(C) == 8
-        
+
         f = 1 + x + x^-2 * y^-1;
         g = 1 + y + x^2 * y;
         a1 = (0, 3);
@@ -141,7 +141,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 78
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x^-2;
         g = 1 + y + x^-2 * y^2;
         a1 = (0, 14);
@@ -149,7 +149,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 84
         @test dimension(C) == 6
-                   
+
         f = 1 + x + x^-1 * y^-3;
         g = 1 + y + x^3 * y^-1;
         a1 = (0, 15);
@@ -157,7 +157,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 90
         @test dimension(C) == 8
-                   
+
         f = 1 + x + x^-2 * y;
         g = 1 + y + x * y^-2;
         a1 = (0, 12);
@@ -173,7 +173,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 98
         @test dimension(C) == 6
-                   
+
         f = 1 + x + x^-3 * y;
         g = 1 + y + x^3 * y^2;
         a1 = (0, 3);
@@ -181,7 +181,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 102
         @test dimension(C) == 4
-                   
+
         f = 1 + x + x^-1 * y^-3;
         g = 1 + y + x^3 * y^-1;
         a1 = (0, 9);
@@ -189,7 +189,7 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 108
         @test dimension(C) == 8
-                   
+
         f = 1 + x + x^-1 * y^3;
         g = 1 + y + x^3 * y^-1;
         a1 = (0, 9);
@@ -197,6 +197,6 @@
         C = CSSCode(FiniteGeneralizedToricCode(f, g, a1, a2))
         @test length(C) == 108
         @test dimension(C) == 8
-           
+
     end
 end
