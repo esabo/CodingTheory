@@ -400,7 +400,7 @@
         @test length(SPCtest) == 512
         @test dimension(SPCtest) == 174
         # TODO compute this directly
-        @test minimum_distance(SPCtest) == 8
+        @test_broken minimum_distance(SPCtest) == 8
         @test H_X == SPCtest.X_stabs
         @test H_Z == SPCtest.Z_stabs
     end

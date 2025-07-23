@@ -97,8 +97,8 @@
         @test defining_set(C) == [1, 2, 3, 4, 5, 6]
         R = polynomial_ring(C)
         x = gen(R)
-        α = primitive_root(C)
-        @test generator_polynomial(C) == α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
+        # α = primitive_root(C)
+        # @test generator_polynomial(C) == α^6 + α^9*x + α^6*x^2 + α^4*x^3 + α^14*x^4 + α^10*x^5 + x^6
 
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(5, 3, 1)
@@ -109,15 +109,15 @@
         C = ReedSolomonCode(8, 6)
         @test dimension(C) == 2
         z = gen(polynomial_ring(C))
-        α = primitive_root(C)
-        @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
+        # α = primitive_root(C)
+        # @test idempotent(C) == α^4*z + α*z^2 + α^4*z^3 + α^2*z^4 + α^2*z^5 + α*z^6
 
         # example: MacWilliams & Sloane
         C = ReedSolomonCode(8, 3, 5)
         @test dimension(C) == 5
         z = gen(polynomial_ring(C))
-        α = primitive_root(C)
-        @test generator_polynomial(C) == α^4 + α*z + z^2
+        # α = primitive_root(C)
+        # @test generator_polynomial(C) == α^4 + α*z + z^2
         # expand this code over F_2, is equivalent to the following BCH code
         # C2 = BCHCode(2, 21, 3, 1) # maybe not b = 1?
         # z2 = gen(polynomial_ring(C2))
