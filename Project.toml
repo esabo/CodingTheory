@@ -41,8 +41,8 @@ MakieExt = ["Makie"]
 
 [compat]
 AutoHashEquals = "2.2.0"
-CairoMakie = "0.13.1"
-Colors = "0.13.0"
+CairoMakie = "0.10.12"
+Colors = "0.12.11"
 Combinatorics = "1.0.2"
 DataStructures = "0.18.20"
 DocStringExtensions = "0.9.3"
