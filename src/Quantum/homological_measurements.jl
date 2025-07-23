@@ -105,16 +105,17 @@ All paramaters are aligned with their respective papers.
 - `r` - used for `:Cohen`
 - `improve_cycles` - used for `IBM`
 - `remove_and_improve_cycles` - used for `IBM`, supersedes previous parameter
+- `log_checking` - set to false to intentionally use an `L` that isn't a logical
 """
 function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes; style::Symbol =
     :Xanadu, r::Int = 1, max_iters::Int = 50000, cellulate::Bool = false, improve_cycles::Bool =
-    true, remove_and_improve_cycles::Bool = false)
+    true, remove_and_improve_cycles::Bool = false, log_checking::Bool = true)
 
     is_positive(r) || throw(DomainError(r, "Must be a positive integer."))
     is_positive(max_iters) || throw(DomainError(max_iters, "Must be a positive integer."))
     L_red = _remove_empty(L, :rows)
     nrows(L_red) == 1 || throw(ArgumentError("Requires a single logical of the code."))
-    is_logical(S, L_red) || throw(ArgumentError("The input matrix is not a logical of the code."))
+    is_logical(S, L_red) || !log_checking || throw(ArgumentError("The input matrix is not a logical of the code."))
     F = field(S)
     Int(order(F)) == 2 || throw(ArgumentError("Only defined for binary codes."))
     n = length(S)
@@ -164,19 +165,10 @@ function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes;
         end
 
         r = ceil(Int, 1 / Cheeger_constant(_Flint_matrix_to_Julia_int_matrix(HX)))
-
-        if type == :X
-            return _thickened_cone(S, HX, HZ, f1, f0, type, r)
-        else
-            return _thickened_cone(S, HZ, HX, f1, f0, type, r)
-        end
+        return _thickened_cone(S, HX, HZ, f1, f0, type, r)
     elseif style == :Cohen
         HZ = zero_matrix(F, 0, size(HX, 2))
-        if type == :X
-            return _thickened_cone(S, HX, HZ, f1, f0, type, r)
-        else
-            return _thickened_cone(S, HZ, HX, f1, f0, type, r)
-        end
+        return _thickened_cone(S, HX, HZ, f1, f0, type, r)
     else
         throw(ArgumentError("Unknown `style` parameter $style"))
     end
