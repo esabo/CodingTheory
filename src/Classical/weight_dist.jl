@@ -1723,3 +1723,60 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :trellis, sect::B
     #     Leon(C)
     end
 end
+
+function verify_confinement(C::AbstractLinearCode, max_weight::Int, verbose::Bool = false)
+    
+    generator_matrix(C, true) # ensure G_stand exists
+    if _has_empty_vec(C.G, :cols) 
+        throw(ArgumentError("Codes with standard form of generator matrix having 0 columns not supported"))
+    end
+    # generate if not pre-stored
+    parity_check_matrix(C)
+
+    k, n = size(C.G)
+    println(typeof(C.G))
+
+    A = deepcopy(_Flint_matrix_to_Julia_int_matrix(C.G)') 
+    A_mats_trunc = deepcopy(A[k + 1 : n, :]) 
+
+    founds = [copy(zeros(UInt16, C.n - C.k)) for _ in 1:2^max_weight]
+    count = UInt128(0)
+
+    for r in 1:max_weight
+        # iteration begins with a single matrix multiplication of the generator matrix by first_vec
+        init_rank = 1 
+        first_vec = zeros(Int, k)
+        if init_rank == 1
+            for i in 1:r
+                first_vec[i] = 1
+            end
+        else
+            CodingTheory._subset_unrank_to_vec!(init_rank, UInt64(r), first_vec)
+        end
+        c_itr = zeros(UInt16, C.n - C.k)
+        is_first = true
+
+        for u in SubsetGrayCode(k, r, len, init_rank)
+            show_progress && ProgressMeter.next!(prog_bar)
+            if is_first 
+                LinearAlgebra.mul!(c_itr, A_mats_trunc, first_vec)
+                @inbounds @simd for j in eachindex(c_itr)
+                    c_itr[j] %= p
+                end
+                is_first = false
+            else
+                for ci in u 
+                    if ci != -1
+                        @simd for i in eachindex(c_itr)
+                            @inbounds c_itr[i] = xor(c_itr[i], A_mats_trunc[i, ci])
+                        end
+                    end
+                end
+            end
+            w = r + sum(c_itr) 
+            verbose && @assert w != 0
+            count = add!(count, count, 1)
+            founds[count] =  
+        end # message loop
+    end # weight loop
+end
