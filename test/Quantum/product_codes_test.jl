@@ -606,6 +606,96 @@
         @test length(Q) == 196
         @test dimension(Q) == 12
         @test_broken minimum_distance(S) == 8
+
+        # Table 1 of https://arxiv.org/pdf/2407.03973v1
+        # l and m in table are swapped compared to the other papers?
+        # [[108, 16, 6]]
+        l = 6
+        m = 9
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(1 + y + y^3)
+        b = R(y^3 + x^2 + x^4)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 108
+        @test dimension(Q) == 16
+        @test_broken minimum_distance(S) == 6
+
+        # [[128, 14, 12]]
+        l = 8
+        m = 8
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^2 + y + y^3 + y^4)
+        b = R(y^2 + x + x^3 + x^4)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 128
+        @test dimension(Q) == 14
+        @test_broken minimum_distance(S) == 12
+
+        # [[162, 4, 16]]
+        l = 9
+        m = 9
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(1 + x + y)
+        b = R(x^3 + y + y^2)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 162
+        @test dimension(Q) == 4
+        @test_broken minimum_distance(S) == 16
+
+        # [[162, 12, 8]]
+        l = 9
+        m = 9
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(1 + x + y^6)
+        b = R(y^3 + x^2 + x^3)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 162
+        @test dimension(Q) == 12
+        @test_broken minimum_distance(S) == 8
+
+        # [[162, 24, 6]]
+        l = 9
+        m = 9
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(1 + y + y^2)
+        b = R(y^3 + x^3 + x^6)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 162
+        @test dimension(Q) == 24
+        @test_broken minimum_distance(S) == 6
+
+        # [[270, 8, 18]]
+        l = 9
+        m = 15
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^3 + y + y^2)
+        b = R(y^3 + x + x^2)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 270
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 18
+
+        # [[98, 6, 12]]
+        l = 7
+        m = 7
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x + y^3 + y^4)
+        b = R(y + x^3 + x^4)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 98
+        @test dimension(Q) == 6
+        @test_broken minimum_distance(S) == 12
+
+        # [[162, 8, 12]]
+        l = 9
+        m = 9
+        R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
+        a = R(x^3 + y + y^2)
+        b = R(y + x^3 + x^4)
+        Q = BivariateBicycleCode(a, b)
+        @test length(Q) == 162
+        @test dimension(Q) == 8
+        @test_broken minimum_distance(S) == 12
     end
 
     @testset "CoprimeBivariateBicycleCode" begin

@@ -333,7 +333,7 @@ is returned when there is no cycles.
   columns of `parity_check_matrix(L)` then top-to-bottom by rows.
 """
 function enumerate_simple_cycles(L::AbstractLDPCCode; len::Int = 16)
-    ispositive(len) || throw(DomainError("Cycle length parameter must be a positive integer"))
+    is_positive(len) || throw(DomainError("Cycle length parameter must be a positive integer"))
 
     # TODO add this variable to struct
     if len > L.max_cyc_len

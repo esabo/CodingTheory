@@ -21,7 +21,7 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
   already cached.
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.simple_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = -1)
+function CodingTheory.simple_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = 16)
     dist = simple_cycle_length_distribution(L, len = len)
     x_data = collect(keys(dist))
     y_data = collect(values(dist))

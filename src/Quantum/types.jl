@@ -22,6 +22,7 @@ abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 abstract type AbstractGeneralizedToricCode <: AbstractStabilizerCodeCSS end
+abstract type AbstractGeneralized3DToricCode <: AbstractGeneralizedToricCode end
 
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
@@ -355,6 +356,23 @@ struct FiniteGeneralizedToricCode <: AbstractGeneralizedToricCode
       g::CTLRPolyElem
       a1::Tuple{Int, Int}
       a2::Tuple{Int, Int}
+end
+
+struct Generalized3DToricCode <: AbstractGeneralized3DToricCode
+      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
+      F::CTFieldTypes
+      f::CTLRPolyElem
+      g::CTLRPolyElem
+end
+
+struct FiniteGeneralized3DToricCode <: AbstractGeneralized3DToricCode
+      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
+      F::CTFieldTypes
+      f::CTLRPolyElem
+      g::CTLRPolyElem
+      a1::Tuple{Int, Int}
+      a2::Tuple{Int, Int}
+      l::Int
 end
 
 #############################

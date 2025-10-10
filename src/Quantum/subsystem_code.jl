@@ -1521,7 +1521,7 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
                     end
                 end
             end
-            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
+            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still contains part of the isotropic subspace.")
             for c in 2:num_prod
                 if !iszero(prod[first, c])
                     L[c:c, :] += F(prod[first, c]^-1) * L[1:1, :]
@@ -1540,7 +1540,7 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
             # the columns in prod give the commutation relationships between the provided
             # logical operators; they ideally should only consist of {X_1, Z_i} pairs
             # so there should only be one nonzero element in each column
-            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            prod = hcat(L[:, n + 1:end], L[:, 1:n]) * transpose(L)
             # println("before")
             # display(prod)
             num_prod = ncols(prod)
@@ -1554,13 +1554,13 @@ function _make_pairs(L::T) where T <: CTMatrixTypes
                     end
                 end
             end
-            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still containing part of the isotropic subspace.")
+            iszero(first) && error("Cannot make symplectic basis. Often this is due to the fact that the stabilizers are not maximal and therefore the centralizer still contains part of the isotropic subspace.")
             for c in 2:num_prod
                 if !iszero(prod[first, c])
                     L[c:c, :] += L[1:1, :]
                 end
             end
-            prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
+            prod = hcat(L[:, n + 1:end], L[:, 1:n]) * transpose(L)
             # println("after")
             # display(prod)
             push!(logs, (L[1:1, :], L[first:first, :]))
