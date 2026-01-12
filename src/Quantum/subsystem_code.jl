@@ -170,7 +170,7 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
             u_bound_bare, _ = _min_wt_row(mat)
 
             # dressed
-            _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+            mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
             u_bound_dressed, _ = _min_wt_row(mat)
             return GraphStateSubsystem(F, n, 0, r, missing, missing, 1, u_bound_bare, 1,
                 u_bound_dressed, stabs, char_vec, signs, missing, false, gauge_ops, gauge_ops_mat,
@@ -178,12 +178,12 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
         else
             # bare
             # TODO use ! versions throughout after vcats
-            _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
+            mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
             anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
             u_bound_bare, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
 
             # dressed
-            _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+            mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
             anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
             u_bound_dressed, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
             return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, 
@@ -305,12 +305,12 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
             stabs_stand, stand_r, stand_k, P_stand, missing, missing)
     else
         # bare
-        _, mat = _remove_empty(_rref_symp_col_swap(vcat(stabs, bare_logs)), :rows)
+        mat = _remove_empty(_rref_symp_col_swap(vcat(S, bare_logs)), :rows)
         anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
         u_bound_bare, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
 
         # dressed
-        _, mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
+        mat = _remove_empty(_rref_symp_col_swap(vcat(mat, gauge_ops_mat)), :rows)
         anti = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(_remove_empty(mat, :rows))
         u_bound_dressed, _ = minimum(row_wts_symplectic(mat[findall(!iszero(anti[i:i, :]) for i in axes(anti, 1)), :]))
         return SubsystemCode(F, n, k, r, missing, missing, 1, u_bound_bare, 1, u_bound_dressed, S,
