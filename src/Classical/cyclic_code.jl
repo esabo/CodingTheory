@@ -550,6 +550,42 @@ function _generator_matrix(F::FqField, n::Int, k::Int, g::FqPolyRingElem)
     return G
 end
 
+function _classify_factors(poly::fpPolyRingElem)
+    # the problem with reverse(poly) == poly is that coefficents(poly) is not a fixed size
+    n = degree(poly)
+    F = base_ring(parent(poly))
+    F0 = F(0)
+    facs = [x[1] for x in collect(factor(poly))]
+    self_reciprocal_facs = Vector{fpPolyRingElem}()
+    pairs = Vector{Tuple{fpPolyRingElem, fpPolyRingElem}}()
+    temp = zeros(F, 1, n + 1)
+    temp2 = zeros(F, 1, n + 1)
+    for f in facs
+        f_coeffs = collect(coefficients(f))
+        temp[1, end - length(f_coeffs) + 1:end] .= reverse(f_coeffs)
+        temp2[1, end - length(f_coeffs) + 1:end] .= f_coeffs
+        if temp == temp2
+            push!(self_reciprocal_facs, f)
+        else
+            for f2 in facs
+                if f != f2
+                    f_coeffs = collect(coefficients(f2))
+                    temp2[1, 1:end - length(f_coeffs)] .= F0
+                    temp2[1, end - length(f_coeffs) + 1:end] .= f_coeffs
+                    if temp == temp2
+                        push!(pairs, (f, f2))
+                        break
+                    end
+                end
+            end
+        end
+        temp[1, :] .= F0
+        temp2[1, :] .= F0
+    end
+
+    return self_reciprocal_facs, pairs
+end
+
 # TODO: make flat optional throughout
  """
     defining_set(nums::Vector{Int}, q::Int, n::Int, flat::Bool = true)
