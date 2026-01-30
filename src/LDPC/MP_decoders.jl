@@ -1139,12 +1139,12 @@ function _message_passing_fast(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_
             current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
         end
 
-        LinearAlgebra.mul!(syn, H_Int, current_bits)
-        if syndrome_based
-            all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        else
-            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        end
+        # LinearAlgebra.mul!(syn, H_Int, current_bits)
+        # if syndrome_based
+        #     all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
+        # else
+        #     all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
+        # end
 
         if schedule == :parallel
             temp_iter = curr_iter

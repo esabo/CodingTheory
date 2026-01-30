@@ -852,7 +852,7 @@ function _are_perm_equivalent_exhaustive_search(C1::AbstractLinearCode, C2::Abst
     sym = symmetric_group(nc)
     for e in collect(sym) 
         P = permutation_matrix(C1.F, e)
-        if G1 * P == G2 
+        if G1 * P == G2
             return (true, P)
         end
     end

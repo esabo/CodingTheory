@@ -315,7 +315,7 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     end
 end
 
-function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMatrixTypes
+function _quotient_space(big::T, small::T, alg::Symbol = :sys_eqs) where T <: CTMatrixTypes
     alg ∈ [:VS, :sys_eqs] || throw(ArgumentError("Unknown algorithm type"))
 
     if alg == :VS
@@ -750,7 +750,7 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
                     for l in i:nr
                         if !iszero(A[l, k])
                             swap_cols!(A, k, j)
-                            P = P * cperm(sym_group, [k,j])
+                            P = P * cperm(sym_group, [k, j])
                             ind = l
                             break
                         end
@@ -802,7 +802,7 @@ function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int
                     for l in i:nr
                         if !iszero(A[l, k])
                             swap_cols!(A, k, j)
-                            P = P * cperm(sym_group, [k,j])
+                            P = P * cperm(sym_group, [k, j])
                             ind = l
                             break
                         end
