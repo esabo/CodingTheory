@@ -34,12 +34,12 @@ end
 
 Return the bivariate bicycle code defined by the residue ring elements `a` and `b`.
 """
-function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem},
-    MPolyQuoRingElem{fpMPolyRingElem}}
+function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
+    # pass in quo ring elems then make sure what goes to CSS are the lifted elems 
 
     R = parent(a)
     R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
-    F = base_ring(base_ring(a))
+    F = base_ring(base_ring(a)) # currenty MPolyQuoRing{fpMPolyRingElem} but constructor wants PolyRing{<:FinFieldElem} where FinFieldElem is AbstractAlgebra.FinFieldElem
     order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
     length(symbols(parent(a))) == 2 || throw(DomainError("Polynomials must be over two variables."))
     g = gens(modulus(R))
@@ -68,7 +68,10 @@ function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMP
     Q, _ = quo(R, I)
     k_dim = 2 * vector_space_dimension(Q)
 
-    return BivariateBicycleCode(R, F, 2 * l * m, k_dim, a, b, l, m)
+    R_base = base_ring(R) 
+    a_lift = lift(a)
+    b_lift = lift(b)
+    return BivariateBicycleCode(R_base, F, 2 * l * m, k_dim, a_lift, b_lift, l, m)
 end
 
 """
@@ -276,7 +279,7 @@ function CSSCode(S::BivariateBicycleCode)
     y = identity_matrix(S.F, S.l) ⊗ matrix(S.F, [mod1(i + 1, S.m) == j ? 1 : 0 for i in 1:S.m, j in 1:S.m])
 
     A = zero_matrix(S.F, S.l * S.m, S.l * S.m)
-    for ex in exponents(lift(S.a))
+    for ex in exponents(lift(S.f))
         # iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `a` must not have any `xy` terms"))
         power, which = findmax(ex)
         if which == 1
@@ -287,7 +290,7 @@ function CSSCode(S::BivariateBicycleCode)
     end
 
     B = zero_matrix(S.F, S.l * S.m, S.l * S.m)
-    for ex in exponents(lift(S.b))
+    for ex in exponents(lift(S.g))
         # iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
         power, which = findmax(ex)
         if which == 1
@@ -296,7 +299,6 @@ function CSSCode(S::BivariateBicycleCode)
             B += y^power
         end
     end
-
 
     return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
 end

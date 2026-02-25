@@ -45,10 +45,19 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
 
     def_set = sort!(reduce(vcat, cosets))
     k = n - length(def_set)
-    com_cosets = complement_qcosets(q, n, cosets)
+    com_cosets = complement_qcosets(q, n, cosets) 
     g = _generator_polynomial(R, β, def_set)
-    h = _generator_polynomial(R, β, reduce(vcat, com_cosets))
-    e = _idempotent(g, h, n)
+    if isempty(com_cosets)
+        h = nothing
+        e = 0 
+    else
+        h = _generator_polynomial(R, β, reduce(vcat, com_cosets)) 
+        e = _idempotent(g, h, n)
+    end
+
+    if isempty(com_cosets)
+        return
+    end
     G = _generator_matrix(E, n, k, g)
     H = _generator_matrix(E, n, n - k, reverse(h))
     G_stand, H_stand, P, rnk = _standard_form(G)
@@ -613,7 +622,7 @@ end
 function _idempotent(g::FqPolyRingElem, h::FqPolyRingElem, n::Int)
     # solve 1 = a(x) g(x) + b(x) h(x) for a(x) then e(x) = a(x) g(x) mod x^n - 1
     d, a, b = gcdx(g, h)
-    return mod(g * a, gen(parent(g))^n - 1)
+    return mod(g * a, gen(parent(g))^n - 1) 
 end
 
 # TODO: these
@@ -880,6 +889,53 @@ Return `true` if the BCH code is antiprimitive.
 """
 is_antiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
 
+function print_all_cyclotomic_cosets(n::Int, q::Int)
+    rng = [i for i in 1:n]
+    flat=false
+    qcosets = defining_set(rng, q, n, flat) 
+    qcosets = unique(qcosets)
+    for coset in qcosets
+      Cd = CyclicCode(q, n, [coset]) 
+      gd = generator_polynomial(Cd)
+      println(gd)
+    end
+end
+
+function print_all_cyclic_codes(n::Int, q::Int)
+    println("All cyclic codes of length $(n):")
+    rng = [i for i in 1:n]
+    flat=false
+    qcosets = defining_set(rng, q, n, flat) 
+    qcosets = unique(qcosets)
+    
+    combs = sort(collect(Combinatorics.combinations(qcosets)))
+    rows = Vector()
+    for i in 1:length(combs) 
+        comb = combs[i]
+        if isempty(comb) || sort(collect(Iterators.flatten(comb))) == collect(0:n-1) # CyclicCode constructor breaks on this case
+            continue
+        end
+      C = CyclicCode(q, n, comb) 
+      g = generator_polynomial(C)
+      e = idempotent(C)
+      d = dimension(C)
+      push!(rows, [d,g,e])
+    end
+    w1 = maximum(textwidth(string(r[1])) for r in rows)
+    w2 = maximum(textwidth(string(r[2])) for r in rows)
+    for (a, b, c) in rows
+        Printf.@printf("%*d   %-*s   %s\n", w1, a, w2, b, c)
+    end
+end
+
+print_all_cyclotomic_cosets(7, 2)
+print_all_cyclic_codes(7, 2)
+
+#=
+=#
+
+# PIP_test() 
+# testing_min_gen_set()
 # "Schur products of linear codes: a study of parameters"
 # Diego Mirandola
 # """

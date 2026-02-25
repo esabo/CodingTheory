@@ -365,12 +365,12 @@ struct FiniteMonomialCode <: AbstractMonomialCode
 end
 
 struct BivariateBicycleCode <: AbstractBivariateBicycleCode
-      R::CTPolyRing
+      R::fpMPolyRing
       F::CTFieldTypes
       n::Int
       k::Int
-      f::CTPolyRingElem
-      g::CTPolyRingElem
+      f::fpMPolyRingElem
+      g::fpMPolyRingElem
       l::Int
       m::Int
 end

@@ -21,6 +21,8 @@ using Distributions
 using ProgressMeter
 using DocStringExtensions
 
+import Combinatorics
+import Printf 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
@@ -54,8 +56,7 @@ const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
 const CTPolyMatrix = Union{AbstractAlgebra.Generic.MatSpaceElem{fpPolyRingElem}, AbstractAlgebra.Generic.MatSpaceElem{FqPolyRingElem}}
-const CTLRPolyElem = AbstractAlgebra.Generic.LaurentMPolyWrap{fpFieldElem, fpMPolyRingElem,
-AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}}
+const CTLRPolyElem = AbstractAlgebra.Generic.LaurentMPolyWrap{fpFieldElem, fpMPolyRingElem, AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}}
 
 include("Classical/types.jl")
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode,
@@ -257,7 +258,8 @@ export defining_set, splitting_field, polynomial_ring, primitive_root, offset,
     design_distance, qcosets, qcosets_reps, generator_polynomial, parity_check_polynomial,
     idempotent, is_primitive, is_narrowsense, is_reversible, find_delta, dual_defining_set,
     CyclicCode, BCHCode, ReedSolomonCode, complement, ==, ∩, +, QuadraticResidueCode,
-    zeros, BCH_bound, is_degenerate, nonzeros, is_antiprimitive, FireCode
+    zeros, BCH_bound, is_degenerate, nonzeros, is_antiprimitive, FireCode, 
+    print_all_cyclotomic_cosets, print_all_cyclic_codes
 
 #############################
 # Classical/quasi-cyclic_code.jl
