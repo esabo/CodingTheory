@@ -1,4 +1,5 @@
-@testitem "Classical/cyclic_code.jl" begin
+@testset "Classical/cyclic_code.jl" begin
+    using Test
     using Oscar, CodingTheory
 
     @testset "Cyclic codes" begin
@@ -42,7 +43,9 @@
         x = gen(R)
         @test generator_polynomial(C) == 2 + x + x^2 + x^3
         @test dimension(C) == 10
-        @test_broken minimum_distance(C) == 3
+        @test minimum_distance(C) == 3
+        # @test minimum_distance(C) == 3
+        
         C = BCHCode(3, 13, 3, 1)
         @test defining_set(C) == [1, 2, 3, 5, 6, 9]
         @test generator_polynomial(C) == 1 + 2x + x^2 + 2x^3 + 2x^4 + 2x^5 + x^6
