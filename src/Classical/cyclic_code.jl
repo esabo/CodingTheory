@@ -63,7 +63,8 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
     G_stand, H_stand, P, rnk = _standard_form(G)
     # HT will serve as a lower bound on the minimum weight
     # take the weight of g as an upper bound
-    δ, b, HT = find_delta(n, cosets)
+    δ, b = find_delta(n, cosets)
+    HT = -1
     ub = wt(G[1, :])
 
     # verify
@@ -249,7 +250,8 @@ function BCHCode(q::Int, n::Int, δ::Int, b::Int = 0)
     G_stand, H_stand, P, rnk = _standard_form(G)
     # HT will serve as a lower bound on the minimum weight
     # take the weight of g as an upper bound
-    δ, b, HT = find_delta(n, cosets)
+    δ, b = find_delta(n, cosets)
+    HT = -1
     upper = wt(G[1, :])
 
     # verify
@@ -622,6 +624,7 @@ end
 function _idempotent(g::FqPolyRingElem, h::FqPolyRingElem, n::Int)
     # solve 1 = a(x) g(x) + b(x) h(x) for a(x) then e(x) = a(x) g(x) mod x^n - 1
     d, a, b = gcdx(g, h)
+    @assert d==1
     return mod(g * a, gen(parent(g))^n - 1) 
 end
 
@@ -629,6 +632,37 @@ end
 # MattsonSolomontransform(f, n)
 # inverseMattsonSolomontransform
 
+function find_delta(n::Int, cosets::Vector{Vector{Int}})
+    n <= 0 && throw(ArgumentError("n must be positive"))
+    
+    cosets = collect(Iterators.flatten(cosets))   
+    present = falses(n) # eg if [0] in cosets then present[1] = true
+    for e in cosets
+        present[mod(e, n) + 1] = true
+    end
+
+    curr_run_len = 0
+    best_run_len = curr_run_len
+    curr_offset = 1
+    best_offset = curr_offset 
+    for i in 1:(2n)
+        idx = mod(i - 1, n) + 1
+        if present[idx]
+            curr_run_len += 1
+            if curr_run_len > best_run_len
+                best_offset = curr_offset
+                best_run_len = min(curr_run_len, n)  
+            end
+        else
+            curr_offset = idx + 1
+            curr_run_len = 0
+        end
+    end
+    @assert curr_run_len < n
+    return best_run_len+1, best_offset
+end
+
+#=
 """
     find_delta(n::Int, cosets::Vector{Vector{Int}})
 
@@ -709,6 +743,7 @@ function find_delta(n::Int, cosets::Vector{Vector{Int}})
 
     return δ, offset, currbound
 end
+=#
 
 """
     dual_defining_set(def_set::Vector{Int}, n::Int)
@@ -890,18 +925,31 @@ Return `true` if the BCH code is antiprimitive.
 is_antiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
 
 function print_all_cyclotomic_cosets(n::Int, q::Int)
+    println("All cyclotomic cosets for $(n) modulo $(q):")
     rng = [i for i in 1:n]
     flat=false
     qcosets = defining_set(rng, q, n, flat) 
     qcosets = unique(qcosets)
-    for coset in qcosets
-      Cd = CyclicCode(q, n, [coset]) 
-      gd = generator_polynomial(Cd)
-      println(gd)
+    rows = Vector()
+    for i in 1:length(qcosets) 
+      cosets_one_removed = copy(qcosets)
+      deleteat!(cosets_one_removed, i);
+      Cd = CyclicCode(q, n, cosets_one_removed) 
+      d = dimension(Cd)
+      g = generator_polynomial(Cd)
+      e = idempotent(Cd)
+      push!(rows, [d,i,g,e,sort(cosets_one_removed)])
+    end
+    w1 = maximum(textwidth(string(r[2])) for r in rows) + 1
+    w2 = maximum(textwidth(string(r[3])) for r in rows) + 1
+    w3 = maximum(textwidth(string(r[4])) for r in rows) + 1
+    Printf.@printf("%-*s %-*s  %-*s   %s\n", w1, "i", w2, "g", w3, "e", "cosets")
+    for (a, b, c, d, e) in rows
+        Printf.@printf("%-*s %-*s  %-*s   %s\n", w1, b, w2, c, w3, d, e)
     end
 end
 
-function print_all_cyclic_codes(n::Int, q::Int)
+function print_all_cyclic_codes(n::Int, q::Int, def_set=false)
     println("All cyclic codes of length $(n):")
     rng = [i for i in 1:n]
     flat=false
@@ -919,23 +967,40 @@ function print_all_cyclic_codes(n::Int, q::Int)
       g = generator_polynomial(C)
       e = idempotent(C)
       d = dimension(C)
-      push!(rows, [d,g,e])
+      if !def_set
+          push!(rows, [d,g,e])
+      else
+          dset = defining_set(C)
+          if C.δ > 2
+            push!(rows, [d,g,e,dset,repr(C.δ)])
+          else
+            push!(rows, [d,g,e,dset,"-"])
+          end
+      end
     end
-    w1 = maximum(textwidth(string(r[1])) for r in rows)
+    sort!(rows, by=first)
+    w1 = maximum(textwidth(string(r[1])) for r in rows) + 1
     w2 = maximum(textwidth(string(r[2])) for r in rows)
-    for (a, b, c) in rows
-        Printf.@printf("%*d   %-*s   %s\n", w1, a, w2, b, c)
+    if def_set
+        w3 = maximum(textwidth(string(r[3])) for r in rows)
+        w4 = maximum(textwidth(string(r[4])) for r in rows)
+    end
+    if !def_set
+      Printf.@printf("%*s   %-*s   %s\n", w1, "dim ", w2, "gen poly", "idempotent")
+    else
+      Printf.@printf("%*s   %-*s  %-*s  %-*s  %s\n", w1, "dim ", w2, "gen poly", w3, "idempotent", w4, "def set", "δ")
+    end
+    if !def_set
+      for (a, b, c) in rows
+          Printf.@printf("%*d   %-*s   %s\n", w1, a, w2, b, c)
+      end
+    else
+      for (a, b, c, d, e) in rows
+          Printf.@printf("%*d   %-*s  %-*s  %-*s  %s\n", w1, a, w2, b, w3, c, w4, d, e)
+      end
     end
 end
 
-print_all_cyclotomic_cosets(7, 2)
-print_all_cyclic_codes(7, 2)
-
-#=
-=#
-
-# PIP_test() 
-# testing_min_gen_set()
 # "Schur products of linear codes: a study of parameters"
 # Diego Mirandola
 # """
