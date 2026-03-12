@@ -209,3 +209,79 @@ function dual_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
     end
     return comp_cosets
 end
+
+function _coerce_Kx_to_Ky_x(p::PolyRingElem{T}, A) where {T <: RingElement}
+    # coerce p(x) in K[x] into A = Ky[x] (where Ky = K[y]) by coefficient embedding.
+    Kx = parent(p)
+    xA = gen(A)
+    coeffs = Oscar.coefficients(p)  
+    q = zero(A)
+    for i in 0:length(coeffs)
+        q += A(coeffs[i]) * xA^i
+    end
+    return q
+end
+
+function _composed_product(
+    f::PolyRingElem{T},
+    g::PolyRingElem{T}
+) where {T <: RingElement}
+    # computes the composed-product of two univariate polynomials using the resultant 
+
+    # the multivariate resultant called here only accepts AbstractAlgebra.Generic.Poly type as input
+    Kx = parent(f)
+    parent(g) === Kx || throw(ArgumentError("f and g must have the same parent K[x]."))
+    K = base_ring(Kx)
+    d = degree(g)
+    d < 0 && throw(ArgumentError("g must be nonzero."))
+    Kx, x = polynomial_ring(K, :x)
+    A,  y = polynomial_ring(Kx, :y)  # resultant(f, g) now eliminates y
+    fA = _coerce_Kx_to_Ky_x(f, A)
+    gA = _coerce_Kx_to_Ky_x(g, A)
+    fy = evaluate(fA, y)
+
+    fy = (fy + zero(A)) # converts the type of fy to AbstractAlgebra.Generic.Poly
+    # gy_scaled = x^d * g(y/x) = sum_{i=0}^d a_i * y^i * x^(d-i)
+    gy_scaled = zero(A)
+    for i in 0:d
+        ai = coeff(gA, i)           
+        gy_scaled += ai * y^i * x^(d - i)
+    end
+    res = resultant(fy, gy_scaled)
+    return res
+end
+
+"""
+    construct_field(f::PolyRingElem{T}, g::PolyRingElem{T}) where {T <: RingElement}
+
+constructs the smallest finite field extension where f and g split simultaneously
+"""
+function construct_field(f::PolyRingElem{T}, g::PolyRingElem{T}) where {T <: RingElement}
+    xfacs = [x[1] for x in factor(f)]
+    yfacs = [y[1] for y in factor(g)]
+    comp_prods = [_composed_product(f1,f2) for f1 in xfacs, f2 in yfacs]
+    comp_prods = [begin
+        facs = collect(factor(c))                
+        facs[argmax(degree(f[1]) for f in facs)][1]
+    end for c in comp_prods] # select irreducible factor of highest degree
+    dgs = unique([degree(c) for c in comp_prods])
+
+    m = 1 # lcm of the degrees
+    for dg in dgs
+        m = lcm(m, dg)
+    end
+    # |K| = 2^k where k is the smallest integer with 2^k=1 (mod lcm(d_i))
+    ZZm, _ = residue_ring(Nemo.ZZ, m) 
+    two = ZZm(2)
+    one = ZZm(1)
+    i = 0
+    for i in 0:m
+        if two^i == one
+            break
+        end
+    end
+    if i == m
+        throw(Error("failed to construct finite field"))
+    end
+    return Oscar.GF(2, m, :α), m, comp_prods
+end
