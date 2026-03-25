@@ -2001,6 +2001,63 @@ function _value_distribution(vals)
     return OrderedDict([(i, count(x -> (x == i), vals)) for i in collect(sort(unique(vals)))])
 end
 
+"""
+    prepare_mult_order_mod(n::Int) -> Tuple{Int,Int,Vector{Tuple{Int,Int}}}
+
+Precompute data for repeated multiplicative-order queries modulo n.
+Returns:
+- prep[1] = n
+- prep[2] = phi = φ(n)
+- prep[3] = pf = prime factorization of φ(n) as (p, e) pairs
+"""
+function prepare_mult_order(n::Int)::Tuple{Int,Int,Vector{Tuple{Int,Int}}}
+    2 <= n || throw(ArgumentError("n must satisfy 2 <= n, got n=$n"))
+    if n > 10_000
+        println("Warning: modulus for multiplicative order is larger than 10000")
+    end
+
+    #could optimize more here if needed. `euler_phi` already has to factor n so this approach is 
+    #doing two calls to `factor` when we could get away with one call.
+    #We would only need to write a variant of euler_phi that takes a `factorization` object as input.
+    #I havent bothered because I expect for the range of n of interest to us the divisor 
+    #search below will be the computational bottleneck rather than the calls to `factor`
+    phi = Int(euler_phi(Nemo.ZZ(n)))
+    pf = Tuple{Int,Int}[(Int(p), Int(e)) for (p, e) in factor(Nemo.ZZ(phi))]
+    return (n, phi, pf)
+end
+
+"""
+    mult_order(a::Int, prep::Tuple{Int,Int,Vector{Tuple{Int,Int}}}) -> Int
+
+Compute ord_n(a) using precomputed tuple from `prepare_mult_order_mod(n)`.
+"""
+function mult_order(a::Int, prep::Tuple{Int,Int,Vector{Tuple{Int,Int}}})::Int
+    n, phi, pf = prep
+    # Note on the validation line below: 
+    # To be pedantic, multiplicative order is only defined when gcd(a,n)=1. 
+    # but its possible we'll run into an application where we're looking at an x (mod n) that's not coprime.
+    # If n is squarefree the sequence x,x^2,... wont include 1 but it is stil periodic. 
+    # We may want to know that period.
+    # Its probably better to write a different function for that
+    gcd(a, n) == 1 || throw(ArgumentError("multiplicative order is only defined when gcd(a,n)=1"))
+
+    a = mod(a, n)
+    a == 1 && return 1
+
+    m = phi
+    for (p, e) in pf
+        for _ in 1:e
+            t = m ÷ p
+            if powermod(a, t, n) == 1
+                m = t
+            else
+                break
+            end
+        end
+    end
+    return m
+end
+
 # #=
 # Example of using the repeated iterator inside of product.
 #
