@@ -383,7 +383,7 @@ end
 
 Return the cyclic code whose roots are the quadratic residues of `q`, `n`.
 """
-QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, [quadratic_residues(q, n)])
+QuadraticResidueCode(q::Int, n::Int) = CyclicCode(q, n, defining_set(quadratic_residues(q, n)[1], q, n, false))
 
 """
     FireCode(p::Union{fpPolyRingElem, FqPolyRingElem}, l::Int)

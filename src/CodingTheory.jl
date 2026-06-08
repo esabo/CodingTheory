@@ -1,4 +1,4 @@
-# Copyright (c) 2021 - 2024 Eric Sabo, Benjamin Ide
+# Copyright (c) 2021 - 2026 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -104,7 +104,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
     # , _Pauli_string_to_symplectic
 
 #############################
-         # iterators.jl
+        # iterators.jl
 #############################
 
 include("iterators.jl")
@@ -374,14 +374,21 @@ export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
     trellisorientedformadditive, optimalsectionalizationQ, weightQ!,
     shiftandweightQ!, shiftanddecodeQ!, shift!, isshifted
 
+# #############################
+#   # Classical/weight_dist.jl
+# #############################
+
+# include("Classical/weight_dist.jl")
+# export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
+#     weight_distribution, weight_plot, support, minimum_distance_Gray, minimum_distance, 
+#     Sterns_attack, minimum_words, words_of_weight
+
 #############################
-  # Classical/weight_dist.jl
+# Classical/min_dist_exact.jl
 #############################
 
-include("Classical/weight_dist.jl")
-export polynomial, type, CWE_to_HWE, weight_enumerator, MacWilliams_identity,
-    weight_distribution, weight_plot, support, minimum_distance_Gray, minimum_distance, 
-    Sterns_attack, minimum_words, words_of_weight
+include("Classical/min_dist_exact.jl")
+export minimum_distance
 
 #############################
    # Quantum/weight_dist.jl
@@ -472,5 +479,14 @@ export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_r
 
 include("Quantum/homological_measurements.jl")
 export homological_measurement, Cheeger_constant
+
+#############################
+ # Classical/ISD_attacks.jl
+#############################
+
+include("Classical/ISD_attacks.jl")
+export Stern_attack, Prange_attack, Lee_Brickell_attack, Leon_attack,
+    Canteaut_Chabaud_attack, ISD_failure_probability, required_ISD_iterations,
+    Gilbert_Varshamov_bound, minimum_distance_estimate
 
 end

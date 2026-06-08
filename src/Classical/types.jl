@@ -18,6 +18,7 @@ abstract type AbstractReedMullerCode <: AbstractLinearCode end
 abstract type AbstractCyclicCode <: AbstractLinearCode end
 abstract type AbstractBCHCode <: AbstractCyclicCode end
 abstract type AbstractReedSolomonCode <: AbstractBCHCode end
+abstract type AbstractCyclicCode2D <: AbstractCyclicCode end
 abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
 abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
@@ -35,11 +36,53 @@ abstract type AbstractTwistedReedSolomonCode <: AbstractLinearCode end
        # linearcode.jl
 #############################
 
+# struct WeightEnumerator
+#       polynomial::Union{ZZMPolyRingElem, Nemo.AbsSimpleNumFieldElem}
+#       type::Symbol
+# end
+    
 struct WeightEnumerator
-      polynomial::Union{ZZMPolyRingElem, Nemo.AbsSimpleNumFieldElem}
+      data::Dict{NTuple{T, Int}, BigInt} where T
       type::Symbol
 end
-    
+
+############
+
+
+mutable struct ExtendedQRCode <: AbstractLinearCode
+    F::CTFieldTypes # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+end
+
+mutable struct ProductCode <: AbstractLinearCode
+    F::CTFieldTypes # base field
+    n::Int # length
+    k::Int # dimension
+    d::Union{Int, Missing} # minimum distance
+    l_bound::Int # lower bound on d
+    u_bound::Int # upper bound on d
+    G::CTMatrixTypes
+    H::CTMatrixTypes
+    G_stand::CTMatrixTypes
+    H_stand::CTMatrixTypes
+    P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
+    weight_enum::Union{WeightEnumerator, Missing}
+end
+
+
+##################
+
+
 mutable struct LinearCode <: AbstractLinearCode
     F::CTFieldTypes # base field
     n::Int # length

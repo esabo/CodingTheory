@@ -61,24 +61,24 @@ function LinearCode(G::CTMatrixTypes, parity::Bool = false, brute_force_WE::Bool
         LinearCode(base_ring(G_new), ncols(G_new), k, missing, 1, ub, G_new, H, G_stand, H_stand, P, missing)
     end
 
-    if k == 0
-        set_minimum_distance!(C, C.n)
-    else
-        if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
-            # BUG only adding this new case because MacWilliams has a new Oscar problem
-            if BigInt(order(base_ring(G)))^k ≤ 1.5e5
-                C.weight_enum = _weight_enumerator_BF(C.G_stand)
-            else
-                C.weight_enum = if 2k <= ncols(G)
-                    _weight_enumerator_BF(C.G_stand)
-                else
-                    MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
-                end
-            end
-            d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
-            set_minimum_distance!(C, d)
-        end
-    end
+    # if k == 0
+    #     set_minimum_distance!(C, C.n)
+    # else
+    #     if brute_force_WE && BigInt(order(base_ring(G)))^min(k, ncols(G) - k) <= 1.5e5
+    #         # BUG only adding this new case because MacWilliams has a new Oscar problem
+    #         if BigInt(order(base_ring(G)))^k ≤ 1.5e5
+    #             C.weight_enum = _weight_enumerator_BF(C.G_stand)
+    #         else
+    #             C.weight_enum = if 2k <= ncols(G)
+    #                 _weight_enumerator_BF(C.G_stand)
+    #             else
+    #                 MacWilliams_identity(dual(C), _weight_enumerator_BF(C.H_stand))
+    #             end
+    #         end
+    #         d = minimum(filter(is_positive, first.(exponent_vectors(CWE_to_HWE(C.weight_enum).polynomial))))
+    #         set_minimum_distance!(C, d)
+    #     end
+    # end
 
     return C
 end

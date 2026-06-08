@@ -11,7 +11,7 @@
 """
     ord(n::Int, q::Int)
 
-Return the order of `n` mod `q`.
+Return the multiplicative order of `n` mod `q`.
 """
 function ord(n::Int, q::Int)
     (q <= 0 || n <= 0) && 
@@ -25,6 +25,18 @@ function ord(n::Int, q::Int)
     end
     error("Unable to compute ord($n, $q).")
 end
+
+# # TODO check efficiency of
+# function mult_order(q::Int, n::Int)
+#     n == 1 && return 1
+#     val = mod(q, n)
+#     t = 1
+#     while val ≠ 1
+#         val = mod(val * q, n)
+#         t += 1
+#     end
+#     return t
+# end
 
 """
     cyclotomic_coset(x::Int, q::Int, n::Int; to_sort::Bool=true, verbose::Bool=false)

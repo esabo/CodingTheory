@@ -590,11 +590,10 @@ end
 function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
-    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
-
     nc_A = ncols(A)
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     rnk = 0
     i = first(row_range)
@@ -719,11 +718,10 @@ end
 function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
-    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
-
     nc_A = ncols(A)
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     rnk = 0
     i = first(row_range)
@@ -847,12 +845,13 @@ end
 function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
+    nc_A = ncols(A)
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     # permutation matrix required to return to rowspace if column swap done
-    P = missing
+    P = identity_matrix(base_ring(A), nc_A)
     nc_A = ncols(A)
 
     rnk = 0
