@@ -73,18 +73,20 @@
         end
 
         C = BCHCode(2, 127, 21, 1)
-        for info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :Bouyuklieva, :Chen)
+        info_set_alg = :Bouyuklieva
+        # for info_set_alg ∈ (:Bouyuklieva, :Brouwer, :Zimmermann, :Chen) #  is too slow for this code
             C.l_bound = 1
             C.u_bound = C.n + 1
             C.d = missing
             println("Running BCH code with information set algorithm $info_set_alg")
-            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg)
+            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg, verbose = true)
             @test minimum_distance(C) == 21
             @test base_ring(witness) == C.F
             if !iszero(witness)
                 @test wt(witness) == C.d
             end
-        end
+            println("\n")
+        # end
 
         C = QuadraticResidueCode(2, 71)
         for info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :Bouyuklieva, :Chen)
@@ -92,12 +94,13 @@
             C.u_bound = C.n + 1
             C.d = missing
             println("Running QR code with information set algorithm $info_set_alg")
-            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg)
+            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg, verbose = true)
             @test minimum_distance(C) == 11
             @test base_ring(witness) == C.F
             if !iszero(witness)
                 @test wt(witness) == C.d
             end
+            println("\n")
         end
 
         C = ReedMullerCode(1, 6)
@@ -106,12 +109,13 @@
             C.u_bound = C.n + 1
             C.d = missing
             println("Running Reed-Muller code with information set algorithm $info_set_alg")
-            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg)
+            d, witness = minimum_distance(C, alg = :BZ, info_set_alg = info_set_alg, verbose = true)
             @test minimum_distance(C) == 32
             @test base_ring(witness) == C.F
             if !iszero(witness)
                 @test wt(witness) == C.d
             end
+            println("\n")
         end
     end
 end

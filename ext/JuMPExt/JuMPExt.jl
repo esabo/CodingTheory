@@ -1,11 +1,12 @@
 module JuMPExt
 
-import CodingTheory
-import CodingTheory: optimal_lambda, optimal_rho, optimal_lambda_and_rho, LP_decoder_LDPC, AbstractLinearCode, BinarySymmetricChannel, _minimum_distance_ILP
-import JuMP
-import JuMP: @variable, @constraint, @objective
-import GLPK
-import Oscar
+using CodingTheory
+import CodingTheory: optimal_lambda, optimal_rho, optimal_lambda_and_rho, LP_decoder_LDPC, AbstractLinearCode, BinarySymmetricChannel, _minimum_distance_ILP, parity_check_matrix
+using JuMP
+# import JuMP: @variable, @constraint, @objective
+using GLPK
+using Oscar
+# import Oscar: order
 
 include("Classical/min_dist_exact.jl")
 include("LDPC/decoders.jl")

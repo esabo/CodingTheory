@@ -5,62 +5,56 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false)
+    _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, time_limit_sec::Float64 = 300.0)
 
 Return the minimum distance of the linear code using an integer linear programming approach.
 
 # Note
 - Run `using JuMP, GLPK` to activate this extension.
 """
-function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false)
+function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, time_limit_sec::Float64 = 300.0)
     r, n = C.n - C.k, C.n
     q = Int(order(C.F))
+    H = CodingTheory._convert_binary_to_int_matrix(parity_check_matrix(C))
     
-    # We must lift the parity-check matrix out of the finite field into standard Integers
-    # Assuming parity_check_matrix(C) returns a matrix we can cast to Int
-    H = Int.(Array(parity_check_matrix(C))) 
+    verbose && println("Formulating ILP model for [$n, $(C.k)] code over GF($q)...")
     
     # Initialize the GLPK model
     model = Model(GLPK.Optimizer)
+    
+    # Set the time limit so it doesn't hang forever on dense codes
+    set_optimizer_attribute(model, "tm_lim", round(Int, time_limit_sec * 1000)) # GLPK uses milliseconds
+    
     if !verbose
         set_silent(model)
+    else
+        unset_silent(model) # Explicitly tell GLPK to print branch-and-cut progress
     end
     
     # --- VARIABLES ---
-    # x[i] is the binary indicator for the Hamming weight (1 if non-zero, 0 if zero)
     @variable(model, x[1:n], Bin)
-    
-    # v[i] is the actual symbol value in the physical codeword
     @variable(model, 0 <= v[1:n] <= q - 1, Int)
-    
-    # z[j] is the unconstrained auxiliary multiplier to handle the modulo q constraint
     @variable(model, z[1:r], Int)
     
     # --- OBJECTIVE ---
-    # We want the Minimum Hamming Weight
     @objective(model, Min, sum(x[i] for i in 1:n))
     
     # --- CONSTRAINTS ---
-    # 1. The codeword cannot be the all-zero vector
     @constraint(model, sum(x[i] for i in 1:n) >= 1)
     
-    # 2. Link the indicator variables x[i] to the values v[i]
     for i in 1:n
-        # If x[i] == 0, then v[i] MUST be 0
         @constraint(model, v[i] <= (q - 1) * x[i])
-        
-        # If x[i] == 1, then v[i] MUST be at least 1
         @constraint(model, v[i] >= x[i])
     end
     
-    # 3. The Parity-Check Equations (H * v = 0 mod q)
     for j in 1:r
-        # Instead of modulo, we enforce that the dot product is exactly a multiple of q
         @constraint(model, sum(H[j, i] * v[i] for i in 1:n) == q * z[j])
     end
     
     # --- SOLVE ---
-    verbose && println("Passing ILP model to GLPK solver...")
+    verbose && println("Model generated with $(num_variables(model)) variables and $(num_constraints(model, VariableRef, MOI.Integer)) integer constraints.")
+    verbose && println("Handing off to GLPK solver (Time limit: $(time_limit_sec)s)...")
+    
     optimize!(model)
     
     # --- PARSE RESULTS ---
@@ -70,6 +64,9 @@ function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false)
         d = Int(round(objective_value(model)))
         verbose && println("GLPK found exact optimum: d = $d")
         return d
+    elseif status == MOI.TIME_LIMIT
+        verbose && println("Solver hit the time limit of $(time_limit_sec)s before proving optimality.")
+        return -1
     elseif status == MOI.INFEASIBLE
         verbose && println("Model is mathematically infeasible (should not happen for valid codes).")
         return -1

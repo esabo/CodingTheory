@@ -125,16 +125,19 @@ end
 The "Brouwer Trick": Precomputes the exact minimum parity weight for all pairs 
 of remaining message bits. Replaces deep tree branching with a O(1) lookup.
 """
-function _precompute_weight2_table(A_packed::Vector{UInt64})
+function _precompute_weight2_table(A_packed::Vector{Vector{UInt64}})
     k = length(A_packed)
     # table[i, j] stores count_ones(A_packed[i] ^ A_packed[j])
     table = zeros(Int, k, k)
     
     for i in 1:k
         for j in i+1:k
-            # Scalar XOR and Popcount
-            table[i, j] = Int(count_ones(A_packed[i] ⊻ A_packed[j]))
-            table[j, i] = table[i, j] # Symmetric
+            w = 0
+            @inbounds @simd for c in eachindex(A_packed[i])
+                w += count_ones(A_packed[i][c] ⊻ A_packed[j][c])
+            end
+            table[i, j] = w
+            table[j, i] = w
         end
     end
     return table
@@ -241,11 +244,11 @@ Generates a set of permutation vectors (automorphisms) for known code families.
 These vectors can be passed to the `minimum_distance_master` search engine.
 """
 function _generate_known_automorphisms(C::AbstractLinearCode)
-    if isa(C, CyclicCode)
+    if typeof(C) <: AbstractCyclicCode
         return _generate_cyclic_auts(C.n)
         # TODO make this type
-    elseif isa(C, CyclicCode2D)
-        return _generate_2d_cyclic_auts(C.n1, C.n2)
+    # elseif isa(C, CyclicCode2D)
+    #     return _generate_2d_cyclic_auts(C.n1, C.n2)
         # TODO make this type
     elseif isa(C, ExtendedQRCode)
         # length is p + 1, so p = n-1
@@ -1649,37 +1652,41 @@ end
      # Minimum Distance
 #############################
 
-# the recursion will never cause a stack overflow. The depth is strictly bounded by $k$, and in practice, it usually terminates far shallower than $k$ due to the Griesmer/Cancellation pruning, the Automorphism pruning, and the Pigeonhole bound.
+# the recursion will never cause a stack overflow. The depth is strictly bounded by k, 
+# and in practice, it usually terminates far shallower than k due to the Griesmer/Cancellation pruning, 
+# the Automorphism pruning, and the Pigeonhole bound.
 function _Brouwer_Zimmermann_binary_recursive!(
-    A_packed::Vector{UInt64},  # Vector of length k (each element is a row)
-    r::Int,                    # Target message weight
-    depth::Int,                # Current row index (0 to k-1)
-    picked::Int,               # How many rows currently XORed
-    curr_tail::UInt64,         # The current XOR sum of parity bits
-    best_w::Threads.Atomic{Int},
-    best_msg::Vector{Int},
-    update_lock::Threads.SpinLock,
-    lbt::Vector{Int},          # Lower bounds based on rows
-    max_canc::Vector{Int},     # Max cancellation based on rows
-    w2_table::Matrix{Int},     # Optional: Weight-2 row XOR table
-    keep_going::Threads.Atomic{Bool},
-    l_bound::Int,
-    current_msg::Vector{Int},
-    spawn_depth::Int
+    A_packed::Vector{Vector{UInt64}},  # Vector of length k (each element is a row of chunks)
+    r::Int, depth::Int, picked::Int, 
+    curr_tail::Vector{UInt64},         # The current XOR sum of parity bits
+    best_w::Threads.Atomic{Int}, best_msg::Vector{Int}, update_lock::Threads.SpinLock,
+    lbt::Vector{Int}, max_canc::Vector{Int}, w2_table::Matrix{Int},
+    keep_going::Threads.Atomic{Bool}, l_bound::Int, current_msg::Vector{Int},
+    spawn_depth::Int, auts::Vector{Vector{Int}}
 )
     !keep_going[] && return
     
     k = length(A_packed)
-    tw = Int(count_ones(curr_tail)) # HW POPCNT
+    tw = 0
+    @inbounds @simd for c in eachindex(curr_tail)
+        tw += count_ones(curr_tail[c])
+    end
     
-    # Base Case: We have picked exactly 'r' rows from the Identity part
+    # Base Case
     if picked == r
+        if !_is_canonical(current_msg, auts)
+            return
+        end
+
         w = r + tw
         if w < best_w[] 
             lock(update_lock) do
                 if w < best_w[]
                     Threads.atomic_xchg!(best_w, w)
                     copyto!(best_msg, current_msg)
+                    for i in (depth + 1):length(best_msg)
+                        best_msg[i] = 0
+                    end
                     if w <= l_bound 
                         Threads.atomic_cas!(keep_going, true, false)
                     end
@@ -1699,28 +1706,21 @@ function _Brouwer_Zimmermann_binary_recursive!(
         min_w2 = typemax(Int)
         for i in (depth + 1):k
             for j in (i + 1):k
-                # The weight of the parity part if we pick rows i and j is:
-                # wt(curr_tail ^ Row_i_parity ^ Row_j_parity)
-                
-                # Using the triangle inequality: wt(A ^ B) >= |wt(A) - wt(B)|
-                # We already know wt(Row_i ^ Row_j) from our table.
-                combined_parity_wt = Int(count_ones(curr_tail ⊻ A_packed[i] ⊻ A_packed[j]))
-                
-                # Total weight = bits in message (r) + bits in parity
+                combined_parity_wt = 0
+                @inbounds @simd for c in eachindex(curr_tail)
+                    combined_parity_wt += count_ones(curr_tail[c] ⊻ A_packed[i][c] ⊻ A_packed[j][c])
+                end
                 if (r + combined_parity_wt) < min_w2
                     min_w2 = r + combined_parity_wt
                 end
             end
         end
-        
         if min_w2 >= best_w[]
-            return # Prune: even the best pair of rows won't beat our current best
+            return 
         end
     end
 
     # Weight-based Pruning
-    # min_possible_tw is the minimum weight the remaining 'rem_to_pick' 
-    # rows can contribute when XORed with the current tail.
     min_rem_wt = lbt[rem_to_pick + 1]
     max_rem_wt = max_canc[rem_to_pick + 1]
     
@@ -1738,40 +1738,51 @@ function _Brouwer_Zimmermann_binary_recursive!(
 
     # Branching
     if depth < spawn_depth
-        # Parallel Branch: Include Row 'depth + 1'
+        # Parallel Branch: Include Row
         msg_inc = copy(current_msg)
         msg_inc[depth + 1] = 1
-        tail_inc = curr_tail ⊻ A_packed[depth + 1] # Scalar XOR
+        tail_inc = copy(curr_tail)
+        @inbounds @simd for c in eachindex(tail_inc)
+            tail_inc[c] ⊻= A_packed[depth + 1][c]
+        end
         
         t = Threads.@spawn _Brouwer_Zimmermann_binary_recursive!(
             A_packed, r, depth + 1, picked + 1, tail_inc, best_w, best_msg, update_lock, 
-            lbt, max_canc, w2_table, keep_going, l_bound, msg_inc, spawn_depth
+            lbt, max_canc, w2_table, keep_going, l_bound, msg_inc, spawn_depth, auts
         )
             
-        # Local Branch: Exclude Row 'depth + 1'
+        # Local Branch: Exclude Row
         current_msg[depth + 1] = 0
         _Brouwer_Zimmermann_binary_recursive!(
             A_packed, r, depth + 1, picked, curr_tail, best_w, best_msg, update_lock, 
-            lbt, max_canc, w2_table, keep_going, l_bound, current_msg, spawn_depth
+            lbt, max_canc, w2_table, keep_going, l_bound, current_msg, spawn_depth, auts
         )
         wait(t)
     else
         # Serial Branch (Backtracking)
-        # Option 1: Include row
-        current_msg[depth + 1] = 1
-        _Brouwer_Zimmermann_binary_recursive!(
-            A_packed, r, depth + 1, picked + 1, curr_tail ⊻ A_packed[depth + 1], 
-            best_w, best_msg, update_lock, lbt, max_canc, w2_table, 
-            keep_going, l_bound, current_msg, spawn_depth
-        )
-        
-        # Option 2: Exclude row
+        # Option 1: Exclude row
         current_msg[depth + 1] = 0
         _Brouwer_Zimmermann_binary_recursive!(
             A_packed, r, depth + 1, picked, curr_tail, 
             best_w, best_msg, update_lock, lbt, max_canc, w2_table, 
-            keep_going, l_bound, current_msg, spawn_depth
+            keep_going, l_bound, current_msg, spawn_depth, auts
         )
+        
+        # Option 2: Include row
+        current_msg[depth + 1] = 1
+        @inbounds @simd for c in eachindex(curr_tail)
+            curr_tail[c] ⊻= A_packed[depth + 1][c]
+        end
+        
+        _Brouwer_Zimmermann_binary_recursive!(
+            A_packed, r, depth + 1, picked + 1, curr_tail, 
+            best_w, best_msg, update_lock, lbt, max_canc, w2_table, 
+            keep_going, l_bound, current_msg, spawn_depth, auts
+        )
+        
+        @inbounds @simd for c in eachindex(curr_tail)
+            curr_tail[c] ⊻= A_packed[depth + 1][c] # Backtrack without allocating!
+        end
     end
 end
 
@@ -1791,12 +1802,23 @@ function _Brouwer_Zimmermann_gf3_recursive!(
     
     # 1. BASE CASE
     if picked == r
+        # FIX: Automorphism pruning
+        if !_is_canonical(current_msg, auts)
+            return
+        end
+
         w = r + tw
         if w < best_w[] 
             lock(update_lock) do
                 if w < best_w[]
                     Threads.atomic_xchg!(best_w, w)
                     copyto!(best_msg, current_msg)
+                    
+                    # FIX: Clean up the un-picked suffix left by deep branches
+                    for i in (depth + 1):length(best_msg)
+                        best_msg[i] = 0
+                    end
+                    
                     w <= l_bound && Threads.atomic_cas!(keep_going, true, false)
                 end
             end
@@ -1874,12 +1896,23 @@ function _Brouwer_Zimmermann_gf4_recursive!(
     tw = _fast_simd_wt_gf3(curr_tail_H, curr_tail_L)
     
     if picked == r
+        # FIX: Automorphism pruning
+        if !_is_canonical(current_msg, auts)
+            return
+        end
+
         w = r + tw
         if w < best_w[] 
             lock(update_lock) do
                 if w < best_w[]
                     Threads.atomic_xchg!(best_w, w)
                     copyto!(best_msg, current_msg)
+                    
+                    # FIX: Clean up the un-picked suffix
+                    for i in (depth + 1):length(best_msg)
+                        best_msg[i] = 0
+                    end
+                    
                     w <= l_bound && Threads.atomic_cas!(keep_going, true, false)
                 end
             end
@@ -1943,12 +1976,23 @@ function _Brouwer_Zimmermann_nonbinary_recursive!(
     tw = count(!iszero, curr_tail)
     
     if picked == r
+        # FIX: Automorphism pruning
+        if !_is_canonical(current_msg, auts)
+            return
+        end
+
         w = r + tw
         if w < best_w[] 
             lock(update_lock) do
                 if w < best_w[]
                     Threads.atomic_xchg!(best_w, w)
                     copyto!(best_msg, current_msg)
+                    
+                    # FIX: Clean up the un-picked suffix with generic field zero
+                    for i in (depth + 1):length(best_msg)
+                        best_msg[i] = zero(T)
+                    end
+                    
                     w <= l_bound && Threads.atomic_cas!(keep_going, true, false)
                 end
             end
@@ -1994,21 +2038,19 @@ function _Brouwer_Zimmermann_nonbinary_recursive!(
             end
             _Brouwer_Zimmermann_nonbinary_recursive!(A_raw, r, depth+1, picked+1, curr_tail, best_w, best_msg, update_lock, lbt, max_canc, keep_going, l_bound, current_msg, spawn_depth, auts, non_zero_elements)
             @inbounds for i in eachindex(curr_tail)
-                curr_tail[i] += (F(p_char) - 1) * α * A_raw[i, depth+1] # Backtrack
+                curr_tail[i] += (Int(characteristic(parent(A_raw[1]))) - 1) * α * A_raw[i, depth+1] # Backtrack
             end
         end
     end
 end
 
-function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol = :auto,
-    verbose::Bool = false)
+function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol = :auto, verbose::Bool = false)
 
     !ismissing(C.d) && return C.d
     num_thrds = Threads.nthreads()
-    G = generator_matrix(C, true) # Standard form [I | A]
+    G = generator_matrix(C, true) 
     k, n = size(G)
 
-    # 1. Dual Weight Enumerator Shortcut for high-rate codes
     if k > 0.75 * n && (2^(n - k) < 1e7)
         verbose && println("High-rate code: using dual weight enumerator.")
         HWE = weight_enumerator(C)
@@ -2019,9 +2061,7 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
     if info_set_alg == :auto
         info_set_alg = heuristic_info_set_selection(C)
     end
-    # info_set_alg = :Zimmermann
-    # info_set_alg = :Brouwer
-    # info_set_alg = :Chen
+    
     verbose && println("Using information set algorithm: `$info_set_alg`")
     local z_mats, perms_mats, rnks
     if info_set_alg == :Bouyuklieva
@@ -2034,6 +2074,33 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
     else
         verbose && println("Using $info_set_alg overlapping information sets.")
         z_mats_raw, perms_mats, rnks = information_sets(C.G, info_set_alg, permute = true)
+        
+        # FIX: Filter out zero-rank AND corrupted identity matrices
+        valid_idx = Int[]
+        for i in 1:length(z_mats_raw)
+            curr_rnk = rnks[i]
+            if curr_rnk > 0
+                is_ident = true
+                for r in 1:curr_rnk
+                    for c in 1:curr_rnk
+                        expected = r == c ? 1 : 0
+                        if z_mats_raw[i][r, c] != expected
+                            is_ident = false
+                            break
+                        end
+                    end
+                    !is_ident && break
+                end
+                if is_ident
+                    push!(valid_idx, i)
+                end
+            end
+        end
+        
+        z_mats_raw = z_mats_raw[valid_idx]
+        perms_mats = perms_mats[valid_idx]
+        rnks = rnks[valid_idx]
+        
         t = length(rnks) 
         a_values = zeros(Int, length(rnks))
     end
@@ -2041,11 +2108,10 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
     z_mats = [(G = _convert_binary_to_int_matrix(z_mats_raw[i]), perm = perms_mats[i]) for i in 1:length(z_mats_raw)]
     m = length(z_mats)
 
-    # 3. Initial Row-Check (r=1 Case)
     current_upper_bound = ismissing(C.u_bound) ? (n + 1) : C.u_bound
     global_min_codeword = zeros(Int, n)
     
-    verbose && println("Starting initial row-check (r=1)...")
+    verbose && println("Starting initial row-check (r = 1)...")
     for entry in z_mats
         if info_set_alg == :Bouyuklieva
             for i in 1:size(entry.G, 1)
@@ -2056,7 +2122,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
                     reconstructed = zeros(Int, n)
                     for idx in 1:n
                         reconstructed[entry.perm[idx]] = row_vec[idx]
-                        # reconstructed[idx] = row_vec[entry.perm[idx]]
                     end
                     global_min_codeword = reconstructed
                 end
@@ -2071,7 +2136,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
                     reconstructed = zeros(Int, n)
                     for idx in 1:n
                         reconstructed[perm_vec[idx]] = row_vec[idx]
-                        # reconstructed[idx] = row_vec[perm_vec[idx]]
                     end
                     global_min_codeword = reconstructed
                 end
@@ -2081,9 +2145,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
     C.u_bound = current_upper_bound
     verbose && println("Initial row-check set bound to: $(C.u_bound)")
 
-    # 4. ISD Preprocessor
-    # p_char = 2
-    # d_deg = 1
     l_win = 12
     eff_l = min(l_win, n - k)
     
@@ -2105,35 +2166,52 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
         end
     end
 
-    # 5. Prepare Configurations (Scalar Row Packing)
     processed_configs = []
+    auts = _generate_known_automorphisms(C)
+    
     for i in 1:m
         entry = z_mats[i]
         current_rnk = rnks[i]
         A_raw = Matrix{Int64}(entry.G[1:current_rnk, current_rnk + 1:end])
         
-        A_packed = zeros(UInt64, current_rnk)
+        # NEW: Construct arbitrary length chunks
+        num_chunks = cld(size(A_raw, 2), 64)
+        A_packed = Vector{Vector{UInt64}}(undef, current_rnk)
         for r_idx in 1:current_rnk
-            row_bits = UInt64(0)
+            chunk_vec = zeros(UInt64, num_chunks)
             for j in 1:size(A_raw, 2)
                 if A_raw[r_idx, j] == 1
-                    row_bits |= (UInt64(1) << (j - 1))
+                    chunk_idx = (j - 1) ÷ 64 + 1
+                    bit_idx = (j - 1) % 64
+                    chunk_vec[chunk_idx] |= (UInt64(1) << bit_idx)
                 end
             end
-            A_packed[r_idx] = row_bits
+            A_packed[r_idx] = chunk_vec
         end
         
         lbt, max_canc = _precompute_pruning_bounds_binary(A_raw, current_rnk)
         w2_table = _precompute_weight2_table(A_packed)
-        push!(processed_configs, (A = A_packed, lbt = lbt, max_canc = max_canc, w2 = w2_table, rnk = current_rnk))
+        
+        if isempty(auts)
+            internal_auts = Vector{Vector{Int}}()
+        else
+            if typeof(entry.perm) <: Vector
+                col_perm = entry.perm[1:current_rnk]
+            else
+                perm_vec = _matrix_to_perm_vector(entry.perm)
+                col_perm = perm_vec[1:current_rnk]
+            end
+            internal_auts = _map_automorphisms(auts, col_perm)
+        end
+        
+        push!(processed_configs, (A = A_packed, lbt = lbt, max_canc = max_canc, 
+                                  w2 = w2_table, rnk = current_rnk, auts = internal_auts))
     end
 
-    # 6. Main Search Loop with Progress Bar
     keep_going = Threads.Atomic{Bool}(true)
     if info_set_alg == :Bouyuklieva
         while true
             active_reduced = count(idx -> idx > t && a_values[idx] > 0, 1:m)
-            # C.l_bound = _information_set_lower_bound(active_reduced, n, k, 0, a_values, :Bouyuklieva)
             C.l_bound = sum(a_values) + m - 1
             if !keep_going[] || C.l_bound >= C.u_bound break end
             
@@ -2146,28 +2224,24 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
                 config = processed_configs[j]
                 search_target = iszero(global_min_codeword) ? (C.u_bound + 1) : C.u_bound
                 best_w = Threads.Atomic{Int}(search_target)
-                # best_w = Threads.Atomic{Int}(C.u_bound)
                 best_msg = zeros(Int, config.rnk)
                 update_lock = Threads.SpinLock()
 
                 _Brouwer_Zimmermann_binary_recursive!(
-                    config.A, a_j, 0, 0, UInt64(0), 
+                    config.A, a_j, 0, 0, zeros(UInt64, length(config.A[1])), 
                     best_w, best_msg, update_lock, config.lbt, config.max_canc, config.w2, 
-                    keep_going, C.l_bound, zeros(Int, config.rnk), 5
+                    keep_going, C.l_bound, zeros(Int, config.rnk), 5, config.auts
                 )
-                
+                 
                 if best_w[] < C.u_bound
                     C.u_bound = best_w[]
-                    # Use systematic reconstruction to ensure bit mapping
-                    # msg_mat = matrix(C.F, 1, config.rnk, [x == 1 ? one(C.F) : zero(C.F) for x in best_msg])
-                    # Dynamically determine how many rows G has vs how many best_msg has
+                    
                     diff = size(z_mats[j].G, 1) - length(best_msg)
-
                     full_msg = diff > 0 ? vcat(best_msg, zeros(Int, diff)) : best_msg
 
-                    # 2. Reconstruct the codeword in the permuted space
                     full_local_c = vec(Array((full_msg' * z_mats[j].G) .% 2))
                     reconstructed = zeros(Int, n)
+                   
                     if typeof(perms_mats[j]) <: Vector{Int64}
                         for idx in 1:n
                             reconstructed[perms_mats[j][idx]] = full_local_c[idx]
@@ -2176,15 +2250,11 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
                         perm_vec = _matrix_to_perm_vector(perms_mats[j])
                         for idx in 1:n
                             reconstructed[perm_vec[idx]] = full_local_c[idx]
-                            # reconstructed[idx] = full_local_c[perm_vec[idx]]
                         end
                     end
-                    actual_w = count(!iszero, reconstructed)
-                    if actual_w > 0 && (actual_w < C.u_bound || (actual_w == C.u_bound && iszero(global_min_codeword)))
-                        C.u_bound = actual_w
-                        global_min_codeword = reconstructed
-                        verbose && println("New minimum/witness found in BB21: $(C.u_bound)")
-                    end
+                    
+                    global_min_codeword = reconstructed
+                    verbose && println("New minimum/witness found in BB21: $(C.u_bound)")
                 end
             end
             a_values = _greedy_increment_bb21(a_values, rnks, 2)
@@ -2195,7 +2265,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
             C.l_bound = max(C.l_bound, lower_bounds[r])
             if !keep_going[] || C.l_bound >= C.u_bound break end
             
-            # Progress Bar for weight r across all matrices
             num_combinations = binomial(k, r)
             p = Progress(num_combinations * m; dt=0.5, desc="Weight $r search: ", color=:cyan)
 
@@ -2207,35 +2276,34 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
                 update_lock = Threads.SpinLock()
 
                 _Brouwer_Zimmermann_binary_recursive!(
-                    config.A, r, 0, 0, UInt64(0), 
+                    config.A, r, 0, 0, zeros(UInt64, length(config.A[1])), 
                     best_w, best_msg, update_lock, config.lbt, config.max_canc, config.w2, 
-                    keep_going, C.l_bound, zeros(Int, config.rnk), 5
+                    keep_going, C.l_bound, zeros(Int, config.rnk), 5, config.auts
                 )
                 
-                # Update progress bar after each matrix set
                 next!(p, step=num_combinations)
 
                 if best_w[] < C.u_bound
                     C.u_bound = best_w[]
-                    final_tail_val = UInt64(0)
-                    for idx in 1:config.rnk
-                        if best_msg[idx] == 1
-                            final_tail_val ⊻= config.A[idx]
-                        end
-                    end
-                    local_c = zeros(Int, n)
-                    local_c[1:config.rnk] .= best_msg
-                    for bit in 1:(n - config.rnk)
-                        if (final_tail_val >> (bit - 1)) & 1 == 1
-                            local_c[config.rnk + bit] = 1
-                        end
-                    end
+                    
+                    # FIX: Unpack using exact matrix multiplication (Identical to BB21)
+                    diff = size(z_mats[j].G, 1) - length(best_msg)
+                    full_msg = diff > 0 ? vcat(best_msg, zeros(Int, diff)) : best_msg
+
+                    full_local_c = vec(Array((full_msg' * z_mats[j].G) .% 2))
                     reconstructed = zeros(Int, n)
-                    perm_vec = _matrix_to_perm_vector(perms_mats[j])
-                    for idx in 1:n
-                        reconstructed[perm_vec[idx]] = local_c[idx]
-                        # reconstructed[idx] = local_c[perm_vec[idx]]
+                   
+                    if typeof(perms_mats[j]) <: Vector{Int64}
+                        for idx in 1:n
+                            reconstructed[perms_mats[j][idx]] = full_local_c[idx]
+                        end
+                    else
+                        perm_vec = _matrix_to_perm_vector(perms_mats[j])
+                        for idx in 1:n
+                            reconstructed[perm_vec[idx]] = full_local_c[idx]
+                        end
                     end
+                    
                     global_min_codeword = reconstructed
                     verbose && println("New minimum found at weight $r: $(C.u_bound)")
                 end
@@ -2244,7 +2312,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
         end
     end
 
-    # 7. Final Verification
     C.d = C.u_bound
     s_glcw = sum(global_min_codeword)
     if s_glcw == C.d
@@ -2253,16 +2320,12 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
         found_witness = false
         s_glcw = 0
     end
-    # found_witness = s_glcw > 0  # Properly initialize flag
+    found_witness = s_glcw > 0 
 
-    # If we have a witness, verify it NOW before trusting it
     if found_witness
         if !ismissing(C.P_stand)
             y_std = matrix(C.F, 1, n, global_min_codeword)
-            
-            # Apply the inverse permutation. 
             y_orig = y_std * C.P_stand
-            
             global_min_codeword = vec(Array(y_orig))
             verbose && println("Applied P_stand to map witness back to original codespace.")
         end
@@ -2272,14 +2335,13 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
             verbose && println("Warning: Saved witness failed parity check! (Likely a corrupted permutation matrix from the BB21 partitioner).")
             verbose && println("Discarding corrupted witness...")
             found_witness = false
-            s_glcw = 0 # Force the ISD fallback to trigger
+            s_glcw = 0
         end
     end
 
     if s_glcw == 0
         verbose && println("Search confirmed d = $(C.d) but no vector was saved. Launching targeted ISD attack to recover a witness...")
         
-        # Run a heavier ISD attack specifically hoping to hit the known d
         found = Canteaut_Chabaud_attack(C, C.d; p=2, l=eff_l, max_iters=5000)
         if !isempty(found)
             global_min_codeword = [c == 1 ? one(C.F) : zero(C.F) for c in only(found)]
@@ -2304,7 +2366,6 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode; info_set_alg::Symbol
     
     return C.d, y
 end
-
 """
     _reconstruct_codeword(msg_bits::Vector{Int}, packed_tail::Vector{UInt64}, 
                          perm::Vector{Int}, n::Int, k::Int)
@@ -2359,7 +2420,6 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
     C.u_bound = ismissing(C.u_bound) ? (n + 1) : C.u_bound
     global_min_codeword = [zero(C.F) for _ in 1:n]
 
-    # do a little ISD attack to initialize a better upper bound
     p_char = Int(characteristic(C.F))
     d_deg = degree(C.F)
 
@@ -2387,92 +2447,77 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
     C.u_bound = current_upper_bound
     
     if best_cw !== nothing
-        # Use the unpacker to safely rebuild the Oscar extension field elements
-        global_min_codeword = [unpack_field_elem(c, C.F, p_char, d_deg) for c in best_cw]
+        global_min_codeword = [_unpack_field_elem(c, C.F, p_char, d_deg) for c in best_cw]
         verbose && println("ISD preprocessor lowered upper bound to: $(C.u_bound)")
     else
         verbose && println("Preprocessor could not lower the initial bound.")
     end
 
     # 3. SETUP MATRICES & SMART PACKING
-    # BB21 uses disjoint sets [cite: 42, 83]; others use standard overlapping scored sets[cite: 61, 70].
     info_set_alg = heuristic_info_set_selection(C)
     local z_mats, perms_list, rnks
     if info_set_alg == :Bouyuklieva
-        # Partition into disjoint systematic sets (full and reduced) [cite: 83, 117]
         z_mats, perms_list, rnks = _partition_disjoint_systematic_sets(G_stand)
     else
         z_mats_raw = _generate_scored_zimmermann_mats_nonbinary(G_stand, 3; pool_size = 20)
         z_mats = [entry.G for entry in z_mats_raw]
         perms_list = [entry.perm for entry in z_mats_raw]
-        rnks = [k for _ in 1:length(z_mats)] # Classical treats all as full sets
+        rnks = [k for _ in 1:length(z_mats)] 
     end
 
     auts = _generate_known_automorphisms(C)
     m = length(z_mats)
 
-    # PRECOMPUTE GF(q) TABLES ONCE unconditionally
-    # We always need the elem_to_idx dictionary to safely map FqFieldElem -> Int
     add_t, mul_t, elem_to_idx = _generate_field_tables_safe(C.F, q)
     
     processed_configs = []
-    for entry in z_mats
-        # Extract the parity tail
-        A_raw = entry.G[:, k + 1:end]'
-        # We need A_raw as standard integers for the pruning bounds (count(!iszero))
-        A_idx = zeros(Int, size(A_raw))
-        for i in eachindex(A_raw)
-            A_idx[i] = elem_to_idx[A_raw[i]]
+    for i in 1:m
+        entry_G = z_mats[i]
+        
+        # FIX: Ensure permutation is safely mapped to a vector to avoid Oscar type issues
+        if typeof(perms_list[i]) <: Vector
+            entry_perm = perms_list[i]
+        else
+            entry_perm = _matrix_to_perm_vector(perms_list[i])
         end
-        # Now we use A_idx (which is strictly 1-based integers) for the helpers
+        
+        A_raw = entry_G[:, k + 1:end]'
+        A_idx = zeros(Int, size(A_raw))
+        for idx in eachindex(A_raw)
+            A_idx[idx] = elem_to_idx[A_raw[idx]]
+        end
+        
         lbt, max_canc = _precompute_pruning_bounds_nonbinary(A_idx, k, q)
         
-        # 1. Row weight check 
-        # count(!iszero) works natively on FqFieldElem views
         col_weights = [count(!iszero, view(A_raw, :, j)) for j in 1:k]
         min_parity_wt, j = findmin(col_weights)
         min_row_wt = 1 + min_parity_wt
         
         if min_row_wt <= C.u_bound
             C.u_bound = min_row_wt
-            
-            # 2. Build the message vector using the field's actual zero/one elements
-            # This ensures type stability for the matrix multiplication
             msg = [zero(C.F) for _ in 1:k]
             msg[j] = one(C.F)
-            
-            # 3. Replace msg' with transpose(msg) for Oscar compatibility
-            # We convert to a row matrix [1 x k] to multiply by [k x n]
             msg_mat = matrix(C.F, 1, k, msg)
-            temp_word = vec(Array(msg_mat * entry.G))
-            
-            global_min_codeword = temp_word[invperm(entry.perm)]
+            temp_word = vec(Array(msg_mat * entry_G))
+            global_min_codeword = temp_word[invperm(entry_perm)]
         end
         
-        # 4. Handle col_perm via transpose if entry.perm is a matrix, 
-        # or slice if it's a Vector.
-        if entry.perm isa AbstractMatrix
-            P_trans = transpose(entry.perm)
-            col_perm = [findfirst(!iszero, view(P_trans, i, :)) for i in 1:k]
+        # FIX: Empty check bypasses overhead for random codes
+        if isempty(auts)
+            internal_auts = Vector{Vector{Int}}()
         else
-            col_perm = entry.perm[1:k]
+            internal_auts = _map_automorphisms(auts, entry_perm[1:k])
         end
-        internal_auts = _map_automorphisms(auts, col_perm)
         
-        # --- DYNAMIC HARDWARE ROUTING ---
         if q == 3
-            # We pass A_idx to the bitslicer because it needs standard integers
             H, L = _pack_matrix_gf3_bitsliced(A_idx)
             w2_table = _precompute_weight2_table_gf3(H, L)
             push!(processed_configs, (A_raw=A_raw, H=H, L=L, lbt=lbt, max_canc=max_canc, auts=internal_auts, w2=w2_table))
-            
         elseif q == 4
             H, L = _pack_matrix_gf4_bitsliced(A_idx)
             w2_table = _precompute_weight2_table_gf4(H, L)
             push!(processed_configs, (A_raw=A_raw, H=H, L=L, lbt=lbt, max_canc=max_canc, auts=internal_auts, w2=w2_table))
-            
         else
-            # Pass the safely mapped integer matrix and lookup tables
             w2_table = _precompute_weight2_table_nonbinary(A_idx, add_t, mul_t, q)
             push!(processed_configs, (A_raw=A_raw, lbt=lbt, max_canc=max_canc, auts=internal_auts, w2=w2_table))
         end
@@ -2482,15 +2527,13 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
     keep_going = Threads.Atomic{Bool}(true)
 
     # 4. RECURSIVE SEARCH
-    if alg == :Bouyuklieva
-        # BB21 State Management [cite: 136, 138]
-        t = count(x -> x == k, rnks) # Full systematic sets [cite: 84]
-        a_values = zeros(Int, m); a_values[1] = 1 # Initial state [cite: 140]
+    if info_set_alg == :Bouyuklieva
+        t = count(x -> x == k, rnks) 
+        a_values = zeros(Int, m); a_values[1] = 1 
         
         while true
             active_reduced = count(i -> i > t && a_values[i] > 0, 1:m)
-            # Lower bound delta calculation [cite: 119, 157]
-            C.l_bound = information_set_lower_bound(active_reduced, n, k, 0, a_values, :Bouyuklieva; even=is_even(C))
+            C.l_bound = _information_set_lower_bound(active_reduced, n, k, 0, a_values, :Bouyuklieva; even=is_even(C))
             
             if !keep_going[] || C.l_bound >= C.u_bound
                 break
@@ -2498,18 +2541,18 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
             verbose && println("BB21 State $a_values | Bounds: [$(C.l_bound), $(C.u_bound)]")
 
             for j in 1:m
-                if a_values[j] == 0
+                a_j = a_values[j]
+                if a_j == 0
                     continue
                 end
 
+                config = processed_configs[j]
                 best_w = Threads.Atomic{Int}(C.u_bound)
                 update_lock = Threads.SpinLock()
                 
-                # Storage for the message vector discovered by the engine
                 best_msg_idx = zeros(Int, k)
                 best_msg_field = [zero(C.F) for _ in 1:k]
 
-                # --- Hardware-Optimized Recursive Calls ---
                 if q == 3
                     _Brouwer_Zimmermann_gf3_recursive!(
                         config.H, config.L, a_j, 0, 0, zeros(UInt64, size(config.H, 1)), zeros(UInt64, size(config.L, 1)), 
@@ -2523,7 +2566,6 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                         keep_going, C.l_bound, zeros(Int, k), 3, config.auts
                     )
                 else
-                    # Generic Fq logic
                     non_zero_elements = collect(C.F)[2:end]
                     _Brouwer_Zimmermann_nonbinary_recursive!(
                         config.A_raw, a_j, 0, 0, [zero(C.F) for _ in 1:size(config.A_raw, 1)], 
@@ -2532,15 +2574,12 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                     )
                 end
 
-                # --- Witness Reconstruction & Bound Update ---
                 if best_w[] < C.u_bound
                     lock(update_lock) do
                         C.u_bound = best_w[]
                         
-                        # Map Integer indices back to Field Elements for q=3,4 bitslicing
                         if q <= 4
                             actual_elements = collect(C.F)
-                            # Ensure zero is at index 1 to match A_idx convention
                             z_idx = findfirst(iszero, actual_elements)
                             if z_idx != 1
                                 actual_elements[1], actual_elements[z_idx] = actual_elements[z_idx], actual_elements[1]
@@ -2552,15 +2591,14 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                             end
                         end
 
-                        # Reconstruct the codeword: c = msg * G_j
                         msg_mat = matrix(C.F, 1, k, best_msg_field)
-                        # Use invperm to shuffle the codeword back to the original column order [cite: 191]
-                        temp_word = vec(Array(msg_mat * G_j))
-                        C.global_min_codeword = temp_word[invperm(perm_j)]
+                        temp_word = vec(Array(msg_mat * z_mats[j]))
+                        
+                        # FIX: Correct scoping variable call
+                        global_min_codeword = temp_word[invperm(perms_list[j])]
                     end
                 end
             end
-            # Select next a_i to minimize codeword generation cost [cite: 159, 163]
             a_values = _greedy_increment_bb21(a_values, rnks, q)
         end
     else
@@ -2575,7 +2613,6 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                 config = processed_configs[j]
                 best_w = Threads.Atomic{Int}(C.u_bound)
                 
-                # Use Int for bitsliced engines, FqFieldElem for the generic fallback
                 best_msg_idx = zeros(Int, k)
                 best_msg_field = [zero(C.F) for _ in 1:k]
                 
@@ -2594,7 +2631,7 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                         keep_going, C.l_bound, zeros(Int, k), 3, config.auts
                     )
                 else
-                    non_zero_elements = collect(C.F)[2:end] # All except 0
+                    non_zero_elements = collect(C.F)[2:end] 
                     _Brouwer_Zimmermann_nonbinary_recursive!(
                         config.A_raw, r, 0, 0, [zero(C.F) for _ in 1:size(config.A_raw, 1)], 
                         best_w, best_msg_field, update_lock, config.lbt, config.max_canc, 
@@ -2605,35 +2642,24 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
                 if best_w[] < C.u_bound
                     C.u_bound = best_w[]
                     
-                    # Convert results back to FqFieldElem
                     if q <= 4
-                        # We use the local_map/elem_to_idx logic to find which FqFieldElem 
-                        # corresponds to the Int index found by the engine.
-                        # 'elements' should be the Vector{FqFieldElem} from collect(C.F)
-                        # where elements[1] is zero.
-                        
                         actual_elements = collect(C.F)
-                        # Force zero to index 1 to match our A_idx convention
                         z_idx = findfirst(iszero, actual_elements)
                         if z_idx != 1
                             actual_elements[1], actual_elements[z_idx] = actual_elements[z_idx], actual_elements[1]
                         end
                         
-                        # Map the Int indices in best_msg_idx back to FqFieldElem
-                        # If engine found '2', it means the 2nd element in our ordered list
                         for i in 1:k
                             idx = best_msg_idx[i]
-                            # If idx is 0, it was the zero element (elements[1])
-                            # If idx > 0, it was the non-zero scalar used
                             best_msg_field[i] = (idx == 0) ? actual_elements[1] : actual_elements[idx + 1]
                         end
                     end
 
-                    # Perform the witness reconstruction in the field
                     msg_mat = matrix(C.F, 1, k, best_msg_field)
-                    # invperm(entry.perm) shuffles the codeword back to the original column order
-                    temp_word = vec(Array(msg_mat * z_mats[j].G))
-                    global_min_codeword = temp_word[invperm(z_mats[j].perm)]
+                    temp_word = vec(Array(msg_mat * z_mats[j]))
+                    
+                    # FIX: Correct scoping variable call
+                    global_min_codeword = temp_word[invperm(perms_list[j])]
                 end
             end
             C.l_bound = max(C.l_bound, m * (r + 1))
@@ -2647,24 +2673,20 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode; verbose::Bool = f
     if s_glcw == 0
         verbose && println("Search confirmed d = $(C.d) but no vector was saved. Launching targeted Stern's attack...")
         
-        found_witness = false # Initialize to prevent UndefVarError
+        found_witness = false 
         
-        # Use the master wrapper, keyword arguments, and proper l_win
-        target_vecs = Stern_attack(C, C.d; p=2, l=l_win, num_find=1, max_iters=1000)
+        target_vecs = Stern_attack(C, C.d; p=p_char, l=l_win, num_find=1, max_iters=1000)
         if !isempty(target_vecs)
-            # 1. Grab the only element from the Set
             raw_vec = only(target_vecs)
-            # 2. Use the unpacker bridge for extension field safety
             global_min_codeword = [_unpack_field_elem(c, C.F, p_char, d_deg) for c in raw_vec]
             found_witness = true
             verbose && println("Targeted search successfully recovered a minimum-weight codeword!")
         end
         
         if !found_witness
-            y = zeros_matrix(C.F, 1, n)
+            y = zero_matrix(C.F, 1, n)
             verbose && println("Warning: Targeted search failed. Returning a zero vector.")
         else
-            # Ensure we apply the standard form permutation
             y = matrix(C.F, 1, n, global_min_codeword) * C.P_stand
         end
     else
@@ -2682,21 +2704,20 @@ strictly for binary (GF(2)) codes. Eliminates scalar coefficient loops and
 uses modulo 2 arithmetic for direct hash collisions.
 """
 function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=20, verbose::Bool=false)
-    # Cast H to standard integers for fast modulo arithmetic
-    H = Int.(Array(parity_check_matrix(C)))
+    # FIX: Use the safe binary-to-int converter instead of Int.()
+    H = _convert_binary_to_int_matrix(parity_check_matrix(C))
     r, n = size(H)
     
     mid = div(n, 2)
     H_L = view(H, :, 1:mid)
     H_R = view(H, :, (mid+1):n)
     
-    # Helper: GF(2) specific table builder (No scalar loops!)
     function build_syndrome_table_bin(H_half, target_wt, offset)
         _, cols = size(H_half)
         table = Dict{Vector{Int}, Vector{Int}}()
         
-        for col_indices in combinations(1:cols, target_wt)
-            # Just directly sum the columns modulo 2 (equivalent to XOR)
+        # FIX: Explicitly qualify Combinatorics
+        for col_indices in Combinatorics.combinations(1:cols, target_wt)
             syn = zeros(Int, r)
             for c in col_indices
                 for row in 1:r
@@ -2723,11 +2744,10 @@ function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=
                 continue
             end
             
-            # Build the Left Hash Map
             left_table = build_syndrome_table_bin(H_L, w_L, 0)
             
-            # Stream the Right combinations
-            for col_indices in combinations(1:(n - mid), w_R)
+            # FIX: Explicitly qualify Combinatorics
+            for col_indices in Combinatorics.combinations(1:(n - mid), w_R)
                 syn_R = zeros(Int, r)
                 for c in col_indices
                     for row in 1:r
@@ -2735,17 +2755,30 @@ function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=
                     end
                 end
                 
-                # GF(2) Magic: No negation needed. Just check if S_L == S_R
                 if haskey(left_table, syn_R)
                     verbose && println("Binary Collision found! Left wt: $w_L, Right wt: $w_R")
-                    return w
+                    
+                    witness = zero_matrix(C.F, 1, n)
+                    
+                    L_cols = left_table[syn_R]
+                    for idx in L_cols
+                        witness[1, idx] = one(C.F)
+                    end
+                    
+                    for c in col_indices
+                        witness[1, c + mid] = one(C.F)
+                    end
+                    
+                    @assert iszero(parity_check_matrix(C) * transpose(witness)) "Wagner reconstructed a failed witness!"
+                    
+                    return w, witness
                 end
             end
         end
     end
     
     verbose && println("No codewords found up to weight $max_d.")
-    return -1
+    return -1, zero_matrix(C.F, 1, n)
 end
 
 """
@@ -2760,25 +2793,20 @@ function _minimum_distance_wagner_mitm_nonbinary(C::AbstractLinearCode; max_d::I
     F = parent(H[1,1])
     q = Int(order(F))
     
-    # We only need the non-zero elements for combinations
     nonzero_elements = filter(!iszero, collect(F))
     
-    # Split the matrix in half
     mid = div(n, 2)
     H_L = view(H, :, 1:mid)
     H_R = view(H, :, (mid+1):n)
     
-    # Helper function: generates a hash map of {Syndrome => Vector} for a specific weight
     function build_syndrome_table(H_half, target_wt, offset)
         _, cols = size(H_half)
-        table = Dict{Vector{typeof(zero(F))}, Vector{Int}}()
+        table = Dict{Vector{typeof(zero(F))}, Tuple{Vector{Int}, Vector{typeof(zero(F))}}}()
         
-        # Iterate over every possible choice of `target_wt` columns
-        for col_indices in combinations(1:cols, target_wt)
-            # Iterate over every possible combination of non-zero scalars for these columns
+        # FIX: Explicitly qualify Combinatorics
+        for col_indices in Combinatorics.combinations(1:cols, target_wt)
             for scalars in Iterators.product(fill(nonzero_elements, target_wt)...)
                 
-                # Compute the partial syndrome
                 syn = fill(zero(F), r)
                 for (i, c) in enumerate(col_indices)
                     for row in 1:r
@@ -2786,10 +2814,9 @@ function _minimum_distance_wagner_mitm_nonbinary(C::AbstractLinearCode; max_d::I
                     end
                 end
                 
-                # We only need to store one physical representation per syndrome
                 if !haskey(table, syn)
-                    # Store the physical column indices (adjusted by offset for the right side)
-                    table[syn] = [c + offset for c in col_indices]
+                    shifted_cols = [c + offset for c in col_indices]
+                    table[syn] = (shifted_cols, collect(scalars))
                 end
             end
         end
@@ -2798,25 +2825,20 @@ function _minimum_distance_wagner_mitm_nonbinary(C::AbstractLinearCode; max_d::I
 
     verbose && println("Starting Wagner Syndrome MitM search...")
 
-    # We search for codewords of weight w incrementally to guarantee we find the minimum
     for w in 1:max_d
         verbose && println("  Checking for codewords of total weight $w...")
         
-        # We must check every possible split of the weight between the left and right halves
         for w_L in 0:w
             w_R = w - w_L
             
-            # Skip if the requested weight exceeds the number of columns in that half
             if w_L > mid || w_R > (n - mid)
                 continue
             end
             
-            # Build the Left Hash Map (O(q^w_L * (n/2)^w_L))
             left_table = build_syndrome_table(H_L, w_L, 0)
             
-            # To save RAM, we don't build a massive Right Hash Map. 
-            # We just stream the Right combinations and instantly check the Left table.
-            for col_indices in combinations(1:(n - mid), w_R)
+            # FIX: Explicitly qualify Combinatorics
+            for col_indices in Combinatorics.combinations(1:(n - mid), w_R)
                 for scalars in Iterators.product(fill(nonzero_elements, w_R)...)
                     
                     syn_R = fill(zero(F), r)
@@ -2826,12 +2848,26 @@ function _minimum_distance_wagner_mitm_nonbinary(C::AbstractLinearCode; max_d::I
                         end
                     end
                     
-                    # We want H_L * v_L = - H_R * v_R
                     target_syn = [-x for x in syn_R]
                     
                     if haskey(left_table, target_syn)
                         verbose && println("Collision found! Left wt: $w_L, Right wt: $w_R")
-                        return w
+                        
+                        witness = zero_matrix(F, 1, n)
+                        
+                        L_cols, L_scalars = left_table[target_syn]
+                        for idx in 1:length(L_cols)
+                            witness[1, L_cols[idx]] = L_scalars[idx]
+                        end
+                        
+                        shifted_R_cols = [c + mid for c in col_indices]
+                        for idx in 1:length(shifted_R_cols)
+                            witness[1, shifted_R_cols[idx]] = scalars[idx]
+                        end
+                        
+                        @assert iszero(parity_check_matrix(C) * transpose(witness)) "Wagner reconstructed a failed witness!"
+                        
+                        return w, witness
                     end
                 end
             end
@@ -2839,7 +2875,7 @@ function _minimum_distance_wagner_mitm_nonbinary(C::AbstractLinearCode; max_d::I
     end
     
     verbose && println("No codewords found up to weight $max_d.")
-    return -1
+    return -1, zero_matrix(F, 1, n)
 end
 
 """
@@ -2911,14 +2947,13 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         end
 
         # 4. BINARY PRE-FLIGHT CHECK (Wagner Meet-in-the-Middle)
-        # If the code is binary, we instantly check for d <= 5 without building a Trellis.
         if q == 2 && n <= 128
             verbose && println("Auto: Binary code detected. Running Wagner MitM pre-flight (d <= 5)...")
-            d_wagner = _minimum_distance_wagner_mitm_binary(C; max_d = 5, verbose = false)
+            d_wagner, witness_wagner = _minimum_distance_wagner_mitm_binary(C; max_d = 5, verbose = false)
             if d_wagner != -1
                 verbose && println("Auto: Wagner MitM caught early collision!")
                 C.d = d_wagner
-                return C.d
+                return C.d, witness_wagner
             end
             verbose && println("Auto: No low-weight words found. Proceeding to deep search...")
         end
