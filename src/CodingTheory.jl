@@ -365,14 +365,12 @@ export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913
     Q832, SmallestInterestingColorCode, GrossCode #, PlanarSurfaceCode3D, ToricCode3D
 
 #############################
-        # trellis.jl
+    # Classical/trellis.jl
 #############################
 
-include("trellis.jl")
-export Trellis, vertices, edges, isisomorphic, isequal, loadbalancedecode,
-    trellisorientedformlinear,trellisprofiles, syndrometrellis,
-    trellisorientedformadditive, optimalsectionalizationQ, weightQ!,
-    shiftandweightQ!, shiftanddecodeQ!, shift!, isshifted
+include("Classical/trellis.jl")
+export past_future_profiles, vertex_counts, edge_counts, optimize_trellis_permutation,
+    optimal_sectionalization, weight_distribution_trellis, Krawtchouk, Macwilliams_HWE_transform
 
 # #############################
 #   # Classical/weight_dist.jl
@@ -394,11 +392,11 @@ export minimum_distance
    # Quantum/weight_dist.jl
 #############################
 
-include("Quantum/weight_dist.jl")
-# export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
-#     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
-export minimum_distance_upper_bound!, random_information_set_minimum_distance_bound!,
-    QDistRnd!
+# include("Quantum/weight_dist.jl")
+# # export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
+# #     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
+# export minimum_distance_upper_bound!, random_information_set_minimum_distance_bound!,
+#     QDistRnd!
 
 #############################
 #  Quantum/product_codes.jl
