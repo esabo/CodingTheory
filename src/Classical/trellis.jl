@@ -166,13 +166,13 @@ function _make_trellis_oriented!(G::CTMatrixTypes)
 end
 
 """
-    weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
+    _weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
 
 Computes the Hamming weight distribution of a linear code.
 Uses the primal generator Trellis Product for low-rate codes, and the dual generator 
 Trellis Product (followed by the MacWilliams Identity) for high-rate codes.
 """
-function weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
+function _weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
     k = C.k
     n = C.n
     q = Int(order(C.F))
@@ -469,10 +469,20 @@ function _min_weight_syndrome_sectionalized(H::Matrix{T}, boundaries::Vector{Int
 end
 
 function _CWE_classical_TP_sectionalized(G::Matrix{T}, boundaries::Vector{Int}=collect(0:size(G,2)), verbose::Bool=true) where T
-    k, n = size(G)
+
+    k, _ = size(G)
     F = parent(G[1, 1])
+    q = length(collect(F))
+    
+    if q == 2 && k <= 128
+        return _CWE_classical_TP_binary(G, boundaries, verbose)
+    elseif q == 3 && k <= 64
+        return _CWE_classical_TP_ternary(G, boundaries, verbose)
+    elseif q == 4 && k <= 64
+        return _CWE_classical_TP_quaternary(G, boundaries, verbose)
+    end
+
     elements = collect(F)
-    q = length(elements)
     elem_idx = Dict(elements[i] => i for i in 1:q)
     T_zero = zero(F)
     
@@ -530,6 +540,228 @@ function _CWE_classical_TP_sectionalized(G::Matrix{T}, boundaries::Vector{Int}=c
     end
     
     return prev_layer[Vector{T}()]
+end
+
+function _CWE_classical_TP_binary(G::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    k, n = size(G)
+    L, R = _get_LR_indices(G)
+    start_sets, working_sets, active_sets, _ = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0) # (zeros, ones)
+    
+    # Dict Key is now UInt128!
+    prev_layer = Dict{UInt128, Dict{NTuple{2, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+
+    p = verbose ? Progress(num_sections, 0.1, "Building TP CWE Trellis (Binary): ") : nothing
+
+    M_cols = zeros(UInt128, n)
+    for col in 1:n
+        col_val = UInt128(0)
+        for row in 1:k
+            if !iszero(G[row, col]) col_val |= (UInt128(1) << (row - 1)) end
+        end
+        M_cols[col] = col_val
+    end
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{2, Int}, BigInt}}()
+
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 1 << length(active_curr))
+
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        starting = start_sets[m]
+        working = working_sets[m]
+
+        keep_mask = UInt128(0)
+        for row in active_curr keep_mask |= (UInt128(1) << (row - 1)) end
+
+        w_mask = UInt128(0)
+        for row in working w_mask |= (UInt128(1) << (row - 1)) end
+
+        num_branches = 1 << length(starting)
+        deltas = zeros(UInt128, num_branches)
+        for b in 0:(num_branches-1)
+            d = UInt128(0)
+            for (idx, row) in enumerate(starting)
+                if ((b >> (idx - 1)) & 1) == 1 d |= (UInt128(1) << (row - 1)) end
+            end
+            deltas[b+1] = d
+        end
+
+        cols_in_chunk = (left_b + 1):right_b
+        chunk_len = right_b - left_b
+
+        for (u_prev, partial_CWE) in prev_layer
+            @inbounds for b in 1:num_branches
+                u_work = u_prev | deltas[b]
+
+                ones_wt = 0
+                for col in cols_in_chunk
+                    ones_wt += count_ones(u_work & M_cols[col] & w_mask) & 1
+                end
+                zeros_wt = chunk_len - ones_wt
+                chunk_tuple = (zeros_wt, ones_wt)
+
+                u_next = u_work & keep_mask
+
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{2, Int}, BigInt}()
+                end
+
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+
+    return prev_layer[UInt128(0)]
+end
+
+function _CWE_classical_TP_ternary(G::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    k, n = size(G)
+    F = parent(G[1,1])
+    elements = collect(F)
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
+    
+    G_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n G_u8[i,j] = elem_to_u8[G[i,j]] end
+    
+    L, R = _get_LR_indices(G)
+    start_sets, working_sets, active_sets, _ = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0, 0)
+    prev_layer = Dict{UInt128, Dict{NTuple{3, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+
+    p = verbose ? Progress(num_sections, 0.1, "Building TP CWE Trellis (GF(3)): ") : nothing
+    u_buf = zeros(UInt8, k)
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{3, Int}, BigInt}}()
+
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 3^length(active_curr))
+
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        active_prev = m == 1 ? Int[] : active_sets[m-1]
+        starting = start_sets[m]
+        working = working_sets[m]
+
+        for (u_packed, partial_CWE) in prev_layer
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), length(starting))...)
+                @inbounds for (idx, row) in enumerate(starting) u_buf[row] = branch_scalars[idx] end
+                
+                c0, c1, c2 = 0, 0, 0
+                for col in (left_b + 1):right_b
+                    c_i = UInt32(0)
+                    @inbounds for row in working c_i += u_buf[row] * G_u8[row, col] end
+                    val = c_i % 3
+                    if val == 0 c0 += 1 elseif val == 1 c1 += 1 else c2 += 1 end
+                end
+                chunk_tuple = (c0, c1, c2)
+
+                u_next = UInt128(0)
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    u_next |= (UInt128(u_buf[row]) << (2 * (idx - 1)))
+                end
+
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{3, Int}, BigInt}()
+                end
+                
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2], prev_comp[3] + chunk_tuple[3])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    return prev_layer[UInt128(0)]
+end
+
+function _CWE_classical_TP_quaternary(G::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    k, n = size(G)
+    F = parent(G[1,1])
+    elements = collect(F)
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
+    
+    GF4_MULT = UInt8[0 0 0 0; 0 1 2 3; 0 2 3 1; 0 3 1 2]
+    
+    G_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n G_u8[i,j] = elem_to_u8[G[i,j]] end
+    
+    L, R = _get_LR_indices(G)
+    start_sets, working_sets, active_sets, _ = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0, 0, 0)
+    prev_layer = Dict{UInt128, Dict{NTuple{4, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+
+    p = verbose ? Progress(num_sections, 0.1, "Building TP CWE Trellis (GF(4)): ") : nothing
+    u_buf = zeros(UInt8, k)
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{4, Int}, BigInt}}()
+
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 4^length(active_curr))
+
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        active_prev = m == 1 ? Int[] : active_sets[m-1]
+        starting = start_sets[m]
+        working = working_sets[m]
+
+        for (u_packed, partial_CWE) in prev_layer
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), length(starting))...)
+                @inbounds for (idx, row) in enumerate(starting) u_buf[row] = branch_scalars[idx] end
+                
+                c0, c1, c2, c3 = 0, 0, 0, 0
+                for col in (left_b + 1):right_b
+                    c_i = UInt8(0)
+                    @inbounds for row in working c_i ⊻= GF4_MULT[u_buf[row] + 1, G_u8[row, col] + 1] end
+                    if c_i == 0 c0 += 1 elseif c_i == 1 c1 += 1 elseif c_i == 2 c2 += 1 else c3 += 1 end
+                end
+                chunk_tuple = (c0, c1, c2, c3)
+
+                u_next = UInt128(0)
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    u_next |= (UInt128(u_buf[row]) << (2 * (idx - 1)))
+                end
+
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{4, Int}, BigInt}()
+                end
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2], prev_comp[3] + chunk_tuple[3], prev_comp[4] + chunk_tuple[4])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    return prev_layer[UInt128(0)]
 end
 
 function _optimal_sectionalization_linear(M::Matrix{T}, q::Int) where T
@@ -771,10 +1003,20 @@ function _complete_weight_enumerator_trellis(C::AbstractLinearCode; num_trials::
 end
 
 function _CWE_classical_syndrome_sectionalized(H::Matrix{T}, boundaries::Vector{Int}=collect(0:size(H,2)), verbose::Bool=true) where T
+
     r, n = size(H) 
     F = parent(H[1, 1])
     elements = collect(F)
     q = length(elements)
+    
+   if q == 2 && r <= 128
+        return _CWE_classical_syndrome_binary(H, boundaries, verbose)
+    elseif q == 3 && r <= 64
+        return _CWE_classical_syndrome_ternary(H, boundaries, verbose)
+    elseif q == 4 && r <= 64
+        return _CWE_classical_syndrome_quaternary(H, boundaries, verbose)
+    end
+
     elem_idx = Dict(elements[i] => i for i in 1:q)
     T_zero = zero(F)
     
@@ -851,6 +1093,265 @@ function _CWE_classical_syndrome_sectionalized(H::Matrix{T}, boundaries::Vector{
     return get(prev_layer, final_state, Dict{NTuple{q, Int}, BigInt}())
 end
 
+function _CWE_classical_syndrome_binary(H::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    r, n = size(H) 
+    L, R = _get_LR_indices(H)
+    _, _, active_sets, ending_sets = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0)
+    
+    prev_layer = Dict{UInt128, Dict{NTuple{2, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+    p = verbose ? Progress(num_sections, 0.1, "Building Syndrome CWE Trellis (Binary): ") : nothing
+
+    M_cols = zeros(UInt128, n)
+    for col in 1:n
+        col_val = UInt128(0)
+        for row in 1:r
+            if !iszero(H[row, col]) col_val |= (UInt128(1) << (row - 1)) end
+        end
+        M_cols[col] = col_val
+    end
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{2, Int}, BigInt}}()
+        
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 1 << length(active_curr))
+        
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        chunk_len = right_b - left_b
+        
+        ending_curr = ending_sets[m]
+        end_mask = UInt128(0)
+        for row in ending_curr end_mask |= (UInt128(1) << (row - 1)) end
+        
+        keep_mask = UInt128(0)
+        for row in active_curr keep_mask |= (UInt128(1) << (row - 1)) end
+        
+        # 2^chunk_len possible error configurations in this block
+        for chunk_bits in 0:((1 << chunk_len) - 1)
+            
+            ones_wt = count_ones(chunk_bits)
+            zeros_wt = chunk_len - ones_wt
+            chunk_tuple = (zeros_wt, ones_wt)
+            
+            # Compute partial syndrome for this chunk
+            partial_syn = UInt128(0)
+            for i in 1:chunk_len
+                if ((chunk_bits >> (i - 1)) & 1) == 1
+                    partial_syn ⊻= M_cols[left_b + i]
+                end
+            end
+            
+            for (u_prev, partial_CWE) in prev_layer
+                u_work = u_prev ⊻ partial_syn
+                
+                # Prune if the syndrome doesn't clear out on terminating rows
+                if (u_work & end_mask) != 0 continue end
+                
+                u_next = u_work & keep_mask
+                
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{2, Int}, BigInt}()
+                end
+                
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+   
+    return get(prev_layer, UInt128(0), Dict{NTuple{2, Int}, BigInt}())
+end
+
+function _CWE_classical_syndrome_ternary(H::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    r, n = size(H) 
+    F = parent(H[1,1])
+    elements = collect(F)
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
+    
+    H_u8 = zeros(UInt8, r, n)
+    for i in 1:r, j in 1:n H_u8[i,j] = elem_to_u8[H[i,j]] end
+    
+    L, R = _get_LR_indices(H)
+    _, _, active_sets, ending_sets = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0, 0)
+    prev_layer = Dict{UInt128, Dict{NTuple{3, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+
+    p = verbose ? Progress(num_sections, 0.1, "Building Syndrome CWE Trellis (GF(3)): ") : nothing
+    u_buf = zeros(UInt8, r)
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{3, Int}, BigInt}}()
+        
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 3^length(active_curr))
+        
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        chunk_len = right_b - left_b
+        active_prev = m == 1 ? Int[] : active_sets[m-1]
+        ending_curr = ending_sets[m]
+
+        for chunk_symbols in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), chunk_len)...)
+            c0, c1, c2 = 0, 0, 0
+            for sym in chunk_symbols
+                if sym == 0 c0 += 1 elseif sym == 1 c1 += 1 else c2 += 1 end
+            end
+            chunk_tuple = (c0, c1, c2)
+            
+            chunk_vec = [sym for sym in chunk_symbols]
+            partial_syn = zeros(UInt8, r)
+            for col in 1:chunk_len
+                if chunk_vec[col] != 0
+                    for row in 1:r
+                        partial_syn[row] = (partial_syn[row] + chunk_vec[col] * H_u8[row, left_b + col]) % 3
+                    end
+                end
+            end
+            
+            for (u_packed, partial_CWE) in prev_layer
+                fill!(u_buf, UInt8(0))
+                for (idx, row) in enumerate(active_prev)
+                    u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+                end
+                
+                valid_branch = true
+                for row in 1:r
+                    u_buf[row] = (u_buf[row] + partial_syn[row]) % 3
+                end
+                for row in ending_curr
+                    if u_buf[row] != 0
+                        valid_branch = false
+                        break
+                    end
+                end
+                if !valid_branch continue end
+                
+                u_next = UInt128(0)
+                for (idx, row) in enumerate(active_curr)
+                    u_next |= (UInt128(u_buf[row]) << (2 * (idx - 1)))
+                end
+                
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{3, Int}, BigInt}()
+                end
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2], prev_comp[3] + chunk_tuple[3])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    return get(prev_layer, UInt128(0), Dict{NTuple{3, Int}, BigInt}())
+end
+
+function _CWE_classical_syndrome_quaternary(H::Matrix{T}, boundaries::Vector{Int}, verbose::Bool=true) where T
+    r, n = size(H) 
+    F = parent(H[1,1])
+    elements = collect(F)
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
+    GF4_MULT = UInt8[0 0 0 0; 0 1 2 3; 0 2 3 1; 0 3 1 2]
+    
+    H_u8 = zeros(UInt8, r, n)
+    for i in 1:r, j in 1:n H_u8[i,j] = elem_to_u8[H[i,j]] end
+    
+    L, R = _get_LR_indices(H)
+    _, _, active_sets, ending_sets = _build_trellis_sets(L, R, boundaries)
+
+    num_sections = length(boundaries) - 1
+    init_comp = (0, 0, 0, 0)
+    prev_layer = Dict{UInt128, Dict{NTuple{4, Int}, BigInt}}(UInt128(0) => Dict(init_comp => BigInt(1)))
+
+    p = verbose ? Progress(num_sections, 0.1, "Building Syndrome CWE Trellis (GF(4)): ") : nothing
+
+    for m in 1:num_sections
+        next_layer = Dict{UInt128, Dict{NTuple{4, Int}, BigInt}}()
+        
+        active_curr = active_sets[m]
+        sizehint!(next_layer, 4^length(active_curr))
+        
+        left_b, right_b = boundaries[m], boundaries[m+1]
+        chunk_len = right_b - left_b
+        active_prev = m == 1 ? Int[] : active_sets[m-1]
+        ending_curr = ending_sets[m]
+        
+        end_mask = UInt128(0)
+        for row in ending_curr end_mask |= (UInt128(3) << (2 * (row - 1))) end
+        
+        keep_mask = UInt128(0)
+        for (idx, row) in enumerate(active_curr) keep_mask |= (UInt128(3) << (2 * (idx - 1))) end
+
+        for chunk_symbols in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), chunk_len)...)
+            c0, c1, c2, c3 = 0, 0, 0, 0
+            for sym in chunk_symbols
+                if sym == 0 c0 += 1 elseif sym == 1 c1 += 1 elseif sym == 2 c2 += 1 else c3 += 1 end
+            end
+            chunk_tuple = (c0, c1, c2, c3)
+            
+            chunk_vec = [sym for sym in chunk_symbols]
+            partial_syn_packed = UInt128(0)
+            
+            for row in 1:r
+                c_i = UInt8(0)
+                for col in 1:chunk_len
+                    if chunk_vec[col] != 0
+                        c_i ⊻= GF4_MULT[chunk_vec[col] + 1, H_u8[row, left_b + col] + 1]
+                    end
+                end
+                if c_i != 0
+                    # Map the row's syndrome value into the correct position in the active_prev layout
+                    idx = findfirst(x -> x == row, active_prev)
+                    if !isnothing(idx)
+                        partial_syn_packed |= (UInt128(c_i) << (2 * (idx - 1)))
+                    else
+                        # If it affects a row that wasn't active previously, it's either an ending row or an active_curr row
+                        partial_syn_packed |= (UInt128(c_i) << (2 * (row - 1))) # We'll re-mask this properly below
+                    end
+                end
+            end
+            
+            for (u_packed, partial_CWE) in prev_layer
+                # GF(4) Native Hardware Addition!
+                u_work = u_packed ⊻ partial_syn_packed
+                
+                if (u_work & end_mask) != 0 continue end
+                
+                # Compress u_work back down into the active_curr layout
+                u_next = UInt128(0)
+                for (idx, row) in enumerate(active_curr)
+                    # Extract the value from its true row position
+                    val = (u_work >> (2 * (row - 1))) & 3
+                    # Pack it into its dense active_curr index position
+                    u_next |= (UInt128(val) << (2 * (idx - 1)))
+                end
+                
+                if !haskey(next_layer, u_next)
+                    next_layer[u_next] = Dict{NTuple{4, Int}, BigInt}()
+                end
+                dest_dict = next_layer[u_next]
+                for (prev_comp, count) in partial_CWE
+                    new_comp = (prev_comp[1] + chunk_tuple[1], prev_comp[2] + chunk_tuple[2], prev_comp[3] + chunk_tuple[3], prev_comp[4] + chunk_tuple[4])
+                    dest_dict[new_comp] = get(dest_dict, new_comp, BigInt(0)) + count
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    return get(prev_layer, UInt128(0), Dict{NTuple{4, Int}, BigInt}())
+end
+
 """
     Krawtchouk(i::Int, j::Int, n::Int, q::Int)
 
@@ -868,12 +1369,12 @@ function Krawtchouk(i::Int, j::Int, n::Int, q::Int)
 end
 
 """
-    Macwilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
+    MacWilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
 
 Applies the MacWilliams identity to convert a dual Hamming weight distribution 
 into the primal Hamming weight distribution using Krawtchouk polynomials.
 """
-function Macwilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
+function MacWilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
     primal_hwe = Dict{Int, BigInt}()
     scaling_factor = BigInt(q)^(n - k)
     
@@ -1712,6 +2213,10 @@ function _forward_trellis(M::Matrix{T}, B_L::Int, q::Int, block_size::Int=0, ver
     k, _ = size(M)
     if q == 2 && k <= 128
         return _forward_trellis_binary(M, B_L, block_size, verbose)
+    elseif q == 3 && k <= 64
+        return _forward_trellis_ternary(M, B_L, block_size, verbose)
+    elseif q == 4 && k <= 64
+        return _forward_trellis_quaternary(M, B_L, block_size, verbose)
     else
         return _forward_trellis_nonbinary(M, B_L, q, block_size, verbose)
     end
@@ -1803,6 +2308,416 @@ function _forward_trellis_binary(M::Matrix{T}, B_L::Int, block_size::Int=0, verb
     return prev_layer
 end
 
+function _forward_trellis_ternary(M::Matrix{T}, B_L::Int, block_size::Int=0, verbose::Bool=true) where T
+    k, n = size(M)
+    F = parent(M[1,1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3])
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets = [Int[] for _ in 1:B_L]
+    start_sets  = [Int[] for _ in 1:B_L]
+    work_sets   = [Int[] for _ in 1:B_L]
+
+    for col in 1:B_L
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if L[row] == col push!(start_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+
+    p = verbose ? Progress(B_L, 0.1, "Building Forward Trellis (GF(3)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in 1:B_L
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        active_curr = active_sets[col]
+        sizehint!(next_layer, 3^length(active_curr))
+        
+        active_prev = col == 1 ? Int[] : active_sets[col-1]
+        starting = start_sets[col]
+        working = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            # Shift hardware bits to unpack local states
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), length(starting))...)
+                @inbounds for (idx, row) in enumerate(starting) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt32(0)
+                @inbounds for row in working
+                    c_i += u_buf[row] * M_u8[row, col]
+                end
+                col_wt = (c_i % 3) == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                new_is_nonzero = is_nonzero
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                # Shift bits to pack hardware dictionary key
+                next_packed = UInt128(0)
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    next_packed |= (UInt128(u_buf[row]) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        
+        if col == block_size
+            zero_key = (UInt128(0), false)
+            if haskey(next_layer, zero_key) && next_layer[zero_key] == 0
+                delete!(next_layer, zero_key)
+            end
+        end
+        
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    # Translate hardware registers back into Oscar Vectors for the Middle Search
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    active_final = active_sets[B_L]
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_final))
+        for (idx, row) in enumerate(active_final)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
+end
+
+function _backward_trellis_ternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
+    k, _ = size(M)
+    F = parent(M[1, 1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3])
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets   = [Int[] for _ in 1:n]
+    start_bw_sets = [Int[] for _ in 1:n]
+    work_sets     = [Int[] for _ in 1:n]
+
+    for col in n:-1:(B_R + 1)
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if R[row] == col push!(start_bw_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+    
+    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
+
+    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(3)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in n:-1:(B_R + 1)
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        
+        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
+        sizehint!(next_layer, 3^length(active_curr))
+        
+        active_prev = active_sets[col]
+        starting_bw = start_bw_sets[col]
+        working     = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), length(starting_bw))...)
+                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt32(0)
+                @inbounds for row in working
+                    c_i += u_buf[row] * M_u8[row, col]
+                end
+                
+                col_wt = (c_i % 3) == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                next_packed = UInt128(0)
+                new_is_nonzero = is_nonzero
+                
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    val = u_buf[row]
+                    if val != 0 new_is_nonzero = true end
+                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_at_BR))
+        for (idx, row) in enumerate(active_at_BR)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
+end
+
+function _forward_trellis_quaternary(M::Matrix{T}, B_L::Int, block_size::Int=0, verbose::Bool=true) where T
+    k, n = size(M)
+    F = parent(M[1,1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3], UInt8(3) => elements[4])
+    
+    GF4_MULT = UInt8[
+        0 0 0 0;
+        0 1 2 3;
+        0 2 3 1;
+        0 3 1 2
+    ]
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets = [Int[] for _ in 1:B_L]
+    start_sets  = [Int[] for _ in 1:B_L]
+    work_sets   = [Int[] for _ in 1:B_L]
+
+    for col in 1:B_L
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if L[row] == col push!(start_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+
+    p = verbose ? Progress(B_L, 0.1, "Building Forward Trellis (GF(4)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in 1:B_L
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        
+        active_curr = active_sets[col]
+        sizehint!(next_layer, 4^length(active_curr))
+        
+        active_prev = col == 1 ? Int[] : active_sets[col-1]
+        starting = start_sets[col]
+        working = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), length(starting))...)
+                @inbounds for (idx, row) in enumerate(starting) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt8(0)
+                @inbounds for row in working
+                    c_i ⊻= GF4_MULT[u_buf[row] + 1, M_u8[row, col] + 1]
+                end
+                col_wt = c_i == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                new_is_nonzero = is_nonzero
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                next_packed = UInt128(0)
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    next_packed |= (UInt128(u_buf[row]) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        
+        if col == block_size
+            zero_key = (UInt128(0), false)
+            if haskey(next_layer, zero_key) && next_layer[zero_key] == 0
+                delete!(next_layer, zero_key)
+            end
+        end
+        
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    active_final = active_sets[B_L]
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_final))
+        for (idx, row) in enumerate(active_final)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
+end
+
+function _backward_trellis_quaternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
+    k, _ = size(M)
+    F = parent(M[1, 1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3], UInt8(3) => elements[4])
+    
+    GF4_MULT = UInt8[
+        0 0 0 0;
+        0 1 2 3;
+        0 2 3 1;
+        0 3 1 2
+    ]
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets   = [Int[] for _ in 1:n]
+    start_bw_sets = [Int[] for _ in 1:n]
+    work_sets     = [Int[] for _ in 1:n]
+
+    for col in n:-1:(B_R + 1)
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if R[row] == col push!(start_bw_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+    
+    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
+
+    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(4)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in n:-1:(B_R + 1)
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        
+        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
+        sizehint!(next_layer, 4^length(active_curr))
+        
+        active_prev = active_sets[col]
+        starting_bw = start_bw_sets[col]
+        working     = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), length(starting_bw))...)
+                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt8(0)
+                @inbounds for row in working
+                    c_i ⊻= GF4_MULT[u_buf[row] + 1, M_u8[row, col] + 1]
+                end
+                
+                col_wt = c_i == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                next_packed = UInt128(0)
+                new_is_nonzero = is_nonzero
+                
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    val = u_buf[row]
+                    if val != 0 new_is_nonzero = true end
+                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_at_BR))
+        for (idx, row) in enumerate(active_at_BR)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
+end
+
 function _forward_trellis_nonbinary(M::Matrix{T}, B_L::Int, q::Int, block_size::Int=0, verbose::Bool=true) where T
     k, n = size(M)
     F = parent(M[1, 1])
@@ -1879,6 +2794,10 @@ function _backward_trellis(M::Matrix{T}, n::Int, B_R::Int, q::Int, verbose::Bool
     k, _ = size(M)
     if q == 2 && k <= 128
         return _backward_trellis_binary(M, n, B_R, verbose)
+    elseif q == 3 && k <= 64
+        return _backward_trellis_ternary(M, n, B_R, verbose)
+    elseif q == 4 && k <= 64
+        return _backward_trellis_quaternary(M, n, B_R, verbose)
     else
         return _backward_trellis_nonbinary(M, n, B_R, q, verbose)
     end
@@ -1960,8 +2879,209 @@ function _backward_trellis_binary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=
         verbose && next!(p)
     end
     
-    # DO NOT UNPACK!
+    # DO NOT UNPACK! Return raw hardware registers for the BZ Middle Search
     return prev_layer
+end
+
+function _backward_trellis_ternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
+    k, _ = size(M)
+    F = parent(M[1, 1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3])
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets   = [Int[] for _ in 1:n]
+    start_bw_sets = [Int[] for _ in 1:n]
+    work_sets     = [Int[] for _ in 1:n]
+
+    for col in n:-1:(B_R + 1)
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if R[row] == col push!(start_bw_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+    
+    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
+
+    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(3)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in n:-1:(B_R + 1)
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        
+        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
+        sizehint!(next_layer, 3^length(active_curr))
+        
+        active_prev = active_sets[col]
+        starting_bw = start_bw_sets[col]
+        working     = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), length(starting_bw))...)
+                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt32(0)
+                @inbounds for row in working
+                    c_i += u_buf[row] * M_u8[row, col]
+                end
+                
+                col_wt = (c_i % 3) == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                next_packed = UInt128(0)
+                new_is_nonzero = is_nonzero
+                
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    val = u_buf[row]
+                    if val != 0 new_is_nonzero = true end
+                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_at_BR))
+        for (idx, row) in enumerate(active_at_BR)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
+end
+
+function _backward_trellis_quaternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
+    k, _ = size(M)
+    F = parent(M[1, 1])
+    elements = collect(F)
+    T_zero = zero(F)
+    
+    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
+    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3], UInt8(3) => elements[4])
+    
+    GF4_MULT = UInt8[
+        0 0 0 0;
+        0 1 2 3;
+        0 2 3 1;
+        0 3 1 2
+    ]
+    
+    M_u8 = zeros(UInt8, k, n)
+    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
+    
+    L, R = _get_LR_indices(M)
+    
+    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
+    
+    active_sets   = [Int[] for _ in 1:n]
+    start_bw_sets = [Int[] for _ in 1:n]
+    work_sets     = [Int[] for _ in 1:n]
+
+    for col in n:-1:(B_R + 1)
+        for row in 1:k
+            if L[row] <= col < R[row] push!(active_sets[col], row) end
+            if R[row] == col push!(start_bw_sets[col], row) end
+            if L[row] <= col <= R[row] push!(work_sets[col], row) end
+        end
+    end
+    
+    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
+
+    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(4)): ") : nothing
+    u_buf = zeros(UInt8, k)
+    
+    for col in n:-1:(B_R + 1)
+        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
+        
+        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
+        sizehint!(next_layer, 4^length(active_curr))
+        
+        active_prev = active_sets[col]
+        starting_bw = start_bw_sets[col]
+        working     = work_sets[col]
+        
+        for ((u_packed, is_nonzero), prev_wt) in prev_layer
+            
+            fill!(u_buf, UInt8(0))
+            for (idx, row) in enumerate(active_prev)
+                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            end
+            
+            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), length(starting_bw))...)
+                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
+                
+                c_i = UInt8(0)
+                @inbounds for row in working
+                    c_i ⊻= GF4_MULT[u_buf[row] + 1, M_u8[row, col] + 1]
+                end
+                
+                col_wt = c_i == 0 ? 0 : 1
+                new_wt = prev_wt + col_wt
+                
+                next_packed = UInt128(0)
+                new_is_nonzero = is_nonzero
+                
+                for val in branch_scalars
+                    if val != 0 new_is_nonzero = true end
+                end
+                
+                @inbounds for (idx, row) in enumerate(active_curr)
+                    val = u_buf[row]
+                    if val != 0 new_is_nonzero = true end
+                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
+                end
+                
+                key = (next_packed, new_is_nonzero)
+                if !haskey(next_layer, key) || new_wt < next_layer[key]
+                    next_layer[key] = new_wt
+                end
+            end
+        end
+        prev_layer = next_layer
+        verbose && next!(p)
+    end
+    
+    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
+    for ((u_packed, is_nz), wt) in prev_layer
+        u_unpacked = fill(T_zero, length(active_at_BR))
+        for (idx, row) in enumerate(active_at_BR)
+            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
+            u_unpacked[idx] = u8_to_elem[val_u8]
+        end
+        final_dict[(u_unpacked, is_nz)] = wt
+    end
+    
+    return final_dict
 end
 
 function _backward_trellis_nonbinary(M::Matrix{T}, n::Int, B_R::Int, q::Int, verbose::Bool=true) where T
@@ -1988,7 +3108,7 @@ function _backward_trellis_nonbinary(M::Matrix{T}, n::Int, B_R::Int, q::Int, ver
     
     active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
 
-    p = verbose ? Progress(n - B_R, 1, "Building Backward Trellis (Non-Binary): ") : nothing
+    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (Non-Binary): ") : nothing
     u_buf = fill(T_zero, k)
     
     for col in n:-1:(B_R + 1)
@@ -2018,7 +3138,6 @@ function _backward_trellis_nonbinary(M::Matrix{T}, n::Int, B_R::Int, q::Int, ver
                 
                 next_scalars = [u_buf[row] for row in active_curr]
                 
-                # Check if the carried state itself contains any non-zero elements
                 new_is_nonzero = is_nonzero || any(!iszero, branch_scalars) || any(!iszero, next_scalars)
                 
                 key = (next_scalars, new_is_nonzero)

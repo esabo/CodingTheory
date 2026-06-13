@@ -29,7 +29,8 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     tensor_product, gens, dim, is_isomorphic, field, is_irreducible
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈
+import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
+    getproperty, setproperty!
 import Combinatorics: powerset
 import DataStructures: capacity
 
