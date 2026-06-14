@@ -2076,3 +2076,33 @@ Return a bar graph of the weight distribution of `C`.
 - Run `using Makie` to activate this extension.
 """
 function weight_plot end
+
+# ==============================================================================
+# WEIGHT ALGEBRA FOR COMPOSITE CODES
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute the exact Hamming Weight Enumerator for a Direct Sum code via discrete convolution.
+"""
+function weight_enumerator(C::DirectSumCode)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :weight_enum)
+        we1 = weight_enumerator(C.C1)
+        we2 = weight_enumerator(C.C2)
+        
+        # If either constituent code doesn't have a known WE, we can't compute it
+        (ismissing(we1) || ismissing(we2)) && return missing
+        
+        new_counts = Dict{Int, BigInt}()
+        for (w1, count1) in we1.weights
+            for (w2, count2) in we2.weights
+                w_new = w1 + w2
+                new_counts[w_new] = get(new_counts, w_new, BigInt(0)) + (count1 * count2)
+            end
+        end
+        cache[:weight_enum] = HammingWeightEnumerator(C.n, new_counts)
+    end
+    return cache[:weight_enum]
+end

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, 2023 Eric Sabo
+# Copyright (c) 2022 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -8,11 +8,52 @@
         # constructors
 #############################
 
-"""
-    QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
+function generator_matrix(C::QuasiCyclicCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if C.A_type == :G && !haskey(cache, :G)
+        cache[:G] = lift(C.A)
+    elseif C.A_type == :H && !haskey(cache, :G)
+        # If A specifies H, we must compute G via the kernel of the lifted H
+        H_lift = parity_check_matrix(C)
+        _, G = right_kernel(H_lift)
+        cache[:G] = transpose(G)
+    end
+    
+    if stand_form
+        if !haskey(cache, :G_stand)
+            G_stand, H_stand, P, _ = _standard_form(cache[:G])
+            cache[:G_stand] = G_stand
+            cache[:H_stand] = H_stand
+            cache[:P_stand] = P
+        end
+        return cache[:G_stand]
+    end
+    return cache[:G]
+end
 
-Return the quasi-cycle code specified by the matrix `A` of polynomial circulant generators. If the
-optional paramater `parity` is set to `true`, the input is used to construct the parity-check matrix.
+function parity_check_matrix(C::QuasiCyclicCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if C.A_type == :H && !haskey(cache, :H)
+        cache[:H] = lift(C.A)
+    elseif C.A_type == :G && !haskey(cache, :H)
+        # If A specifies G, we must compute H via the kernel of the lifted G
+        G_lift = generator_matrix(C)
+        _, H = right_kernel(G_lift)
+        cache[:H] = transpose(H)
+    end
+    
+    if stand_form
+        generator_matrix(C, true)
+        return cache[:H_stand]
+    end
+    return cache[:H]
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the quasi-cyclic code specified by the matrix `A` of polynomial circulant generators. 
+Evaluates lazily.
 """
 function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
     R = parent(A[1, 1])
@@ -21,23 +62,21 @@ function QuasiCyclicCode(A::MatElem{T}, parity::Bool=false) where T <: ResElem
     g = modulus(R)
     m = degree(g)
     g == gen(S)^m - 1 || throw(ArgumentError("Residue ring not of the form x^m - 1."))
+    
     l = ncols(A)
-    if parity
-        A_type = :H
-        H = lift(A)
-        # k, _ = kernel(H, side = :right)
-        k = rank(H)
-        W = weight_matrix(A)
-        return QuasiCyclicCode(F, R, ncols(H), k, missing, 1, ncols(H), missing, missing,
-            missing, missing, missing, missing, l, m, A, A_type, W, maximum(W))
-    else
-        A_type = :G
-        G = lift(A)
-        k = rank(G)
-        W = weight_matrix(A)
-        return QuasiCyclicCode(F, R, ncols(G), k, missing, 1, ncols(G), missing, missing,
-            missing, missing, missing, missing, l, m, A, A_type, W, maximum(W))
-    end
+    nr = nrows(A)
+    n_full = l * m
+    
+    # We must determine k eagerly for the abstract type interface, but we only 
+    # compute the rank of the lifted matrix, bypassing full nullspace extraction.
+    A_lift = lift(A)
+    rnk = rank(A_lift)
+    
+    k = parity ? (n_full - rnk) : rnk
+    A_type = parity ? :H : :G
+    
+    cache = Dict{Symbol, Any}()
+    return QuasiCyclicCode(F, R, n_full, k, missing, 1, n_full, l, m, A, A_type, cache)
 end
 
 """
@@ -324,3 +363,234 @@ function circulants(C::AbstractQuasiCyclicCode)
     end
     return circulants
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the integer shift matrix (exponent matrix) of the Quasi-Cyclic code.
+
+# Notes
+* If a circulant is a pure monomial `x^e`, its entry is `e`.
+* If a circulant is the zero matrix, its entry is `-1`.
+* Throws an error if the matrix contains polynomials with multiple terms.
+"""
+function shift_matrix(C::AbstractQuasiCyclicCode)
+    nr, nc = size(C.A)
+    E = fill(-1, nr, nc)
+    
+    for r in 1:nr
+        for c in 1:nc
+            poly = lift(C.A[r, c])
+            iszero(poly) && continue
+            
+            coeffs = collect(coefficients(poly))
+            count(!iszero, coeffs) == 1 || throw(ArgumentError("Circulant at ($r, $c) is not a simple shift (has multiple terms)."))
+            
+            # Find the degree of the single non-zero term
+            E[r, c] = findfirst(!iszero, coeffs) - 1
+        end
+    end
+    
+    return E
+end
+exponent_matrix(C::AbstractQuasiCyclicCode) = shift_matrix(C)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if the quasi-cyclic code contains an algebraic 4-cycle, based on 
+Fossorier's condition. Evaluates entirely in the polynomial domain.
+"""
+function has_algebraic_4_cycle(C::AbstractQuasiCyclicCode)
+    E = shift_matrix(C)
+    nr, nc = size(E)
+    m = C.m
+    
+    # A 4-cycle exists if there is a 2x2 submatrix in the shift matrix
+    # without any -1 (null) entries, such that the alternating sum of shifts is 0 mod m.
+    for r1 in 1:(nr - 1)
+        for r2 in (r1 + 1):nr
+            for c1 in 1:(nc - 1)
+                for c2 in (c1 + 1):nc
+                    e11, e12 = E[r1, c1], E[r1, c2]
+                    e21, e22 = E[r2, c1], E[r2, c2]
+                    
+                    if e11 != -1 && e12 != -1 && e21 != -1 && e22 != -1
+                        # Fossorier Condition for 2κ = 4
+                        if mod(e11 - e12 + e22 - e21, m) == 0
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if the quasi-cyclic code contains an algebraic cycle of exactly `target_length`, 
+based on Fossorier's condition.
+
+# Notes
+* `target_length` must be an even integer `2j` (e.g., 4, 6, 8).
+* Evaluates entirely in the polynomial domain using a DFS backtracking algorithm.
+"""
+function has_algebraic_cycle(C::AbstractQuasiCyclicCode, target_length::Int)
+    iseven(target_length) && target_length >= 4 || throw(ArgumentError("Target length must be an even integer >= 4."))
+    
+    E = shift_matrix(C) # Assuming exponent_matrix/shift_matrix alias is set
+    nr, nc = size(E)
+    m = C.m
+    
+    visited_rows = falses(nr)
+    visited_cols = falses(nc)
+    
+    # Internal DFS closure
+    function dfs(curr_node::Int, start_row::Int, depth::Int, current_sum::Int, is_row::Bool)
+        # Base Case: Reached the target cycle length
+        if depth == target_length
+            return curr_node == start_row && mod(current_sum, m) == 0
+        end
+        
+        if is_row
+            r = curr_node
+            visited_rows[r] = true
+            
+            for c in 1:nc
+                if E[r, c] != -1 && !visited_cols[c]
+                    # Going from Row -> Col: Add the shift exponent
+                    if dfs(c, start_row, depth + 1, current_sum + E[r, c], false)
+                        visited_rows[r] = false # Backtrack
+                        return true
+                    end
+                end
+            end
+            visited_rows[r] = false # Backtrack
+            
+        else
+            c = curr_node
+            visited_cols[c] = true
+            
+            for r in 1:nr
+                if E[r, c] != -1
+                    # If we are exactly one step away from closing the loop, 
+                    # we must strictly return to the start_row.
+                    if depth == target_length - 1
+                        if r == start_row
+                            # Going from Col -> Row: Subtract the shift exponent
+                            if dfs(r, start_row, depth + 1, current_sum - E[r, c], true)
+                                visited_cols[c] = false # Backtrack
+                                return true
+                            end
+                        end
+                    else
+                        # Otherwise, continue exploring unvisited rows
+                        if !visited_rows[r]
+                            if dfs(r, start_row, depth + 1, current_sum - E[r, c], true)
+                                visited_cols[c] = false # Backtrack
+                                return true
+                            end
+                        end
+                    end
+                end
+            end
+            visited_cols[c] = false # Backtrack
+        end
+        
+        return false
+    end
+
+    # Initiate DFS from every row node
+    for start_row in 1:nr
+        # Reset visited arrays for each completely new start node
+        fill!(visited_rows, false)
+        fill!(visited_cols, false)
+        
+        if dfs(start_row, start_row, 0, 0, true)
+            return true
+        end
+    end
+    
+    return false
+end
+
+# ==============================================================================
+# ALGEBRAIC DECOMPOSITION & DIMENSION
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Decompose the Quasi-Cyclic polynomial matrix into its Fourier/CRT components.
+
+# Notes
+* Returns a vector of tuples `(g, A_K)`, where `g` is an irreducible factor of `x^m - 1` 
+  and `A_K` is the polynomial matrix evaluated in the extension field `F[x]/<g(x)>`.
+* Bypasses the massive memory allocation of `lift(A)`.
+"""
+function component_matrices(C::AbstractQuasiCyclicCode)
+    S = base_ring(C.R) # F[x]
+    F = base_ring(S)
+    m = C.m
+    
+    # Ensure semi-simple algebra (m coprime to characteristic)
+    gcd(m, Int(characteristic(F))) == 1 || @warn "m is not coprime to field characteristic; decomposition contains nilpotent elements."
+    
+    facs = factor(gen(S)^m - 1)
+    components = Tuple{typeof(gen(S)), MatElem}[]
+    
+    for (g, _) in facs
+        # Construct the extension field (or quotient ring) for the irreducible factor
+        K, _ = residue_ring(S, g)
+        
+        nr, nc = size(C.A)
+        A_K = zero_matrix(K, nr, nc)
+        
+        for r in 1:nr
+            for c in 1:nc
+                # Map the polynomial into the extension field
+                A_K[r, c] = K(lift(C.A[r, c]))
+            end
+        end
+        push!(components, (g, A_K))
+    end
+    
+    return components
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute the exact dimension `k` of the Quasi-Cyclic code algebraically.
+
+# Notes
+* Uses the CRT decomposition to compute the rank over small extension fields.
+* Executes in a fraction of the time of `rank(lift(A))`.
+"""
+function algebraic_dimension(C::AbstractQuasiCyclicCode)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :algebraic_k)
+        total_rank = 0
+        comps = component_matrices(C)
+        
+        for (g, A_K) in comps
+            # The dimension contribution is the rank of the component matrix 
+            # multiplied by the degree of the field extension.
+            ext_deg = degree(g)
+            total_rank += ext_deg * rank(A_K)
+        end
+        
+        # If A specifies the Parity Check matrix, k = n - rank
+        if C.A_type == :H
+            cache[:algebraic_k] = C.n - total_rank
+        else
+            cache[:algebraic_k] = total_rank
+        end
+    end
+    
+    return cache[:algebraic_k]
+end
+

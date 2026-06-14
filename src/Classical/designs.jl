@@ -54,3 +54,27 @@ function design_strength(C::AbstractLinearCode; verbose::Bool=false)
     verbose && println("Maximum guaranteed design strength: t = $max_t")
     return max_t
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact number of minimum weight codewords in `RM(r, m)`.
+
+# Notes
+* Geometrically, this is the number of `(m-r)`-dimensional affine subspaces in `AG(m, 2)`.
+* These codewords form the blocks of a 3-design.
+"""
+function minimum_weight_blocks(C::ReedMullerCode)
+    r = C.r
+    m = C.m
+    
+    # Formula for the number of affine subspaces
+    blocks = BigInt(2)^r
+    for i in 0:(m - r - 1)
+        num = BigInt(2)^(m - i) - 1
+        den = BigInt(2)^(m - r - i) - 1
+        blocks *= div(num, den)
+    end
+    
+    return blocks
+end

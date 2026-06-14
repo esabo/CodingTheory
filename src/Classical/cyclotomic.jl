@@ -9,37 +9,26 @@
 #############################
 
 """
-    ord(n::Int, q::Int)
+$(TYPEDSIGNATURES)
 
-Return the multiplicative order of `n` mod `q`.
+Return the multiplicative order of `q` mod `n`.
 """
 function ord(n::Int, q::Int)
-    (q <= 0 || n <= 0) && 
-        throw(DomainError("q and n both need to be positive. Passed: q = $q, n = $n"))
+    (q <= 0 || n <= 0) && throw(DomainError((q, n), "q and n both need to be positive."))
+    gcd(n, q) == 1 || throw(ArgumentError("n and q must be coprime to compute multiplicative order (gcd($n, $q) != 1)."))
 
-    # finite stop instead of while
-    for i in 1:200
-        if mod(BigInt(q)^i, n) == 1
-            return i
-        end
+    val = mod(q, n)
+    t = 1
+    # Euler's Totient Theorem guarantees this will terminate in <= n steps
+    while val != 1
+        val = mod(val * q, n)
+        t += 1
     end
-    error("Unable to compute ord($n, $q).")
+    return t
 end
 
-# # TODO check efficiency of
-# function mult_order(q::Int, n::Int)
-#     n == 1 && return 1
-#     val = mod(q, n)
-#     t = 1
-#     while val ≠ 1
-#         val = mod(val * q, n)
-#         t += 1
-#     end
-#     return t
-# end
-
 """
-    cyclotomic_coset(x::Int, q::Int, n::Int; to_sort::Bool=true, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Return the `q`-cyclotomic coset of `x` modulo `n`.
 
@@ -79,7 +68,7 @@ function cyclotomic_coset(x::Int, q::Int, n::Int; to_sort::Bool = true,
 end
 
 """
-    all_cyclotomic_cosets(q::Int, n::Int; to_sort::Bool=true, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Return all `q`-cyclotomic cosets modulo `n`.
 
@@ -132,7 +121,7 @@ function all_cyclotomic_cosets(q::Int, n::Int; to_sort::Bool = true,
 end
 
 """
-    complement_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
+$(TYPEDSIGNATURES)
 
 Return the complement of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
 """
@@ -155,7 +144,7 @@ function complement_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
 end
 
 """
-    qcoset_pairings(arr::Vector{Vector{Int64}}, n::Int)
+$(TYPEDSIGNATURES)
 
 Return the `q`-cyclotomic cosets modulo `n` collected into complementary pairs.
 """
@@ -192,7 +181,7 @@ qcoset_pairings(q::Int, n::Int) = qcoset_pairings(all_cyclotomic_cosets(q, n, to
 
 # TODO: redo this with an abstract range
 """
-    qcoset_table(a::Int, b::Int, q::Int)
+$(TYPEDSIGNATURES)
 
 Print all `q`-cyclotomic cosets modulo `n` for `n` between `a` and `b`.
 """
@@ -207,7 +196,7 @@ function qcoset_table(a::Int, b::Int, q::Int)
 end
 
 """
-    dual_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
+$(TYPEDSIGNATURES)
 
 Return the dual of the `q`-cyclotomic cosets modulo `n` of `qcosets`.
 """
@@ -220,4 +209,45 @@ function dual_qcosets(q::Int, n::Int, qcosets::Vector{Vector{Int64}})
         sort!(a)
     end
     return comp_cosets
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the minimal polynomial of `α` defined by the `q`-cyclotomic coset `coset`.
+
+# Notes
+* The minimal polynomial is computed over the parent field of `α`, but mathematically 
+  its coefficients are guaranteed to lie in the base field `GF(q)`.
+"""
+function minimal_polynomial(coset::Vector{Int}, α::CTFieldElem)
+    E = parent(α)
+    R, z = polynomial_ring(E, "z")
+    
+    M = one(R)
+    for j in coset
+        M *= (z - α^j)
+    end
+    
+    return M
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if `x` and `y` are conjugates over the subfield of order `q`.
+"""
+function are_conjugates(x::CTFieldElem, y::CTFieldElem, q::Int)
+    parent(x) == parent(y) || return false
+    
+    # x and y are conjugates if y = x^(q^i) for some integer i
+    E = parent(x)
+    n_max = degree(E) # They must map to each other within the extension degree
+    
+    curr = x
+    for _ in 1:n_max
+        curr == y && return true
+        curr = curr^q
+    end
+    return false
 end

@@ -27,12 +27,14 @@ abstract type AbstractAlternateCode <: AbstractLinearCode end
 abstract type AbstractGoppaCode <: AbstractAlternateCode end
 abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
 abstract type AbstractTwistedReedSolomonCode <: AbstractLinearCode end
+abstract type AbstractConcatenatedCode <: AbstractLinearCode end
+abstract type AbstractGoppaCode <: AbstractLinearCode end
+abstract type AbstractTannerCode <: AbstractLinearCode end
 
 #############################
       # concrete types
 #############################
 
-# TODO: fill this in with missing fields that got moved into cache
 function Base.getproperty(C::AbstractLinearCode, sym::Symbol)
     # 1. Physical fields
     if sym in fieldnames(typeof(C))
@@ -268,18 +270,14 @@ end
 # end
 
 mutable struct CyclicCode <: AbstractCyclicCode
-    F::CTFieldTypes 
-    E::CTFieldTypes # splitting field
-    R::CTPolyRing # polynomial ring of generator polynomial
-    β::CTFieldElem # n-th root of primitive element of splitting field
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    b::Int # offset
-    δ::Int # BCH bound
-    HT::Int # Hartmann-Tzeng refinement
-    l_bound::Int 
-    u_bound::Int 
+    F::CTFieldTypes
+    E::CTFieldTypes
+    R::CTPolyRing
+    β::CTFieldElem
+    n::Int
+    k::Int
+    l_bound::Int
+    u_bound::Int
     qcosets::Vector{Vector{Int}}
     qcosets_reps::Vector{Int}
     def_set::Vector{Int}
@@ -317,18 +315,14 @@ end
 # end
 
 mutable struct BCHCode <: AbstractBCHCode
-    F::CTFieldTypes 
-    E::CTFieldTypes 
-    R::CTPolyRing 
-    β::CTFieldElem 
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    b::Int 
-    δ::Int 
-    HT::Int 
-    l_bound::Int 
-    u_bound::Int 
+    F::CTFieldTypes
+    E::CTFieldTypes
+    R::CTPolyRing
+    β::CTFieldElem
+    n::Int
+    k::Int
+    l_bound::Int
+    u_bound::Int
     qcosets::Vector{Vector{Int}}
     qcosets_reps::Vector{Int}
     def_set::Vector{Int}
@@ -366,18 +360,14 @@ end
 # end
 
 mutable struct ReedSolomonCode <: AbstractReedSolomonCode
-    F::CTFieldTypes 
-    E::CTFieldTypes 
-    R::CTPolyRing 
-    β::CTFieldElem 
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    b::Int 
-    δ::Int 
-    HT::Int 
-    l_bound::Int 
-    u_bound::Int 
+    F::CTFieldTypes
+    E::CTFieldTypes
+    R::CTPolyRing
+    β::CTFieldElem
+    n::Int
+    k::Int
+    l_bound::Int
+    u_bound::Int
     qcosets::Vector{Vector{Int}}
     qcosets_reps::Vector{Int}
     def_set::Vector{Int}
@@ -414,19 +404,17 @@ end
 # end
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
-    F::CTFieldTypes 
-    R::EuclideanRingResidueRing
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    l_bound::Int 
+    F::CTFieldTypes
+    R::CTRingTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
     u_bound::Int
     l::Int
     m::Int
-    A::MatElem{<:ResElem}
+    A::CTMatrixTypes
     A_type::Symbol
-    W::Matrix{Int}
-    type::Int
     cache::Dict{Symbol, Any}
 end
 
@@ -641,5 +629,172 @@ mutable struct TwistedReedSolomonCode <: AbstractTwistedReedSolomonCode
     h::Vector{Int}
     η::Vector{T} where T <: CTFieldElem
     l::Int
+    cache::Dict{Symbol, Any}
+end
+
+# ==============================================================================
+# GEOMETRIC & SPORADIC CODE TYPES
+# ==============================================================================
+
+mutable struct HammingCode <: AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    r::Int             # Preserved structural parameter
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct SimplexCode <: AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    r::Int             # Preserved structural parameter
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct MacDonaldCode <: AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    u::Int             # The dimension of the punctured subcode
+    cache::Dict{Symbol, Any}
+end
+
+# ==============================================================================
+# COMPOSITE CODE TYPES
+# ==============================================================================
+
+mutable struct PlotkinCode <: AbstractLinearCode
+    C1::AbstractLinearCode
+    C2::AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct DirectSumCode <: AbstractLinearCode
+    C1::AbstractLinearCode
+    C2::AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct TensorProductCode <: AbstractLinearCode
+    C1::AbstractLinearCode
+    C2::AbstractLinearCode
+    F::CTFieldTypes 
+    n::Int 
+    k::Int 
+    d::Union{Int, Missing} 
+    l_bound::Int 
+    u_bound::Int 
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct ConcatenatedCode <: AbstractConcatenatedCode
+    C_out::AbstractLinearCode
+    C_in::AbstractLinearCode
+    type::Symbol # :same or :expanded
+    basis::Union{Vector{<:CTFieldElem}, Missing}
+    dual_basis::Union{Vector{<:CTFieldElem}, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct MultilevelConcatenatedCode <: AbstractConcatenatedCode
+    C_outs::Vector{<:AbstractLinearCode}
+    C_ins::Vector{<:AbstractLinearCode}
+    types::Vector{Symbol}
+    bases::Vector{Union{Vector{<:CTFieldElem}, Missing}}
+    dual_bases::Vector{Union{Vector{<:CTFieldElem}, Missing}}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct GabidulinCode <: AbstractLinearCode
+    F::CTFieldTypes
+    E::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    eval_pts::Vector{<:CTFieldElem}
+    s::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct GoppaCode <: AbstractGoppaCode
+    F::CTFieldTypes
+    E::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    L::Vector{<:CTFieldElem}
+    g::CTPolyRingElem
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct MatrixProductCode <: AbstractLinearCode
+    C::Vector{<:AbstractLinearCode}
+    A::CTMatrixTypes
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct ReedMullerCode <: AbstractLinearCode
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    r::Int
+    m::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct TannerCode <: AbstractTannerCode
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
     cache::Dict{Symbol, Any}
 end

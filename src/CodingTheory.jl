@@ -27,6 +27,7 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic, field, is_irreducible
+import Oscar.AbstractAlgebra: SMat
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
@@ -49,7 +50,7 @@ end
 
 const CTFieldTypes = FinField
 const CTFieldElem = FinFieldElem
-const CTMatrixTypes = Union{fpMatrix, FqMatrix} # MatElem{<:CTFieldElem}
+const CTMatrixTypes = Union{fpMatrix, FqMatrix, SparseMatrixCSC, SMat} # MatElem{<:CTFieldElem}
 const CTPolyRing = PolyRing{<:CTFieldElem}
 const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}

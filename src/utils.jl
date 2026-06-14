@@ -315,42 +315,50 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     end
 end
 
-function _quotient_space(big::T, small::T, alg::Symbol=:sys_eqs) where T <: CTMatrixTypes
-    alg ∈ [:VS, :sys_eqs] || throw(ArgumentError("Unknown algorithm type"))
-
-    if alg == :VS
-        F = base_ring(big)
-        V = vector_space(F, ncols(big))
-        U, U_to_V = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
-        W, W_to_V = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
-        gens_of_U_in_W = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
-        # gens_of_U_in_W = [preimage(W_to_V, U_to_V(g)) for g in gens(U)]
-        Threads.@threads for i in 1:length(gens(U))
-            gens_of_U_in_W[i] = preimage(W_to_V, U_to_V(gens(U)[i]))
-        end
-        U_in_W, _ = sub(W, gens_of_U_in_W)
-        Q, W_to_Q = quo(W, U_in_W)
-        iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
-        C2_mod_C1_basis = [W_to_V(x) for x in [preimage(W_to_Q, g) for g in gens(Q)]]
-        F_basis = [[F(C2_mod_C1_basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))] for j in 1:length(C2_mod_C1_basis)]
-        return matrix(F, length(F_basis), length(F_basis[1]), reduce(vcat, F_basis))
-    else
-        # solve the system x big = small
-        # sol contains the way to write the rows of small in terms of the rows of big
-        # if big is of the form (big = small ∪ (big / small)), then this will have zeros for the rows
-        # corresponding to the basis of the quotient
-        # in the general case, anything without a pivot in the row reduction is not required to make
-        # the elements of small and therefore lie in the quotient space
-        flag, sol = can_solve_with_solution(big, small, side=:left)
-        !flag && error("Cannot solve system for quotient")
-        _, rref_sol = rref(sol)
-        if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
-            nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
-            return reduce(vcat, [big[r, :] for r in nonpivots])
-        else
-            return big[_rref_non_pivot_cols(rref_sol, :nsp), :]
+"""
+Internal function to compute a basis for the quotient space `C2 / C1` 
+using ultra-fast Gaussian elimination, bypassing Oscar's vector space morphisms.
+Assumes `span(G1) ⊆ span(G2)`.
+"""
+function _quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes)
+    F = base_ring(G1)
+    nr1, nc = nrows(G1), ncols(G1)
+    nr2 = nrows(G2)
+    
+    # 1. RREF G1 to isolate its basis and pivots
+    rnk1, R1 = rref(G1)
+    
+    pivots = Int[]
+    for i in 1:rnk1
+        for j in 1:nc
+            if !iszero(R1[i, j])
+                push!(pivots, j)
+                break
+            end
         end
     end
+    
+    # 2. Reduce G2 modulo R1
+    # By eliminating the pivot columns of G1 from G2, we project G2 perfectly 
+    # onto the complementary subspace, guaranteeing zero intersection with C1.
+    G2_red = deepcopy(G2)
+    for i in 1:rnk1
+        p = pivots[i]
+        for j in 1:nr2
+            factor = G2_red[j, p]
+            if !iszero(factor)
+                for c in p:nc # Only subtract from the pivot column onwards
+                    G2_red[j, c] -= factor * R1[i, c]
+                end
+            end
+        end
+    end
+    
+    # 3. RREF the reduced G2 to push zero rows to the bottom and get a clean basis
+    rnk2, Q_full = rref(G2_red)
+    
+    # Extract only the linearly independent quotient basis vectors
+    return view(Q_full, 1:rnk2, 1:nc)
 end
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
@@ -1998,6 +2006,44 @@ end
 
 function _value_distribution(vals)
     return OrderedDict([(i, count(x -> (x == i), vals)) for i in collect(sort(unique(vals)))])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the polynomial ring involution (Hermitian adjoint) of the matrix `A`.
+
+# Notes
+* Maps `A(x)` to `A(x^-1)^T mod (x^m - 1)`.
+* This is the fundamental operation for computing the dual of a Quasi-Cyclic code 
+  without lifting to the dense ambient space.
+"""
+function ring_involution(A::MatElem{T}) where T <: ResElem
+    R = base_ring(A)
+    S = base_ring(R)
+    m = degree(modulus(R))
+    nr, nc = size(A)
+    
+    A_star = zero_matrix(R, nc, nr) # Note the transposed dimensions
+    
+    for r in 1:nr
+        for c in 1:nc
+            poly = lift(A[r, c])
+            coeffs = collect(coefficients(poly))
+            
+            # x^i -> x^(-i mod m)
+            new_poly = zero(S)
+            for (i, coeff) in enumerate(coeffs)
+                deg = i - 1
+                new_deg = mod(-deg, m)
+                new_poly += coeff * gen(S)^new_deg
+            end
+            
+            A_star[c, r] = R(new_poly)
+        end
+    end
+    
+    return A_star
 end
 
 # #=
