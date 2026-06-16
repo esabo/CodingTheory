@@ -1949,15 +1949,15 @@ function polynomial(cwe::CompleteWeightEnumerator, R)
 end
 
 """
-    MacWilliams_transform(dual_hwe::HammingWeightEnumerator, k::Int, q::Int)
+    MacWilliams_transform(input_hwe::HammingWeightEnumerator, k_in::Int, q::Int)
 
-Applies the MacWilliams identity to a Dual HWE to obtain the Primal HWE.
+Applies the MacWilliams identity to a HWE to obtain the Dual HWE.
 Uses the highly optimized Krawtchouk polynomial evaluation over the internal dictionary.
 """
-function MacWilliams_transform(dual_hwe::HammingWeightEnumerator, k::Int, q::Int)
+function MacWilliams_transform(input_hwe::HammingWeightEnumerator, k_in::Int, q::Int)
     # Route directly to your existing combinatorial Krawtchouk engine
-    primal_counts = MacWilliams_HWE_transform(dual_hwe.counts, dual_hwe.n, k, q)
-    return HammingWeightEnumerator(dual_hwe.n, primal_counts)
+    output_counts = MacWilliams_HWE_transform(input_hwe.counts, input_hwe.n, k_in, q)
+    return HammingWeightEnumerator(input_hwe.n, output_counts)
 end
 
 """
@@ -1978,7 +1978,8 @@ function weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
             
             verbose && println("Applying MacWilliams Transform...")
             # Implicitly returned and cached:
-            MacWilliams_HWE_transform(dual_counts, n, k, q) 
+            # Since the input is the dual code, its dimension is n - k
+            MacWilliams_HWE_transform(dual_counts, n, n - k, q) 
         else
             verbose && println("Routing to Primal Trellis Product...")
             # Implicitly returned and cached:

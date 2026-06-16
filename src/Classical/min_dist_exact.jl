@@ -3067,20 +3067,18 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         # 1. TRIVIAL FAST PATH: Primal Brute Force 
         if card_C <= 1e6 
             verbose && println("Auto: Small cardinality ($card_C). Routing to Primal Brute Force.")
-            C.weight_enum = _weight_enumerator_BF(C.G)
-            HWE = _CWE_to_HWE_dict(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, keys(HWE)))
-            return C.d, zero_matrix(C.F, 1, n) # Witness omitted for pure brute-force dict
+            HWE_dict = weight_distribution(C)
+            C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
+            return C.d, zero_matrix(C.F, 1, n) 
         end
 
         # 2. TRIVIAL FAST PATH: Dual Brute Force 
         if card_D <= 1e6 
             verbose && println("Auto: Small dual cardinality ($card_D). Routing to Dual Brute Force.")
             D = dual(C)
-            D.weight_enum = _weight_enumerator_BF(D.G)
-            C.weight_enum = MacWilliams_identity(D, D.weight_enum)
-            HWE = _CWE_to_HWE_dict(C.weight_enum)
-            C.d = minimum(filter(x -> x != 0, keys(HWE)))
+            dual_counts = weight_distribution(D)
+            HWE_dict = MacWilliams_HWE_transform(dual_counts, C.n, C.k, q)
+            C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
             return C.d, zero_matrix(C.F, 1, n)
         end
 
@@ -3162,14 +3160,13 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         C.d = _minimum_distance_hybrid(C; num_trials = 50, verbose = verbose)
         return C.d, zero_matrix(C.F, 1, n)
     elseif alg == :bruteforce
-        C.weight_enum = _weight_enumerator_BF(C.G)
-        HWE = _CWE_to_HWE_dict(C.weight_enum)
-        C.d = minimum(filter(x -> x != 0, keys(HWE)))
+        HWE_dict = weight_distribution(C)
+        C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
         return C.d, zero_matrix(C.F, 1, n)
     elseif alg == :wt_dist
-        HWE = weight_enumerator(C, type = :Hamming, alg = alg)
+        HWE = weight_enumerator(C; verbose=verbose)
         !ismissing(C.d) && return C.d, zero_matrix(C.F, 1, n)
-        C.d = minimum(filter(x -> x != 0, keys(HWE.polynomial)))
+        C.d = minimum(filter(x -> x != 0, collect(keys(HWE.counts))))
         return C.d, zero_matrix(C.F, 1, n)
     elseif alg == :Wagner
         if q == 2 return _minimum_distance_wagner_mitm_binary(C; verbose = verbose)

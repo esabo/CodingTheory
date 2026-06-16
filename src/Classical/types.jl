@@ -166,8 +166,6 @@ mutable struct LinearCode <: AbstractLinearCode
     d::Union{Int, Missing} 
     l_bound::Int 
     u_bound::Int 
-    G::CTMatrixTypes
-    H::CTMatrixTypes
     cache::Dict{Symbol, Any}
 end
 

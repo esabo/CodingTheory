@@ -3,7 +3,6 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
 #############################
         # Classical
 #############################
@@ -11,6 +10,25 @@
 # ==============================================================================
 # CONCATENATED CODE LAZY GETTERS
 # ==============================================================================
+
+# Internal helper to rigorously compute the nullspace basis 
+# using the native no-column-swap RREF algorithm.
+function _parity_check_from_G(G::CTMatrixTypes)
+    R = _rref_no_col_swap(G)
+    nc = ncols(R)
+    non_pivots = _rref_non_pivot_cols(R, :nsp)
+    pivots = sort!(setdiff(1:nc, non_pivots))
+    k = length(pivots)
+    
+    H = zero_matrix(base_ring(G), nc - k, nc)
+    for (idx, np) in enumerate(non_pivots)
+        H[idx, np] = 1
+        for i in 1:k
+            H[idx, pivots[i]] = -R[i, np]
+        end
+    end
+    return H
+end
 
 function generator_matrix(C::ConcatenatedCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
@@ -48,9 +66,8 @@ end
 function parity_check_matrix(C::ConcatenatedCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
     if !haskey(cache, :H)
-        # Forcing the standard form of the generator naturally produces H
-        generator_matrix(C, true) 
-        cache[:H] = ismissing(cache[:P_stand]) ? cache[:H_stand] : cache[:H_stand] * transpose(cache[:P_stand])
+        G_mat = generator_matrix(C)
+        cache[:H] = _parity_check_from_G(G_mat)
     end
     if stand_form
         generator_matrix(C, true)
@@ -75,7 +92,6 @@ end
 # CONSTRUCTORS
 # ==============================================================================
 
-# TODO: give control over expansion basis
 """
 $(TYPEDSIGNATURES)
 
@@ -103,7 +119,7 @@ function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
     n_new = C_in.n * div(C_out.n, C_in.k)
     k_new = C_out.k
     
-    # O(1) Distance bounds calculation [cite: 143]
+    # O(1) Distance bounds calculation
     if ismissing(C_out.d) || ismissing(C_in.d)
         d_new = missing
         lb = C_out.l_bound * C_in.l_bound
@@ -113,7 +129,8 @@ function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
     end
     
     cache = Dict{Symbol, Any}()
-    return ConcatenatedCode(C_out, C_in, type, β, λ, F_in, n_new, k_new, d_new, lb, n_new, cache)
+    # Field order in struct is (C_in, C_out, ...)
+    return ConcatenatedCode(C_in, C_out, type, β, λ, F_in, n_new, k_new, d_new, lb, n_new, cache)
 end
 ∘(C_out::AbstractLinearCode, C_in::AbstractLinearCode) = concatenate(C_out, C_in)
 
@@ -149,7 +166,6 @@ function generator_matrix(C::MultilevelConcatenatedCode, stand_form::Bool = fals
         for i in 2:length(C.C_ins)
             Gi = generator_matrix(C.C_ins[i])
             Gim1 = generator_matrix(C.C_ins[i - 1])
-            # Utilizing the ultra-fast linear algebra quotient bypass
             push!(B, _quotient_space(Gim1, Gi))
         end
         
@@ -189,8 +205,8 @@ end
 function parity_check_matrix(C::MultilevelConcatenatedCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
     if !haskey(cache, :H)
-        generator_matrix(C, true) 
-        cache[:H] = ismissing(cache[:P_stand]) ? cache[:H_stand] : cache[:H_stand] * transpose(cache[:P_stand])
+        G_mat = generator_matrix(C)
+        cache[:H] = _parity_check_from_G(G_mat)
     end
     if stand_form
         generator_matrix(C, true)
@@ -232,10 +248,9 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     types = Symbol[:same for _ in eachindex(outers_unexpanded)]
     
     for (i, C_out) in enumerate(outers_unexpanded)
+        # If the fields are the same, NO expansion is needed. Just map it natively.
         if Int(order(C_out.F)) == ord_F
-            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i - 1].k == 1)
-                types[i] = :expanded
-            end
+            types[i] = :same
         else
             flag, _ = is_subfield(F, C_out.F)
             flag || throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
@@ -258,6 +273,7 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     end
     
     cache = Dict{Symbol, Any}()
+    # FIX: Correctly maps (C_outs, C_ins) without swapping!
     return MultilevelConcatenatedCode(outers_unexpanded, inners, types, bases, dual_bases, F, n_new, k_new, d_new, lb, n_new, cache)
 end
 multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
@@ -325,20 +341,30 @@ function encode(C::ConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}})
     if nc_w == C.C_out.k
         base_ring(w) == C.C_out.F || throw(ArgumentError("Vector must have the same base ring as the outer code."))
         
-        G_out = generator_matrix(C.C_out, true)
-        ismissing(C.C_out.P_stand) || (G_out = G_out * C.C_out.P_stand)
-        
-        temp = w * G_out
+        G_out = generator_matrix(C.C_out)
+        c_out = w * G_out
         
         if C.type == :expanded
             D = _expansion_dict(C.C_out.F, C.C_in.F, C.dual_basis)
-            temp = _expand_matrix(temp, D, div(degree(C.C_out.F), degree(C.C_in.F)))
+            c_out = _expand_matrix(c_out, D, div(degree(C.C_out.F), degree(C.C_in.F)))
+        else
+            c_out = change_base_ring(C.C_in.F, c_out)
         end
         
-        Gin = generator_matrix(C.C_in, true)
-        ismissing(C.C_in.P_stand) || (Gin = Gin * C.C_in.P_stand)
+        Gin = generator_matrix(C.C_in)
         
-        return temp * Gin
+        k_in = C.C_in.k
+        n_in = C.C_in.n
+        t = div(ncols(c_out), k_in)
+        
+        c_final = zero_matrix(C.C_in.F, 1, t * n_in)
+        for i in 1:t
+            # Using matrix() to realize the view into a concrete fpMatrix to prevent SubMat multiplication issues
+            block = matrix(C.C_in.F, 1, k_in, [c_out[1, (i-1)*k_in + c] for c in 1:k_in])
+            c_final[1:1, (i-1)*n_in + 1 : i*n_in] = block * Gin
+        end
+        
+        return c_final
         
     elseif nc_w == C.k
         base_ring(w) == C.F || throw(ArgumentError("Vector must have the same base ring as the code."))

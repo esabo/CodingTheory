@@ -814,7 +814,6 @@ function dual(C::AbstractLinearCode)
     elseif isa(C, GeneralizedReedSolomonCode)
         d = C.k + 1
         new_cache = Dict{Symbol, Any}()
-        # Populate the new cache lazily if G and H exist in the old one
         old_cache = getfield(C, :cache)
         haskey(old_cache, :G) && (new_cache[:H] = old_cache[:G])
         haskey(old_cache, :H) && (new_cache[:G] = old_cache[:H])
@@ -824,7 +823,7 @@ function dual(C::AbstractLinearCode)
             
     elseif isa(C, MatrixProductCode)
         nr, nc = size(C.A)
-        nr == nc || return LinearCode.dual(C) # Fallback if inversion fails structurally
+        nr == nc || return LinearCode.dual(C) 
         
         D = Vector{LinearCode}()
         for i in 1:length(C.Cvec)
@@ -835,7 +834,7 @@ function dual(C::AbstractLinearCode)
             A_inv = inv(C.A)
             return MatrixProductCode(D, transpose(A_inv))
         catch
-            return LinearCode.dual(C) # Fallback to standard dual
+            return LinearCode.dual(C) 
         end
         
     elseif isa(C, ReedMullerCode)
@@ -852,20 +851,22 @@ function dual(C::AbstractLinearCode)
         old_cache = getfield(C, :cache)
         new_cache = Dict{Symbol, Any}()
         
-        # Swap G and H in the cache in O(1) time
         haskey(old_cache, :G) && (new_cache[:H] = old_cache[:G])
         haskey(old_cache, :H) && (new_cache[:G] = old_cache[:H])
         
-        # Handle Weight Enumerator MacWilliams Identity if it was already computed
         d_new, l_new, u_new = missing, 1, C.n
+        
+        # Handle Weight Enumerator MacWilliams Identity securely without polynomials
         if haskey(old_cache, :weight_enum)
-            dual_wt_enum = MacWilliams_identity(C, old_cache[:weight_enum])
+            dual_wt_enum = MacWilliams_transform(old_cache[:weight_enum], C.k, Int(order(C.F)))
             new_cache[:weight_enum] = dual_wt_enum
-            dual_HWE_poly = CWE_to_HWE(dual_wt_enum).polynomial
-            d_val = minimum(filter(>(0), first.(exponent_vectors(dual_HWE_poly))))
-            d_new, l_new, u_new = d_val, d_val, d_val
+            
+            non_zero_wts = filter(>(0), collect(keys(dual_wt_enum.counts)))
+            if !isempty(non_zero_wts)
+                d_val = minimum(non_zero_wts)
+                d_new, l_new, u_new = d_val, d_val, d_val
+            end
         else
-            # Provide basic minimum weight bounds without triggering standard form eager evaluations
             ub1 = haskey(new_cache, :G) ? _min_wt_row(new_cache[:G])[1] : C.n
             ub2 = haskey(new_cache, :H) ? _min_wt_row(new_cache[:H])[1] : C.n
             u_new = min(ub1, ub2)

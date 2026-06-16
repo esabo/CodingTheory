@@ -1369,33 +1369,31 @@ function Krawtchouk(i::Int, j::Int, n::Int, q::Int)
 end
 
 """
-    MacWilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
+    MacWilliams_HWE_transform(input_hwe::Dict{Int, BigInt}, n::Int, k_in::Int, q::Int)
 
-Applies the MacWilliams identity to convert a dual Hamming weight distribution 
-into the primal Hamming weight distribution using Krawtchouk polynomials.
+Applies the MacWilliams identity to convert a Hamming weight distribution 
+into its dual Hamming weight distribution using Krawtchouk polynomials.
 """
-function MacWilliams_HWE_transform(dual_hwe::Dict{Int, BigInt}, n::Int, k::Int, q::Int)
-    primal_hwe = Dict{Int, BigInt}()
-    scaling_factor = BigInt(q)^(n - k)
+function MacWilliams_HWE_transform(input_hwe::Dict{Int, BigInt}, n::Int, k_in::Int, q::Int)
+    output_hwe = Dict{Int, BigInt}()
+    scaling_factor = BigInt(q)^k_in
     
     for i in 0:n
         A_i = BigInt(0)
-        for (j, A_perp_j) in dual_hwe
-            A_i += A_perp_j * Krawtchouk(i, j, n, q)
+        for (j, A_in_j) in input_hwe
+            A_i += A_in_j * Krawtchouk(i, j, n, q)
         end
         
         @assert A_i % scaling_factor == 0 "MacWilliams transform yielded non-integer. Check inputs."
         
         actual_A_i = A_i ÷ scaling_factor
         if actual_A_i > 0
-            primal_hwe[i] = actual_A_i
+            output_hwe[i] = actual_A_i
         end
     end
     
-    return primal_hwe
+    return output_hwe
 end
-
-using ProgressMeter
 
 function _BZ_middle_search(M::Matrix{T}, L::Vector{Int}, R::Vector{Int}, B_L::Int, B_R::Int, 
                            left_dict, right_dict, q::Int, verbose::Bool=true) where T
