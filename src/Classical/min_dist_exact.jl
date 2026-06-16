@@ -3050,7 +3050,10 @@ using the dynamically optimal algorithm or the explicit algorithm of `alg`.
 function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
     info_set_alg::Symbol = :auto, auts::Vector{Vector{Int}} = [Int[]], verbose::Bool = false)
 
-    !ismissing(C.d) && return C.d, (isdefined(C, :witness) ? C.witness : zero_matrix(C.F, 1, C.n))
+    # Safely check if distance is already computed to avoid throwing a type instability error
+    if haskey(C.cache, :d) && !ismissing(C.cache[:d])
+        return C.cache[:d], (isdefined(C, :witness) ? C.witness : zero_matrix(C.F, 1, C.n))
+    end
 
     alg ∈ (:auto, :BZ, :trellis, :bruteforce, :wt_dist, :Leon, :Wagner, :ILP) ||
         throw(ArgumentError("Unexpected algorithm '$alg'."))
@@ -3077,7 +3080,8 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
             verbose && println("Auto: Small dual cardinality ($card_D). Routing to Dual Brute Force.")
             D = dual(C)
             dual_counts = weight_distribution(D)
-            HWE_dict = MacWilliams_HWE_transform(dual_counts, C.n, C.k, q)
+            # FIX: Input is the dual code, its dimension is n - k
+            HWE_dict = MacWilliams_HWE_transform(dual_counts, C.n, n - k, q)
             C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
             return C.d, zero_matrix(C.F, 1, n)
         end

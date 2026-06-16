@@ -28,7 +28,7 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
     is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat
+    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, discrete_log
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
@@ -133,8 +133,7 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
 
 include("Classical/concatenation.jl")
 export concatenate, multilevel_concatenation, inner_code, outer_code, 
-       expansion_basis, expansion_dual_basis, concatenation_type, encode,
-       generator_matrix, parity_check_matrix
+       expansion_basis, expansion_dual_basis, concatenation_type
 
 #############################
   # Classical/cyclic_code.jl
@@ -236,18 +235,19 @@ export Stern_attack, Prange_attack, Lee_Brickell_attack, Leon_attack,
 include("Classical/linear_code.jl")
 # Constructors & Core Structure
 export LinearCode, random_linear_code, field, length, dimension, cardinality, 
-       rate, generator_matrix, parity_check_matrix, standard_form_permutation
+       rate, generator_matrix, parity_check_matrix, standard_form_permutation,
+       ⊕
 
 # Bounds & Properties
 export relative_distance, genus, minimum_distance_lower_bound, 
        minimum_distance_upper_bound, is_MDS, number_correctable_errors, 
        is_overcomplete, set_distance_lower_bound!, set_distance_upper_bound!, 
-       set_minimum_distance!, change_field!, change_field
+       set_minimum_distance!, change_field!, change_field, ⊆, ⊂
 
 # Encoding & Code Space
 export encode, syndrome, information_set, random_information_set, Singleton_bound, 
        vector_space, is_even, is_doubly_even, is_triply_even, words, codewords, 
-       elements
+       elements, in
 
 # Duals, Hulls, & Equivalences
 export dual, Euclidean_dual, Hermitian_dual, l_Galois_dual, hull, Euclidean_hull, 

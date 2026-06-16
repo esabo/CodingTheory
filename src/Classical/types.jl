@@ -294,6 +294,8 @@ mutable struct BCHCode <: AbstractBCHCode
     β::CTFieldElem
     n::Int
     k::Int
+    b::Int
+    δ::Int
     l_bound::Int
     u_bound::Int
     qcosets::Vector{Vector{Int}}
@@ -339,6 +341,8 @@ mutable struct ReedSolomonCode <: AbstractReedSolomonCode
     β::CTFieldElem
     n::Int
     k::Int
+    b::Int
+    δ::Int
     l_bound::Int
     u_bound::Int
     qcosets::Vector{Vector{Int}}
