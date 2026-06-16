@@ -517,10 +517,6 @@ function has_algebraic_cycle(C::AbstractQuasiCyclicCode, target_length::Int)
     return false
 end
 
-# ==============================================================================
-# ALGEBRAIC DECOMPOSITION & DIMENSION
-# ==============================================================================
-
 """
 $(TYPEDSIGNATURES)
 

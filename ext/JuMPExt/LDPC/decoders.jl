@@ -1,4 +1,4 @@
-# Copyright (c) 2023 - 2024 Eric Sabo
+# Copyright (c) 2023 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -16,6 +16,9 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
     wmap = zeros(Int, nr)
     curr = 1
     for (j, cn) in enumerate(check_adj_list)
+        if length(cn) > 15
+            @warn "Check node degree $(length(cn)) is very high. The LP powerset formulation will generate $2^$(length(cn)) variables and may crash."
+        end
         wmap[j] = curr
         inner_subsets = Vector{Vector{Int}}()
         for S in powerset(cn)
@@ -52,10 +55,10 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
 end
 _init_LP_decoder_LDPC(C::AbstractLinearCode) = _init_LP_decoder_LDPC(parity_check_matrix(C))
 
-function _LP_decoder_LDPC(model::JuMP.Model, v::Union{CodingTheory.CTMatrixTypes,
-    Vector{<:Integer}}, Ch::BinarySymmetricChannel)
-
-    γ = CodingTheory._channel_init_BSC(isa(v, Vector) ? v : Int.(data.(v))[:], Ch.param)
+function _LP_decoder_LDPC(model::JuMP.Model, v::Vector{<:Integer}, Ch::AbstractChannel)
+    # Automatically get the correct LLRs for AWGN, BSC, Fading, Z-Channel, etc.
+    γ = CodingTheory.llr(Ch, v) 
+    
     @objective(model, Min, dot(γ, model[:f]))
     optimize!(model)
     termination_status(model) == MOI.INFEASIBLE && throw(DomainError("No solution exists"))
@@ -65,11 +68,7 @@ function _LP_decoder_LDPC(model::JuMP.Model, v::Union{CodingTheory.CTMatrixTypes
     return w
 end
 
-function CodingTheory.LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatrix{<:Number}}, v::Union{CodingTheory.CTMatrixTypes, Vector{<:Integer}}, Ch::BinarySymmetricChannel)
-    
+function CodingTheory.LP_decoder_LDPC(H::AbstractMatrix{<:Number}, v::Vector{<:Integer}, Ch::AbstractChannel)
     model = _init_LP_decoder_LDPC(H)
     return _LP_decoder_LDPC(model, v, Ch)
 end
-CodingTheory.LP_decoder_LDPC(C::AbstractLinearCode, v::Union{CodingTheory.CTMatrixTypes,
-    Vector{<:Integer}}, Ch::BinarySymmetricChannel) = CodingTheory.LP_decoder_LDPC(
-        parity_check_matrix(C), v, Ch)

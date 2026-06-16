@@ -2438,28 +2438,6 @@ function _reconstruct_codeword(msg_bits::Vector{Int}, packed_tail::Vector{UInt64
     return original_c
 end
 
-"""
-    _generate_prefixes_nonbinary(k::Int, p::Int, scalars::Vector{T}) where T
-
-Generates Left-Lexicographical prefixes coupled with all possible non-zero scalar 
-assignments for non-binary fields. Ensures the heaviest branches are processed first.
-"""
-function _generate_prefixes_nonbinary(k::Int, p::Int, scalars::Vector{T}) where T
-    if p == 0
-        return [(Int[], T[])]
-    end
-    combs = collect(Combinatorics.combinations(1:k, p))
-    sort!(combs, by = x -> reverse(x))
-    
-    tasks = Vector{Tuple{Vector{Int}, Vector{T}}}()
-    for c in combs
-        for sc in Iterators.product(fill(scalars, p)...)
-            push!(tasks, (c, collect(sc)))
-        end
-    end
-    return tasks
-end
-
 function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode;
     scheduler::Symbol = :recursive, verbose::Bool = false)
     !ismissing(C.d) && return C.d

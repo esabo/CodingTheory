@@ -24,7 +24,7 @@ abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
-abstract type AbstractQuantumNoiseChannel <: AbstractNoiseChannel end
+abstract type AbstractQuantumNoiseChannel <: AbstractChannel end
 
 #############################
       # concrete types

@@ -28,7 +28,6 @@ abstract type AbstractGoppaCode <: AbstractAlternateCode end
 abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
 abstract type AbstractTwistedReedSolomonCode <: AbstractLinearCode end
 abstract type AbstractConcatenatedCode <: AbstractLinearCode end
-abstract type AbstractGoppaCode <: AbstractLinearCode end
 abstract type AbstractTannerCode <: AbstractLinearCode end
 
 #############################
@@ -193,18 +192,6 @@ end
 #     A::fqPolyRepMatrix
 # end
 
-mutable struct MatrixProductCode <: AbstractMatrixProductCode
-    Cvec::Vector{AbstractLinearCode} # The constituent codes
-    A::fqPolyRepMatrix               # The defining matrix
-    F::CTFieldTypes 
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    l_bound::Int 
-    u_bound::Int 
-    cache::Dict{Symbol, Any}
-end
-
 #############################
        # ReedMuller.jl
 #############################
@@ -225,18 +212,6 @@ end
 #     P_stand::Union{CTMatrixTypes, Missing} # permutation matrix for G -> G_stand
 #     weight_enum::Union{WeightEnumerator, Missing}
 # end
-
-mutable struct ReedMullerCode <: AbstractReedMullerCode
-    F::CTFieldTypes
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    l_bound::Int 
-    u_bound::Int 
-    r::Integer # order
-    m::Integer # number of variables
-    cache::Dict{Symbol, Any}
-end
   
 #############################
        # cycliccode.jl
@@ -405,7 +380,7 @@ end
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     F::CTFieldTypes
-    R::CTRingTypes
+    R::CTPolyRing
     n::Int
     k::Int
     d::Union{Int, Missing}
@@ -540,19 +515,6 @@ end
 #     L::Vector{CTFieldElem}
 #     g::FqPolyRingElem
 # end
-
-mutable struct GoppaCode <: AbstractGoppaCode
-    F::CTFieldTypes 
-    E::CTFieldTypes 
-    n::Int 
-    k::Int 
-    d::Union{Int, Missing} 
-    l_bound::Int 
-    u_bound::Int
-    L::Vector{CTFieldElem}
-    g::FqPolyRingElem
-    cache::Dict{Symbol, Any}
-end
 
 #############################
      # concatenation.jl
@@ -706,21 +668,6 @@ mutable struct TensorProductCode <: AbstractLinearCode
     d::Union{Int, Missing} 
     l_bound::Int 
     u_bound::Int 
-    cache::Dict{Symbol, Any}
-end
-
-mutable struct ConcatenatedCode <: AbstractConcatenatedCode
-    C_out::AbstractLinearCode
-    C_in::AbstractLinearCode
-    type::Symbol # :same or :expanded
-    basis::Union{Vector{<:CTFieldElem}, Missing}
-    dual_basis::Union{Vector{<:CTFieldElem}, Missing}
-    F::CTFieldTypes
-    n::Int
-    k::Int
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
     cache::Dict{Symbol, Any}
 end
 

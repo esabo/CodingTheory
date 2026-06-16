@@ -1,5 +1,3 @@
-using SpecialFunctions # Required for loggamma
-
 """
     logbinomial(n::Int, k::Int)
 
@@ -3387,7 +3385,7 @@ function _BJMM_minimum_distance_GF4(G::CTMatrixTypes, target_w::Int; p::Int = 4,
                             # True GF(4) Hamming weight calculation of the XOR info masks sum
                             info_wt = count_ones((cia_1 ⊻ cia) | (cib_1 ⊻ cib))
                             if info_wt == lvl1_target_wt
-                                push!(get!(H12, (cw2a ⊻ w2a_1, cur_w2b = cw2b ⊻ w2b_1), []), (cia_1 ⊻ cia, cib_1 ⊻ cib, vcat(msg1, msg2)))
+                                push!(get!(H12, (cw2a ⊻ w2a_1, cw2b ⊻ w2b_1), []), (cia_1 ⊻ cia, cib_1 ⊻ cib, vcat(msg1, msg2)))
                             end
                         end
                     end

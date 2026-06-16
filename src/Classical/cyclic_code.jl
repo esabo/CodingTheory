@@ -369,12 +369,12 @@ Return the idempotent (polynomial) of the cyclic code.
 """
 idempotent(C::AbstractCyclicCode) = C.e
 
-"""
-$(TYPEDSIGNATURES)
+# """
+# $(TYPEDSIGNATURES)
 
-Return the BCH bound for `C`.
-"""
-BCH_bound(C::AbstractCyclicCode) = C.δ
+# Return the BCH bound for `C`.
+# """
+# BCH_bound(C::AbstractCyclicCode) = C.δ
 
 # """
 #     HT_bound(C::AbstractCyclicCode)
@@ -733,8 +733,8 @@ $(TYPEDSIGNATURES)
 Return whether or not `C1` is a subcode of `C2`.
 A cyclic code is a subcode of another if and only if its defining set is a superset of the other's.
 """
-Base.:(⊆)(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.def_set ⊆ C1.def_set
-Base.:(⊂)(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2 && C1 != C2
+⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.def_set ⊆ C1.def_set
+⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2 && C1 != C2
 is_subcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 """
@@ -742,7 +742,7 @@ $(TYPEDSIGNATURES)
 
 Return `true` if `C1` and `C2` are mathematically equal (same field, length, defining sets, and primitive root).
 """
-Base.:(==)(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.def_set == C2.def_set && C1.β == C2.β
+==(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1.F == C2.F && C1.n == C2.n && C1.def_set == C2.def_set && C1.β == C2.β
 
 # function μa(C::CyclicCode)
 #     # check gcd(a, n) = 1
@@ -766,7 +766,7 @@ $(TYPEDSIGNATURES)
 
 Return the intersection code of `C1` and `C2`.
 """
-function Base.:(∩)(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
+function ∩(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     C1.F == C2.F && C1.n == C2.n && C1.β == C2.β || throw(ArgumentError("Cannot intersect codes over different fields, lengths, or primitive roots."))
     
     # The intersection has generator polynomial lcm(g1, g2), which corresponds to the union of defining sets.
@@ -778,7 +778,7 @@ $(TYPEDSIGNATURES)
 
 Return the addition code of `C1` and `C2`.
 """
-function Base.:(+)(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
+function +(C1::AbstractCyclicCode, C2::AbstractCyclicCode)
     C1.F == C2.F && C1.n == C2.n && C1.β == C2.β || throw(ArgumentError("Cannot add codes over different fields, lengths, or primitive roots."))
     
     # The sum has generator polynomial gcd(g1, g2), which corresponds to the intersection of defining sets.
@@ -878,8 +878,8 @@ Return the entrywise (Schur / Hadamard) product of `C` with itself.
 entrywise_product_code(C::AbstractCyclicCode) = entrywise_product_code(C, C)
 
 # Aliases
-Base.:(*)(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
-Base.:(*)(C::AbstractCyclicCode) = entrywise_product_code(C)
+*(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
+*(C::AbstractCyclicCode) = entrywise_product_code(C)
 
 Schur_product_code(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
 Schur_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)

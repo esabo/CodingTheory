@@ -1,1463 +1,795 @@
-# Copyright (c) 2023 - 2024 Eric Sabo, Benjamin Ide
+# Copyright (c) 2023 - 2026 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+# In Julia, a mutable struct is allocated on the heap.
+# This struct can be stack-allocated or entirely compiled away into CPU registers.
+struct DecoderWorkspace{T}
+    # 1. Node states
+    channel_LLRs::Vector{T}  # Size: N (The raw channel input)
+    total_LLRs::Vector{T}    # Size: N (The running posterior beliefs)
+    current_bits::Vector{Int}# Size: N (The hard decisions)
+    
+    # 2. Edge tracking (Flattened 1D arrays)
+    # Instead of an M x N matrix, we just store the exact edges.
+    C2V::Vector{T}           # Size: E (Check to Variable messages)
+    V2C::Vector{T}           # Size: E (Variable to Check messages)
+    
+    # Pre-calculated routing (where does edge 'i' go?)
+    edge_to_var::Vector{Int} # Size: E
+    edge_to_chk::Vector{Int} # Size: E
+    
+    # Optional: Layer boundaries for layered scheduling
+    layer_ptrs::Vector{Int} 
+end
+
+struct HardDecisionWorkspace
+    num_var::Int
+    num_check::Int
+    num_edges::Int
+    
+    V2C::Vector{UInt8}
+    C2V::Vector{UInt8}
+    
+    var_to_edges::Vector{Vector{Int}}
+    chk_to_edges::Vector{Vector{Int}}
+    chk_to_vars::Vector{Vector{Int}}
+    
+    channel_bits::Vector{UInt8}
+    current_bits::Vector{UInt8}
+    
+    # O(1) Masks
+    is_decimated::Vector{Bool}
+    is_erased::Vector{Bool}
+end
+
+# ==============================================================================
+# 2. THE ONE-TIME RAM ALLOCATOR
+# ==============================================================================
+
+function init_hard_workspace(H::AbstractMatrix)
+    num_check, num_var = size(H)
+    
+    var_to_edges = [Int[] for _ in 1:num_var]
+    chk_to_edges = [Int[] for _ in 1:num_check]
+    chk_to_vars  = [Int[] for _ in 1:num_check]
+    
+    edge_id = 1
+    for c in 1:num_check
+        for v in 1:num_var
+            if !iszero(H[c, v])
+                push!(chk_to_edges[c], edge_id)
+                push!(var_to_edges[v], edge_id)
+                push!(chk_to_vars[c], v)
+                edge_id += 1
+            end
+        end
+    end
+    
+    num_edges = edge_id - 1
+    
+    return HardDecisionWorkspace(
+        num_var, num_check, num_edges,
+        zeros(UInt8, num_edges), zeros(UInt8, num_edges),
+        var_to_edges, chk_to_edges, chk_to_vars,
+        zeros(UInt8, num_var), zeros(UInt8, num_var),
+        zeros(Bool, num_var), zeros(Bool, num_var)
+    )
+end
+
+@inline function load_hard_channel!(W::HardDecisionWorkspace, v_in::Vector{UInt8};
+                                    erasures::Vector{Int} = Int[],
+                                    decimated_bits_values::Vector{Tuple{Int, Int}} = Tuple{Int, Int}[])
+    
+    # 1. Reset masks
+    fill!(W.is_decimated, false)
+    fill!(W.is_erased, false)
+    
+    # 2. Load standard bits
+    copyto!(W.channel_bits, v_in)
+    
+    # 3. Apply Erasures
+    for v in erasures
+        W.is_erased[v] = true
+        W.channel_bits[v] = 0x00 # Fallback guess
+    end
+    
+    # 4. Apply Manual Decimation
+    for (v, bit_val) in decimated_bits_values
+        W.is_decimated[v] = true
+        W.channel_bits[v] = UInt8(bit_val)
+    end
+    
+    # 5. Initialize V2C messages
+    copyto!(W.current_bits, W.channel_bits)
+    fill!(W.C2V, 0x00)
+    
+    for v in 1:W.num_var
+        val = W.channel_bits[v]
+        for e in W.var_to_edges[v]
+            W.V2C[e] = val
+        end
+    end
+end
+
+struct SoftDecisionWorkspace{T <: AbstractFloat}
+    num_var::Int
+    num_check::Int
+    num_edges::Int
+    
+    # 1D Edge Trackers (Size: E)
+    V2C::Vector{T}
+    C2V::Vector{T}
+    
+    # Edge Mapping: Which edges belong to which nodes?
+    var_to_edges::Vector{Vector{Int}}
+    chk_to_edges::Vector{Vector{Int}}
+    chk_to_vars::Vector{Vector{Int}} # For syndrome checking and Layered updates
+    
+    # Node Trackers
+    channel_llrs::Vector{T}
+    total_llrs::Vector{T}
+    current_bits::Vector{UInt8}
+    is_decimated::Vector{Bool}
+
+    target_syndrome::Vector{UInt8}
+
+    # Optional Layered Architecture
+    layers::Vector{Vector{Int}}
+
+    # Oscillation Tracking
+    prev_bits_1::Vector{UInt8}
+    prev_bits_2::Vector{UInt8}
+end
+
+function init_soft_workspace(H::AbstractMatrix; schedule::Symbol=:flooding)
+    num_check, num_var = size(H)
+    
+    var_to_edges = [Int[] for _ in 1:num_var]
+    chk_to_edges = [Int[] for _ in 1:num_check]
+    chk_to_vars  = [Int[] for _ in 1:num_check]
+    
+    edge_id = 1
+    for c in 1:num_check
+        for v in 1:num_var
+            if !iszero(H[c, v])
+                push!(chk_to_edges[c], edge_id)
+                push!(var_to_edges[v], edge_id)
+                push!(chk_to_vars[c], v) 
+                
+                edge_id += 1
+            end
+        end
+    end
+    
+    num_edges = edge_id - 1
+    
+    # Pre-compute the layer schedule if requested, otherwise leave it empty
+    layers = if schedule == :layered 
+        layered_schedule(H, schedule=:layered) 
+    else 
+        Vector{Vector{Int}}() 
+    end
+    
+    return SoftDecisionWorkspace{Float64}(
+        num_var, num_check, num_edges,
+        zeros(Float64, num_edges), zeros(Float64, num_edges),
+        var_to_edges, chk_to_edges, chk_to_vars,
+        zeros(Float64, num_var), zeros(Float64, num_var), zeros(UInt8, num_var),
+        zeros(Bool, num_var), layers
+    )
+end
+
+"""
+Loads a new received vector into the workspace. 
+Applies erasures (neutral LLRs) and manual decimation (pinned LLRs) allocation-free.
+"""
+@inline function load_soft_channel!(W::SoftDecisionWorkspace{Float64}, LLR_in::Vector{Float64};
+                                    syndrome::Vector{UInt8} = zeros(UInt8, W.num_check),
+                                    erasures::Vector{Int} = Int[],
+                                    decimated_bits_values::Vector{Tuple{Int, Int}} = Tuple{Int, Int}[])
+    
+    # 1. Load Syndrome
+    copyto!(W.target_syndrome, syndrome)
+    
+    # 1. Reset decimation mask
+    fill!(W.is_decimated, false)
+    
+    # 2. Load standard LLRs
+    copyto!(W.channel_llrs, LLR_in)
+    
+    # 3. Apply Erasures (Mathematically, an erasure has exactly 0.0 LLR)
+    for v in erasures
+        W.channel_llrs[v] = 0.0
+    end
+    
+    # 4. Apply Manual Decimation (Overwrites erasures if they overlap)
+    for (v, bit_val) in decimated_bits_values
+        W.is_decimated[v] = true
+        # Pin to a massive LLR: +1000.0 means 100% confident it's a 0, -1000.0 means 1.
+        llr_val = iszero(bit_val) ? 1000.0 : -1000.0
+        W.channel_llrs[v] = llr_val
+    end
+    
+    # 5. Initialize Total LLRs and V2C messages for Iteration 1
+    copyto!(W.total_llrs, W.channel_llrs)
+    fill!(W.C2V, 0.0)
+    
+    for v in 1:W.num_var
+        val = W.channel_llrs[v]
+        for e in W.var_to_edges[v]
+            W.V2C[e] = val
+        end
+    end
+end
+
 #############################
          # Gallager
 #############################
 
-function _Gallager_A_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}},
-    var_to_check_messages::Array{Int, 3}, attenuation::Float64)
-
-    @inbounds reduce(⊻, var_to_check_messages[v2, c, iter] for v2 in check_adj_list[c] if v2 != v)
-end
-_Gallager_B_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}}, var_to_check_messages,
-    attenuation::Float64) = _Gallager_A_check_node_message(c, v, iter, check_adj_list,
-    var_to_check_messages, attenuation)
-
 """
-    Gallager_A(H::T, v::T; max_iter::Int = 100, schedule::Symbol = :parallel) where T <: CTMatrixTypes
-
-Run the Gallager-A decoder with the parity-check matrix `H` and received vector `v`.
+The universal entry point for Hard-Decision decoding (Gallager A and B).
+For Gallager A, set `Bt` equal to `d_v - 1` (where `d_v` is the variable node degree).
 """
-function Gallager_A(H::T, v::T; max_iter::Int = 100, schedule::Symbol = :parallel) where T <:
-    CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial) || throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :parallel && (schedule = :flooding;)
-
-    # initialization - do these outside to reduce allocations when looped
-    H_Int, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages, var_to_check_messages,
-        current_bits, syn = _message_passing_init_Int(H, v, max_iter, :A, 2, schedule, Int[])
-
-    return _message_passing_Int(H_Int, missing, chn_inits_2, _Gallager_A_check_node_message,
-        var_adj_list, check_adj_list, max_iter, :A, schedule, current_bits, syn,
-        check_to_var_messages, var_to_check_messages, 0)
-end
-
-# TODO: threshold in docstring
-"""
-    Gallager_B(H::T, v::T; max_iter::Int = 100, threshold::Int = 2, schedule::Symbol = :parallel) where T <: CTMatrixTypes
-
-Run the Gallager-B decoder with the parity-check matrix `H` and received vector `v`.
-"""
-function Gallager_B(H::T, v::T; max_iter::Int = 100, threshold::Int = 2, schedule::Symbol =
-    :flooding) where T <: CTMatrixTypes
+function decode!(W::HardDecisionWorkspace, bits_in::Vector{UInt8};
+                 max_iter::Int = 100,
+                 Bt::Int = 2,
+                 syndrome::Vector{UInt8} = zeros(UInt8, W.num_check),
+                 erasures::Vector{Int} = Int[],
+                 decimated_bits_values::Vector{Tuple{Int, Int}} = Tuple{Int, Int}[])
     
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial) || throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :parallel && (schedule = :flooding;)
-
-    # initialization - do these outside to reduce allocations when looped
-    H_Int, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages, var_to_check_messages,
-        current_bits, syn = _message_passing_init_Int(H, v, max_iter, :B, threshold, schedule,
-        Int[])
-
-    return _message_passing_Int(H_Int, missing, chn_inits_2, _Gallager_B_check_node_message,
-        var_adj_list, check_adj_list, max_iter, :B, schedule, current_bits, syn,
-        check_to_var_messages, var_to_check_messages, threshold)
-end
-
-#############################
-        # Sum product
-#############################
-
-function _SP_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}}, var_to_check_messages::Array{Float64, 3},
-    attenuation::Float64)
-
-    # TODO why does the other one produce NaN
-    ϕ(x) = -log(tanh(0.5 * x))
-    # ϕ(x) = log((exp(x) + 1)/(exp(x) - 1))
-    temp = 0.0
-    s = 1
-    @inbounds for v2 in check_adj_list[c]
-        if v2 != v
-            x = var_to_check_messages[v2, c, iter]
-            if x >= 0
-                temp += ϕ(x)
-            else
-                temp += ϕ(-x)
-                s *= -1
-            end
-        end
-    end
-    return s * ϕ(temp)
-end
-
-function  ϕ_test(x::Real)
-    # TODO why does the other one produce NaN
-    x >= 0 ? (return -log(tanh(0.5 * x));) : (return log(tanh(-0.5 * x));)
-    # x >= 0 ? (return log((exp(x) + 1)/(exp(x) - 1));) : (return -log((exp(-x) + 1)/(exp(-x) - 1));)
-end
-
-⊞(a::Float64, b::Float64) = log((1 + exp(a + b)) / (exp(a) + exp(b)))
-⊞(a...) = reduce(⊞, a...)
-function _SP_check_node_message_box_plus(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}},
-    var_to_check_messages::Array{Float64, 3}, attenuation::Float64)
-
-    @inbounds ⊞(var_to_check_messages[v2, c, iter] for v2 in check_adj_list[c] if v2 != v)
-end
-
-"""
-    sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the sum-product algorithm with the parity-check matrix `H`, received vector `v`, and channel
-`chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-"""
-function sum_product(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing,
-    Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false,
-    erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    # (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages, var_to_check_messages,
-        current_bits, syn = _message_passing_init_fast(H, v, chn, :SP, chn_inits, :serial, erasures)
-    if schedule == :layered
-        # initialization - do these outside to reduce allocations when looped
-        layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-        return _message_passing_fast_layered(H_Int, v_Int, syndrome_based, check_adj_list, 
-            check_to_var_messages, var_to_check_messages, current_bits, syn, ϕ_test, ϕ_test,
-            max_iter, layers)
-    else
-        return _message_passing_fast(H_Int, v_Int, syndrome_based, check_adj_list, 
-            check_to_var_messages, var_to_check_messages, current_bits, syn, ϕ_test, ϕ_test,
-            max_iter)
-    end
-end
-
-"""
-    sum_product_box_plus(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the sum-product box-plus algorithm with the parity-check matrix `H`, received vector `v`, and
-channel `chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-"""
-function sum_product_box_plus(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
-    chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
-    rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-        :SP, chn_inits, schedule, erasures)
-    return _message_passing_layered(H_Int, missing, chn_inits_2, 
-        _SP_check_node_message_box_plus, var_adj_list, check_adj_list, max_iter, schedule,
-        current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0.0, layers)
-end
-
-"""
-    sum_product_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the syndrome-based sum-product algorithm with the parity-check matrix `H`, syndrome `syndrome`,
-and channel `chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-"""
-function sum_product_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
-    chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
-    rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(syndrome) ≠ (nr, 1) && size(syndrome) ≠ (1, nr)) && throw(ArgumentError("Syndrome has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H,
-        syndrome, chn, :SP, chn_inits, schedule, erasures)
-    syn_Int = _Flint_matrix_to_Julia_int_vector(syndrome)
-    return _message_passing_layered(H_Int, syn_Int, chn_inits_2, _SP_check_node_message,
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn, 
-        check_to_var_messages, var_to_check_messages, 0.0, layers)
-end
-
-# believe this can be merged into an optional argument of the above but keep for now so as not to break working code
-function sum_product_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
-    decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
-    chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
-    rand_sched::Bool = false, guided_rounds::Int = 10, erasures::Vector{Int} = Int[]) where {T <:
-    CTMatrixTypes, S <: CTFieldElem}
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-    algorithm ∈ (:auto, :manual, :guided) || throw(ArgumentError("Unknown decimation algorithm"))
-    (algorithm == :manual && !isempty(decimated_bits_values)) ||
-        throw(ArgumentError("Manual decimation but no decimated bits and values provided"))
-    # unclear how to interpret passed in values if auto or guided is set, so ignore
-    (algorithm == :auto || algorithm == :guided) && (decimated_bits_values = Tuple{Int, S}[];)
-    if algorithm == :guided
-        guided_rounds > 0 || throw(DomainError("The number of rounds before decimation must be positive"))
-    end
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, w, var_adj_list, check_adj_list, chn_inits_2, decimated_bits, decimated_values,
-        check_to_var_messages, var_to_check_messages, current_bits, totals, syn =
-        _message_passing_init_decimation(H, v, chn, decimated_bits_values, :SP, 2,
-        chn_inits, schedule, erasures)
-
-    # TODO layers
-    return _message_passing_decimation(H_Int, w, chn_inits_2, _SP_check_node_message,
-        var_adj_list, check_adj_list, max_iter, :SP, schedule, decimated_bits, decimated_values,
-        current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0, algorithm,
-        guided_rounds)
-end
-
-# decimation, guided decimation, automatic decimation
-# ensemble decoding
-# syndrome-based decimation
-
-#############################
-        # Min Sum
-#############################
-
-box_plus_min(a::Float64, b::Float64) = sign(a) * sign(b) * min(abs(a), abs(b))
-box_plus_min(a...) = reduce(box_plus_min, a...)
-function _MS_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}},
-    var_to_check_messages::Array{Float64, 3}, attenuation::Float64)
-
-    @inbounds box_plus_min(var_to_check_messages[v2, c, iter] for v2 in check_adj_list[c] if
-        v2 != v)
-end
-
-"""
-    min_sum(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`, and channel
-`chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-- Set the normalization constant with `attenuation`.
-"""
-function min_sum(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 =
-    0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel,
-    rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-        :MS, chn_inits, schedule, erasures)
-    return _message_passing_layered(H_Int, missing, chn_inits_2, _MS_check_node_message,
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-        check_to_var_messages, var_to_check_messages, attenuation, layers)
-end
-
-"""
-    min_sum_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the syndrome-based min-sum algorithm with the parity-check matrix `H`, syndrome `syndrome`,
-and channel `chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-- Set the normalization constant with `attenuation`.
-"""
-function min_sum_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
-    attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
-    schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
-    T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(syndrome) ≠ (nr, 1) && size(syndrome) ≠ (1, nr)) && throw(ArgumentError("Syndrome has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H,
-        syndrome, chn, :MS, chn_inits, schedule, erasures)
-    syn_Int = _Flint_matrix_to_Julia_int_vector(syndrome)
-    return _message_passing_layered(H_Int, syn_Int, chn_inits_2, _MS_check_node_message,
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn, 
-        check_to_var_messages, var_to_check_messages, attenuation, layers)
-end
-
-# believe this can be merged into an optional argument of the above but keep for now so as not to break working code
-function min_sum_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
-    decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
-    attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, 
-    schedule::Symbol = :parallel, rand_sched::Bool = false, guided_rounds::Int = 10,
-    erasures::Vector{Int} = Int[]) where {T <: CTMatrixTypes, S <: CTFieldElem}
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-    algorithm ∈ (:auto, :manual, :guided) || throw(ArgumentError("Unknown decimation algorithm"))
-    (algorithm == :manual && !isempty(decimated_bits_values)) ||
-        throw(ArgumentError("Manual decimation but no decimated bits and values provided"))
-    # unclear how to interpret passed in values if auto or guided is set, so ignore
-    (algorithm == :auto || algorithm == :guided) && (decimated_bits_values = Tuple{Int, S}[];)
-    if algorithm == :guided
-        guided_rounds > 0 || throw(DomainError("The number of rounds before decimation must be positive"))
-    end
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, w, var_adj_list, check_adj_list, chn_inits_2, decimated_bits, decimated_values,
-        check_to_var_messages, var_to_check_messages, current_bits, totals, syn =
-        _message_passing_init_decimation(H, v, chn, decimated_bits_values, :MS, 2,
-        chn_inits, schedule, erasures)
-
-    # TODO layers
-    return _message_passing_decimation(H_Int, w, chn_inits_2, _MS_check_node_message,
-        var_adj_list, check_adj_list, max_iter, :MS, schedule, decimated_bits, decimated_values,
-        current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, 0.0, algorithm,
-        guided_rounds)
-end
-
-# syndrome-based min-sum with decimation
-
-#############################
-  # Min Sum With Correction
-#############################
-
-function _min_sum_corr_s(a::Float64, b::Float64)
-    if abs(a + b) < 2 && abs(a - b) > 2 * abs(a + b)
-        return 0.5
-    elseif abs(a - b) < 2 && abs(a + b) > 2 * abs(a - b)
-        return -0.5
-    else
-        return 0
-    end
-end
-box_plus_min_c(a::Float64, b::Float64) = sign(a) * sign(b) * min(abs(a), abs(b)) + _min_sum_corr_s(a, b)
-box_plus_min_c(a...) = reduce(box_plus_min_c, a...)
-function _MS_correction_check_node_message(c::Int, v::Int, iter::Int, check_adj_list::Vector{Vector{Int}},
-    var_to_check_messages::Array{Float64, 3}, attenuation::Float64)
-
-    @inbounds box_plus_min_c(var_to_check_messages[v2, c, iter] for v2 in check_adj_list[c] if
-        v2 != v)
-end
-
-"""
-    min_sum_with_correction(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the min-sum algorithm with the parity-check matrix `H`, received vector `v`, and channel
-`chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-- Set the normalization constant with `attenuation`.
-- A low-complexity approximation to the correction term is used.
-"""
-function min_sum_with_correction(H::T, v::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
-    attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
-    schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
-    T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H, v, chn,
-        :MS, chn_inits, schedule, erasures)
-    return _message_passing_layered(H_Int, missing, chn_inits_2, _MS_correction_check_node_message,
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn,
-        check_to_var_messages, var_to_check_messages, attenuation, layers)
-end
-
-"""
-    min_sum_correction_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100, attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where T <: CTMatrixTypes
-
-Run the syndrome-based min-sum-with-correction algorithm with the parity-check matrix `H`, syndrome 
-`syndrome`, and channel `chn`.
-
-# Notes
-- Use `chn_inits` to pass in soft information.
-- The options for `schedule` are `:parallel` (`:flooding`), `:serial`, or `:layered` (`:semiserial`).
-- Set the normalization constant with `attenuation`.
-- A low-complexity approximation to the correction term is used.
-"""
-function min_sum_with_correction_syndrome(H::T, syndrome::T, chn::AbstractClassicalNoiseChannel; max_iter::Int = 100,
-    attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing,
-    schedule::Symbol = :parallel, rand_sched::Bool = false, erasures::Vector{Int} = Int[]) where
-    T <: CTMatrixTypes
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(syndrome) ≠ (nr, 1) && size(syndrome) ≠ (1, nr)) && throw(ArgumentError("Syndrome has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, _, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn = _message_passing_init(H,
-        syndrome, chn, :MS, chn_inits, schedule, erasures)
-    syn_Int = _Flint_matrix_to_Julia_int_vector(syndrome)
-    return _message_passing_layered(H_Int, syn_Int, chn_inits_2, _MS_correction_check_node_message,
-        var_adj_list, check_adj_list, max_iter, schedule, current_bits, totals, syn, 
-        check_to_var_messages, var_to_check_messages, attenuation, layers)
-end
-
-function min_sum_correction_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel, algorithm::Symbol;
-    decimated_bits_values::Vector{Tuple{Int, S}} = Tuple{Int, S}[], max_iter::Int = 100,
-    attenuation::Float64 = 0.5, chn_inits::Union{Missing, Vector{Float64}} = missing, 
-    schedule::Symbol = :parallel, rand_sched::Bool = false, guided_rounds::Int = 10,
-    erasures::Vector{Int} = Int[]) where {T <: CTMatrixTypes, S <: CTFieldElem}
-
-    Int(order(base_ring(H))) == 2 || throw(ArgumentError("Currently only implemented for binary codes"))
-    nr, nc = size(H)
-    (nr ≥ 0 && nc ≥ 0) || throw(ArgumentError("`H` cannot have a zero dimension"))
-    (size(v) ≠ (nc, 1) && size(v) ≠ (1, nc)) && throw(ArgumentError("Vector has incorrect dimension"))
-    # do we want to flip it if necessary?
-    2 ≤ max_iter || throw(DomainError("Maximum number of iterations must be at least two"))
-    schedule ∈ (:flooding, :parallel, :serial, :layered, :semiserial) || 
-        throw(ArgumentError("Unknown schedule algorithm"))
-    schedule == :flooding && (schedule = :parallel;)
-    schedule == :semiserial && (schedule = :layered;)
-    algorithm ∈ (:auto, :manual, :guided) || throw(ArgumentError("Unknown decimation algorithm"))
-    (algorithm == :manual && !isempty(decimated_bits_values)) ||
-        throw(ArgumentError("Manual decimation but no decimated bits and values provided"))
-    # unclear how to interpret passed in values if auto or guided is set, so ignore
-    (algorithm == :auto || algorithm == :guided) && (decimated_bits_values = Tuple{Int, S}[];)
-    if algorithm == :guided
-        guided_rounds > 0 || throw(DomainError("The number of rounds before decimation must be positive"))
-    end
-
-    # initialization - do these outside to reduce allocations when looped
-    layers = layered_schedule(H, schedule = schedule, random = rand_sched)
-    H_Int, w, var_adj_list, check_adj_list, chn_inits_2, decimated_bits, decimated_values,
-        check_to_var_messages, var_to_check_messages, current_bits, totals, syn =
-        _message_passing_init_decimation(H, v, chn, decimated_bits_values, :MS, 2,
-        chn_inits, schedule, erasures)
-
-    # TODO layers
-    return _message_passing_decimation(H_Int, w, chn_inits_2, _MS_correction_check_node_message,
-        var_adj_list, check_adj_list, max_iter, :MS, schedule, decimated_bits, decimated_values,
-        current_bits, totals, syn, check_to_var_messages, var_to_check_messages, 0, attenuation,
-        algorithm, guided_rounds)
-end
-
-#############################
-       # Initialization
-#############################
-
-function _channel_init_BSC(v::Vector{<: Integer}, p::Float64)
-    temp = log((1 - p) / p)
-    chn_init = zeros(Float64, length(v))
-    for i in 1:length(v)
-        @inbounds chn_init[i] = (-1)^v[i] * temp
-    end
-    return chn_init
-end
-
-function _channel_init_BSC!(var_to_check_messages::Matrix{Float64}, v::CTMatrixTypes, p::Float64)
-    temp = log((1 - p) / p)
-    @inbounds for i in 1:length(v)
-        iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
-    end
-    return nothing
-end
-
-# function _channel_init_BSC!(var_to_check_messages::Array{Float64, 3}, v::CTMatrixTypes, p::Float64)
-#     temp = log((1 - p) / p)
-#     @inbounds for i in 1:ncols(v)
-#         iszero(v[i]) ? (var_to_check_messages[i, 1] = temp;) : (var_to_check_messages[i, 1] = -temp;)
-#     end
-#     return nothing
-# end
-
-function _channel_init_BAWGNC_SP(v::Vector{<: AbstractFloat}, σ::Float64)
-    temp = 2 / σ^2
-    chn_init = zeros(Float64, length(v))
-    for i in 1:length(v)
-        @inbounds chn_init[i] = temp * v[i]
-    end
-    return chn_init
-end
-
-function _channel_init_BAWGNC_SP!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}, σ::Float64)
-    temp = 2 / σ^2
-    @inbounds for i in 1:length(v)
-        var_to_check_messages[i, 1] = temp * v[i]
-    end
-    return nothing
-end
-
-_channel_init_BAWGNC_MS(v::Vector{<: AbstractFloat}) = v
-
-_channel_init_BAWGNC_MS!(var_to_check_messages::Matrix{Float64}, v::Vector{<: AbstractFloat}) = var_to_check_messages[:, 1] .= v
-
-function _message_passing_init_fast(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
-    T}, chn::AbstractClassicalNoiseChannel, kind::Symbol, chn_inits::Union{Missing,
-    Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
-    T <: CTMatrixTypes}
-
-    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter `kind`"))
-    if isa(H, CTMatrixTypes)
-        Int(order(base_ring(H))) == 2 ||
-        throw(ArgumentError("Currently only implemented for binary codes"))
-        H_Int = UInt8.(_Flint_matrix_to_Julia_int_matrix(H))
-        v_Int = UInt8.(_Flint_matrix_to_Julia_int_matrix(H))
-    else
-        H_Int = UInt8.(H)
-        v_Int = UInt8.(v)
-    end
-    num_check, num_var = size(H_Int)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-
-    len_v = length(v)
-    if len_v == num_var
-        syndrome_based = false
-        kind ∈ (:SP, :MS) && isa(chn, BAWGNChannel) && !isa(v, Vector{<: AbstractFloat}) &&
-        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-        kind ∈ (:SP, :MS) && isa(chn, BinarySymmetricChannel) && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
-        throw(DomainError("Received message should be a vector of Ints for BSC."))
-    elseif len_v == num_check
-        syndrome_based = true
-    else
-        throw(ArgumentError("Vector has incorrect dimension"))
-    end
+    # 1. Snap the channel data, syndrome, and masks into place
+    copyto!(W.target_syndrome, syndrome)
+    load_hard_channel!(W, bits_in, erasures=erasures, decimated_bits_values=decimated_bits_values)
     
-    check_adj_list = [Int[] for _ in 1:num_check]
-    for r in 1:num_check
-        for c in 1:num_var
-            if !iszero(H_Int[r, c])
-                push!(check_adj_list[r], c)
-            end
-        end
-    end
-
-    check_to_var_messages::Vector{Vector{Float64}} = [zeros(Float64, length(check_adj_list[c])) for c in eachindex(check_adj_list)]
-    if schedule == :serial
-        var_to_check_messages = zeros(Float64, num_var, 1)
-    else
-        var_to_check_messages = zeros(Float64, num_var, 2)
-    end
-
-    # TODO the way v is handled isn't going to work for non-BSC
-    if !syndrome_based && ismissing(chn_inits)
-        if isa(chn, BinarySymmetricChannel)
-            _channel_init_BSC!(var_to_check_messages, v, chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :SP
-            _channel_init_BAWGNC_SP!(var_to_check_messages, v, chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :MS
-            _channel_init_BAWGNC_MS!(var_to_check_messages, v)
-        else
-            error("Haven't yet implemented this combination of channels and inputs")
-        end
-    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
-        temp = log((1 - chn.param) / chn.param)
-        var_to_check_messages[:, 1] .= temp
-    elseif !ismissing(chn_inits)
-        length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
-        var_to_check_messages[:, 1] .= chn_inits
-    else
-        error("Haven't yet implemented this combination of channels and inputs")
-    end
-
-    if !isempty(erasures)
-        all(1 ≤ bit ≤ num_var for bit in erasures) ||
-            throw(ArgumentError("Invalid bit index in erasures"))
-        @inbounds for i in erasures
-            var_to_check_messages[i, 1] = 1e-10
-        end
-    end
-
-    current_bits = zeros(UInt8, num_var)
-    syn = zeros(UInt8, num_check)
-
-    return H_Int, v_Int, syndrome_based, check_adj_list, check_to_var_messages,
-        var_to_check_messages, current_bits, syn
+    # 2. Fire the branchless math engine
+    return _fast_decode!(W, max_iter, Bt)
 end
 
-function _message_passing_init(H::Union{Matrix{S}, T}, v::Union{Vector{S}, Vector{AbstractFloat},
-    T}, chn::AbstractClassicalNoiseChannel, kind::Symbol, chn_inits::Union{Missing,
-    Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: Integer,
-    T <: CTMatrixTypes}
+# ==============================================================================
+# HARD DECISION ENGINE: GALLAGER B (AND A)
+# ==============================================================================
 
-    kind ∈ (:SP, :MS) || throw(ArgumentError("Unknown value for parameter kind"))
-    # will this work?
-    if isa(H, CTMatrixTypes)
-        Int(order(base_ring(H))) == 2 ||
-        throw(ArgumentError("Currently only implemented for binary codes"))
-        H_Int = _Flint_matrix_to_Julia_int_matrix(H)
-    else
-        H_Int = H
-    end
-    num_check, num_var = size(H_Int)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-
-    len_v = length(v)
-    if len_v == num_var
-        syndrome_based = false
-        kind ∈ (:SP, :MS) && isa(chn, BAWGNChannel) && !isa(v, Vector{<: AbstractFloat}) &&
-        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-        kind ∈ (:SP, :MS) && isa(chn, BinarySymmetricChannel) && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
-        throw(DomainError("Received message should be a vector of Ints for BSC."))
-    elseif len_v == num_check
-        syndrome_based = true
-    else
-        throw(ArgumentError("Vector has incorrect dimension"))
-    end
-
-    check_adj_list = [Int[] for _ in 1:num_check]
-    var_adj_list = [Int[] for _ in 1:num_var]
-    for r in 1:num_check
-        for c in 1:num_var
-            if !iszero(H_Int[r, c])
-                push!(check_adj_list[r], c)
-                push!(var_adj_list[c], r)
-            end
-        end
-    end
-
-    # remove for combing everything into a single layered system
-    # if schedule == :serial
-    #     check_to_var_messages = zeros(Float64, num_check, num_var, 1)
-    #     var_to_check_messages = zeros(Float64, num_var, num_check, 1)
-    # else
-    check_to_var_messages = zeros(Float64, num_check, num_var, 2)
-    var_to_check_messages = zeros(Float64, num_var, num_check, 2)
-# end
-
-    # TODO the way v is handled isn't going to work for non-BSC
-    if !syndrome_based && ismissing(chn_inits)
-        chn_inits_2 = if isa(chn, BinarySymmetricChannel)
-            _channel_init_BSC(_Flint_matrix_to_Julia_int_vector(v), chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :SP
-            _channel_init_BAWGNC_SP(v, chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :MS
-            _channel_init_BAWGNC_MS(v)
-        end
-    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
-        temp = log((1 - chn.param) / chn.param)
-        # var_to_check_messages[:, 1] .= temp
-        chn_inits_2 = [temp for _ in 1:num_var]
-    elseif !ismissing(chn_inits)
-        length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
-        # var_to_check_messages[:, 1] .= chn_inits
-        chn_inits_2 = chn_inits
-    else
-        error("Haven't yet implemented this combination of channels and inputs")
-    end
-
-    # could reduce this stuff to UInt8 if needed
-    current_bits = zeros(Int, num_var)
-    totals = zeros(Float64, num_var)
-    syn = zeros(Int, num_check)
-
-    if !isempty(erasures)
-        all(1 ≤ bit ≤ num_var for bit in erasures) ||
-            throw(ArgumentError("Invalid bit index in erasures"))
-        @inbounds for i in erasures
-            chn_inits_2[i] = 1e-10
-        end
-    end
-
-    return H_Int, syndrome_based, var_adj_list, check_adj_list, chn_inits_2, check_to_var_messages,
-        var_to_check_messages, current_bits, totals, syn
-end
-
-function _message_passing_init_Int(H::Union{Matrix{S}, T}, v::Union{Vector{S},
-    Vector{AbstractFloat}, T}, max_iter::Int, kind::Symbol, Bt::Int, schedule::Symbol,
-    erasures::Vector{Int}) where {S <: Integer, T <: CTMatrixTypes}
-
-    kind ∈ (:A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
-    # will this work?
-    if isa(H, CTMatrixTypes)
-        Int(order(base_ring(H))) == 2 ||
-        throw(ArgumentError("Currently only implemented for binary codes"))
-        H_Int = _Flint_matrix_to_Julia_int_matrix(H)
-    else
-        H_Int = H
-    end
-    num_check, num_var = size(H_Int)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    (kind == :B && !(1 ≤ Bt ≤ num_check)) &&
-        throw(DomainError("Improper threshold for Gallager B"))
-    2 ≤ max_iter || throw(DomainError("Number of maximum iterations must be at least two"))
+function _fast_decode!(W::HardDecisionWorkspace, max_iter::Int, Bt::Int)
     
-    len_v = length(v)
-    if len_v == num_var
-        syndrome_based = false
-    elseif len_v == num_checks
-        syndrome_based = true
-    else
-        throw(ArgumentError("Vector has incorrect dimension"))
-    end
-    
-    check_adj_list = [Int[] for _ in 1:num_check]
-    var_adj_list = [Int[] for _ in 1:num_var]
-    for r in 1:num_check
-        for c in 1:num_var
-            if !iszero(H_Int[r, c])
-                push!(check_adj_list[r], c)
-                push!(var_adj_list[c], r)
+    for iter in 1:max_iter
+        # ---------------------------------------------------------
+        # 1. Check Node Update (The Parity Trick & Syndrome Injection)
+        # ---------------------------------------------------------
+        for c in 1:W.num_check
+            # Initialize parity to the target syndrome (0x00 for standard decoding)
+            total_parity = W.target_syndrome[c]
+            
+            for e in W.chk_to_edges[c]
+                total_parity ⊻= W.V2C[e]
             end
-        end
-    end
-
-    # # TODO: what are proper inits for syndrome and erasures here?
-    # if !syndrome_based && ismissing(chn_inits)
-        chn_inits = vec(_Flint_matrix_to_Julia_int_matrix(v))
-    # elseif syndrome_based && ismissing(chn_inits)
-    #     chn_inits = [log((1 - chn.cross_over_prob) / chn.cross_over_prob) for _ in 1:num_var]
-    # end
-
-    # could reduce this stuff to UInt8 if needed
-    current_bits = zeros(Int, num_var)
-    syn = zeros(Int, num_check)
-    if schedule == :serial
-        check_to_var_messages = zeros(Int, num_check, num_var, 1)
-        var_to_check_messages = zeros(Int, num_var, num_check, 1)
-    else
-        check_to_var_messages = zeros(Int, num_check, num_var, 2)
-        var_to_check_messages = zeros(Int, num_var, num_check, 2)
-    end
-
-    # # TODO
-    # if !isempty(erasures)
-    #     all(1 ≤ bit ≤ num_var for bit in erasures) ||
-    #         throw(ArgumentError("Invalid bit index in erasures"))
-    #     @inbounds for i in erasures
-    #         chn_inits[i] = 1e-10
-    #     end
-    # end
-
-    return H_Int, var_adj_list, check_adj_list, chn_inits, check_to_var_messages,
-        var_to_check_messages, current_bits, syn
-end
-
-function _message_passing_init_decimation(H::T, v::T, chn::AbstractClassicalNoiseChannel,
-    decimated_bits_values::Vector{Tuple{Int, S}}, kind::Symbol, Bt::Int,
-    chn_inits::Union{Missing, Vector{Float64}}, schedule::Symbol, erasures::Vector{Int}) where {S <: CTFieldElem,
-    T <: CTMatrixTypes}
-
-    kind ∈ (:SP, :MS, :A, :B) || throw(ArgumentError("Unknown value for parameter kind"))
-    kind ∈ (:SP, :MS) && ismissing(chn) && throw(ArgumentError(":SP and :MS require a noise model"))
-    Int(order(base_ring(H))) == 2 ||
-        throw(ArgumentError("Currently only implemented for binary codes"))
-    num_check, num_var = size(H)
-    num_check > 0 && num_var > 0 || throw(ArgumentError("Input matrix of improper dimension"))
-    length(v) == num_var || throw(ArgumentError("Vector has incorrect dimension"))
-    (kind == :B && !(1 ≤ Bt ≤ num_check)) &&
-        throw(DomainError("Improper threshold for Gallager B"))
-    kind ∈ (:SP, :MS) && chn.type == :BAWGNC && !isa(v, Vector{<:AbstractFloat}) &&
-        throw(DomainError("Received message should be a vector of floats for BAWGNC."))
-    kind ∈ (:SP, :MS) && chn.type == :BSC && !isa(v, Vector{Int}) && !isa(v, CTMatrixTypes) &&
-        throw(DomainError("Received message should be a vector of Ints for BSC."))
-    
-    H_Int = _Flint_matrix_to_Julia_int_matrix(H)
-    w = vec(_Flint_matrix_to_Julia_int_matrix(v))
-    check_adj_list = [Int[] for _ in 1:num_check]
-    var_adj_list = [Int[] for _ in 1:num_var]
-
-    for r in 1:num_check
-        for c in 1:num_var
-            if !iszero(H_Int[r, c])
-                push!(check_adj_list[r], c)
-                push!(var_adj_list[c], r)
+            
+            for e in W.chk_to_edges[c]
+                W.C2V[e] = total_parity ⊻ W.V2C[e]
             end
-        end
-    end
-
-    # TODO the way v is handled isn't going to work for non-BSC
-    if !syndrome_based && ismissing(chn_inits)
-        if isa(chn, BinarySymmetricChannel)
-            _channel_init_BSC!(var_to_check_messages, v, chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :SP
-            _channel_init_BAWGNC_SP!(var_to_check_messages, v, chn.param)
-        elseif isa(chn, BAWGNChannel) && kind == :MS
-            _channel_init_BAWGNC_MS!(var_to_check_messages, v)
-        end
-    elseif syndrome_based && ismissing(chn_inits) && isa(chn, BinarySymmetricChannel)
-        temp = log((1 - chn.param) / chn.param)
-        var_to_check_messages[:, 1] .= temp
-    elseif !ismissing(chn_inits)
-        length(chn_inits) ≠ num_var && throw(ArgumentError("Channel inputs has wrong size"))
-        var_to_check_messages[:, 1] .= chn_inits
-    else
-        error("Haven't yet implemented this combination of channels and inputs")
-    end
-
-    if !isempty(decimated_bits_values)
-        decimated_bits = getindex.(decimated_bits_values, 1)
-        all(1 ≤ bit ≤ num_var for bit in decimated_bits) ||
-            throw(ArgumentError("Invalid bit index in decimated_bits_values"))
-        # TODO: not safe but use for now
-        decimated_values = [iszero(pair[2]) ? 0 : 1 for pair in decimated_bits_values]
-        all(iszero(val) || isone(val) for val in decimated_values) ||
-            throw(ArgumentError("Invalid bit value in decimated_bits_values"))
-        if kind ∈ (:SP, :MS)
-            @inbounds for (i, b) in enumerate(decimated_bits)
-                if iszero(decimated_values[i])
-                    chn_inits[b] = 255
-                else
-                    chn_inits[b] = -255
-                end
-            end
-        end
-    else
-        decimated_bits = Int[]
-        decimated_values = Int[]
-    end
-
-    # could reduce this stuff to UInt8 if needed
-    current_bits = zeros(Int, num_var)
-    @inbounds for (i, v) in enumerate(decimated_bits)
-        current_bits[v] = decimated_values[i]
-    end
-
-    totals = zeros(Float64, num_var)
-    syn = zeros(Int, num_check)
-    R = kind ∈ (:A, :B) ? Int : Float64
-    if schedule == :serial
-        check_to_var_messages = zeros(R, num_check, num_var, 1)
-        var_to_check_messages = zeros(R, num_var, num_check, 1)
-    else
-        check_to_var_messages = zeros(R, num_check, num_var, 2)
-        var_to_check_messages = zeros(R, num_var, num_check, 2)
-    end
-
-    if !isempty(erasures)
-        all(1 ≤ bit ≤ num_var for bit in erasures) ||
-            throw(ArgumentError("Invalid bit index in erasures"))
-        @inbounds for i in erasures
-            chn_inits[i] = 1e-10
-        end
-    end
-
-    return H_Int, w, var_adj_list, check_adj_list, chn_inits, decimated_bits,
-        decimated_values, check_to_var_messages, var_to_check_messages, current_bits,
-        totals, syn
-end
-
-#############################
-      # Message Passing
-#############################
-
-function _message_passing(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
-    chn_inits::Vector{Float64}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-    check_adj_list::Vector{Vector{Int}}, max_iter::Int, schedule::Symbol,
-    current_bits::Vector{Int}, totals::Vector{Float64}, syn::Vector{Int},
-    check_to_var_messages::Array{Float64, 3}, var_to_check_messages::Array{Float64, 3},
-    attenuation::Float64) where T <: Integer
-
-    num_check, num_var = size(H)
-
-    # first iteration for variable nodes - set to channel initialization
-    @inbounds for v in 1:num_var
-        @simd for c in var_adj_list[v]
-            var_to_check_messages[v, c, 1] = chn_inits[v]
-        end
-    end
-
-    @inbounds @simd for c in 1:num_check
-        for v in check_adj_list[c]
-            if !ismissing(syndrome)
-                check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v, 1,
-                    check_adj_list, var_to_check_messages, attenuation)
-            else
-                check_to_var_messages[c, v, 1] = c_to_v_mess(c, v, 1, check_adj_list,
-                    var_to_check_messages, attenuation)
-            end
-        end
-    end
-
-    # one full iteration done, check if converged
-    @simd for v in 1:num_var
-        totals[v] = chn_inits[v]
-        for c in var_adj_list[v]
-            totals[v] += check_to_var_messages[c, v, 1]
-        end
-        current_bits[v] = totals[v] >= 0 ? 0 : 1
-    end
-    LinearAlgebra.mul!(syn, H, current_bits)
-    if !ismissing(syndrome)
-        all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1, totals 
-    else
-        all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, 1, totals 
-    end
-
-    iter = 2
-    # unclear if this actually handles serial properly
-    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
-    prev_iter = 1
-    # does this propagate correctly?
-    @inbounds while iter ≤ max_iter
-        @simd for v in 1:num_var
-            for c in var_adj_list[v]
-                # this includes the channel inputs in total
-                var_to_check_messages[v, c, curr_iter] = totals[v] -
-                    check_to_var_messages[c, v, prev_iter]
-            end
-        end
-
-        @simd for c in 1:num_check
-            for v in check_adj_list[c]
-                if !ismissing(syndrome)
-                    check_to_var_messages[c, v, curr_iter] = (-1)^syndrome[c] * c_to_v_mess(c, v,
-                    curr_iter, check_adj_list, var_to_check_messages, attenuation)
-                else
-                    check_to_var_messages[c, v, curr_iter] = c_to_v_mess(c, v,
-                    curr_iter, check_adj_list, var_to_check_messages, attenuation)
-                end
-            end
-        end
-    
-        # iteration done, check if converged
-        @simd for v in 1:num_var
-            totals[v] = chn_inits[v]
-            for c in var_adj_list[v]
-                totals[v] += check_to_var_messages[c, v, curr_iter]
-            end
-            current_bits[v] = totals[v] >= 0 ? 0 : 1
-        end
-    
-        LinearAlgebra.mul!(syn, H, current_bits)
-        if !ismissing(syndrome)
-            all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, iter, totals
-        else
-            all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, iter, totals
-        end
-
-        if schedule == :parallel
-            temp = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp
-        end
-        iter += 1
-    end
-
-    return false, current_bits, iter, totals
-end
-
-function _message_passing_layered(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
-    chn_inits::Vector{Float64}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-    check_adj_list::Vector{Vector{Int}}, max_iter::Int, schedule::Symbol,
-    current_bits::Vector{Int}, totals::Vector{Float64}, syn::Vector{Int},
-    check_to_var_messages::Array{Float64, 3}, var_to_check_messages::Array{Float64, 3},
-    attenuation::Float64, layers::Vector{Vector{Int}}) where T <: Integer
-
-    # first iteration for variable nodes - set to channel initialization
-    num_check, num_var = size(H)
-    @inbounds for v in 1:num_var
-        @simd for c in var_adj_list[v]
-            var_to_check_messages[v, c, 2] = chn_inits[v]
-        end
-    end
-
-    iter = 1
-    curr_iter = 2
-    prev_iter = 1
-    # does this propagate correctly?
-    @inbounds while iter < max_iter
-        for layer in layers
-            @simd for c in layer
-                for v in check_adj_list[c]
-                    if !ismissing(syndrome)
-                        check_to_var_messages[c, v, curr_iter] = (-1)^syndrome[c] * c_to_v_mess(c, v,
-                        curr_iter, check_adj_list, var_to_check_messages, attenuation)
-                    else
-                        check_to_var_messages[c, v, curr_iter] = c_to_v_mess(c, v,
-                        curr_iter, check_adj_list, var_to_check_messages, attenuation)
-                    end
-                end
-            end
-
-            # TODO the only values that should be changing here are the ones connected to the check nodes in the layer
-            @simd for v in 1:num_var
-                totals[v] = chn_inits[v]
-                for c in var_adj_list[v]
-                    totals[v] += check_to_var_messages[c, v, curr_iter]
-                end
-                current_bits[v] = totals[v] >= 0 ? 0 : 1
-            end
-
-            @simd for v in 1:num_var
-                for c in var_adj_list[v]
-                    # this includes the channel inputs in total
-                    # TODO: here prev was changed to curr
-                    var_to_check_messages[v, c, curr_iter] = totals[v] -
-                        check_to_var_messages[c, v, curr_iter]
-                end
-            end
-
-            # switch these current values to previous values so the next layer can use them
-            @inbounds @simd for c in layer
-                for v in check_adj_list[c]
-                    check_to_var_messages[c, v, prev_iter] = check_to_var_messages[c, v, curr_iter]
-                end
-            end
-
-            temp = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp
-        end
-
-        # iteration done, check if converged
-        LinearAlgebra.mul!(syn, H, current_bits)
-        if !ismissing(syndrome)
-            all(syn[i] % 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, iter, totals
-        else
-            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter, totals
-        end
-
-        iter += 1
-    end
-    return false, current_bits, iter, totals
-end
-
-function _message_passing_fast(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_based::Bool,
-    check_adj_list::Vector{Vector{Int}}, check_to_var_messages::Vector{Vector{Float64}},
-    var_to_check_messages::Matrix{Float64}, current_bits::Vector{UInt8}, syn::Vector{UInt8},
-    phi::Function, phi_inv::Function, max_iter::Int)
-    
-    # TODO
-    # 3. estabilish how phi and phi^{-1} behave wrt to above functions
-
-    num_check, num_var = size(H_Int)
-    iter = 1
-    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
-    prev_iter = 1
-    @inbounds while iter < max_iter
-    # while iter < max_iter
-        for c in 1:num_check
-            S::Float64 = 0.0
-            for (i, v) in enumerate(check_adj_list[c])
-                S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][i])
-            end
-
-            for (i, v) in enumerate(check_adj_list[c])
-                Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][i]
-                # TODO fix phi_inv here to not need this (-1)^sign term
-                temp = S - phi(Q_temp)
-                # BUG? seems to converge if I put the minus sign before (-1) here?!?!?!
-                check_to_var_messages[c][i] = (-1)^sign(temp) * phi_inv(temp)
-                var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][i]
-            end
-        end
-
-        @inbounds for i in 1:num_var
-        # for i in 1:num_var
-            current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
-        end
-
-        LinearAlgebra.mul!(syn, H_Int, current_bits)
-        if syndrome_based
-            all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        else
-            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        end
-
-        if schedule == :parallel
-            temp_iter = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp_iter
-        end
-        iter += 1
-    end
-
-    @inbounds for i in 1:num_var
-    # for i in 1:num_var
-        current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
-    end
-    return false, current_bits, iter, var_to_check_messages[:, curr_iter]
-end
-
-function _message_passing_fast_layered(H_Int::Matrix{UInt8}, v::Matrix{UInt8}, syndrome_based::Bool,
-    check_adj_list::Vector{Vector{Int}}, check_to_var_messages::Vector{Vector{Float64}},
-    var_to_check_messages::Matrix{Float64}, current_bits::Vector{UInt8}, syn::Vector{UInt8},
-    phi::Function, phi_inv::Function, max_iter::Int, layers::Vector{Vector{Int}})
-    
-    # TODO
-    # 3. estabilish how phi and phi^{-1} behave wrt to above functions
-
-    num_check, num_var = size(H_Int)
-    iter = 1
-    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
-    prev_iter = 1
-    @inbounds while iter < max_iter
-        for layer in layers
-            for c in layer
-                S = 0.0
-                for v in check_adj_list[c]
-                    S += phi(var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v])
-                end
-
-                for v in check_adj_list[c]
-                    Q_temp = var_to_check_messages[v, prev_iter] - check_to_var_messages[c][v]
-                    # TODO fix phi_inv here to not need this (-1)^sign term
-                    temp = S - phi(Q_temp)
-                    check_to_var_messages[c][v] = (-1)^sign(temp) * phi_inv(temp)
-                    var_to_check_messages[v, curr_iter] = Q_temp + check_to_var_messages[c][v]
-                end
-            end
-
-            # switch these current values to previous values so the next layer can use them
-            @inbounds @simd for c in layer
-                for v in check_adj_list[c]
-                    var_to_check_messages[v, prev_iter] = var_to_check_messages[v, curr_iter]
-                end
-            end
-        end
-
-        @inbounds for i in 1:num_var
-            current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
-        end
-
-        LinearAlgebra.mul!(syn, H_Int, current_bits)
-        if syndrome_based
-            all(syn[i] % 2 == v[i, 1] for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        else
-            all(iszero(syn[i] % 2) for i in 1:num_check) && return true, current_bits, iter, var_to_check_messages[:, curr_iter]
-        end
-
-        if schedule == :parallel
-            temp_iter = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp_iter
-        end
-        iter += 1
-    end
-
-    @inbounds for i in 1:num_var
-        current_bits[i] = var_to_check_messages[i, curr_iter] >= 0 ? 0 : 1
-    end
-    return false, current_bits, iter, var_to_check_messages[:, curr_iter]
-end
-
-# significant speedups seperating the float and int code
-function _message_passing_Int(H::Matrix{T}, syndrome::Union{Missing, Vector{T}},
-    chn_inits::Vector{Int}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-    check_adj_list::Vector{Vector{Int}}, max_iter::Int, kind::Symbol, schedule::Symbol,
-    current_bits::Vector{Int}, syn::Vector{Int}, check_to_var_messages::Array{Int, 3},
-    var_to_check_messages::Array{Int, 3}, Bt::Int) where T <: Integer
-
-    num_check, num_var = size(H)
-
-    # first iteration for variable nodes - set to channel initialization
-    @inbounds for v in 1:num_var
-        @simd for c in var_adj_list[v]
-            var_to_check_messages[v, c, 1] = v
-        end
-    end
-
-    @simd for c in 1:num_check
-        for v in check_adj_list[c]
-            if !ismissing(syndrome)
-                check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v, 1,
-                    check_adj_list, var_to_check_messages, 0.0)
-            else
-                check_to_var_messages[c, v, 1] = c_to_v_mess(c, v, 1, check_adj_list,
-                    var_to_check_messages, 0.0)
-            end
-        end
-    end
-
-    # one full iteration done, check if converged
-    curr_iter = 1
-    @simd for v in 1:num_var
-        len = length(var_adj_list[v])
-        one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
-        d = fld(len, 2)
-        current_bits[v] = one_count + (isone(chn_inits[v]) && iseven(len)) > d
-    end
-    LinearAlgebra.mul!(syn, H, current_bits)
-    if !ismissing(syndrome)
-        all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits, 1 
-    else
-        all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, 1 
-    end
-
-    iter = 2
-    schedule == :parallel ? (curr_iter = 2;) : (curr_iter = 1;)
-    prev_iter = 1
-    # does this propagate correctly?
-    @inbounds while iter ≤ max_iter
-        @simd for v in 1:num_var
-            for c in var_adj_list[v]
-                if kind == :A && length(var_adj_list[v]) > 1
-                    if all(!Base.isequal(chn_inits[v]), check_to_var_messages[c2, v, prev_iter] for
-                        c2 in var_adj_list[v] if c != c2)
-
-                        var_to_check_messages[v, c, curr_iter] ⊻= 1
-                    end
-                elseif kind == :B && length(var_adj_list[v]) >= Bt
-                    if count(!Base.isequal(chn_inits[v]), check_to_var_messages[c2, v, prev_iter] for 
-                        c2 in var_adj_list[v] if c != c2) >= Bt
-
-                        var_to_check_messages[v, c, curr_iter] ⊻= 1
-                    end
-                end
-            end
-        end
-
-        @simd for c in 1:num_check
-            for v in check_adj_list[c]
-                if !ismissing(syndrome)
-                    check_to_var_messages[c, v, 1] = (-1)^syndrome[c] * c_to_v_mess(c, v, curr_iter,
-                        check_adj_list, var_to_check_messages, 0.0)
-                else
-                    check_to_var_messages[c, v, 1] = c_to_v_mess(c, v, curr_iter, check_adj_list,
-                        var_to_check_messages, 0.0)
-                end
-            end
-        end
-    
-        # iteration done, check if converged
-        @simd for v in 1:num_var
-            len = length(var_adj_list[v])
-            one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
-            d = fld(len, 2)
-            current_bits[v] = one_count + (isone(chn_inits[v]) && iseven(len)) > d
-        end
-    
-        LinearAlgebra.mul!(syn, H, current_bits)
-        if !ismissing(syndrome)
-            all(syn[i] .% 2 == syndrome[i] for i in 1:num_check) && return true, current_bits,
-                curr_iter
-        else
-            all(iszero(syn[i] .% 2) for i in 1:num_check) && return true, current_bits, curr_iter
         end
         
-        if schedule == :flooding
-            temp = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp
+        # ---------------------------------------------------------
+        # 2. Variable Node Update (Disagreement Trick & Decimation Guard)
+        # ---------------------------------------------------------
+        for v in 1:W.num_var
+            # If decimated, node is permanently frozen to its pinned channel bit
+            if W.is_decimated[v]
+                for e in W.var_to_edges[v]
+                    W.V2C[e] = W.channel_bits[v]
+                end
+                W.current_bits[v] = W.channel_bits[v]
+                continue
+            end
+            
+            y_v = W.channel_bits[v]
+            disagreements = 0
+            
+            # Count incoming messages that disagree with the channel bit
+            for e in W.var_to_edges[v]
+                if W.C2V[e] != y_v
+                    disagreements += 1
+                end
+            end
+            
+            # Compute outgoing V2C messages
+            for e in W.var_to_edges[v]
+                disagree_excluding_e = disagreements - (W.C2V[e] != y_v ? 1 : 0)
+                if disagree_excluding_e >= Bt
+                    W.V2C[e] = y_v ⊻ 0x01
+                else
+                    W.V2C[e] = y_v
+                end
+            end
+            
+            # Tentative hard decision
+            if disagreements >= Bt
+                W.current_bits[v] = y_v ⊻ 0x01
+            else
+                W.current_bits[v] = y_v
+            end
         end
-        iter += 1
-    end
-
-    return false, current_bits, iter
-end
-
-function _message_passing_decimation(H::Matrix{T}, w::Vector{T}, chn_inits::Union{Missing,
-    Vector{Float64}}, c_to_v_mess::Function, var_adj_list::Vector{Vector{Int}},
-    check_adj_list::Vector{Vector{Int}}, max_iter::Int, kind::Symbol, schedule::Symbol,
-    decimated_bits::Vector{Int}, decimated_values::Vector{Int}, current_bits::Vector{Int},
-    totals::Union{Vector{Int}, Vector{Float64}}, syn::Vector{Int},
-    check_to_var_messages::Union{Array{Float64, 3}, Array{Int, 3}},
-    var_to_check_messages::Union{Array{Float64, 3}, Array{Int, 3}}, Bt::Int,
-    attenuation::Float64, algorithm::Symbol, guided_rounds::Int) where T <: Integer
-
-    # the inclusion of the kind statements add less than a microsecond
-    num_check, num_var = size(H)
-    if !isempty(decimated_bits)
-        @inbounds for (i, v) in enumerate(decimated_bits)
-            current_bits[v] = decimated_values[i]
+        
+        # ---------------------------------------------------------
+        # 3. Syndrome Convergence Check
+        # ---------------------------------------------------------
+        is_valid = true
+        for c in 1:W.num_check
+            syn = W.target_syndrome[c]
+            for v in W.chk_to_vars[c]
+                syn ⊻= W.current_bits[v]
+            end
+            
+            if syn != 0x00
+                is_valid = false
+                break
+            end
+        end
+        
+        if is_valid
+            return true, W.current_bits, iter
         end
     end
     
-    # first iteration for variable nodes - set to channel initialization
-    if kind ∈ (:SP, :MS)
-        @inbounds for v in 1:num_var
-            var_to_check_messages[v, var_adj_list[v], 1] .= chn_inits[v]
-        end
-    elseif kind ∈ (:A, :B)
-        # TODO: remove and set this to chn_inits
-        @inbounds for v in 1:num_var
-            var_to_check_messages[v, var_adj_list[v], :] .= w[v]
-        end
+    return false, W.current_bits, max_iter
+end
+
+"""
+The Exact Box-Plus Operator (Jacobian Logarithm) for Sum-Product.
+Mathematically equivalent to the tanh rule, but numerically bulletproof against NaNs.
+"""
+@inline function boxplus_exact(x::Float64, y::Float64)
+    # The Min-Sum base: sign(x)*sign(y)*min(|x|, |y|)
+    base = sign(x) * sign(y) * min(abs(x), abs(y))
+    
+    # The Sum-Product correction factor: log(1 + e^-|x+y|) - log(1 + e^-|x-y|)
+    # log1p(z) accurately computes log(1+z) even for extremely small z
+    corr = log1p(exp(-abs(x + y))) - log1p(exp(-abs(x - y)))
+    
+    return base + corr
+end
+
+"""
+The Min-Sum Box-Plus Operator.
+"""
+@inline function boxplus_minsum(x::Float64, y::Float64)
+    return sign(x) * sign(y) * min(abs(x), abs(y))
+end
+
+"""
+The Min-Sum Box-Plus Operator with a low-complexity correction term.
+"""
+@inline function boxplus_minsum_correction(x::Float64, y::Float64)
+    # The standard Min-Sum base
+    base = sign(x) * sign(y) * min(abs(x), abs(y))
+    
+    # Pre-compute to avoid redundant absolute value evaluations
+    sum_abs = abs(x + y)
+    diff_abs = abs(x - y)
+    
+    # Low-complexity approximation to the correction term
+    corr = 0.0
+    if sum_abs < 2.0 && diff_abs > 2.0 * sum_abs
+        corr = 0.5
+    elseif diff_abs < 2.0 && sum_abs > 2.0 * diff_abs
+        corr = -0.5
     end
+    
+    return base + corr
+end
 
-    iter = 1
-    curr_iter = 1
-    schedule == :parallel ? (prev_iter = 2;) : (prev_iter = 1;)
-    # does this propagate correctly?
-    @inbounds while iter ≤ max_iter
-        # variable node is already done for first iteration, so start with check nodes
-        @simd for c in 1:num_check
-            for v in check_adj_list[c]
-                if v ∉ decimated_bits
-                    check_to_var_messages[c, v, curr_iter] = c_to_v_mess(c, v, curr_iter,
-                        check_adj_list, var_to_check_messages, attenuation)
+function decode!(W::SoftDecisionWorkspace{Float64}, LLR_in::Vector{Float64};
+                 algorithm::Symbol = :offset_min_sum,
+                 schedule::Symbol = :layered,
+                 decimation::Symbol = :none,
+                 oscillation::Symbol = :none,
+                 perturbation::Symbol = :none,  # NEW: Default to :none
+                 max_iter::Int = 100,
+                 attenuation::Float64 = 0.75,
+                 offset::Float64 = 0.5,
+                 dec_thresh::Float64 = 10.0,
+                 dec_rounds::Int = 10,
+                 perturbation_scale::Float64 = 0.0,
+                 syndrome::Vector{UInt8} = zeros(UInt8, W.num_check),
+                 erasures::Vector{Int} = Int[],
+                 decimated_bits_values::Vector{Tuple{Int, Int}} = Tuple{Int, Int}[])
+    
+    copyto!(W.target_syndrome, syndrome)
+    load_soft_channel!(W, LLR_in, erasures=erasures, decimated_bits_values=decimated_bits_values)
+    
+    target_schedule = schedule == :serial ? :layered : schedule
+    
+    return _fast_decode!(W, Val(algorithm), Val(target_schedule), Val(decimation), Val(oscillation), Val(perturbation),
+                         max_iter, attenuation, offset, dec_thresh, dec_rounds, perturbation_scale)
+end
+
+# ==============================================================================
+# SOFT DECISION ENGINE: FLOODING (PARALLEL SCHEDULE)
+# ==============================================================================
+
+function _fast_decode!(W::SoftDecisionWorkspace{Float64}, 
+                       algo::Val, 
+                       ::Val{:flooding}, 
+                       decimation_type::Val, 
+                       osc_type::Val, 
+                       pert_type::Val, 
+                       max_iter::Int, 
+                       attenuation::Float64, 
+                       offset::Float64, 
+                       dec_thresh::Float64, 
+                       dec_rounds::Int, 
+                       perturbation_scale::Float64)
+    
+    @inbounds begin
+        for iter in 1:max_iter
+            # ---------------------------------------------------------
+            # 1. Variable Node Update (V2C Calculation)
+            # ---------------------------------------------------------
+            for v in 1:W.num_var
+                for e in W.var_to_edges[v]
+                    W.V2C[e] = W.total_llrs[v] - W.C2V[e]
                 end
             end
-        end
-
-        # one full iteration done, check if converged
-        if kind ∈ (:SP, :MS)
-            @simd for v in 1:num_var
-                if v ∉ decimated_bits
-                    totals[v] = chn_inits[v]
-                    for c in var_adj_list[v]
-                        totals[v] += check_to_var_messages[c, v, curr_iter]
-                    end
-                    current_bits[v] = totals[v] >= 0 ? 0 : 1
-                end
-            end
-        elseif kind ∈ (:A, :B)
-            @simd for v in 1:num_var
-                if v ∉ decimated_bits
-                    len = length(var_adj_list[v])
-                    one_count = count(isone, view(check_to_var_messages, var_adj_list[v], v, curr_iter))
-                    d = fld(len, 2)
-                    current_bits[v] = one_count + (isone(w[v]) && iseven(len)) > d
-                end
-            end
-        end
-
-        LinearAlgebra.mul!(syn, H, current_bits)
-        iszero(syn .% 2) && return true, current_bits, iter, totals
-
-        if algorithm == :guided && iszero(iter % guided_rounds)
-            val, index = findmax(totals)
-            if val ≥ 0
-                push!(decimated_bits, index)
-                # push!(decimated_values, 0)
-                chn_inits[v] = 255
-            else
-                push!(decimated_bits, index)
-                # push!(decimated_values, 1)
-                chn_inits[v] = -255
-            end
-        end
-
-        iter += 1
-        if schedule == :flooding
-            temp = curr_iter
-            curr_iter = prev_iter
-            prev_iter = temp
-        end
-
-        if iter ≤ max_iter
-            for v in 1:num_var
-                if v ∉ decimated_bits
-                    for c in var_adj_list[v]
-                        if kind ∈ (:SP, :MS)
-                            # this includes the channel inputs in total
-                            var_to_check_messages[v, c, curr_iter] = totals[v] -
-                                check_to_var_messages[c, v, prev_iter]
-                            if algorithm == :auto
-                                if var_to_check_messages[v, c, curr_iter] > 8
-                                    push!(decimated_bits, v)
-                                    # push!(decimated_values, 0)
-                                    chn_inits[v] = 255
-                                elseif var_to_check_messages[v, c, curr_iter] < -8
-                                    push!(decimated_bits, v)
-                                    # push!(decimated_values, 1)
-                                    chn_inits[v] = -255
-                                end
-                            end
-                        elseif kind == :A && length(var_adj_list[v]) > 1
-                            if all(!Base.isequal(w[v]), check_to_var_messages[c2, v, prev_iter] for
-                                c2 in var_adj_list[v] if c != c2)
-
-                                var_to_check_messages[v, c, curr_iter] ⊻= 1
-                                # TODO: how to auto this?
-                            end
-                        elseif kind == :B && length(var_adj_list[v]) >= Bt
-                            if count(!Base.isequal(w[v]), check_to_var_messages[c2, v, prev_iter] for 
-                                c2 in var_adj_list[v] if c != c2) >= Bt
-
-                                var_to_check_messages[v, c, curr_iter] ⊻= 1
-                                # TODO: how to auto this?
+            
+            # ---------------------------------------------------------
+            # 2. Check Node Update (C2V Calculation)
+            # ---------------------------------------------------------
+            for c in 1:W.num_check
+                for e_out in W.chk_to_edges[c]
+                    agg = 0.0
+                    first_val = true
+                    for e_in in W.chk_to_edges[c]
+                        if e_in != e_out
+                            if first_val
+                                agg = W.V2C[e_in]
+                                first_val = false
+                            else
+                                agg = _apply_boxplus(algo, agg, W.V2C[e_in])
                             end
                         end
                     end
+                    
+                    # Apply attenuation / offset
+                    agg = _apply_post_process(algo, agg, attenuation, offset)
+                    
+                    # Inject Syndrome Math: Flip sign if parity check requires an odd number of 1s
+                    if W.target_syndrome[c] == 0x01
+                        agg = -agg
+                    end
+                    
+                    W.C2V[e_out] = agg
                 end
+            end
+            
+            # ---------------------------------------------------------
+            # 3. Total LLR Update & Hard Decision
+            # ---------------------------------------------------------
+            for v in 1:W.num_var
+                # Only update the total if it hasn't been pinned by decimation
+                if !W.is_decimated[v]
+                    tot = W.channel_llrs[v]
+                    for e in W.var_to_edges[v]
+                        tot += W.C2V[e]
+                    end
+                    W.total_llrs[v] = tot
+                end
+                
+                W.current_bits[v] = W.total_llrs[v] < 0.0 ? 0x01 : 0x00
+            end
+            
+            # ---------------------------------------------------------
+            # 4. End-of-Iteration Hooks & Convergence Check
+            # ---------------------------------------------------------
+            _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds)
+            
+            is_valid = true
+            for c in 1:W.num_check
+                syn = W.target_syndrome[c]
+                for v in W.chk_to_vars[c]
+                    syn ⊻= W.current_bits[v]
+                end
+                if syn != 0x00
+                    is_valid = false
+                    break
+                end
+            end
+            
+            if is_valid
+                return true, W.current_bits, iter
+            end
+
+            # ---------------------------------------------------------
+            # OPTIONAL OSCILLATION DETECTION & RESCUE
+            # ---------------------------------------------------------
+            is_oscillating = _check_oscillation(osc_type, W)
+            
+            if is_oscillating
+                if pert_type != Val{:none}
+                    _apply_perturbation!(pert_type, W, iter, perturbation_scale, force=true)
+                    _wipe_history!(osc_type, W)
+                    
+                elseif decimation_type != Val{:none} && decimation_type != Val{:manual}
+                    _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds, force=true)
+                    _wipe_history!(osc_type, W)
+                    
+                else
+                    return false, W.current_bits, -iter 
+                end
+            else
+                _update_history!(osc_type, W)
+                
+                # The compiler deletes this entirely if pert_type == Val{:none}
+                _apply_perturbation!(pert_type, W, iter, perturbation_scale, force=false)
+                _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds, force=false)
             end
         end
     end
 
-    return false, current_bits, iter, totals
+    return false, W.current_bits, max_iter
+end
+
+# ==============================================================================
+# SOFT DECISION ENGINE: LAYERED (& SERIAL) SCHEDULE
+# ==============================================================================
+
+function _fast_decode!(W::SoftDecisionWorkspace{Float64}, 
+                       algo::Val, 
+                       ::Val{:flooding}, 
+                       decimation_type::Val, 
+                       osc_type::Val, 
+                       pert_type::Val, 
+                       max_iter::Int, 
+                       attenuation::Float64, 
+                       offset::Float64, 
+                       dec_thresh::Float64, 
+                       dec_rounds::Int, 
+                       perturbation_scale::Float64)
+    
+    @inbounds begin
+        for iter in 1:max_iter
+            # ---------------------------------------------------------
+            # 1. Variable Node Update (V2C Calculation)
+            # ---------------------------------------------------------
+            for v in 1:W.num_var
+                for e in W.var_to_edges[v]
+                    W.V2C[e] = W.total_llrs[v] - W.C2V[e]
+                end
+            end
+            
+            # ---------------------------------------------------------
+            # 2. Check Node Update (C2V Calculation)
+            # ---------------------------------------------------------
+            for c in 1:W.num_check
+                for e_out in W.chk_to_edges[c]
+                    agg = 0.0
+                    first_val = true
+                    for e_in in W.chk_to_edges[c]
+                        if e_in != e_out
+                            if first_val
+                                agg = W.V2C[e_in]
+                                first_val = false
+                            else
+                                agg = _apply_boxplus(algo, agg, W.V2C[e_in])
+                            end
+                        end
+                    end
+                    
+                    # Apply attenuation / offset
+                    agg = _apply_post_process(algo, agg, attenuation, offset)
+                    
+                    # Inject Syndrome Math: Flip sign if parity check requires an odd number of 1s
+                    if W.target_syndrome[c] == 0x01
+                        agg = -agg
+                    end
+                    
+                    W.C2V[e_out] = agg
+                end
+            end
+            
+            # ---------------------------------------------------------
+            # 3. Total LLR Update & Hard Decision (Split for SIMD)
+            # ---------------------------------------------------------
+            # Loop A: Indirect memory access (No SIMD)
+            for v in 1:W.num_var
+                # Only update the total if it hasn't been pinned by decimation
+                if !W.is_decimated[v]
+                    tot = W.channel_llrs[v]
+                    for e in W.var_to_edges[v]
+                        tot += W.C2V[e]
+                    end
+                    W.total_llrs[v] = tot
+                end
+            end
+            
+            # Loop B: Perfectly linear, contiguous sweep (SIMD applied)
+            @simd for v in 1:W.num_var
+                W.current_bits[v] = W.total_llrs[v] < 0.0 ? 0x01 : 0x00
+            end
+            
+            # ---------------------------------------------------------
+            # 4. End-of-Iteration Hooks & Convergence Check
+            # ---------------------------------------------------------
+            _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds)
+            
+            is_valid = true
+            for c in 1:W.num_check
+                syn = W.target_syndrome[c]
+                for v in W.chk_to_vars[c]
+                    syn ⊻= W.current_bits[v]
+                end
+                if syn != 0x00
+                    is_valid = false
+                    break
+                end
+            end
+            
+            if is_valid
+                return true, W.current_bits, iter
+            end
+
+            # ---------------------------------------------------------
+            # OPTIONAL OSCILLATION DETECTION & RESCUE
+            # ---------------------------------------------------------
+            is_oscillating = _check_oscillation(osc_type, W)
+            
+            if is_oscillating
+                if pert_type != Val{:none}
+                    _apply_perturbation!(pert_type, W, iter, perturbation_scale, force=true)
+                    _wipe_history!(osc_type, W)
+                    
+                elseif decimation_type != Val{:none} && decimation_type != Val{:manual}
+                    _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds, force=true)
+                    _wipe_history!(osc_type, W)
+                    
+                else
+                    return false, W.current_bits, -iter 
+                end
+            else
+                _update_history!(osc_type, W)
+                
+                # The compiler deletes this entirely if pert_type == Val{:none}
+                _apply_perturbation!(pert_type, W, iter, perturbation_scale, force=false)
+                _apply_decimation!(decimation_type, W, iter, dec_thresh, dec_rounds, force=false)
+            end
+        end
+    end
+    
+    return false, W.current_bits, max_iter
+end
+
+# ==============================================================================
+# ZERO-OVERHEAD DECIMATION HOOKS
+# ==============================================================================
+
+"""
+Auto Decimation: 
+If a node's belief exceeds a threshold, permanently pin it.
+"""
+@inline function _apply_decimation!(::Val{:auto}, W::SoftDecisionWorkspace, iter::Int, threshold::Float64, rounds::Int)
+    @inbounds for v in 1:W.num_var
+        if !W.is_decimated[v]
+            if W.total_llrs[v] > threshold
+                W.is_decimated[v] = true
+                W.total_llrs[v] = 1000.0   # Pin to strong 0
+                W.channel_llrs[v] = 1000.0
+            elseif W.total_llrs[v] < -threshold
+                W.is_decimated[v] = true
+                W.total_llrs[v] = -1000.0  # Pin to strong 1
+                W.channel_llrs[v] = -1000.0
+            end
+        end
+    end
+end
+
+"""
+Guided Decimation: 
+Every `rounds` iterations, find the highest confidence undeclared node and pin it.
+"""
+@inline function _apply_decimation!(::Val{:guided}, W::SoftDecisionWorkspace, iter::Int, threshold::Float64, rounds::Int)
+    if iter % rounds == 0
+        best_v = -1
+        max_belief = -1.0
+        
+        # Find the node with the highest absolute belief that isn't already decimated
+        @inbounds for v in 1:W.num_var
+            if !W.is_decimated[v]
+                abs_belief = abs(W.total_llrs[v])
+                if abs_belief > max_belief
+                    max_belief = abs_belief
+                    best_v = v
+                end
+            end
+        end
+        
+        # Decimate the winner
+        if best_v != -1
+            W.is_decimated[best_v] = true
+            if W.total_llrs[best_v] >= 0
+                W.total_llrs[best_v] = 1000.0
+                W.channel_llrs[best_v] = 1000.0
+            else
+                W.total_llrs[best_v] = -1000.0
+                W.channel_llrs[best_v] = -1000.0
+            end
+        end
+    end
+end
+
+# ==============================================================================
+# 1. THE BOX-PLUS FOLDING TRAITS (Inner Loop)
+# ==============================================================================
+@inline _apply_boxplus(::Val{:sum_product}, x::Float64, y::Float64) = boxplus_exact(x, y)
+@inline _apply_boxplus(::Val{:min_sum}, x::Float64, y::Float64) = boxplus_minsum(x, y)
+@inline _apply_boxplus(::Val{:min_sum_correction}, x::Float64, y::Float64) = boxplus_minsum_correction(x, y)
+
+# Normalized Min-Sum uses the exact same folding logic as standard Min-Sum!
+@inline _apply_boxplus(::Val{:normalized_min_sum}, x::Float64, y::Float64) = boxplus_minsum(x, y)
+@inline _apply_boxplus(::Val{:offset_min_sum}, x::Float64, y::Float64) = boxplus_minsum(x, y)
+
+# ==============================================================================
+# 2. THE POST-PROCESSING TRAITS (Applied once at the end)
+# ==============================================================================
+# Base cases (Do nothing)
+@inline _apply_post_process(::Val{:sum_product}, agg::Float64, alpha::Float64, beta::Float64) = agg
+@inline _apply_post_process(::Val{:min_sum}, agg::Float64, alpha::Float64, beta::Float64) = agg
+@inline _apply_post_process(::Val{:min_sum_correction}, agg::Float64, alpha::Float64, beta::Float64) = agg
+
+# Normalized Min-Sum (Uses alpha)
+@inline _apply_post_process(::Val{:normalized_min_sum}, agg::Float64, alpha::Float64, beta::Float64) = agg * alpha
+
+# Offset Min-Sum (Uses beta)
+@inline _apply_post_process(::Val{:offset_min_sum}, agg::Float64, alpha::Float64, beta::Float64) = sign(agg) * max(0.0, abs(agg) - beta)
+
+# No decimation: The compiler completely erases this call.
+@inline _apply_decimation!(::Val{:none}, W, iter, threshold, rounds) = nothing
+
+"""
+Manual Decimation: 
+Handled during initialization. Nodes are pinned to +/- 1000.0 and skipped.
+"""
+@inline _apply_decimation!(::Val{:manual}, W, iter, threshold, rounds) = nothing
+
+# ==============================================================================
+# PERTURBATION TRAITS
+# ==============================================================================
+
+# When disabled, the compiler completely erases this call
+@inline _apply_perturbation!(::Val{:none}, W, iter, scale; force=false) = nothing
+
+# When active, perform the stochastic noise injection
+@inline function _apply_perturbation!(::Val{:active}, W::SoftDecisionWorkspace, iter::Int, scale::Float64; force::Bool=false)
+    if force || iter % 10 == 0
+        # can't @simd with randn() unless we pre-allocate a noise buffer
+        @inbounds for v in 1:W.num_var
+            if !W.is_decimated[v]
+                W.total_llrs[v] += scale * randn()
+            end
+        end
+    end
+end
+
+# ==============================================================================
+# OSCILLATION TRAITS
+# ==============================================================================
+
+# When disabled, compiler returns false and deletes the history updates
+@inline _check_oscillation(::Val{:none}, W) = false
+@inline _update_history!(::Val{:none}, W) = nothing
+@inline _wipe_history!(::Val{:none}, W) = nothing
+
+# When active, perform the memory checks and shifts
+@inline _check_oscillation(::Val{:active}, W) = (W.current_bits == W.prev_bits_1 || W.current_bits == W.prev_bits_2)
+
+@inline function _update_history!(::Val{:active}, W)
+    copyto!(W.prev_bits_2, W.prev_bits_1)
+    copyto!(W.prev_bits_1, W.current_bits)
+end
+
+@inline function _wipe_history!(::Val{:active}, W)
+    fill!(W.prev_bits_1, 0xFF)
+    fill!(W.prev_bits_2, 0xFF)
 end
 
 #############################

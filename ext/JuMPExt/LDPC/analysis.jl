@@ -183,7 +183,7 @@ function CodingTheory.optimal_lambda_and_rho(l_max::Int, r_max::Int, param::Floa
             end
             Δ > 0 ? (low = mid;) : (high = mid;)
         end
-        0 <= Δ <= tolerance || error("Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
+        0 <= Δ <= tolerance || error("Solution for $(var_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
         _, x = CodingTheory.Oscar.PolynomialRing(CodingTheory.Oscar.RealField(), :x)
         λ = sum(c * x^(i - 1) for (i, c) in enumerate(λ_vec))
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρ_vec))

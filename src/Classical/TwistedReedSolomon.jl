@@ -179,9 +179,9 @@ number_of_twists(C::AbstractTwistedReedSolomonCode) = C.l
 $(TYPEDSIGNATURES)
 
 Return the dual of the Twisted Reed-Solomon code `C`. 
-This operation is $O(1)$ and perfectly tracks the dual's twists, hooks, and coefficients.
+This operation is `O(1)` and perfectly tracks the dual's twists, hooks, and coefficients.
 """
-function AbstractAlgebra.dual(C::AbstractTwistedReedSolomonCode)
+function dual(C::AbstractTwistedReedSolomonCode)
     t_dual = C.k .- C.h
     h_dual = (C.n - C.k) .- C.t
     η_dual = -C.η

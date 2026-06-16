@@ -779,22 +779,22 @@ Return whether or not `v` is a codeword of `C`.
 function Base.in(v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}, C::AbstractLinearCode)
     return iszero(syndrome(C, v))
 end
-# Also cover the unicode symbol
-Base.:∈(v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}, C::AbstractLinearCode) = in(v, C)
+# # Also cover the unicode symbol
+# ∈(v::Union{CTMatrixTypes, Vector{Int}, Vector{fpFieldElem}, Vector{FpFieldElem}}, C::AbstractLinearCode) = in(v, C)
 
 """
 $(TYPEDSIGNATURES)
 
 Return whether or not `C1` is a subcode of `C2`.
 """
-function Base.:⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
+function ⊆(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || (order(C1.F) == order(C2.F) ? (@warn "Fields are of different types, but have the same order.") : (return false;))
     (C1.n == C2.n && C1.k <= C2.k) || return false
 
     G1 = generator_matrix(C1) # Safe getter
     return all(view(G1, r:r, 1:C1.n) ∈ C2 for r in axes(G1, 1))
 end
-Base.:⊂(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
+⊂(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 is_subcode(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊆ C2
 
 # ==============================================================================

@@ -1617,9 +1617,6 @@ block codes. This function incorporate the most valuable parts of Dumer’s refi
 * `Set{Vector{Int}}`: A set containing the discovered vectors of weight `target_w`. 
   Returns an empty set if no vectors are found within `max_iters`.
 """
-"""
-    Stern_attack(C::AbstractLinearCode, target_w::Int; ...)
-"""
 function Stern_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), num_find::Int = 1, max_iters::Int = 10000, unroll::Bool=true)
     q = Int(order(C.F))
     G = q == 2 ? _convert_binary_to_int_matrix(generator_matrix(C, true)) : generator_matrix(C, true)
