@@ -2339,9 +2339,16 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
     found_witness = s_glcw > 0 
 
     if found_witness
-        if !ismissing(C.P_stand)
+        cache = getfield(C, :cache)
+        if haskey(cache, :P_stand)
+            P = cache[:P_stand]
+        else
+            generator_matrix(C, true)
+            P = cache[:P_stand]
+        end
+        if !ismissing(P)
             y_std = matrix(C.F, 1, n, global_min_codeword)
-            y_orig = y_std * C.P_stand
+            y_orig = y_std * P
             global_min_codeword = vec(Array(y_orig))
             verbose && println("Applied P_stand to map witness back to original codespace.")
         end
@@ -2837,10 +2844,24 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode;
             y = zero_matrix(C.F, 1, n)
             verbose && println("Warning: Targeted search failed. Returning a zero vector.")
         else
-            y = matrix(C.F, 1, n, global_min_codeword) * C.P_stand
+            cache = getfield(C, :cache)
+            if haskey(cache, :P_stand)
+                P = cache[:P_stand]
+            else
+                generator_matrix(C, true)
+                P = cache[:P_stand]
+            end
+            y = matrix(C.F, 1, n, global_min_codeword) * P
         end
     else
-        y = matrix(C.F, 1, n, global_min_codeword) * C.P_stand
+        cache = getfield(C, :cache)
+        if haskey(cache, :P_stand)
+            P = cache[:P_stand]
+        else
+            generator_matrix(C, true)
+            P = cache[:P_stand]
+        end
+        y = matrix(C.F, 1, n, global_min_codeword) * P
     end
     
     return C.d, y

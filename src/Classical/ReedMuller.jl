@@ -48,7 +48,7 @@ function generator_matrix(C::ReedMullerCode, stand_form::Bool=false; alt::Bool=f
             G_stand, H_stand, P, rnk = _standard_form(G_prime)
             C.cache[:G_stand] = G_stand
             C.cache[:H_stand] = H_stand
-            C.cache[:P] = P
+            C.cache[:P_stand] = P
         end
         return C.cache[:G_stand]
     end
