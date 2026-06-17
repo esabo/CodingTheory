@@ -2,22 +2,17 @@
     using Oscar, CodingTheory
 
     @testset "Twisted Reed-Solomon Codes" begin
-        # https://arxiv.org/abs/2107.06945
-        # Example 4
-        # η = 0 gives original RS code
-        # TODO determine which RS codes with the below
-
-        # Example 4
-        F = GF(3, 2, :ω);
-        ω = gen(F);
-        k = 5;
-        α = collect(F);
-        t = [2];
-        h = [2];
-        sqs = [i^2 for i in F];
-        η = [setdiff(α, sqs)[1]];
-        C = TwistedReedSolomonCode(k, α, t, h, η);
-        G = zero_matrix(F, k, length(α));
+        # Example 4: https://arxiv.org/abs/2107.06945
+        F = GF(3, 2, :ω)
+        ω = gen(F)
+        k = 5
+        α = collect(F)
+        t = [2]
+        h = [2]
+        sqs = [i^2 for i in F]
+        η = [setdiff(α, sqs)[1]]
+        C = TwistedReedSolomonCode(k, α, t, h, η)
+        G = zero_matrix(F, k, length(α))
         for c in 1:length(α)
             G[1, c] = α[c]^0
             G[2, c] = α[c]^1
@@ -27,106 +22,68 @@
         end
         @test G == generator_matrix(C)
 
-        # Example 4
-        F = GF(2, 3, :ω);
-        ω = gen(F);
-        k = 5;
-        α = collect(F);
-        t = [1, 3, 3];
-        h = [4, 4, 2];
-        # paper does not specify, random suffices because here we are just matching the form of G
-        η = [F(0), ω, ω^2];
-        C = TwistedReedSolomonCode(k, α, t, h, η);
-        G = zero_matrix(F, k, length(α));
-        for c in 1:length(α)
-            G[1, c] = α[c]^0
-            G[2, c] = α[c]^1
-            G[3, c] = α[c]^2 + η[3] * α[c]^7
-            G[4, c] = α[c]^3
-            G[5, c] = α[c]^4 + η[1] * α[c]^5 + η[2] * α[c]^7
+        # Example 4 with more twists
+        F_2 = GF(2, 3, :ω)
+        ω_2 = gen(F_2)
+        k_2 = 5
+        α_2 = collect(F_2)
+        t_2 = [1, 3, 3]
+        h_2 = [4, 4, 2]
+        η_2 = [F_2(0), ω_2, ω_2^2]
+        C_2 = TwistedReedSolomonCode(k_2, α_2, t_2, h_2, η_2)
+        G_2 = zero_matrix(F_2, k_2, length(α_2))
+        for c in 1:length(α_2)
+            G_2[1, c] = α_2[c]^0
+            G_2[2, c] = α_2[c]^1
+            G_2[3, c] = α_2[c]^2 + η_2[3] * α_2[c]^7
+            G_2[4, c] = α_2[c]^3
+            G_2[5, c] = α_2[c]^4 + η_2[1] * α_2[c]^5 + η_2[2] * α_2[c]^7
         end
-        @test G == generator_matrix(C)
+        @test G_2 == generator_matrix(C_2)
+    end
 
-        # BUG can't quite get these parameters to match mine
-        # # https://arxiv.org/pdf/2211.06066
-        # # this paper has shifted indices wrt the original definition
-        # # Example 3.6
-        # F = Oscar.Nemo.Native.GF(11)
-        # l = 2
-        # α = [F(1), F(2), F(3), F(5), F(6), F(8), F(9), F(10)]
-        # k = 3
-        # h = [k - l + i - 1 for i in 1:l]
-        # t = [i for i in 1:l]
-        # η = [F(0), F(0)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 3
-        # # @test minimum_distance(C) == 6
-        # # @test is_MDS(C)
+    @testset "Getters, Duals, and Parity Matrices" begin
+        F = GF(2, 3, :a)
+        a = gen(F)
+        k = 3
+        α = collect(F)
+        t = [2]
+        h = [1]
+        η = [a]
+        
+        C = TwistedReedSolomonCode(k, α, t, h, η)
+        
+        # Test Parity Check Matrix Orthogonality
+        G = generator_matrix(C)
+        H = parity_check_matrix(C)
+        @test iszero(G * transpose(H))
+        
+        # Getters
+        @test twist_vector(C) == t
+        @test hook_vector(C) == h
+        @test coefficient_vector(C) == η
+        @test number_of_twists(C) == 1
+        
+        # Dual Code tracking
+        C_dual = dual(C)
+        @test dimension(C_dual) == length(C) - dimension(C)
+        @test twist_vector(C_dual) == k .- h
+        @test hook_vector(C_dual) == (length(C) - k) .- t
+        @test coefficient_vector(C_dual) == -η
+    end
 
-        # η = [F(2), F(9)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 3
-        # # @test minimum_distance(C) == 6
-        # # @test is_MDS(C)
-
-        # k = 4
-        # h = [k - l + i - 1 for i in 1:l]
-        # t = [i for i in 1:l]
-        # η = [F(0), F(0)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 4
-        # # @test minimum_distance(C) == 5
-        # # @test is_MDS(C)
-
-        # η = [F(4), F(4)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 4
-        # # @test minimum_distance(C) == 5
-        # # @test is_MDS(C)
-
-        # η = [F(6), F(6)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 4
-        # # @test minimum_distance(C) == 5
-        # # @test is_MDS(C)
-
-        # k = 5
-        # h = [k - l + i - 1 for i in 1:l]
-        # t = [i for i in 1:l]
-        # η = [F(0), F(0)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 5
-        # # @test minimum_distance(C) == 4
-        # # @test is_MDS(C)
-
-        # η = [F(9), F(10)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 8
-        # @test dimension(C) == 5
-        # # @test minimum_distance(C) == 4
-        # # @test is_MDS(C)
-
-        # # Example 3.7
-        # F = Oscar.Nemo.Native.GF(13)
-        # l = 3
-        # α = [F(0), F(1), F(2), F(3), F(4), F(5), F(6), F(9), F(10), F(12)]
-        # k = 5
-        # h = [k - l + i - 1 for i in 1:l]
-        # t = [i for i in 1:l]
-        # η = [F(2), F(3), F(6)]
-        # C = TwistedReedSolomonCode(k, α, t, h, η);
-        # @test length(C) == 10
-        # @test dimension(C) == 5
-        # # @test minimum_distance(C) == 6
-        # # @test is_MDS(C)
-
-        # # this paper also does twisted-GRS codes
-        # # the above examples are with v = 1 there
+    @testset "Random Generation and Error Handling" begin
+        F = GF(11)
+        
+        # Generate a valid random TRS code
+        C_rand = RandomTwistedReedSolomonCode(F, 8, 4, 2)
+        @test length(C_rand) == 8
+        @test dimension(C_rand) == 4
+        @test number_of_twists(C_rand) == 2
+        
+        # Domain errors
+        @test_throws DomainError RandomTwistedReedSolomonCode(F, 12, 4, 1) # n > |F|
+        @test_throws DomainError RandomTwistedReedSolomonCode(F, 8, 9, 1)  # k > n
+        @test_throws DomainError RandomTwistedReedSolomonCode(F, 8, 4, 100) # Too many twists
     end
 end

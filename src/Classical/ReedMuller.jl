@@ -30,48 +30,43 @@ $(TYPEDSIGNATURES)
 
 Return the generator matrix of the Reed-Muller code.
 If `stand_form` is true, returns the standard form matrix.
-If the keyword argument `alt=true` is passed, dynamically computes and returns 
-the alternative seed matrix (using the identity for RM(1,1)).
 """
-function generator_matrix(C::ReedMullerCode, stand_form::Bool=false; alt::Bool=false)
-    if alt
-        if !haskey(C.cache, :alt)
-            C.cache[:alt] = _Reed_Muller_generator_matrix(C.r, C.m, true)
-        end
-        return C.cache[:alt]
+function generator_matrix(C::ReedMullerCode, stand_form::Bool=false)
+    cache = getfield(C, :cache)
+    # Safely retrieve the boolean flag without overwriting
+    is_alt = get(cache, :is_alt, false)
+
+    if !haskey(cache, :G)
+        cache[:G] = _Reed_Muller_generator_matrix(C.r, C.m, is_alt)
     end
     
     if stand_form
-        if !haskey(C.cache, :G_stand)
-            # Ensure the primary generator matrix exists, then compute standard form
-            G_prime = generator_matrix(C, false) 
-            G_stand, H_stand, P, rnk = _standard_form(G_prime)
-            C.cache[:G_stand] = G_stand
-            C.cache[:H_stand] = H_stand
-            C.cache[:P_stand] = P
+        if !haskey(cache, :G_stand)
+            G_stand, H_stand, P, rnk = _standard_form(cache[:G])
+            cache[:G_stand] = G_stand
+            cache[:H_stand] = H_stand
+            cache[:P_stand] = P
         end
-        return C.cache[:G_stand]
+        return cache[:G_stand]
     end
     
-    # Default: primary generator matrix
-    if !haskey(C.cache, :G)
-        C.cache[:G] = _Reed_Muller_generator_matrix(C.r, C.m, false)
-    end
-    
-    return C.cache[:G]
+    return cache[:G]
 end
 
 function parity_check_matrix(C::ReedMullerCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
+    is_alt = get(cache, :is_alt, false)
+    
     if !haskey(cache, :H)
-        H_mat = _Reed_Muller_generator_matrix(C.m - C.r - 1, C.m, cache[:alt])
-        size(H_mat) == (C.n - C.k, C.k) && (H_mat = transpose(H_mat))
+        H_mat = _Reed_Muller_generator_matrix(C.m - C.r - 1, C.m, is_alt)
         cache[:H] = H_mat
     end
+    
     if stand_form
         generator_matrix(C, true)
         return cache[:H_stand]
     end
+    
     return cache[:H]
 end
 
@@ -82,7 +77,7 @@ Return the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
 
 # Notes
 * If `alt` is `true`, the identity is used for the generator matrix for ``\\mathcal{RM}(1, 1)``, as in common in some sources.
-  Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
+Otherwise, `[1 1; 0 1]` is used, as is common in other sources.
 """
 function ReedMullerCode(r::Int, m::Int, alt::Bool=false)
     0 ≤ r < m || throw(DomainError((r, m), "Reed-Muller codes require 0 ≤ r < m."))
@@ -93,12 +88,11 @@ function ReedMullerCode(r::Int, m::Int, alt::Bool=false)
     k = sum(binomial(m, i) for i in 0:r)
     d = 2^(m - r)
 
-    # Store the `alt` parameter in the cache so the lazy getter can access it
-    cache = Dict{Symbol, Any}(:alt => alt)
+    # Store the `is_alt` parameter cleanly so the lazy getter can access it safely
+    cache = Dict{Symbol, Any}(:is_alt => alt)
     
     # We know the weight enumerator mathematically, inject it into the cache directly
     if r == 1
-        # RM(1, m) weight enumerator: 1 weight 0, (2^{m+1} - 2) weight 2^{m-1}, 1 weight 2^m
         counts = Dict{Int, BigInt}(0 => 1, 2^(m - 1) => BigInt(2^(m + 1) - 2), n => 1)
         cache[:weight_enum] = HammingWeightEnumerator(n, counts)
     end
@@ -109,8 +103,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return a random permuted Reed-Muller code `RM(r, m)`. 
-
+Return a random permuted Reed-Muller code `RM(r, m)`.
 # Notes
 * Applies a random column permutation to the standard `RM(r, m)` generator matrix.
 * Used in cryptographic settings to hide the affine geometric structure of the code.
@@ -156,7 +149,6 @@ end
 $(TYPEDSIGNATURES)
 
 Return a random coset representative of the `RM(r, m)` code.
-
 # Notes
 * When `r = 1`, the weight of the lowest-weight element in this coset 
   defines the nonlinearity of the representative Boolean function.
@@ -193,7 +185,7 @@ RM_r(C::ReedMullerCode) = order(C)
 
 Return the number of variables, `m`, of the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
 """
-number_of_variables(C::ReedMullerCode) = C.m
+# number_of_variables(C::ReedMullerCode) = C.m
 RM_m(C::ReedMullerCode) = C.m
 
 #############################
@@ -203,4 +195,3 @@ RM_m(C::ReedMullerCode) = C.m
 #############################
      # general functions
 #############################
-
