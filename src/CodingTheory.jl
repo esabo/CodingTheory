@@ -28,8 +28,8 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
     is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, extension_field
-import Oscar.Hecke: is_separable
+    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, extension_field, ⊕
+import Oscar.Hecke: is_separable, ⊗, ⊕
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
@@ -325,7 +325,7 @@ export u_u_plus_v, Plotkin_construction, u_plus_w_v_plus_w_u_plus_v_plus_w,
        code_complement, juxtaposition, permute_code, extend, even_extension, 
        puncture, expurgate, shorten, augment, lengthen, subcode, 
        subcode_of_dimension_between_codes, expanded_code, subfield_subcode, 
-       trace_code, even_subcode, doubly_even_subcode, triply_even_subcode
+       trace_code, even_subcode, doubly_even_subcode, triply_even_subcode, ⊕, ⊕, ×, /
 
 #############################
 # Classical/quasi-cyclic_code.jl

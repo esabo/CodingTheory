@@ -60,7 +60,6 @@ end
 # ==============================================================================
 # BROUWER'S RECURSIVE CONSTRUCTIONS (A, B, Y1, B2)
 # ==============================================================================
-
 """
 $(TYPEDSIGNATURES)
 
@@ -76,15 +75,16 @@ function construction_A(C::AbstractLinearCode, c::Union{Vector{Int}, Vector{<:CT
     w = length(S)
     w > 0 || throw(ArgumentError("Cannot apply Construction A using the zero codeword."))
     
-    # Shortening on the first index of the support drops the dimension to k - 1
-    # Puncturing on the remaining support coordinates removes the rest of the word
+    # Shortening on the first index drops the dimension. 
+    # Since 1 column is removed, all subsequent indices shift left by 1!
     C_short = shorten(C, S[1])
-    C_res = puncture(C_short, S[2:end])
+    C_res = puncture(C_short, S[2:end] .- 1)
     
     # Inject theoretical Griesmer step bounds
-    q = order(C.F)
+    q_int = Int(order(C.F))
     base_d = ismissing(C.d) ? C.l_bound : C.d
-    d_lower = base_d - w + ceil(Int, w / q)
+    # Safe ceiling division for integers prevents AbstractAlgebra exact division crashes
+    d_lower = base_d - w + cld(w, q_int)
     
     # Safely clamp and apply the theoretical bound
     if d_lower > C_res.l_bound
@@ -143,7 +143,9 @@ function construction_B2(C::AbstractLinearCode, h::Union{Vector{Int}, Vector{<:C
     U = S[s - 2j : end]
     
     C_short = shorten(C, T)
-    C_new = puncture(C_short, U)
+    # Since T contains indices strictly less than U, shortening on T removes length(T) 
+    # columns strictly before any index in U. We must offset U by length(T).
+    C_new = puncture(C_short, U .- length(T))
     
     # Mathematical guarantee: puncturing 2j + 1 coordinates here only drops weight by 2j
     base_d = ismissing(C.d) ? C.l_bound : C.d
@@ -208,9 +210,10 @@ function construction_X3(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::Abs
     G4 = generator_matrix(C4)
     G5 = generator_matrix(C5)
     
+    # FIXED: Match C2/C1 (dim k5) with G5, and C3/C2 (dim k4) with G4
     G = vcat(hcat(G1, zero_matrix(F, C1.k, C4.n), zero_matrix(F, C1.k, C5.n)),
-             hcat(generator_matrix(C2_mod_C1), G4, zero_matrix(F, C4.k, C5.n)),
-             hcat(generator_matrix(C3_mod_C2), zero_matrix(F, C5.k, C4.n), G5))
+             hcat(generator_matrix(C2_mod_C1), zero_matrix(F, C5.k, C4.n), G5),
+             hcat(generator_matrix(C3_mod_C2), G4, zero_matrix(F, C4.k, C5.n)))
              
     C = LinearCode(G)
     
@@ -221,97 +224,14 @@ function construction_X3(C1::AbstractLinearCode, C2::AbstractLinearCode, C3::Abs
 end
 
 # ==============================================================================
-# COMPOSITE CODE LAZY GETTERS
-# ==============================================================================
-
-# function generator_matrix(C::PlotkinCode, stand_form::Bool = false)
-#     cache = getfield(C, :cache)
-#     if !haskey(cache, :G)
-#         G1 = generator_matrix(C.C1)
-#         G2 = generator_matrix(C.C2)
-#         cache[:G] = vcat(hcat(G1, G1), hcat(zero_matrix(C.F, nrows(G2), ncols(G1)), G2))
-#     end
-#     if stand_form
-#         if !haskey(cache, :G_stand)
-#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
-#             cache[:G_stand] = G_stand
-#             cache[:H_stand] = H_stand
-#             cache[:P_stand] = P
-#         end
-#         return cache[:G_stand]
-#     end
-#     return cache[:G]
-# end
-
-# function parity_check_matrix(C::PlotkinCode, stand_form::Bool = false)
-#     cache = getfield(C, :cache)
-#     if !haskey(cache, :H)
-#         H1 = parity_check_matrix(C.C1)
-#         H2 = parity_check_matrix(C.C2)
-#         cache[:H] = vcat(hcat(H1, zero_matrix(C.F, nrows(H1), ncols(H1))), hcat(-H2, H2))
-#     end
-#     if stand_form
-#         # Forcing generator standard form inherently computes H_stand
-#         generator_matrix(C, true) 
-#         return cache[:H_stand]
-#     end
-#     return cache[:H]
-# end
-
-# function generator_matrix(C::DirectSumCode, stand_form::Bool = false)
-#     cache = getfield(C, :cache)
-#     if !haskey(cache, :G)
-#         cache[:G] = direct_sum(generator_matrix(C.C1), generator_matrix(C.C2))
-#     end
-#     if stand_form
-#         if !haskey(cache, :G_stand)
-#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
-#             cache[:G_stand] = G_stand
-#             cache[:H_stand] = H_stand
-#             cache[:P_stand] = P
-#         end
-#         return cache[:G_stand]
-#     end
-#     return cache[:G]
-# end
-
-# function parity_check_matrix(C::DirectSumCode, stand_form::Bool = false)
-#     cache = getfield(C, :cache)
-#     if !haskey(cache, :H)
-#         cache[:H] = direct_sum(parity_check_matrix(C.C1), parity_check_matrix(C.C2))
-#     end
-#     if stand_form
-#         generator_matrix(C, true)
-#         return cache[:H_stand]
-#     end
-#     return cache[:H]
-# end
-
-# function generator_matrix(C::TensorProductCode, stand_form::Bool = false)
-#     cache = getfield(C, :cache)
-#     if !haskey(cache, :G)
-#         cache[:G] = generator_matrix(C.C1) ⊗ generator_matrix(C.C2)
-#     end
-#     if stand_form
-#         if !haskey(cache, :G_stand)
-#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
-#             cache[:G_stand] = G_stand
-#             cache[:H_stand] = H_stand
-#             cache[:P_stand] = P
-#         end
-#         return cache[:G_stand]
-#     end
-#     return cache[:G]
-# end
-
-# ==============================================================================
 # SUM AND PRODUCT CONSTRUCTORS
 # ==============================================================================
 
 """
 $(TYPEDSIGNATURES)
 
-Return the direct sum code of `C1` and `C2`. Evaluates lazily.
+Return the direct sum code of `C1` and `C2`.
+Evaluates lazily.
 """
 function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
@@ -371,7 +291,7 @@ function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
     
     H1 = parity_check_matrix(C1)
     H2 = parity_check_matrix(C2)
-    H_new = H1 ⊗ H2
+    H_new = kron(H1, H2)
     
     n_new = C1.n * C2.n
     k_new = n_new - ((C1.n - C1.k) * (C2.n - C2.k))
@@ -521,138 +441,6 @@ function generator_matrix(C::TensorProductCode, stand_form::Bool = false)
 end
 
 # ==============================================================================
-# SUM AND PRODUCT CONSTRUCTORS
-# ==============================================================================
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the direct sum code of `C1` and `C2`. Evaluates lazily.
-"""
-function ⊕(C1::AbstractLinearCode, C2::AbstractLinearCode)
-    C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
-
-    n_new = C1.n + C2.n
-    k_new = C1.k + C2.k
-    
-    if !ismissing(C1.d) && !ismissing(C2.d)
-        d_new = min(C1.d, C2.d)
-        lb, ub = d_new, d_new
-    else
-        d_new = missing
-        lb = min(C1.l_bound, C2.l_bound)
-        ub = min(C1.u_bound, C2.u_bound)
-    end
-    
-    cache = Dict{Symbol, Any}()
-    return DirectSumCode(C1, C2, C1.F, n_new, k_new, d_new, lb, ub, cache)
-end
-direct_sum(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊕ C2
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the (direct) product code of `C1` and `C2` (Tensor product of their generator matrices).
-Evaluates lazily.
-"""
-function ×(C1::AbstractLinearCode, C2::AbstractLinearCode)
-    C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
-
-    n_new = C1.n * C2.n
-    k_new = C1.k * C2.k
-    
-    if !ismissing(C1.d) && !ismissing(C2.d)
-        d_new = C1.d * C2.d
-        lb, ub = d_new, d_new
-    else
-        d_new = missing
-        lb = C1.l_bound * C2.l_bound
-        ub = C1.u_bound * C2.u_bound
-    end
-    
-    cache = Dict{Symbol, Any}()
-    return TensorProductCode(C1, C2, C1.F, n_new, k_new, d_new, lb, ub, cache)
-end
-direct_product(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 × C2
-product_code(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 × C2
-
-"""
-$(TYPEDSIGNATURES)
-    
-Return the tensor product code of `C1` and `C2` defined by the Kronecker product 
-of their parity-check matrices.
-"""
-function ⊗(C1::AbstractLinearCode, C2::AbstractLinearCode)
-    C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
-    
-    H1 = parity_check_matrix(C1)
-    H2 = parity_check_matrix(C2)
-    H_new = H1 ⊗ H2
-    
-    n_new = C1.n * C2.n
-    k_new = n_new - ((C1.n - C1.k) * (C2.n - C2.k))
-    
-    cache = Dict{Symbol, Any}(:H => H_new)
-    # Reverting to the generic LinearCode since we are injecting H directly
-    return LinearCode(C1.F, n_new, k_new, missing, 1, n_new, cache)
-end
-kron(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
-tensor_product(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 ⊗ C2
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the entrywise (Schur) product of `C` and `D`.
-"""
-function entrywise_product_code(C::AbstractLinearCode, D::AbstractLinearCode)
-    C.F == D.F || throw(ArgumentError("Codes must be over the same field in the Schur product."))
-    C.n == D.n || throw(ArgumentError("Codes must have the same length in the Schur product."))
-
-    G_C = generator_matrix(C)
-    G_D = generator_matrix(D)
-    nr_C = nrows(G_C)
-    nr_D = nrows(G_D)
-    F = C.F
-
-    # BUG FIX: Massive optimization to avoid `reduce(vcat)` array allocation blowup.
-    if C === D
-        # Symmetric case: Only iterate upper triangle
-        nr_new = div(nr_C * (nr_C + 1), 2)
-        G_new = zero_matrix(F, nr_new, C.n)
-        row_idx = 1
-        for i in 1:nr_C
-            for j in i:nr_C
-                for col in 1:C.n
-                    G_new[row_idx, col] = G_C[i, col] * G_C[j, col]
-                end
-                row_idx += 1
-            end
-        end
-    else
-        # Full cross-product case
-        nr_new = nr_C * nr_D
-        G_new = zero_matrix(F, nr_new, C.n)
-        row_idx = 1
-        for i in 1:nr_C
-            for j in 1:nr_D
-                for col in 1:C.n
-                    G_new[row_idx, col] = G_C[i, col] * G_D[j, col]
-                end
-                row_idx += 1
-            end
-        end
-    end
-    
-    # We must use the eager LinearCode constructor here because the actual dimension `k`
-    # of a Schur product code is not guaranteed (can be anywhere from max(k1, k2) to n).
-    return LinearCode(G_new)
-end
-*(C::AbstractLinearCode, D::AbstractLinearCode) = entrywise_product_code(C, D)
-Schur_product_code(C::AbstractLinearCode, D::AbstractLinearCode) = entrywise_product_code(C, D)
-Hadamard_product_code(C::AbstractLinearCode, D::AbstractLinearCode) = entrywise_product_code(C, D)
-componentwise_product_code(C::AbstractLinearCode, D::AbstractLinearCode) = entrywise_product_code(C, D)
-
-# ==============================================================================
 # QUOTIENT CODES
 # ==============================================================================
 
@@ -721,12 +509,10 @@ Return the transposed code of `C`.
 function Base.transpose(C::AbstractLinearCode)
     # The transpose code treats the transposed parity check matrix as its new parity check matrix
     H_trans = transpose(parity_check_matrix(C))
-    cache = Dict{Symbol, Any}(:H => H_trans)
     
-    n_new = ncols(H_trans)
-    k_new = n_new - nrows(H_trans)
-    
-    return LinearCode(C.F, n_new, k_new, missing, 1, n_new, cache)
+    # Eagerly compute the code to ensure dimension and rank are properly calculated,
+    # since a transposed matrix will likely have more rows than columns (redundant parity checks).
+    return LinearCode(H_trans, true)
 end
 
 """
@@ -1210,65 +996,3 @@ function triply_even_subcode(C::AbstractLinearCode)
     
     return LinearCode(G_TE)
 end
-
-# """
-# $(TYPEDSIGNATURES)
-
-# Return the even subcode of `C`.
-# """
-# function even_subcode(C::AbstractLinearCode)
-#     F = C.F
-#     Int(order(F)) == 2 || throw(ArgumentError("Even-ness is only defined for binary codes."))
-
-#     V_C, ψ = vector_space(C)
-#     G_F_VS = AbstractAlgebra.vector_space(F, 1)
-    
-#     homo1_quad = ModuleHomomorphism(V_C, G_F_VS, matrix(F, dim(V_C), 1,
-#         reduce(vcat, [F(wt(ψ(g).v) % 2) for g in gens(V_C)])))
-        
-#     even_sub, ϕ1 = kernel(homo1_quad)
-    
-#     iszero(dim(even_sub)) && return missing 
-#     return LinearCode(reduce(vcat, [ψ(ϕ1(g)).v for g in gens(even_sub)]))
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-
-# Return the doubly-even subcode of `C`.
-# """
-# function doubly_even_subcode(C::AbstractLinearCode)
-#     F = C.F
-#     Int(order(C.F)) == 2 || throw(ArgumentError("Even-ness is only defined for binary codes."))
-
-#     V_C, ψ = vector_space(C)
-#     G_F_VS = AbstractAlgebra.vector_space(F, 1)
-
-#     # 1. Get the even subspace
-#     homo1_quad = ModuleHomomorphism(V_C, G_F_VS, matrix(F, dim(V_C), 1,
-#         reduce(vcat, [F(wt(ψ(g).v) % 2) for g in gens(V_C)])))
-#     even_sub, ϕ1 = kernel(homo1_quad)
-
-#     if !iszero(dim(even_sub))
-#         # 2. Control the overlap (Ward's divisibility theorem)
-#         homo2_bi = ModuleHomomorphism(even_sub, even_sub, matrix(F, dim(even_sub), dim(even_sub),
-#             reduce(vcat, [F(wt(matrix(F, 1, C.n, ψ(ϕ1(gens(even_sub)[i])).v .*
-#                 ψ(ϕ1(gens(even_sub)[j])).v)) % 2)
-#             for i in 1:dim(even_sub), j in 1:dim(even_sub)])))
-            
-#         even_sub_w_overlap, μ1 = kernel(homo2_bi)
-
-#         if !iszero(dim(even_sub_w_overlap))
-#             # 3. Apply the weight four condition
-#             homo2_quad = ModuleHomomorphism(even_sub_w_overlap, G_F_VS, matrix(F, dim(even_sub_w_overlap), 1, 
-#                 reduce(vcat, [F(div(wt(ψ(ϕ1(μ1(g))).v), 2) % 2) for g in gens(even_sub_w_overlap)])))
-                
-#             four_sub, ϕ2 = kernel(homo2_quad)
-
-#             if !iszero(dim(four_sub))
-#                 return LinearCode(reduce(vcat, [ψ(ϕ1(μ1(ϕ2(g)))).v for g in gens(four_sub)]))
-#             end
-#         end
-#     end
-#     return missing
-# end
