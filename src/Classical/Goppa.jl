@@ -47,8 +47,12 @@ function GoppaCode(F::CTFieldTypes, L::Vector{<:CTFieldElem}, g::CTPolyRingElem)
     if Int(order(F)) == 2
         facs = factor(g)
         deg_g2 = 0
-        for i in collect(values(facs.fac))
-            deg_g2 += iseven(i) ? i : i + 1
+        # for i in collect(values(facs.fac))
+        #     deg_g2 += iseven(i) ? i : i + 1
+        # end
+        # Iterate over the facs object directly to get pairs of (factor, exponent)
+        for (f, e) in facs
+            deg_g2 += iseven(e) ? e : e + 1
         end
         l_bound = deg_g2 + 1
     end
@@ -95,26 +99,22 @@ function RandomGoppaCode(F::CTFieldTypes, E::CTFieldTypes, n::Int, t::Int)
         g = Rx(coeffs)
         
         if Oscar.is_irreducible(g)
-            # Guarantee no roots exist in the support L
-            has_root = false
-            for pt in L
-                if iszero(g(pt))
-                    has_root = true
-                    break
-                end
+            # If t == 1, an irreducible polynomial has a root in E. 
+            # We must explicitly ensure this root is not in our support L.
+            if t == 1
+                rt = roots(g)[1]
+                rt in L && continue
             end
-            if !has_root
-                break
-            end
+            break
         end
     end
 
-    # 3. Construct the code using our optimized O(1) lazy architecture
+    # 3. Construct the code
     return GoppaCode(F, L, g)
 end
 
 #############################
-      # getter functions
+# getter functions
 #############################
 
 """
@@ -125,33 +125,29 @@ Return the Goppa polynomial of `C`.
 Goppa_polynomial(C::AbstractGoppaCode) = C.g
 
 """
-    extension(C::AbstractGoppaCode)
+    extension_field(C::AbstractGoppaCode)
 
 Return the field over which the Goppa polynomial is defined.
 """
 extension_field(C::AbstractGoppaCode) = C.E
 
 #############################
-      # setter functions
-#############################
-
-#############################
-     # general functions
+# general functions
 #############################
 
 """
-    is_seperable(C::AbstractGoppaCode)
+    is_irreducible(C::AbstractGoppaCode)
 
-Return true if the Goppa polynomail is seperable.
+Return true if the Goppa polynomial is irreducible.
 """
 is_irreducible(C::AbstractGoppaCode) = Oscar.is_irreducible(C.g)
 
 """
-    is_seperable(C::AbstractGoppaCode)
+    is_separable(C::AbstractGoppaCode)
 
-Return true if the Goppa polynomail is seperable.
+Return true if the Goppa polynomial is separable (square-free).
 """
-is_seperable(C::AbstractGoppaCode) = is_squarefree(C.g)
+is_separable(C::AbstractGoppaCode) = is_squarefree(C.g)
 
 """
     nonzeros(C::AbstractGoppaCode)
@@ -163,9 +159,13 @@ nonzeros(C::AbstractGoppaCode) = C.L
 """
     is_cumulative(C::AbstractGoppaCode)
 
-Return true if the Goppa polynomail is of the form `g(z) = (z - β)^r`.
+Return true if the Goppa polynomial is of the form `g(z) = (z - β)^r`.
 """
 function is_cumulative(C::AbstractGoppaCode)
-    fac = factor(C.g)
-    return length(fac.facs) == 1
+    facs = factor(C.g)
+    if length(facs) == 1
+        factor_poly, exponent = first(facs)# Grab the (key, value) pair
+        return degree(factor_poly) == 1
+    end
+    return false
 end

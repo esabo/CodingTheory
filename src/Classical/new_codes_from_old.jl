@@ -224,85 +224,85 @@ end
 # COMPOSITE CODE LAZY GETTERS
 # ==============================================================================
 
-function generator_matrix(C::PlotkinCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :G)
-        G1 = generator_matrix(C.C1)
-        G2 = generator_matrix(C.C2)
-        cache[:G] = vcat(hcat(G1, G1), hcat(zero_matrix(C.F, nrows(G2), ncols(G1)), G2))
-    end
-    if stand_form
-        if !haskey(cache, :G_stand)
-            G_stand, H_stand, P, _ = _standard_form(cache[:G])
-            cache[:G_stand] = G_stand
-            cache[:H_stand] = H_stand
-            cache[:P_stand] = P
-        end
-        return cache[:G_stand]
-    end
-    return cache[:G]
-end
+# function generator_matrix(C::PlotkinCode, stand_form::Bool = false)
+#     cache = getfield(C, :cache)
+#     if !haskey(cache, :G)
+#         G1 = generator_matrix(C.C1)
+#         G2 = generator_matrix(C.C2)
+#         cache[:G] = vcat(hcat(G1, G1), hcat(zero_matrix(C.F, nrows(G2), ncols(G1)), G2))
+#     end
+#     if stand_form
+#         if !haskey(cache, :G_stand)
+#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
+#             cache[:G_stand] = G_stand
+#             cache[:H_stand] = H_stand
+#             cache[:P_stand] = P
+#         end
+#         return cache[:G_stand]
+#     end
+#     return cache[:G]
+# end
 
-function parity_check_matrix(C::PlotkinCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :H)
-        H1 = parity_check_matrix(C.C1)
-        H2 = parity_check_matrix(C.C2)
-        cache[:H] = vcat(hcat(H1, zero_matrix(C.F, nrows(H1), ncols(H1))), hcat(-H2, H2))
-    end
-    if stand_form
-        # Forcing generator standard form inherently computes H_stand
-        generator_matrix(C, true) 
-        return cache[:H_stand]
-    end
-    return cache[:H]
-end
+# function parity_check_matrix(C::PlotkinCode, stand_form::Bool = false)
+#     cache = getfield(C, :cache)
+#     if !haskey(cache, :H)
+#         H1 = parity_check_matrix(C.C1)
+#         H2 = parity_check_matrix(C.C2)
+#         cache[:H] = vcat(hcat(H1, zero_matrix(C.F, nrows(H1), ncols(H1))), hcat(-H2, H2))
+#     end
+#     if stand_form
+#         # Forcing generator standard form inherently computes H_stand
+#         generator_matrix(C, true) 
+#         return cache[:H_stand]
+#     end
+#     return cache[:H]
+# end
 
-function generator_matrix(C::DirectSumCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :G)
-        cache[:G] = direct_sum(generator_matrix(C.C1), generator_matrix(C.C2))
-    end
-    if stand_form
-        if !haskey(cache, :G_stand)
-            G_stand, H_stand, P, _ = _standard_form(cache[:G])
-            cache[:G_stand] = G_stand
-            cache[:H_stand] = H_stand
-            cache[:P_stand] = P
-        end
-        return cache[:G_stand]
-    end
-    return cache[:G]
-end
+# function generator_matrix(C::DirectSumCode, stand_form::Bool = false)
+#     cache = getfield(C, :cache)
+#     if !haskey(cache, :G)
+#         cache[:G] = direct_sum(generator_matrix(C.C1), generator_matrix(C.C2))
+#     end
+#     if stand_form
+#         if !haskey(cache, :G_stand)
+#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
+#             cache[:G_stand] = G_stand
+#             cache[:H_stand] = H_stand
+#             cache[:P_stand] = P
+#         end
+#         return cache[:G_stand]
+#     end
+#     return cache[:G]
+# end
 
-function parity_check_matrix(C::DirectSumCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :H)
-        cache[:H] = direct_sum(parity_check_matrix(C.C1), parity_check_matrix(C.C2))
-    end
-    if stand_form
-        generator_matrix(C, true)
-        return cache[:H_stand]
-    end
-    return cache[:H]
-end
+# function parity_check_matrix(C::DirectSumCode, stand_form::Bool = false)
+#     cache = getfield(C, :cache)
+#     if !haskey(cache, :H)
+#         cache[:H] = direct_sum(parity_check_matrix(C.C1), parity_check_matrix(C.C2))
+#     end
+#     if stand_form
+#         generator_matrix(C, true)
+#         return cache[:H_stand]
+#     end
+#     return cache[:H]
+# end
 
-function generator_matrix(C::TensorProductCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :G)
-        cache[:G] = generator_matrix(C.C1) ⊗ generator_matrix(C.C2)
-    end
-    if stand_form
-        if !haskey(cache, :G_stand)
-            G_stand, H_stand, P, _ = _standard_form(cache[:G])
-            cache[:G_stand] = G_stand
-            cache[:H_stand] = H_stand
-            cache[:P_stand] = P
-        end
-        return cache[:G_stand]
-    end
-    return cache[:G]
-end
+# function generator_matrix(C::TensorProductCode, stand_form::Bool = false)
+#     cache = getfield(C, :cache)
+#     if !haskey(cache, :G)
+#         cache[:G] = generator_matrix(C.C1) ⊗ generator_matrix(C.C2)
+#     end
+#     if stand_form
+#         if !haskey(cache, :G_stand)
+#             G_stand, H_stand, P, _ = _standard_form(cache[:G])
+#             cache[:G_stand] = G_stand
+#             cache[:H_stand] = H_stand
+#             cache[:P_stand] = P
+#         end
+#         return cache[:G_stand]
+#     end
+#     return cache[:G]
+# end
 
 # ==============================================================================
 # SUM AND PRODUCT CONSTRUCTORS

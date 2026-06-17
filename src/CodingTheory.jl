@@ -28,7 +28,8 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
     is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
-    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, discrete_log
+    tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, extension_field
+import Oscar.Hecke: is_separable
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
 import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
