@@ -9,6 +9,8 @@
 #############################
 
 function _Reed_Muller_generator_matrix(r::Int, m::Int, alt::Bool=false)
+    (0 ≤ r ≤ m) || throw(DomainError("Reed-Muller codes require 0 ≤ r ≤ m, received r = $r and m = $m."))
+
     F = Oscar.Nemo.Native.GF(2)
     if r == 1 && m == 1 && !alt
         return matrix(F, 2, 2, [1, 1, 0, 1])
@@ -23,21 +25,40 @@ function _Reed_Muller_generator_matrix(r::Int, m::Int, alt::Bool=false)
     end
 end
 
-function generator_matrix(C::ReedMullerCode, stand_form::Bool = false)
-    cache = getfield(C, :cache)
-    if !haskey(cache, :G)
-        cache[:G] = _Reed_Muller_generator_matrix(C.r, C.m, cache[:alt])
-    end
-    if stand_form
-        if !haskey(cache, :G_stand)
-            G_stand, H_stand, P, _ = _standard_form(cache[:G])
-            cache[:G_stand] = G_stand
-            cache[:H_stand] = H_stand
-            cache[:P_stand] = P
+"""
+$(TYPEDSIGNATURES)
+
+Return the generator matrix of the Reed-Muller code.
+If `stand_form` is true, returns the standard form matrix.
+If the keyword argument `alt=true` is passed, dynamically computes and returns 
+the alternative seed matrix (using the identity for RM(1,1)).
+"""
+function generator_matrix(C::ReedMullerCode, stand_form::Bool=false; alt::Bool=false)
+    if alt
+        if !haskey(C.cache, :alt)
+            C.cache[:alt] = _Reed_Muller_generator_matrix(C.r, C.m, true)
         end
-        return cache[:G_stand]
+        return C.cache[:alt]
     end
-    return cache[:G]
+    
+    if stand_form
+        if !haskey(C.cache, :G_stand)
+            # Ensure the primary generator matrix exists, then compute standard form
+            G_prime = generator_matrix(C, false) 
+            G_stand, H_stand, P, rnk = _standard_form(G_prime)
+            C.cache[:G_stand] = G_stand
+            C.cache[:H_stand] = H_stand
+            C.cache[:P] = P
+        end
+        return C.cache[:G_stand]
+    end
+    
+    # Default: primary generator matrix
+    if !haskey(C.cache, :G)
+        C.cache[:G] = _Reed_Muller_generator_matrix(C.r, C.m, false)
+    end
+    
+    return C.cache[:G]
 end
 
 function parity_check_matrix(C::ReedMullerCode, stand_form::Bool = false)

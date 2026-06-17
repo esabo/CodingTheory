@@ -5,8 +5,9 @@ Evaluates the Assmus-Mattson theorem to determine if the codewords of `C`
 form a `t`-design.
 """
 function is_design_holder(C::AbstractLinearCode, t::Int; verbose::Bool=false)
-    # Ensure minimum distance is known (assuming you have a minimum_distance getter)
-    d = ismissing(C.d) ? minimum_distance(C) : C.d
+    # Safely extract the integer distance if minimum_distance returns a Tuple
+    dist_res = ismissing(C.d) ? minimum_distance(C) : C.d
+    d = dist_res isa Tuple ? Int(first(dist_res)) : Int(dist_res)
     
     # Lazily fetch or compute the dual weight distribution
     dual_C = dual(C)
@@ -20,13 +21,14 @@ function is_design_holder(C::AbstractLinearCode, t::Int; verbose::Bool=false)
         end
     end
     
-    holds_design = w < (d - t)
+    # FIX: The Assmus-Mattson theorem condition is w <= d - t
+    holds_design = w <= (d - t)
     
     if verbose
         println("--- Assmus-Mattson Check (t = $t) ---")
         println("Primal min distance (d): $d")
         println("Non-zero dual weights ≤ $(C.n - t) (w): $w")
-        println("Condition (w < d - t): $w < $(d - t) -> $(holds_design)")
+        println("Condition (w ≤ d - t): $w ≤ $(d - t) -> $(holds_design)")
     end
     
     return holds_design
@@ -39,10 +41,11 @@ Finds the maximum strength `t` for which the Assmus-Mattson theorem
 guarantees the code forms a `t`-design.
 """
 function design_strength(C::AbstractLinearCode; verbose::Bool=false)
-    d = ismissing(C.d) ? minimum_distance(C) : C.d
+    dist_res = ismissing(C.d) ? minimum_distance(C) : C.d
+    d = dist_res isa Tuple ? Int(first(dist_res)) : Int(dist_res)
     max_t = 0
     
-    # The theorem requires w < d - t, which inherently implies t < d
+    # The theorem requires w <= d - t, which inherently implies t < d
     for t in 1:(d - 1)
         if is_design_holder(C, t, verbose=false)
             max_t = t
@@ -68,13 +71,14 @@ function minimum_weight_blocks(C::ReedMullerCode)
     r = C.r
     m = C.m
     
-    # Formula for the number of affine subspaces
-    blocks = BigInt(2)^r
+    num_prod = BigInt(1)
+    den_prod = BigInt(1)
+    
+    # Accumulate the products to prevent integer truncation during division
     for i in 0:(m - r - 1)
-        num = BigInt(2)^(m - i) - 1
-        den = BigInt(2)^(m - r - i) - 1
-        blocks *= div(num, den)
+        num_prod *= (BigInt(2)^(m - i) - 1)
+        den_prod *= (BigInt(2)^(m - r - i) - 1)
     end
     
-    return blocks
+    return BigInt(2)^r * div(num_prod, den_prod)
 end
