@@ -1773,114 +1773,6 @@ function _BZ_middle_search_quaternary(M::Matrix{T}, L::Vector{Int}, R::Vector{In
     return global_min_d[]
 end
 
-function _BZ_middle_search_nonbinary(M::Matrix{T}, L::Vector{Int}, R::Vector{Int}, B_L::Int, B_R::Int, 
-                                     left_dict::Dict{Tuple{Vector{T}, Bool}, Int}, right_dict::Dict{Tuple{Vector{T}, Bool}, Int}, 
-                                     q::Int, verbose::Bool=true) where T
-    k, n = size(M)
-    F = parent(M[1,1])
-    elements = collect(F)
-    
-    T_zero = zero(F)
-    
-    A_L = [row for row in 1:k if L[row] <= B_L && R[row] > B_L]
-    A_R = [row for row in 1:k if L[row] <= B_R && R[row] > B_R]
-    
-    min_R = isempty(right_dict) ? 0 : minimum(values(right_dict))
-    
-    middle_cols = collect((B_L + 1):B_R)
-    sort!(middle_cols, by = c -> count(!iszero, view(M, :, c)), rev = true)
-    
-    starts_at = [Int[] for _ in 1:length(middle_cols)]
-    active_at_step = [Int[] for _ in 1:length(middle_cols)]
-    branched_rows = Set{Int}()
-    
-    verbose && println("  -> Preparing $(length(middle_cols)) middle columns for generic Non-Binary DFS...")
-    for (step, col) in enumerate(middle_cols)
-        active_here = [row for row in 1:k if L[row] <= col <= R[row]]
-        active_at_step[step] = active_here
-        for row in active_here
-            if !(row in A_L) && !(row in branched_rows)
-                push!(starts_at[step], row)
-                push!(branched_rows, row)
-            end
-        end
-    end
-
-    global_min_d = Ref(typemax(Int))
-    min_d_lock = ReentrantLock()
-    sorted_left = sort(collect(left_dict), by = x -> x[2])
-    num_paths = length(sorted_left)
-    
-    p = Progress(num_paths, 1, "Bridging Middle Trellis (Non-Binary): ")
-    
-    Threads.@threads for i in 1:num_paths
-        ((l_state, l_nonzero), l_wt) = sorted_left[i]
-        
-        if l_wt + min_R >= global_min_d[] 
-            next!(p)
-            continue 
-        end
-        
-        u_local = fill(T_zero, k)
-        @inbounds for (idx, row) in enumerate(A_L) u_local[row] = l_state[idx] end
-        
-        function dfs(step::Int, current_wt::Int, is_nonzero::Bool, u::Vector{T})
-            if current_wt + min_R >= global_min_d[] return end
-            
-            if step > length(middle_cols)
-                right_state = [u[row] for row in A_R]
-                
-                key_f = (right_state, false)
-                if haskey(right_dict, key_f)
-                    total_wt = current_wt + right_dict[key_f]
-                    if is_nonzero && total_wt < global_min_d[]
-                        lock(min_d_lock) do
-                            if total_wt < global_min_d[] global_min_d[] = total_wt end
-                        end
-                    end
-                end
-                
-                key_t = (right_state, true)
-                if haskey(right_dict, key_t)
-                    total_wt = current_wt + right_dict[key_t]
-                    if total_wt < global_min_d[]
-                        lock(min_d_lock) do
-                            if total_wt < global_min_d[] global_min_d[] = total_wt end
-                        end
-                    end
-                end
-                return
-            end
-            
-            col = middle_cols[step]
-            starting_rows = starts_at[step]
-            working_rows = active_at_step[step]
-            
-            @inbounds for branch_scalars in Iterators.product(fill(elements, length(starting_rows))...)
-                for (idx, row) in enumerate(starting_rows) u[row] = branch_scalars[idx] end
-                
-                c_i = T_zero
-                for row in working_rows
-                    c_i += u[row] * M[row, col]
-                end
-                col_wt = iszero(c_i) ? 0 : 1
-                
-                new_nonzero = is_nonzero
-                for val in branch_scalars
-                    if !iszero(val) new_nonzero = true end
-                end
-                
-                dfs(step + 1, current_wt + col_wt, new_nonzero, u)
-            end
-        end
-        
-        dfs(1, l_wt, l_nonzero, u_local)
-        next!(p)
-    end
-    
-    return global_min_d[]
-end
-
 function _BZ_middle_search_nonbinary(M::Matrix{T}, L::Vector{Int}, R::Vector{Int}, B_L::Int, B_R::Int, left_dict, right_dict, q::Int) where T
     k, n = size(M)
     F = parent(M[1,1])
@@ -2143,7 +2035,7 @@ function _optimal_sectionalization_2d_cyclic(M::Matrix{T}, q::Int, p_x::Int, p_y
 end
 
 """
-    optimal_sectionalization(M::Matrix{T}, q::Int; max_width::Int=10) where T
+    optimal_sectionalization(M::Matrix{T}, q::Int; type::Symbol=:linear, max_width::Int=10, kwargs...) where T
 
 Computes the optimal sectionalization bounds for the Viterbi trellis to minimize 
 peak state and branch complexity. Enforces a strict `max_width` to prevent 
@@ -2152,59 +2044,74 @@ exponential branch evaluation traps in low-density or syndrome matrices.
 # Types
 * `:linear` - Standard optimal sectionalization for a generic code.
 * `:QC` - Imposes periodicity for a Quasi-Cyclic code. Requires kwarg `p` (block size).
-* `:2D` - Evaluates a 2D grid mapped to 1D. Requires kwargs `p_x`, `p_y`, `grid_x`, `grid_y`.
+* `:twoD` - Evaluates a 2D grid mapped to 1D. Requires kwargs `p_x`, `p_y`, `grid_x`, `grid_y`.
 """
-function optimal_sectionalization(M::Matrix{T}, q::Int; max_width::Int=10) where T
-    k, n = size(M)
-    L, R = CodingTheory._get_LR_indices(M)
+function optimal_sectionalization(M::Matrix{T}, q::Int; 
+                                  type::Symbol=:linear, 
+                                  max_width::Int=10, 
+                                  p::Int=0, 
+                                  p_x::Int=0, p_y::Int=0, 
+                                  grid_x::Int=0, grid_y::Int=0) where T
     
-    # DP array: min max-complexity to reach column j
-    # 1-indexed array to represent columns 0 through n
-    cost = fill(typemax(Int), n + 1)
-    parent = zeros(Int, n + 1)
-    cost[1] = 0 # Base case: cost to reach column 0 is 0
-    
-    for j in 1:n
-        # THE CAP: Look backwards to find the best starting column i, 
-        # but NEVER look further back than max_width.
-        min_i = max(0, j - max_width)
+    if type == :linear
+        k, n = size(M)
+        L, R = CodingTheory._get_LR_indices(M)
         
-        for i in min_i:(j - 1)
-            # Calculate the number of rows involved in the section (i, j]
-            active_rows = 0
-            for row in 1:k
-                # A row is involved if its span intersects the section
-                if L[row] <= j && R[row] > i
-                    active_rows += 1
+        # DP array: min max-complexity to reach column j
+        cost = fill(typemax(Int), n + 1)
+        parent = zeros(Int, n + 1)
+        cost[1] = 0 # Base case: cost to reach column 0 is 0
+        
+        for j in 1:n
+            # THE CAP: Look backwards to find the best starting column i, 
+            # but NEVER look further back than max_width.
+            min_i = max(0, j - max_width)
+            
+            for i in min_i:(j - 1)
+                active_rows = 0
+                for row in 1:k
+                    if L[row] <= j && R[row] > i
+                        active_rows += 1
+                    end
+                end
+                
+                # The section cost is dominated by q^(active_rows)
+                # We just track the exponent to prevent integer overflow in the DP
+                section_cost = active_rows
+                path_cost = max(cost[i + 1], section_cost)
+                
+                if path_cost < cost[j + 1]
+                    cost[j + 1] = path_cost
+                    parent[j + 1] = i
                 end
             end
-            
-            # The section cost is dominated by q^(active_rows)
-            # We just track the exponent to prevent integer overflow in the DP
-            section_cost = active_rows
-            
-            # The path cost to j through i is the max of the path up to i and this section
-            path_cost = max(cost[i + 1], section_cost)
-            
-            if path_cost < cost[j + 1]
-                cost[j + 1] = path_cost
-                parent[j + 1] = i
-            end
         end
+        
+        # Backtrack to extract the optimal section boundaries
+        bounds = Int[]
+        curr = n
+        while curr > 0
+            push!(bounds, curr)
+            curr = parent[curr + 1]
+        end
+        push!(bounds, 0)
+        reverse!(bounds)
+        
+        return bounds
+
+    elseif type == :QC
+        p > 0 || throw(AssertionError("Block size `p` must be provided for Quasi-Cyclic sectionalization."))
+        return _optimal_sectionalization_QC(M, q, p)
+
+    elseif type == :twoD
+        (p_x > 0 && p_y > 0 && grid_x > 0 && grid_y > 0) || throw(AssertionError("Parameters `p_x`, `p_y`, `grid_x`, `grid_y` must be provided for 2D sectionalization."))
+        return _optimal_sectionalization_2d_cyclic(M, q, p_x, p_y, grid_x, grid_y)
+
+    else
+        throw(ArgumentError("Unknown sectionalization type: $type"))
     end
-    
-    # Backtrack to extract the optimal section boundaries
-    bounds = Int[]
-    curr = n
-    while curr > 0
-        push!(bounds, curr)
-        curr = parent[curr + 1]
-    end
-    push!(bounds, 0)
-    reverse!(bounds)
-    
-    return bounds
 end
+
 optimal_sectionalization(M::CTMatrixTypes, q::Int; kwargs...) = optimal_sectionalization(Array(M), q; kwargs...)
 
 function _forward_trellis(M::Matrix{T}, B_L::Int, q::Int, block_size::Int=0, verbose::Bool=true) where T
@@ -2408,103 +2315,6 @@ function _forward_trellis_ternary(M::Matrix{T}, B_L::Int, block_size::Int=0, ver
     return final_dict
 end
 
-function _backward_trellis_ternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
-    k, _ = size(M)
-    F = parent(M[1, 1])
-    elements = collect(F)
-    T_zero = zero(F)
-    
-    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2))
-    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3])
-    
-    M_u8 = zeros(UInt8, k, n)
-    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
-    
-    L, R = _get_LR_indices(M)
-    
-    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
-    
-    active_sets   = [Int[] for _ in 1:n]
-    start_bw_sets = [Int[] for _ in 1:n]
-    work_sets     = [Int[] for _ in 1:n]
-
-    for col in n:-1:(B_R + 1)
-        for row in 1:k
-            if L[row] <= col < R[row] push!(active_sets[col], row) end
-            if R[row] == col push!(start_bw_sets[col], row) end
-            if L[row] <= col <= R[row] push!(work_sets[col], row) end
-        end
-    end
-    
-    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
-
-    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(3)): ") : nothing
-    u_buf = zeros(UInt8, k)
-    
-    for col in n:-1:(B_R + 1)
-        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
-        
-        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
-        sizehint!(next_layer, 3^length(active_curr))
-        
-        active_prev = active_sets[col]
-        starting_bw = start_bw_sets[col]
-        working     = work_sets[col]
-        
-        for ((u_packed, is_nonzero), prev_wt) in prev_layer
-            
-            fill!(u_buf, UInt8(0))
-            for (idx, row) in enumerate(active_prev)
-                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
-            end
-            
-            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2)), length(starting_bw))...)
-                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
-                
-                c_i = UInt32(0)
-                @inbounds for row in working
-                    c_i += u_buf[row] * M_u8[row, col]
-                end
-                
-                col_wt = (c_i % 3) == 0 ? 0 : 1
-                new_wt = prev_wt + col_wt
-                
-                next_packed = UInt128(0)
-                new_is_nonzero = is_nonzero
-                
-                for val in branch_scalars
-                    if val != 0 new_is_nonzero = true end
-                end
-                
-                @inbounds for (idx, row) in enumerate(active_curr)
-                    val = u_buf[row]
-                    if val != 0 new_is_nonzero = true end
-                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
-                end
-                
-                key = (next_packed, new_is_nonzero)
-                if !haskey(next_layer, key) || new_wt < next_layer[key]
-                    next_layer[key] = new_wt
-                end
-            end
-        end
-        prev_layer = next_layer
-        verbose && next!(p)
-    end
-    
-    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
-    for ((u_packed, is_nz), wt) in prev_layer
-        u_unpacked = fill(T_zero, length(active_at_BR))
-        for (idx, row) in enumerate(active_at_BR)
-            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
-            u_unpacked[idx] = u8_to_elem[val_u8]
-        end
-        final_dict[(u_unpacked, is_nz)] = wt
-    end
-    
-    return final_dict
-end
-
 function _forward_trellis_quaternary(M::Matrix{T}, B_L::Int, block_size::Int=0, verbose::Bool=true) where T
     k, n = size(M)
     F = parent(M[1,1])
@@ -2603,110 +2413,6 @@ function _forward_trellis_quaternary(M::Matrix{T}, B_L::Int, block_size::Int=0, 
     for ((u_packed, is_nz), wt) in prev_layer
         u_unpacked = fill(T_zero, length(active_final))
         for (idx, row) in enumerate(active_final)
-            val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
-            u_unpacked[idx] = u8_to_elem[val_u8]
-        end
-        final_dict[(u_unpacked, is_nz)] = wt
-    end
-    
-    return final_dict
-end
-
-function _backward_trellis_quaternary(M::Matrix{T}, n::Int, B_R::Int, verbose::Bool=true) where T
-    k, _ = size(M)
-    F = parent(M[1, 1])
-    elements = collect(F)
-    T_zero = zero(F)
-    
-    elem_to_u8 = Dict(elements[1] => UInt8(0), elements[2] => UInt8(1), elements[3] => UInt8(2), elements[4] => UInt8(3))
-    u8_to_elem = Dict(UInt8(0) => elements[1], UInt8(1) => elements[2], UInt8(2) => elements[3], UInt8(3) => elements[4])
-    
-    GF4_MULT = UInt8[
-        0 0 0 0;
-        0 1 2 3;
-        0 2 3 1;
-        0 3 1 2
-    ]
-    
-    M_u8 = zeros(UInt8, k, n)
-    for i in 1:k, j in 1:n M_u8[i,j] = elem_to_u8[M[i,j]] end
-    
-    L, R = _get_LR_indices(M)
-    
-    prev_layer = Dict{Tuple{UInt128, Bool}, Int}((UInt128(0), false) => 0)
-    
-    active_sets   = [Int[] for _ in 1:n]
-    start_bw_sets = [Int[] for _ in 1:n]
-    work_sets     = [Int[] for _ in 1:n]
-
-    for col in n:-1:(B_R + 1)
-        for row in 1:k
-            if L[row] <= col < R[row] push!(active_sets[col], row) end
-            if R[row] == col push!(start_bw_sets[col], row) end
-            if L[row] <= col <= R[row] push!(work_sets[col], row) end
-        end
-    end
-    
-    active_at_BR = [row for row in 1:k if L[row] <= B_R < R[row]]
-
-    p = verbose ? Progress(n - B_R, 0.1, "Building Backward Trellis (GF(4)): ") : nothing
-    u_buf = zeros(UInt8, k)
-    
-    for col in n:-1:(B_R + 1)
-        next_layer = Dict{Tuple{UInt128, Bool}, Int}()
-        
-        active_curr = col == B_R + 1 ? active_at_BR : active_sets[col-1]
-        sizehint!(next_layer, 4^length(active_curr))
-        
-        active_prev = active_sets[col]
-        starting_bw = start_bw_sets[col]
-        working     = work_sets[col]
-        
-        for ((u_packed, is_nonzero), prev_wt) in prev_layer
-            
-            fill!(u_buf, UInt8(0))
-            for (idx, row) in enumerate(active_prev)
-                u_buf[row] = UInt8((u_packed >> (2 * (idx - 1))) & 3)
-            end
-            
-            for branch_scalars in Iterators.product(fill((UInt8(0), UInt8(1), UInt8(2), UInt8(3)), length(starting_bw))...)
-                @inbounds for (idx, row) in enumerate(starting_bw) u_buf[row] = branch_scalars[idx] end
-                
-                c_i = UInt8(0)
-                @inbounds for row in working
-                    c_i ⊻= GF4_MULT[u_buf[row] + 1, M_u8[row, col] + 1]
-                end
-                
-                col_wt = c_i == 0 ? 0 : 1
-                new_wt = prev_wt + col_wt
-                
-                next_packed = UInt128(0)
-                new_is_nonzero = is_nonzero
-                
-                for val in branch_scalars
-                    if val != 0 new_is_nonzero = true end
-                end
-                
-                @inbounds for (idx, row) in enumerate(active_curr)
-                    val = u_buf[row]
-                    if val != 0 new_is_nonzero = true end
-                    next_packed |= (UInt128(val) << (2 * (idx - 1)))
-                end
-                
-                key = (next_packed, new_is_nonzero)
-                if !haskey(next_layer, key) || new_wt < next_layer[key]
-                    next_layer[key] = new_wt
-                end
-            end
-        end
-        prev_layer = next_layer
-        verbose && next!(p)
-    end
-    
-    final_dict = Dict{Tuple{Vector{T}, Bool}, Int}()
-    for ((u_packed, is_nz), wt) in prev_layer
-        u_unpacked = fill(T_zero, length(active_at_BR))
-        for (idx, row) in enumerate(active_at_BR)
             val_u8 = UInt8((u_packed >> (2 * (idx - 1))) & 3)
             u_unpacked[idx] = u8_to_elem[val_u8]
         end
