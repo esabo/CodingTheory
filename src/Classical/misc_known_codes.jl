@@ -50,7 +50,7 @@ $(TYPEDSIGNATURES)
 
 Return the `[n, 0, 0]` binary zero code.
 """
-ZeroCode(n::Integer) = ZeroCode(GF(2), n)
+ZeroCode(n::Integer) = ZeroCode(Oscar.Nemo.Native.GF(2), n)
 
 """
 $(TYPEDSIGNATURES)
