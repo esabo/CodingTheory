@@ -111,12 +111,16 @@ function shadow_transform(W::MPolyRingElem, n::Int)
     R_QQ, (x_q, y_q) = polynomial_ring(QQ, ["x", "y"])
     
     W_shadow_QQ = zero(R_QQ)
-    for (coeff, exp_vec) in zip(coefficients(W_shadow), exponent_vectors(W_shadow))
-        # Verify the imaginary part perfectly canceled out (which it must for a valid shadow)
-        iszero(coeff[2]) || @warn "Imaginary artifacts detected in shadow transform. Input may not be self-dual."
+    for (c, exp_vec) in zip(coefficients(W_shadow), exponent_vectors(W_shadow))
+        # In Oscar, cyclotomic field elements use coeff(c, index)
+        # index 0 = real part (1), index 1 = imaginary part (i)
+        real_coeff = coeff(c, 0)
+        imag_coeff = coeff(c, 1)
         
-        # Extract the real part
-        real_coeff = coeff[1]
+        # Verify the imaginary part perfectly canceled out (which it must for a valid shadow)
+        iszero(imag_coeff) || @warn "Imaginary artifacts detected in shadow transform. Input may not be self-dual."
+        
+        # Add the real part to the projected shadow enumerator
         W_shadow_QQ += real_coeff * (x_q^exp_vec[1]) * (y_q^exp_vec[2])
     end
     
@@ -185,7 +189,7 @@ function is_valid_self_dual_enumerator(W::MPolyRingElem, n::Int; type::Symbol=:T
     
     # 4. Solve the system
     try
-        c = solve(A_mat, b_mat)
+        c = solve(A_mat, b_mat, side = :right)
         
         # Verify the entire polynomial matches (handles cases where the degree was right but other terms were corrupted)
         W_test = zero(R_QQ)
@@ -262,7 +266,7 @@ function extremal_weight_enumerator(n::Int; type::Symbol=:TypeII)
         end
     end
     
-    c = solve(A_mat, b_mat)
+    c = solve(A_mat, b_mat, side = :right)
     
     W_extremal = zero(R_QQ)
     for col in 1:length(basis)
