@@ -7,51 +7,88 @@
 #############################
         # constructors
 #############################
+"""
+$(TYPEDSIGNATURES)
+
+Return the generator matrix of the cyclic code.
+Evaluates lazily by extracting the coefficients of the generator polynomial 
+`C.g` and mapping them into a strictly typed dense matrix (`fpMatrix` or `FqMatrix`).
+"""
 function generator_matrix(C::AbstractCyclicCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
+    
     if !haskey(cache, :G)
-        coeffs = collect(coefficients(C.g))
-        len = length(coeffs)
+        n, k = C.n, C.k
+        deg_g = n - k
         
-        # Build the cyclic shifts of the generator polynomial
-        G = zero_matrix(C.F, C.k, C.n)
-        for i in 1:C.k
-            G[i:i, i:i + len - 1] = coeffs
+        # Enforce modern native matrix types (fpMatrix for prime, FqMatrix for extension)
+        p_char = Int(characteristic(C.F))
+        q_order = Int(order(C.F))
+        # modern_F = (q_order == p_char) ? Oscar.Nemo.Native.GF(p_char) : GF(p_char, degree(C.F), :α)
+        
+        G_mat = zero_matrix(C.F, k, n)
+        for i in 1:k
+            for j in 0:deg_g
+                c_val = coeff(C.g, j)
+                # Safe casting from polynomial coefficients to native field elements
+                G_mat[i, i + j] = C.F(c_val)
+            end
         end
-        cache[:G] = G
+        
+        cache[:G] = G_mat
     end
     
     if stand_form
         if !haskey(cache, :G_stand)
-            G_stand, H_stand, P, _ = _standard_form(cache[:G])
+            G_stand, H_stand, P_stand, _ = _standard_form(cache[:G])
             cache[:G_stand] = G_stand
             cache[:H_stand] = H_stand
-            cache[:P_stand] = P
+            cache[:P_stand] = P_stand
         end
         return cache[:G_stand]
     end
+    
     return cache[:G]
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the parity-check matrix of the cyclic code.
+Evaluates lazily by extracting the reversed coefficients of the parity polynomial `C.h`.
+"""
 function parity_check_matrix(C::AbstractCyclicCode, stand_form::Bool = false)
     cache = getfield(C, :cache)
+    
     if !haskey(cache, :H)
-        # The parity check matrix is formed by the reversed shifts of h(x)
-        h_rev = reverse(C.h)
-        coeffs = collect(coefficients(h_rev))
-        len = length(coeffs)
+        n, k = C.n, C.k
+        deg_h = k
         
-        H = zero_matrix(C.F, C.n - C.k, C.n)
-        for i in 1:(C.n - C.k)
-            H[i:i, i:i + len - 1] = coeffs
+        # Enforce modern native matrix types
+        p_char = Int(characteristic(C.F))
+        q_order = Int(order(C.F))
+        # modern_F = (q_order == p_char) ? Oscar.Nemo.Native.GF(p_char) : GF(p_char, degree(C.F), :α)
+        
+        H_mat = zero_matrix(C.F, n - k, n)
+        for i in 1:(n - k)
+            for j in 0:deg_h
+                # The parity check rows are formed by the reversed coefficients of h(x)
+                c_val = coeff(C.h, deg_h - j)
+                H_mat[i, i + j] = C.F(c_val)
+            end
         end
-        cache[:H] = H
+        
+        cache[:H] = H_mat
     end
     
     if stand_form
-        generator_matrix(C, true)
+        if !haskey(cache, :H_stand)
+            # Forcing the standard form generator implicitly populates H_stand in the cache
+            generator_matrix(C, true)
+        end
         return cache[:H_stand]
     end
+    
     return cache[:H]
 end
 
@@ -60,9 +97,11 @@ function _cyclic_algebra_from_def_set(q::Int, n::Int, def_set::Vector{Int}, cose
     length(factors) == 1 || throw(DomainError(q, "There is no finite field of order $q."))
     (p, t), = factors
 
-    F = Oscar.Nemo.Native.GF(p, t, :α)
+    # F = Oscar.Nemo.Native.GF(p, t, :α)
+    F = GF(p, t, :α)
     deg = ord(n, q)
-    E = Oscar.Nemo.Native.GF(p, t * deg, :α)
+    # E = Oscar.Nemo.Native.GF(p, t * deg, :α)
+    E = GF(p, t * deg, :α)
     α = (t * deg == 1) ? E(2) : gen(E)
     
     R, x = polynomial_ring(E, :x)
@@ -157,7 +196,7 @@ function CyclicCode(n::Int, g::Union{fpPolyRingElem, FqPolyRingElem, fqPolyRepPo
     p = Int(characteristic(F))
     t = Int(degree(F))
     
-    E = Oscar.Nemo.Native.GF(p, t * deg, :α)
+    E = GF(p, t * deg, :α)
     α = (t * deg == 1) ? E(2) : gen(E)
     β = α^(div(q^deg - 1, n))
     
@@ -287,7 +326,7 @@ function CyclicCode(q::Int, n::Int, elements::Vector{<:CTFieldElem}; type::Symbo
     factors = Nemo.factor(q)
     (p, t), = factors
     deg = ord(n, q)
-    E = Oscar.Nemo.Native.GF(p, t * deg, :α)
+    E = GF(p, t * deg, :α)
     α = (t * deg == 1) ? E(2) : gen(E)
     β = α^(div(BigInt(q)^deg - 1, n))
     

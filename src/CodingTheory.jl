@@ -266,7 +266,7 @@ export dual, Euclidean_dual, Hermitian_dual, l_Galois_dual, hull, Euclidean_hull
 #############################
 
 include("Classical/MatrixProductCode.jl")
-export RandomMatrixProductCode, constituent_codes, defining_matrix
+export RandomMatrixProductCode, constituent_codes, defining_matrix, MatrixProductCode
 
 #############################
 # Classical/McEliece.jl

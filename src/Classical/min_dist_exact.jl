@@ -2001,32 +2001,20 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
     
     verbose && println("Starting initial row-check (r = 1)...")
     for entry in z_mats
-        if info_set_alg == :Bouyuklieva
-            for i in 1:size(entry.G, 1)
-                row_vec = vec(Array(entry.G[i, :]))
-                row_wt = count(!iszero, row_vec)
-                if row_wt > 0 && (row_wt < current_upper_bound || (row_wt == current_upper_bound && iszero(global_min_codeword)))
-                    current_upper_bound = row_wt
-                    reconstructed = zeros(Int, n)
-                    for idx in 1:n
-                        reconstructed[entry.perm[idx]] = row_vec[idx]
-                    end
-                    global_min_codeword = reconstructed
+        # Dynamically handle permutations regardless of which info set algorithm generated them
+        perm_vec = typeof(entry.perm) <: AbstractVector ? entry.perm : _matrix_to_perm_vector(entry.perm)
+        
+        for i in 1:size(entry.G, 1)
+            row_vec = vec(Array(entry.G[i, :]))
+            row_wt = count(!iszero, row_vec)
+            
+            if row_wt > 0 && (row_wt < current_upper_bound || (row_wt == current_upper_bound && iszero(global_min_codeword)))
+                current_upper_bound = row_wt
+                reconstructed = zeros(Int, n)
+                for idx in 1:n
+                    reconstructed[perm_vec[idx]] = row_vec[idx]
                 end
-            end
-        else
-            perm_vec = _matrix_to_perm_vector(entry.perm)
-            for i in 1:size(entry.G, 1)
-                row_vec = vec(Array(entry.G[i, :]))
-                row_wt = count(!iszero, row_vec)
-                if row_wt > 0 && (row_wt < current_upper_bound || (row_wt == current_upper_bound && iszero(global_min_codeword)))
-                    current_upper_bound = row_wt
-                    reconstructed = zeros(Int, n)
-                    for idx in 1:n
-                        reconstructed[perm_vec[idx]] = row_vec[idx]
-                    end
-                    global_min_codeword = reconstructed
-                end
+                global_min_codeword = reconstructed
             end
         end
     end
