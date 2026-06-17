@@ -150,7 +150,8 @@ function dual(C::GabidulinCode)
         row_idx += 1
     end
     
-    nul_dim, N = right_kernel(M)
+    N = kernel(M, side=:right)
+    nul_dim = ncols(N)
     nul_dim == 1 || error("Expected nullspace of dimension 1, got $nul_dim. Evaluation points may not be linearly independent.")
     
     # Extract the evaluation points for the dual code
