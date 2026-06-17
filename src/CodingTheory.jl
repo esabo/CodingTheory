@@ -209,7 +209,7 @@ include("Classical/GRS_alternate.jl")
 export GeneralizedReedSolomonCode, RandomGeneralizedReedSolomonCode, 
        GeneralizedSrivastavaCode, SrivastavaCode, GeneralizedBCHCode, 
        scalars, dual_scalars, evaluation_points, is_primitive, 
-       syndromes, syndrome_polynomial
+       syndromes, syndrome_polynomial, AlternateCode
 
 #############################
 # Classical/invariant_theory.jl

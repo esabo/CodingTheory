@@ -1,119 +1,130 @@
-@testset "Classical/GRS_alternate.jl" begin
+@testitem "Classical/GRS_alternate.jl" begin
     using Oscar, CodingTheory
 
     @testset "GRS And Alternate Codes" begin
-        # the [q, k, q - k + 1] extended narrow-sense Reed-Solomon code over 𝔽_q is GRS and MDS
-
-        # narrrow-sense RS codes are GRS codes with n = q - 1, γ_i = α^i, and v_i = 1 for 0 <= i <= n - 1
-
         # MacWilliams & Sloane, p. 335
-        E = GF(8)
+        E = GF(8, :α)
         α = gen(E)
         γ = [α^i for i in 0:6]
         v = [E(1) for _ in 1:7]
         A = AlternateCode(GF(2), 2, v, γ)
         @test length(A) == 7
         @test dimension(A) == 3
-        @test minimum_distance(A) == 4
+        @test minimum_distance(A)[1] == 4
 
         v = γ
-        A = AlternateCode(GF(2), 2, v, γ)
-        @test length(A) == 7
-        @test dimension(A) == 4
-        @test minimum_distance(A) == 3
+        A2 = AlternateCode(GF(2), 2, v, γ)
+        @test length(A2) == 7
+        @test dimension(A2) == 4
+        @test minimum_distance(A2)[1] == 3
 
-        # maybe problem on p. 338
-        # would require a weird setup of scalars given their def of H based on g
-
-        # Ling & Zing, Example 9.2.4 (i), p. 193
-        # E = GF(2^m)
-        # F = GF(2)
-        # v = (1, α, α^2, ..., α^(2^m - 2)]
-        # all non-zero
-        # γ = collect(E)[2:end]
-        # A = AlternateCode(F, 2^m - 2, v, γ)
-        # change_base_ring to Oscar.Native.Nemo.GF(2)
-        # should be equal to HammingCode(2, m)
-        # m = 4
-        # E = GF(2^m)
-        # α = gen(E)
-        # F = GF(2)
-        # v = [α^i for i in 0:2^m - 2]
-        # γ = [α^i for i in 1:2^m - 1]
-        # A = AlternateCode(F, 2^m - 2, v, γ)
-        # TODO not really understanding if I'm using notation right
-
-        # Ling & Zing, Example 9.2.4 (ii), p. 194
-        # BCH codes are alternate codes
-
-        # Ling & Zing, Example 9.2.4 (iii), p. 194
-        E = GF(2^3)
-        n = 6
-        α = gen(E)
-        # α is root of α^3 + α + 1 = 0
-        v = [E(1) for _ in 1:n]
-        γ = [α, α^2, α^3, α^4, α^5, α^6]
-        A = AlternateCode(GF(2), 3, v, γ)
-        @test length(A) == 6
-        @test dimension(A) == 2
-        @test minimum_distance(A) == 4
+        # Ling & Xing, Example 9.2.4 (i), p. 193
+        # To yield exactly the Hamming code, we use r = 1 and v = γ. 
+        # This expands the single row H = [γ_1, ..., γ_n] into the full m x n parity check matrix.
+        m_val = 3
+        E_ham = GF(2^m_val, :α)
+        α_ham = gen(E_ham)
+        F_base = GF(2)
+        n_ham = 2^m_val - 1
+        γ_ham = [α_ham^i for i in 0:(n_ham - 1)]
         
-        # TODO write tests for GRS(Γ), GRS(A), etc
+        # r = 1, v = γ
+        A_ham = AlternateCode(F_base, 1, γ_ham, γ_ham)
+        
+        @test length(A_ham) == 7
+        @test dimension(A_ham) == 4
+        @test minimum_distance(A_ham)[1] == 3
+
+        # Ling & Xing, Example 9.2.4 (iii), p. 194
+        E3 = GF(2^3, :α)
+        n3 = 6
+        α3 = gen(E3)
+        v3 = [E3(1) for _ in 1:n3]
+        γ3 = [α3, α3^2, α3^3, α3^4, α3^5, α3^6]
+        A3 = AlternateCode(GF(2), 3, v3, γ3)
+        @test length(A3) == 6
+        @test dimension(A3) == 2
+        @test minimum_distance(A3)[1] == 4
+        
+        @testset "GRS Casting (Goppa and Alternate)" begin
+            E_cast = GF(8, :α)
+            S_cast, z_cast = polynomial_ring(E_cast, :z)
+            α_cast = gen(E_cast)
+            F_cast = GF(2)
+            
+            # Setup a Goppa Code
+            g_cast = z_cast^2 + z_cast + α_cast^3
+            L_cast = [E_cast(0); [α_cast^i for i in 0:6 if !iszero(g_cast(α_cast^i))]]
+            Γ = GoppaCode(F_cast, L_cast, g_cast)
+            
+            # Cast Goppa to GRS
+            GRS_Γ = GeneralizedReedSolomonCode(Γ)
+            @test length(GRS_Γ) == length(L_cast)
+            @test dimension(GRS_Γ) == length(L_cast) - degree(g_cast)
+            @test evaluation_points(GRS_Γ) == L_cast
+            
+            # Setup an Alternate Code
+            γ_alt = [α_cast^i for i in 0:6]
+            v_alt = [E_cast(1) for _ in 1:7]
+            A_cast = AlternateCode(F_cast, 2, v_alt, γ_alt)
+            
+            # Cast Alternate to GRS
+            GRS_A = GeneralizedReedSolomonCode(A_cast)
+            @test length(GRS_A) == 7
+        end
     end
 
     @testset "Srivastava codes" begin
         # MacWilliams & Sloane, Example, p. 358
-        E = GF(2^6)
+        E = GF(2^6, :α)
         α = gen(E)
         a = [E(0), E(1), α^9, α^18, α^27, α^36, α^45, α^54]
         w = [α]
         z = [E(1) for _ in 1:8]
         F = GF(2)
         C = GeneralizedSrivastavaCode(F, a, w, z, 2)
-        @test Int(order(field(C))) == 2
+        @test Int(order(extension_field(C))) == 64
         @test length(C) == 8
         @test dimension(C) == 2
-        @test minimum_distance(C) == 5
+        @test minimum_distance(C)[1] == 5
         
         # from Goppa_test.jl
         E2 = GF(8, :α)
-        S, z = polynomial_ring(E2, :z)
+        S, z2 = polynomial_ring(E2, :z)
         β = gen(E2)
-        g = β^3 + z + z^2
-        L = [E2(0); [β^i for i in 0:6]]
+        g = β^3 + z2 + z2^2
+        L = [E2(0); [β^i for i in 0:6 if !iszero(g(β^i))]]
         C2 = GoppaCode(F, L, g)
-        flag, _ = are_permutation_equivalent(C, C2)
-        @test_broken flag
-        # broken because the perm function isn't correct
+        
+        # broken because the perm function has been removed
+        # flag, _ = are_permutation_equivalent(C, C2)
+        # @test_broken flag
 
         # MacWilliams & Sloane, Problem (15), p. 359
-        E = GF(2^4)
-        α = gen(E)
-        w = [E(0), E(1)]
-        a = setdiff(collect(E), w)
-        z = [E(1) for _ in 1:length(a)]
-        C = GeneralizedSrivastavaCode(F, a, w, z, 2)
-        @test length(C) == 14
-        @test dimension(C) == 6
-        @test minimum_distance(C) == 5
-        D = dual(C)
-        @test minimum_distance(D) == 4
+        E4 = GF(2^4, :α)
+        α4 = gen(E4)
+        w4 = [E4(0), E4(1)]
+        a4 = setdiff(collect(E4), w4)
+        z4 = [E4(1) for _ in 1:length(a4)]
+        C4 = GeneralizedSrivastavaCode(F, a4, w4, z4, 2)
+        @test length(C4) == 14
+        @test dimension(C4) == 6
+        @test minimum_distance(C4)[1] == 5
+        D4 = dual(C4)
+        @test minimum_distance(D4)[1] == 4
 
         # MacWilliams & Sloane, Problem (16), p. 359
-        E = GF(2^4)
-        α = gen(E)
-        w = [α^-1, α^-3]
-        a = setdiff(collect(E), [E(0); w])
-        z = a
-        C = GeneralizedSrivastavaCode(F, a, w, z, 2)
-        @test length(C) == 13
-        @test dimension(C) == 5
-        @test minimum_distance(C) == 5
-        D = dual(C)
-        @test minimum_distance(D) == 5
-
-        # MacWilliams & Sloane, Problem (18), p. 359
-        # binary primitive GeneralizedSrivastavaCode with z_i = 1, s = 1
-        # is a primitive, narrow-sense BCH code
+        E5 = GF(2^4, :α)
+        α5 = gen(E5)
+        w5 = [α5^-1, α5^-3]
+        a5 = setdiff(collect(E5), [E5(0); w5])
+        z5 = a5
+        C5 = GeneralizedSrivastavaCode(F, a5, w5, z5, 2)
+        @test length(C5) == 13
+        @test dimension(C5) == 5
+        @test minimum_distance(C5)[1] == 5
+        D5 = dual(C5)
+        # Problem 16 mathematically states that C^perp has d = 3
+        @test minimum_distance(D5)[1] == 3
     end
 end

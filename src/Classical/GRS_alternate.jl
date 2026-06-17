@@ -155,6 +155,52 @@ function GeneralizedReedSolomonCode(C::ReedSolomonCode)
 end
 
 """
+    AlternateCode(F::CTFieldTypes, r::Int, v::Vector{<:CTFieldElem}, γ::Vector{<:CTFieldElem})
+
+Return the Alternate code `A_r(v, γ)` over the subfield `F`, derived from a parent 
+Generalized Reed-Solomon code over `E` with redundancy `r`.
+"""
+function AlternateCode(F::CTFieldTypes, r::Int, v::Vector{<:CTFieldElem}, γ::Vector{<:CTFieldElem})
+    n = length(γ)
+    length(v) == n || throw(ArgumentError("Vectors v and γ must be the same length."))
+    1 <= r < n || throw(DomainError(r, "Redundancy r must be between 1 and n-1."))
+    
+    E = parent(γ[1])
+    all(parent(pt) == E for pt in γ) || throw(ArgumentError("All evaluation points must be over the same field."))
+    all(parent(pt) == E for pt in v) || throw(ArgumentError("All scalars must be over the same field."))
+    length(unique(γ)) == n || throw(ArgumentError("Evaluation points must be distinct."))
+    
+    flag, _ = is_subfield(F, E)
+    flag || throw(ArgumentError("F must be a subfield of the extension field E."))
+    
+    # 1. Construct the parity check matrix of the parent GRS code over E
+    H = zero_matrix(E, r, n)
+    for i in 1:r
+        for j in 1:n
+            H[i, j] = v[j] * γ[j]^(i - 1)
+        end
+    end
+    
+    # 2. Expand the parity check matrix to the subfield F
+    basis, _ = primitive_basis(E, F)
+    if typeof(E) === typeof(F)
+        H_exp = transpose(expand_matrix(transpose(H), F, basis))
+    else
+        H_exp = change_base_ring(F, transpose(expand_matrix(transpose(H), Oscar.Nemo.Native.GF(Int(order(F))), basis)))
+    end
+    
+    # 3. Calculate dimension from the rank of the expanded parity check matrix
+    rnk_H = rank(H_exp)
+    k = n - rnk_H
+    
+    # 4. The designed minimum distance of the Alternant code is at least r + 1
+    d_bound = r + 1 
+    
+    cache = Dict{Symbol, Any}(:H => H_exp)
+    return AlternateCode(F, E, n, k, missing, d_bound, n, v, γ, cache)
+end
+
+"""
 $(TYPEDSIGNATURES)
 
 Return the generalized Srivastava code over `F`. Evaluates lazily.
@@ -182,7 +228,8 @@ function GeneralizedSrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, 
     H = zero_matrix(E, s * t, n)
     for l in 1:s
         count = 1
-        for r in (l - 1) * s + 1:(l - 1) * s + t
+        # FIX: Multiply the block offset by 't' instead of 's'
+        for r in (l - 1) * t + 1 : l * t
             for c in 1:n
                 H[r, c] = z[c] * (a[c] - w[l])^(-count)
             end
@@ -220,10 +267,6 @@ $(TYPEDSIGNATURES)
 
 Return the Generalized BCH code over `F` with evaluation points `γ`, design distance `δ`, 
 and offset `b`.
-
-# Notes
-* A Generalized BCH code is a subfield subcode of a specific Generalized Reed-Solomon code,
-  making it a special case of an Alternant code where the dual scalars are `w_i = γ_i^b`.
 """
 function GeneralizedBCHCode(F::CTFieldTypes, γ::Vector{<:CTFieldElem}, δ::Int, b::Int=1)
     δ >= 2 || throw(DomainError(δ, "Design distance must be >= 2."))
@@ -236,22 +279,14 @@ function GeneralizedBCHCode(F::CTFieldTypes, γ::Vector{<:CTFieldElem}, δ::Int,
     
     n = length(γ)
     
-    # 1. The defining parity-check rows for GBCH imply dual scalars w_i = γ_i^b
+    # 1. The defining parity-check rows for GBCH mathematically imply dual scalars w_i = γ_i^b
     w = [γ[i]^b for i in 1:n]
     
-    # 2. Compute the primal GRS scalars via Lagrange interpolation
-    v = elem_type(E)[]
-    for i in 1:n
-        push!(v, (w[i] * prod(γ[j] - γ[i] for j in 1:n if j != i))^-1)
-    end
+    # 2. A GBCH code is simply the Alternant code A_r(w, γ) over F where r = δ - 1
+    r = δ - 1
+    r < n || throw(DomainError(δ, "Design distance is too large for the number of evaluation points."))
     
-    # 3. The parent GRS code guarantees distance δ, so k_GRS = n - δ + 1
-    k_GRS = n - δ + 1
-    k_GRS > 0 || throw(DomainError(δ, "Design distance is too large for the number of evaluation points."))
-    
-    # 4. A GBCH code is simply the Alternant code over F derived from this GRS code
-    # This automatically invokes the O(1) lazy subfield subcode logic.
-    return AlternateCode(F, k_GRS, v, γ)
+    return AlternateCode(F, r, w, γ)
 end
 
 #############################
@@ -278,6 +313,8 @@ dual_scalars(C::GeneralizedReedSolomonCode) = C.dual_scalars
 Return the evaluation points `γ` of the Generalized Reed-Solomon code `C`.
 """
 evaluation_points(C::GeneralizedReedSolomonCode) = C.eval_pts
+
+extension_field(C::AbstractAlternateCode) = C.E
 
 #############################
       # setter functions
