@@ -382,7 +382,7 @@ end
 
 mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     F::CTFieldTypes
-    R::CTPolyRing
+    R::EuclideanRingResidueRing
     n::Int
     k::Int
     d::Union{Int, Missing}
@@ -390,7 +390,7 @@ mutable struct QuasiCyclicCode <: AbstractQuasiCyclicCode
     u_bound::Int
     l::Int
     m::Int
-    A::CTMatrixTypes
+    A::MatElem{<:ResElem}
     A_type::Symbol
     cache::Dict{Symbol, Any}
 end

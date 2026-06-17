@@ -336,7 +336,7 @@ export index, expansion_factor, type, polynomial_matrix, polynomial_matrix_type,
        is_single_generator, weight_matrix, base_matrix, protograph_matrix, 
        noncirculant_generator_matrix, noncirculant_parity_check_matrix, generators, 
        circulants, shift_matrix, exponent_matrix, has_algebraic_4_cycle, 
-       has_algebraic_cycle, component_matrices, algebraic_dimension
+       has_algebraic_cycle, component_matrices, algebraic_dimension, QuasiCyclicCode
 
 #############################
   # Classical/ReedMuller.jl
