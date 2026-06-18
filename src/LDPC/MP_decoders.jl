@@ -43,13 +43,14 @@ struct HardDecisionWorkspace
     # O(1) Masks
     is_decimated::Vector{Bool}
     is_erased::Vector{Bool}
+    target_syndrome::Vector{UInt8}
 end
 
 # ==============================================================================
 # 2. THE ONE-TIME RAM ALLOCATOR
 # ==============================================================================
 
-function init_hard_workspace(H::AbstractMatrix)
+function init_hard_workspace(H::CTMatrixTypes)
     num_check, num_var = size(H)
     
     var_to_edges = [Int[] for _ in 1:num_var]
@@ -75,7 +76,7 @@ function init_hard_workspace(H::AbstractMatrix)
         zeros(UInt8, num_edges), zeros(UInt8, num_edges),
         var_to_edges, chk_to_edges, chk_to_vars,
         zeros(UInt8, num_var), zeros(UInt8, num_var),
-        zeros(Bool, num_var), zeros(Bool, num_var)
+        zeros(Bool, num_var), zeros(Bool, num_var), zeros(UInt8, num_check)
     )
 end
 
@@ -144,7 +145,7 @@ struct SoftDecisionWorkspace{T <: AbstractFloat}
     prev_bits_2::Vector{UInt8}
 end
 
-function init_soft_workspace(H::AbstractMatrix; schedule::Symbol=:flooding)
+function init_soft_workspace(H::CTMatrixTypes; schedule::Symbol=:flooding)
     num_check, num_var = size(H)
     
     var_to_edges = [Int[] for _ in 1:num_var]
@@ -178,7 +179,11 @@ function init_soft_workspace(H::AbstractMatrix; schedule::Symbol=:flooding)
         zeros(Float64, num_edges), zeros(Float64, num_edges),
         var_to_edges, chk_to_edges, chk_to_vars,
         zeros(Float64, num_var), zeros(Float64, num_var), zeros(UInt8, num_var),
-        zeros(Bool, num_var), layers
+        zeros(Bool, num_var), 
+        zeros(UInt8, num_check), # target_syndrome
+        layers,
+        fill(0xFF, num_var),     # prev_bits_1
+        fill(0xFF, num_var)      # prev_bits_2
     )
 end
 
@@ -536,7 +541,7 @@ end
 
 function _fast_decode!(W::SoftDecisionWorkspace{Float64}, 
                        algo::Val, 
-                       ::Val{:flooding}, 
+                       ::Val{:layered}, 
                        decimation_type::Val, 
                        osc_type::Val, 
                        pert_type::Val, 

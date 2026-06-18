@@ -2029,13 +2029,6 @@ function weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
     end
 end
 
-function complete_weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
-    return get!(C.cache, :cwe_dist) do
-        # We use your clever syndrome Trellis wrapper here!
-        _complete_weight_enumerator_trellis(C, num_trials=50, verbose=verbose)
-    end
-end
-
 function complete_weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
     return get!(C.cache, :cwe_enum) do
         counts = complete_weight_distribution(C, verbose=verbose)
