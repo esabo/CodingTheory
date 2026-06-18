@@ -86,8 +86,18 @@ function _L2_dist_sq(p1::Vector{Float64}, p2::Vector{Float64})
     return _integrate_poly_0_1(v2)
 end
 
-Base.hash(Ch::AbstractChannel) = hash(Ch.param, hash(typeof(Ch)))
-Base.isequal(Ch1::AbstractChannel, Ch2::AbstractChannel) = typeof(Ch1) == typeof(Ch2) && Ch1.param == Ch2.param
+# Internal helper to grab the defining parameter (ε, p, σ, etc.)
+_param(Ch::AbstractChannel) = getfield(Ch, 1)
+
+# Include the h::UInt salt for proper Julia hashing performance
+Base.hash(Ch::AbstractChannel, h::UInt) = hash(_param(Ch), hash(typeof(Ch), h))
+
+# Type-stable equality check: channels are only equal if they are the exact same type AND have the same parameter
+Base.isequal(Ch1::T, Ch2::T) where {T <: AbstractChannel} = isequal(_param(Ch1), _param(Ch2))
+Base.isequal(::AbstractChannel, ::AbstractChannel) = false
+
+# It is also best practice in Julia to map `==` to `isequal` for custom types
+Base.:(==)(Ch1::AbstractChannel, Ch2::AbstractChannel) = isequal(Ch1, Ch2)
 
 # function Base.setproperty!(Ch::BAWGNChannel, key, val)
 #     key == :capacity && (setfield!(Ch, key, val);)
@@ -98,7 +108,7 @@ function _density_evolution!(E::LDPCEnsemble, Ch::AbstractChannel)
     if isa(Ch, BinaryErasureChannel)
         λ_vec = Float64.(coeff.(E.λ, 0:degree(E.λ)))
         ρ_vec = Float64.(coeff.(E.ρ, 0:degree(E.ρ)))
-        E.density_evo[Ch] = _density_evolution_BEC(λ_vec, ρ_vec, Ch.param)
+        E.density_evo[Ch] = _density_evolution_BEC(λ_vec, ρ_vec, Ch.ε)
     else
         error("Only BEC has been implemented so far")
     end
@@ -136,10 +146,10 @@ Return the multiplicative gap of the ensemble with respect to the given channel.
 """
 function multiplicative_gap(E::LDPCEnsemble, Ch::AbstractChannel)
     if !haskey(E.threshold, typeof(Ch))
-        # For BEC, we can use the exact analytical threshold. 
-        # (We will add the BAWGN Gaussian Approximation call here later).
+        # For BEC, we can use the exact analytical threshold.
         if typeof(Ch) == BinaryErasureChannel
-            E.threshold[typeof(Ch)] = optimal_threshold(E.λ, E.ρ)
+            # FIXED: Pass the ensemble E and the type of the channel
+            E.threshold[typeof(Ch)] = optimal_threshold(E, typeof(Ch))
         else
             error("Threshold computation for this channel is not yet implemented.")
         end
@@ -148,9 +158,6 @@ function multiplicative_gap(E::LDPCEnsemble, Ch::AbstractChannel)
     thresh = E.threshold[typeof(Ch)]
     C_thresh = capacity(typeof(Ch)(thresh))
     
-    # Gap = (Capacity at threshold - Design Rate) / Capacity at threshold
-    # Note: Modern convention uses capacity difference rather than raw parameter difference
-    # to maintain consistency across different channel types.
     return (C_thresh - E.design_rate) / C_thresh
 end
 
@@ -170,8 +177,8 @@ given the multiplicative gap.
 function density_lower_bound(Ch::AbstractChannel, gap::Real)
     0 < gap < 1 || throw(DomainError("Multiplicative gap should be in (0, 1)"))
     if isa(Ch, BinaryErasureChannel)
-        temp = log(1 - Ch.param)
-        return (Ch.param * (log(gap) - (log(Ch.param) - temp))) / ((1 - Ch.param) * (1 - gap) * temp)
+        temp = log(1 - Ch.ε)
+        return (Ch.ε * (log(gap) - (log(Ch.ε) - temp))) / ((1 - Ch.ε) * (1 - gap) * temp)
     else
         @error "Not yet implemented"
     end
@@ -389,7 +396,7 @@ function EXIT_chart_data(E::LDPCEnsemble, Ch::BinaryErasureChannel; pts::Int=100
     
     λ_vec = Float64.(coeff.(E.λ, 0:degree(E.λ)))
     ρ_vec = Float64.(coeff.(E.ρ, 0:degree(E.ρ)))
-    ε = Ch.param
+    ε = Ch.ε
     
     # 1. Variable Node Curve: I_E = 1 - ε * λ(1 - I_A)
     # Plotted normally: x = I_A, y = I_E
@@ -654,7 +661,7 @@ using Gaussian Approximation.
 """
 function EXIT_chart_data(E::LDPCEnsemble, Ch::BAWGNChannel; pts::Int=100)
     # For AWGN, LLR variance = 4 / σ_n^2. Thus, LLR std dev = 2 / σ_n
-    sigma_ch = 2.0 / Ch.param
+    sigma_ch = 2.0 / Ch.σ # FIXED: Use Ch.σ instead of Ch.param
     return _EXIT_chart_GA(E, sigma_ch, pts)
 end
 

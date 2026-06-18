@@ -5,7 +5,7 @@
         # Generate generic degree distribution polynomials from vectors
         # lambda(x) = 0.5*x + 0.5*x^2
         # rho(x) = x^3
-        _, x = PolynomialRing(RealField(), :x)
+        _, x = polynomial_ring(RealField(), :x)
         λ = 0.5 * x + 0.5 * x^2
         ρ = x^3
         
@@ -28,7 +28,7 @@
     end
 
     @testset "Density Evolution and Thresholds" begin
-        _, x = PolynomialRing(RealField(), :x)
+        _, x = polynomial_ring(RealField(), :x)
         # Use a classic (3,6) regular LDPC degree distribution
         λ_reg = x^2
         ρ_reg = x^5
@@ -57,16 +57,16 @@
         # Example protograph base matrix
         B = [1 2; 2 1]
         
-        # The AWGN PEXIT analysis takes the standard deviation vector
-        # A good channel (low sigma) should decode instantly
-        sigma_ch_good = [0.5, 0.5]
+        # The AWGN PEXIT analysis takes the standard deviation vector of the *LLRs*.
+        # A good channel (low noise) means HIGH LLR standard deviation (e.g., 4.0)
+        sigma_ch_good = [4.0, 4.0]
         decoded_good, I_APP_good, iters_good = CodingTheory._PEXIT_AWGN(B, sigma_ch_good)
         @test decoded_good
         @test all(I_APP_good .> 0.999)
         @test iters_good < 100
         
-        # A bad channel (high sigma) should stall and fail
-        sigma_ch_bad = [5.0, 5.0]
+        # A bad channel (high noise) means LOW LLR standard deviation (e.g., 0.4)
+        sigma_ch_bad = [0.4, 0.4]
         decoded_bad, I_APP_bad, iters_bad = CodingTheory._PEXIT_AWGN(B, sigma_ch_bad)
         @test !decoded_bad
         @test any(I_APP_bad .< 0.999)
@@ -84,7 +84,7 @@
     end
 
     @testset "EXIT Chart Data Generation" begin
-        _, x = PolynomialRing(RealField(), :x)
+        _, x = polynomial_ring(RealField(), :x)
         λ = x^2
         ρ = x^5
         E = LDPCEnsemble(λ, ρ)
