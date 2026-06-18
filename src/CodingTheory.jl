@@ -396,9 +396,8 @@ export words_of_minimum_weight, words_of_weight, polynomial,
 #############################
 
 include("LDPC/algorithms.jl")
-export PEGWorkspace, generate_peg, generate_qc_peg, generate_protograph_peg, 
-       generate_mackay_neal, generate_eg2_ldpc, generate_spatially_coupled, 
-       generate_eg_ldpc, generate_pg_ldpc
+export progressive_edge_growth, progressive_edge_growth_QC, progressive_edge_growth_protograph, 
+       Mackay_Neal, SC_LDPCCode, EuclideanGeometryCode, ProjectiveGeometryCode, GallagerCode
 
 #############################
      # LDPC/analysis.jl

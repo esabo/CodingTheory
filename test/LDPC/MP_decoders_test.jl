@@ -1,79 +1,139 @@
 @testitem "LDPC/MP_decoders.jl" begin
     using Oscar, CodingTheory
 
-    @testset "Message Passing" begin
-        # not the most robust test, but I find that if something doesn't work everything fails
-        F = Oscar.Nemo.Native.GF(2);
-        H = matrix(F, [1 1 0 1 1 0 0; 1 0 1 1 0 1 0; 0 1 1 1 0 0 1]);
-        v = matrix(F, 7, 1, [1, 1, 0, 0, 0, 0, 0]);
-        correct_v = UInt8.([1, 1, 1, 0, 0, 0, 0]);
-        correct_e = UInt8.([0, 0, 1, 0, 0, 0, 0]);
-        syn = H * v;
-        p = 1/7;
-        nm = BSC(p);
+    @testset "Workspace Initialization & Layered Schedules" begin
+        F = Oscar.Nemo.Native.GF(2)
+        # Standard Hamming(7,4) parity check matrix
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        
+        # Test Layered Schedule Generation
+        sched_layered = CodingTheory.layered_schedule(H, schedule=:layered)
+        @test length(sched_layered) > 0
+        @test sum(length(layer) for layer in sched_layered) == 3 # All 3 rows accounted for
+        
+        sched_parallel = CodingTheory.layered_schedule(H, schedule=:parallel)
+        @test length(sched_parallel) == 1
+        @test length(sched_parallel[1]) == 3
+        
+        # Test Workspace allocations
+        W_hard = CodingTheory.init_hard_workspace(H)
+        @test W_hard.num_check == 3
+        @test W_hard.num_var == 7
+        @test W_hard.num_edges == 12 # Total ones in H
+        
+        W_soft = CodingTheory.init_soft_workspace(H, schedule=:layered)
+        @test W_soft.num_edges == 12
+        @test length(W_soft.layers) > 0
+    end
 
-        # basic cases
-        flag, out, iter, _ = sum_product(H, v, nm);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = sum_product_box_plus(H, v, nm);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = sum_product_syndrome(H, syn, nm);
-        @test flag == true && out == correct_e
-        flag, out, iter, _ = min_sum(H, v, nm);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = min_sum_syndrome(H, syn, nm);
-        @test flag == true && out == correct_e
-        flag, out, iter, _ = min_sum_with_correction(H, v, nm);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = min_sum_with_correction_syndrome(H, syn, nm);
-        @test flag == true && out == correct_e
-        # flag, out, iter = Gallager_A(H, v);
-        # @test flag == true && out == correct_v
-        # flag, out, iter = Gallager_B(H, v);
-        # @test flag == true && out == correct_v
+    @testset "Hard Decision Decoding (Gallager)" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        W_hard = CodingTheory.init_hard_workspace(H)
+        
+        # Valid codeword: c = [1, 1, 1, 0, 0, 0, 0]
+        # Introduce an error at index 1 -> [0, 1, 1, 0, 0, 0, 0]
+        received_bits = UInt8[0, 1, 1, 0, 0, 0, 0]
+        expected_bits = UInt8[1, 1, 1, 0, 0, 0, 0]
+        
+        # Decode using Gallager logic (Bt = 2)
+        success, out_bits, iters = CodingTheory.decode!(W_hard, received_bits, Bt=2)
+        
+        @test success
+        @test out_bits == expected_bits
+        @test iters > 0
+    end
 
-        # all use the same init and loop functions so it suffices to test the options for a single function
-        # some options
-        flag, out, iter, _ = sum_product(H, v, nm, schedule = :parallel);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = sum_product(H, v, nm, schedule = :serial);
-        @test flag == true && out == correct_v
-        # flag, out, iter, _ = sum_product(H, v, nm, schedule = :layered);
-        # @test flag == true && out == correct_v
-        # flag, out, iter, _ = sum_product(H, v, nm, schedule = :layered, rand_sched = true);
-        # @test flag == true && out == correct_v
-        # flag, out, iter, _ = sum_product(H, v, nm, erasures = [rand(1:7)]);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = min_sum(H, v, nm, erasures = [rand(1:7)]);
-        @test flag == true && out == correct_v
-        # TODO this one fails for some reason
-        flag, out, iter, _ = min_sum_with_correction(H, v, nm, erasures = [rand(1:7)]);
-        @test_broken flag == true && out == correct_v
-        # not particularly creative...
-        temp = log((1 - p) / p);
-        chn_inits = zeros(Float64, length(v));
-        @inbounds for i in 1:nrows(v)
-            iszero(v[i]) ? (chn_inits[i] = temp;) : (chn_inits[i] = -temp;)
-        end
-        flag, out, iter, _ = sum_product(H, v, nm, chn_inits = chn_inits);
-        @test flag == true && out == correct_v
-        attenuation = 0.6
-        flag, out, iter, _ = min_sum(H, v, nm, attenuation = 0.6);
-        @test flag == true && out == correct_v
-        flag, out, iter, _ = min_sum_with_correction(H, v, nm, attenuation = 0.6);
-        @test flag == true && out == correct_v
+    @testset "Soft Decision Decoding (Belief Propagation)" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        
+        # Valid codeword: c = [1, 1, 1, 0, 0, 0, 0]
+        # In BPSK: 0 -> +5.0, 1 -> -5.0 (High confidence)
+        # We flip index 1 to +5.0 to simulate an error
+        llrs = Float64[5.0, -5.0, -5.0, 5.0, 5.0, 5.0, 5.0]
+        expected_bits = UInt8[1, 1, 1, 0, 0, 0, 0]
+        
+        # 1. Test Sum-Product (Exact Box-Plus)
+        W_sp = CodingTheory.init_soft_workspace(H)
+        success_sp, out_sp, _ = CodingTheory.decode!(W_sp, llrs, algorithm=:sum_product)
+        @test success_sp
+        @test out_sp == expected_bits
+        
+        # 2. Test Min-Sum
+        W_ms = CodingTheory.init_soft_workspace(H)
+        success_ms, out_ms, _ = CodingTheory.decode!(W_ms, llrs, algorithm=:min_sum)
+        @test success_ms
+        @test out_ms == expected_bits
+        
+        # 3. Test Offset Min-Sum with Layered Schedule
+        W_oms = CodingTheory.init_soft_workspace(H, schedule=:layered)
+        success_oms, out_oms, _ = CodingTheory.decode!(W_oms, llrs, algorithm=:offset_min_sum, schedule=:layered, offset=0.25)
+        @test success_oms
+        @test out_oms == expected_bits
+    end
 
-        # decimation
-        # decimated_bits_values = [(1, base_ring(v)(1))];
-        # flag, out, iter, _ = sum_product_decimation(H, v, nm, decimated_bits_values); flag
-        # @test flag == true && out == correct_v
-        # flag, out, iter, _ = min_sum_decimation(H, v, nm, decimated_bits_values);
-        # @test flag == true && out == correct_v
-        # flag, out, iter, _ = min_sum_correction_decimation(H, v, nm, decimated_bits_values);
-        # @test flag == true && out == correct_v
+    @testset "Erasures and Decimation Hooks" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        W = CodingTheory.init_soft_workspace(H)
+        
+        # Valid codeword: c = [1, 1, 1, 0, 0, 0, 0]
+        # Send perfect LLRs, but erase index 1 and 2
+        llrs = Float64[-5.0, -5.0, -5.0, 5.0, 5.0, 5.0, 5.0]
+        expected_bits = UInt8[1, 1, 1, 0, 0, 0, 0]
+        
+        # Decode with erasures
+        success, out, _ = CodingTheory.decode!(W, llrs, algorithm=:sum_product, erasures=[1, 2])
+        @test success
+        @test out == expected_bits
+        
+        # Decode with manual decimation (pinning bit 4 to 0)
+        success_dec, out_dec, _ = CodingTheory.decode!(W, llrs, algorithm=:min_sum, decimated_bits_values=[(4, 0)])
+        @test success_dec
+        @test out_dec == expected_bits
+        
+        # Verify the decimation actually pinned the LLR
+        @test W.is_decimated[4] == true
+        @test W.channel_llrs[4] == 1000.0 # High confidence 0
+    end
 
-        # other noise models
-        # nm_BEC = BEC(p);
-        # nm_G = BAWGNC(p);
+    @testset "Syndrome Decoding" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        W = CodingTheory.init_soft_workspace(H)
+        
+        # Error vector: e = [1, 0, 0, 0, 0, 0, 0]
+        # Syndrome: s = H * e = [1, 1, 0]
+        expected_error = UInt8[1, 0, 0, 0, 0, 0, 0]
+        target_syn = UInt8[1, 1, 0]
+        
+        # For syndrome decoding, the channel input is totally neutral (0.0)
+        neutral_llrs = zeros(Float64, 7)
+        
+        success, out_error, _ = CodingTheory.decode!(W, neutral_llrs, algorithm=:min_sum_correction, syndrome=target_syn)
+        
+        @test success
+        @test out_error == expected_error
     end
 end

@@ -1,118 +1,129 @@
 @testitem "LDPC/GBP.jl" begin
     using Oscar, CodingTheory
 
-    @testset "LDPC Region Graphs" begin
-        # Region graphs
-        r1 = Region([1, 5])
-        r2 = Region([1, 2, 3])
-        r3 = Region([1, 3, 4])
-        r4 = Region([1, 2, 4])
-        r5 = Region([1, 3], -1)
-        r6 = Region([1, 2], -1)
-        r7 = Region([1, 4], -1)
-        r8 = Region([1], 0)
-        push!(r1.subregions, r8)
-        append!(r2.subregions, [r5, r6, r8])
-        append!(r3.subregions, [r5, r7, r8])
-        append!(r4.subregions, [r6, r7, r8])
-        push!(r5.subregions, r8)
-        push!(r6.subregions, r8)
-        push!(r7.subregions, r8)
-        append!(r5.ancestors, [r2, r3])
-        append!(r6.ancestors, [r2, r4])
-        append!(r7.ancestors, [r3, r4])
-        append!(r8.ancestors, [r1, r2, r3, r4, r5, r6, r7])
-        append!(r5.parents, [r2, r3])
-        append!(r6.parents, [r2, r4])
-        append!(r7.parents, [r3, r4])
-        append!(r8.parents, [r1, r5, r6, r7])
-        R1 = RegionGraph([r1, r2, r3, r4, r5, r6, r7, r8])
-        # R2 = region_graph_from_base_nodes([1, 5], [1, 2, 3], [1, 3, 4], [1, 2, 4]) #causes error
-        # need to write an ==
-        # @test R1 == R2
-        # @test is_valid_region_graph(R1)
-        # @test R1 == remove_zero_overcounting_numbers(R1)
+    @testset "Region Graph Construction and Validity" begin
+        F = Oscar.Nemo.Native.GF(2)
+        # Using a small parity check matrix (e.g., Hamming(7,4))
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        
+        # Build canonical region graph
+        R = CodingTheory.canonical_region_graph(H)
+        
+        @test R isa CodingTheory.RegionGraph
+        @test length(CodingTheory.regions(R)) > 0
+        
+        # A valid region graph MUST have exactly a sum of 1 for the overcounting 
+        # numbers of all regions containing any specific variable
+        @test CodingTheory.is_valid_region_graph(R)
+        
+        # Test basic getters
+        reg = CodingTheory.regions(R)[1]
+        @test !isempty(CodingTheory.id(reg))
+        @test typeof(CodingTheory.overcounting_number(reg)) == Int
+        
+        # Test topological views
+        @test length(collect(CodingTheory.base_regions(R))) > 0
+        @test length(collect(CodingTheory.leaves(R))) > 0
+    end
 
-        r1 = Region([1, 2, 4, 5])
-        r2 = Region([2, 3, 5, 6])
-        r3 = Region([4, 5, 7, 8])
-        r4 = Region([5, 6, 8, 9])
-        r5 = Region([4, 5], -1)
-        r6 = Region([5, 6], 0)
-        r7 = Region([2], -1)
-        r8 = Region([5], -2)
-        r9 = Region([6], -1)
-        r10 = Region([8], -1)
-        append!(r1.subregions, [r5, r7, r8])
-        append!(r2.subregions, [r6, r7, r8, r9])
-        append!(r3.subregions, [r5, r8, r10])
-        append!(r4.subregions, [r8, r9, r10])
-        push!(r5.subregions, r8)
-        push!(r6.subregions, r8)
-        append!(r5.ancestors, [r1, r3])
-        push!(r6.ancestors, r2)
-        append!(r7.ancestors, [r1, r2])
-        append!(r8.ancestors, [r2, r4, r5, r6])
-        append!(r9.ancestors, [r2, r4])
-        append!(r10.ancestors, [r3, r4])
-        append!(r5.parents, [r1, r3])
-        push!(r6.parents, r2)
-        append!(r7.parents, [r1, r2])
-        append!(r8.parents, [r4, r5, r6])
-        append!(r9.parents, [r2, r4])
-        append!(r10.parents, [r3, r4])
-        R1 = RegionGraph([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10])
-        # R2 = region_graph_from_base_nodes([[1, 2, 4, 5], [2, 3, 5, 6], [4, 5, 7, 8], [5, 6, 8, 9]])
-        # need to write an ==
-        # @test R1 == R2
-        # @test is_valid_region_graph(R1)
-        # @test R1 ≠ remove_zero_overcounting_numbers(R1)
+    @testset "Region Graph Topology Reductions" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 1 0 0 0;
+            0 1 1 1 0 0;
+            0 0 1 1 1 0;
+            0 0 0 1 1 1
+        ])
+        
+        R = CodingTheory.canonical_region_graph(H)
+        orig_len = length(CodingTheory.regions(R))
+        
+        # 1. Remove Zero-Overcounting Regions
+        R_no_zeros = CodingTheory.remove_zero_overcounting_numbers(R)
+        @test CodingTheory.is_valid_region_graph(R_no_zeros)
+        @test length(CodingTheory.regions(R_no_zeros)) <= orig_len
+        
+        # 2. Remove Generational Skips
+        R_no_skips = CodingTheory.remove_generational_skips(R_no_zeros)
+        @test CodingTheory.is_valid_region_graph(R_no_skips)
+        
+        # The topological schedule should still safely cover all remaining regions
+        order = CodingTheory.message_passing_order(R_no_skips)
+        @test length(order) == length(CodingTheory.regions(R_no_skips))
+        
+        # 3. Triangulation (Chordalization) for generalized base regions
+        cliques = CodingTheory.triangulate_base_regions(H)
+        @test length(cliques) > 0
+        @test all(c -> typeof(c) == BitSet, cliques)
+    end
 
-        r1 = Region([1, 2, 4, 5])
-        r2 = Region([2, 3, 5, 6])
-        r3 = Region([5, 6, 8, 9])
-        r4 = Region([4, 5, 7, 8])
-        r5 = Region([2, 5], -1)
-        r6 = Region([4, 5], -1)
-        r7 = Region([5, 6], -1)
-        r8 = Region([5, 8], -1)
-        append!(r1.subregions, [r5, r6])
-        append!(r2.subregions, [r5, r7])
-        append!(r3.subregions, [r7, r8])
-        push!(r4.subregions, r8)
-        append!(r5.ancestors, [r1, r2])
-        append!(r6.ancestors, [r1, r4])
-        append!(r7.ancestors, [r2, r3])
-        append!(r8.ancestors, [r3, r4])
-        append!(r5.parents, [r1, r2])
-        append!(r6.parents, [r1, r4])
-        append!(r7.parents, [r2, r3])
-        append!(r8.parents, [r3, r4])
-        R1 = RegionGraph([r1, r2, r3, r4, r5, r6, r7, r8])
-        @test !is_valid_region_graph(R1)
+    @testset "GBP Workspace and Message Passing" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        
+        R = CodingTheory.canonical_region_graph(H)
+        R_opt = CodingTheory.remove_generational_skips(CodingTheory.remove_zero_overcounting_numbers(R))
+        
+        # Initialize the zero-allocation GBP workspace
+        W = CodingTheory.init_gbp_workspace(R_opt, H)
+        
+        @test W.num_regions == length(CodingTheory.regions(R_opt))
+        @test W.num_edges > 0
+        @test length(W.edge_update_order) == 2 * W.num_edges # Full upward and downward sweeps
+        
+        # Test marginalized log-belief stride mapping sizes
+        @test length(W.log_beliefs) == W.log_belief_offsets[end] - 1
+    end
 
-        r1 = Region([0, 1, 2, 4])
-        r2 = Region([0, 1, 3, 5])
-        r3 = Region([0, 2, 3, 6])
-        r4 = Region([0, 1], -1)
-        r5 = Region([0, 2], -1)
-        r6 = Region([0, 3], -1)
-        r7 = Region([0], 1)
-        append!(r1.subregions, [r4, r5, r7])
-        append!(r2.subregions, [r4, r6, r7])
-        append!(r3.subregions, [r5, r6, r7])
-        append!(r4.ancestors, [r1, r2])
-        append!(r5.ancestors, [r1, r3])
-        append!(r6.ancestors, [r2, r3])
-        append!(r7.ancestors, [r1, r2, r3, r4, r5, r6, r7])
-        append!(r4.parents, [r1, r2])
-        append!(r5.parents, [r1, r3])
-        append!(r6.parents, [r2, r3])
-        append!(r7.parents, [r4, r5, r6])
-        R1 = RegionGraph([r1, r2, r3, r4, r5, r6, r7])
-        # R2 = region_graph_from_base_nodes([[0, 1, 2, 4], [0, 1, 3, 5], [0, 2, 3, 6]])
-        # @test R1 == R2
-        # @test is_valid_region_graph(R1)
-        # @test R1 == remove_zero_overcounting_numbers(R1)
+    @testset "GBP Decoding (Error Correction)" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ])
+        
+        R = CodingTheory.canonical_region_graph(H)
+        W = CodingTheory.init_gbp_workspace(R, H)
+        
+        # Valid codeword: c = [1, 1, 1, 0, 0, 0, 0]
+        # In BPSK: 0 -> +5.0, 1 -> -5.0
+        # We inject a weak error at index 1 -> make it +1.0 (looks like a 0, but weak)
+        llrs = Float64[1.0, -5.0, -5.0, 5.0, 5.0, 5.0, 5.0]
+        expected_cw = UInt8[1, 1, 1, 0, 0, 0, 0]
+        
+        success, out_bits, iters = CodingTheory.gbp_decode!(W, R, H, llrs, max_iter=20, damping=0.5)
+        
+        @test success
+        @test out_bits == expected_cw
+        @test iters > 0
+    end
+
+    @testset "String Representations" begin
+        F = Oscar.Nemo.Native.GF(2)
+        H = matrix(F, [1 1 0; 0 1 1])
+        R = CodingTheory.canonical_region_graph(H)
+        
+        # Test Region
+        reg = CodingTheory.regions(R)[1]
+        out_reg = sprint(show, reg)
+        @test contains(out_reg, "Region(id={")
+        
+        # Test RegionGraph (compact)
+        out_rg = sprint(show, R)
+        @test contains(out_rg, "RegionGraph(")
+        
+        # Test RegionGraph (MIME text/plain)
+        out_rg_mime = sprint(show, MIME"text/plain"(), R)
+        @test contains(out_rg_mime, "Base regions:")
+        @test contains(out_rg_mime, "Leaf regions:")
     end
 end

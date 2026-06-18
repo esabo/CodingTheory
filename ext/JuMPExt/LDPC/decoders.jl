@@ -55,7 +55,7 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
 end
 _init_LP_decoder_LDPC(C::AbstractLinearCode) = _init_LP_decoder_LDPC(parity_check_matrix(C))
 
-function _LP_decoder_LDPC(model::JuMP.Model, v::Vector{<:Integer}, Ch::AbstractChannel)
+function _LP_decoder_LDPC(model::JuMP.Model, v::Vector{<:Real}, Ch::AbstractChannel)
     # Automatically get the correct LLRs for AWGN, BSC, Fading, Z-Channel, etc.
     γ = CodingTheory.llr(Ch, v) 
     
@@ -68,7 +68,7 @@ function _LP_decoder_LDPC(model::JuMP.Model, v::Vector{<:Integer}, Ch::AbstractC
     return w
 end
 
-function CodingTheory.LP_decoder_LDPC(H::AbstractMatrix{<:Number}, v::Vector{<:Integer}, Ch::AbstractChannel)
+function CodingTheory.LP_decoder_LDPC(H::AbstractMatrix{<:Number}, v::Vector{<:Real}, Ch::AbstractChannel)
     model = _init_LP_decoder_LDPC(H)
     return _LP_decoder_LDPC(model, v, Ch)
 end

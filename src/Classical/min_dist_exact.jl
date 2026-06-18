@@ -2043,8 +2043,10 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
     end
 
     processed_configs = []
+    verbose && println("Generating known automorphisms for pruning...")
     auts = _generate_known_automorphisms(C)
     
+    verbose && println("Starting main search with $(length(auts)) known automorphisms...")
     for i in 1:m
         entry = z_mats[i]
         current_rnk = rnks[i]
@@ -3064,7 +3066,7 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         return C.cache[:d], (isdefined(C, :witness) ? C.witness : zero_matrix(C.F, 1, C.n))
     end
 
-    alg ∈ (:auto, :BZ, :trellis, :bruteforce, :wt_dist, :Leon, :Wagner, :ILP) ||
+    alg ∈ (:auto, :BZ, :trellis, :bruteforce, :wt_dist, :Leon, :Wagner, :ILP, :hybrid) ||
         throw(ArgumentError("Unexpected algorithm '$alg'."))
     info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) ||
         throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))

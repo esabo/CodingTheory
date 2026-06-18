@@ -165,7 +165,7 @@ enhanced with Approximate Cycle EMD (ACE) maximization.
 * `m::Int`: Number of check nodes (rows).
 * `deg_v::Vector{Int}`: Target degree for each variable node.
 """
-function generate_peg(n::Int, m::Int, deg_v::Vector{Int})
+function progressive_edge_growth(n::Int, m::Int, deg_v::Vector{Int})
     length(deg_v) == n || throw(ArgumentError("Length of deg_v must match n"))
     
     workspace = PEGWorkspace(n, m)
@@ -255,7 +255,7 @@ Maximizes the lifted graph's girth while strictly maintaining a block-circulant 
 * A matrix of the same size as `B` containing the optimal circulant shifts `p ∈ [0, Z-1]`.
   Null edges are represented as `-1`.
 """
-function generate_qc_peg(B::Matrix{Int}, Z::Int)
+function progressive_edge_growth_QC(B::Matrix{Int}, Z::Int)
     mb, nb = size(B)
     shifts = fill(-1, mb, nb)
     
@@ -362,7 +362,7 @@ Instead of random permutations, it intelligently selects permutation edges to ma
 * `B::Matrix{Int}`: The protograph base matrix. `B[i, j]` represents the number of parallel edges.
 * `Q::Int`: The lifting factor (number of replicas).
 """
-function generate_protograph_peg(B::Matrix{Int}, Q::Int)
+function progressive_edge_growth_protograph(B::Matrix{Int}, Q::Int)
     mb, nb = size(B)
     M = mb * Q  # Total lifted check nodes
     N = nb * Q  # Total lifted variable nodes
@@ -472,7 +472,7 @@ Enforces a strict "no 4-cycles" (girth >= 6) rule while attempting to balance ro
 * `deg_v::Vector{Int}`: Target degree for each variable node.
 * `max_retries::Int`: Maximum number of times to backtrack on a column before throwing an error.
 """
-function generate_mackay_neal(n::Int, m::Int, deg_v::Vector{Int}; max_retries::Int=50)
+function _generate_mackay_neal(n::Int, m::Int, deg_v::Vector{Int}; max_retries::Int=50)
     length(deg_v) == n || throw(ArgumentError("Length of deg_v must match n"))
     
     v_adj = [Int[] for _ in 1:n]
@@ -550,6 +550,10 @@ function generate_mackay_neal(n::Int, m::Int, deg_v::Vector{Int}; max_retries::I
     return _build_sparse_from_adj(v_adj, m, n)
 end
 
+function Mackay_Neal(n::Int, m::Int, deg_v::Vector{Int}; max_retries::Int=50)
+    return LDPCCode(_generate_mackay_neal(n, m, deg_v; max_retries=max_retries))
+end
+
 """
 Internal helper to convert adjacency lists into a Julia SparseMatrixCSC.
 """
@@ -573,6 +577,58 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Generate a Spatially Coupled LDPC (SC-LDPC) base matrix by "braiding" component 
+matrices along a diagonal window. 
+
+# Arguments
+* `B_components::Vector{Matrix{Int}}`: A sequence of component matrices `[B_0, B_1, ..., B_w]` 
+  that sum to the target uncoupled base matrix.
+* `L::Int`: The coupling length (how many times to repeat the sequence down the diagonal).
+
+# Returns
+* A terminated SC-LDPC matrix of size `((L + w) * m_b) × (L * n_b)`.
+"""
+function _generate_spatially_coupled(B_components::Vector{Matrix{Int}}, L::Int)
+    length(B_components) > 1 || throw(ArgumentError("Must provide at least 2 component matrices to couple."))
+    
+    w = length(B_components) - 1 # The memory (coupling width)
+    mb, nb = size(B_components[1])
+    
+    # Ensure all components match in size
+    for B in B_components
+        size(B) == (mb, nb) || throw(ArgumentError("All component matrices must be the exact same size."))
+    end
+    
+    # Terminated SC-LDPC matrices are rectangular (slightly lower rate, but extreme performance)
+    M = (L + w) * mb
+    N = L * nb
+    
+    H_SC = zeros(Int, M, N)
+    
+    # Stamp the component matrices down the diagonal
+    for t in 1:L
+        for i in 0:w
+            # Calculate the block indices for this stamp
+            row_start = (t - 1 + i) * mb + 1
+            row_end   = (t + i) * mb
+            col_start = (t - 1) * nb + 1
+            col_end   = t * nb
+            
+            # Place the component matrix B_i
+            H_SC[row_start:row_end, col_start:col_end] = B_components[i + 1]
+        end
+    end
+    
+    return H_SC
+end
+
+function SC_LDPCCode(B_components::Vector{Matrix{Int}}, L::Int)
+    return LDPCCode(_generate_spatially_coupled(B_components, L))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Generate a Euclidean Geometry EG(2, p) LDPC incidence matrix over a prime field.
 This construction mathematically guarantees a girth of exactly 6 (zero 4-cycles) 
 and completely avoids all trapping sets.
@@ -584,7 +640,7 @@ and completely avoids all trapping sets.
 * Columns represent 0-flats (Points in 2D space).
 * Rows represent 1-flats (Lines in 2D space).
 """
-function generate_eg2_ldpc(p::Int)
+function _generate_eg2(p::Int)
     # 1. Enumerate all Points (0-flats). 
     # In a 2D grid mod p, there are exactly p^2 points.
     points = Tuple{Int, Int}[]
@@ -645,54 +701,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate a Spatially Coupled LDPC (SC-LDPC) base matrix by "braiding" component 
-matrices along a diagonal window. 
-
-# Arguments
-* `B_components::Vector{Matrix{Int}}`: A sequence of component matrices `[B_0, B_1, ..., B_w]` 
-  that sum to the target uncoupled base matrix.
-* `L::Int`: The coupling length (how many times to repeat the sequence down the diagonal).
-
-# Returns
-* A terminated SC-LDPC matrix of size `((L + w) * m_b) × (L * n_b)`.
-"""
-function generate_spatially_coupled(B_components::Vector{Matrix{Int}}, L::Int)
-    length(B_components) > 1 || throw(ArgumentError("Must provide at least 2 component matrices to couple."))
-    
-    w = length(B_components) - 1 # The memory (coupling width)
-    mb, nb = size(B_components[1])
-    
-    # Ensure all components match in size
-    for B in B_components
-        size(B) == (mb, nb) || throw(ArgumentError("All component matrices must be the exact same size."))
-    end
-    
-    # Terminated SC-LDPC matrices are rectangular (slightly lower rate, but extreme performance)
-    M = (L + w) * mb
-    N = L * nb
-    
-    H_SC = zeros(Int, M, N)
-    
-    # Stamp the component matrices down the diagonal
-    for t in 1:L
-        for i in 0:w
-            # Calculate the block indices for this stamp
-            row_start = (t - 1 + i) * mb + 1
-            row_end   = (t + i) * mb
-            col_start = (t - 1) * nb + 1
-            col_end   = t * nb
-            
-            # Place the component matrix B_i
-            H_SC[row_start:row_end, col_start:col_end] = B_components[i + 1]
-        end
-    end
-    
-    return H_SC
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Generate a generalized Euclidean Geometry EG(m, p) LDPC incidence matrix over a prime field.
 This uses 0-flats (points) as variables and 1-flats (lines) as parity checks in m-dimensional space.
 
@@ -705,7 +713,7 @@ This uses 0-flats (points) as variables and 1-flats (lines) as parity checks in 
   `N = p^m` (Total points)
   `M = p^(m-1) * (p^m - 1) / (p - 1)` (Total distinct lines)
 """
-function generate_eg_ldpc(m::Int, p::Int)
+function _generate_eg(m::Int, p::Int)
     # 1. Enumerate all points (0-flats) in GF(p)^m
     # We use Iterators.product to generate the m-dimensional grid
     points_iter = Iterators.product(fill(0:p-1, m)...)
@@ -763,6 +771,16 @@ function generate_eg_ldpc(m::Int, p::Int)
     return sparse(rows, cols, fill(1, length(rows)), M_rows, N_cols)
 end
 
+function EuclideanGeometryCode(m::Int, p::Int)
+    if m < 2
+        throw(ArgumentError("Euclidean Geometry construction requires m >= 2"))
+    elseif m == 2
+        return LDPCCode(_generate_eg2(p))
+    else
+        return LDPCCode(_generate_eg(m, p))
+    end
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -779,7 +797,7 @@ where every pair of lines in a plane intersects.
   Columns (Points): `N = (p^(m+1) - 1) / (p - 1)`
   Rows (Lines): `M` scales symmetrically based on the projective Grassmannian.
 """
-function generate_pg_ldpc(m::Int, p::Int)
+function _generate_pg(m::Int, p::Int)
     # 1. Enumerate Points in PG(m, p)
     # A point is a 1D subspace in GF(p)^{m+1}.
     # We represent it by a normalized non-zero vector (the first non-zero element must be 1).
@@ -855,3 +873,49 @@ function generate_pg_ldpc(m::Int, p::Int)
     return sparse(rows, cols, fill(1, length(rows)), M_rows, N_cols)
 end
 
+function ProjectiveGeometryCode(m::Int, p::Int)
+    if m < 2
+        throw(ArgumentError("Projective Geometry construction requires m >= 2"))
+    end
+    return LDPCCode(_generate_pg(m, p))
+end
+
+"""
+    _gallager_H(n::Int, wc::Int, wr::Int)
+
+Generates a regular (wc, wr) LDPC parity-check matrix using Gallager's original construction.
+"""
+function _gallager_H(n::Int, wc::Int, wr::Int)
+    (n * wc) % wr == 0 || throw(ArgumentError("n * wc must be perfectly divisible by wr"))
+    
+    m = div(n * wc, wr)
+    block_size = div(n, wr)
+    
+    H = zeros(Int, m, n)
+    
+    # 1. Build the fundamental base block (Block 0)
+    # The dot product of any two distinct rows here is strictly 0.
+    for i in 1:block_size
+        start_col = (i - 1) * wr + 1
+        end_col = i * wr
+        H[i, start_col:end_col] .= 1
+    end
+    
+    # 2. Build the remaining (wc - 1) blocks via random column permutations
+    base_block = H[1:block_size, :]
+    
+    for block in 1:(wc - 1)
+        start_row = block * block_size + 1
+        end_row = (block + 1) * block_size
+        
+        # Apply a random permutation to the columns of the base block
+        perm = randperm(n)
+        H[start_row:end_row, :] = base_block[:, perm]
+    end
+    
+    return H
+end
+
+function GallagerCode(n::Int, wc::Int, wr::Int)
+    return LDPCCode(_gallager_H(n, wc, wr))
+end

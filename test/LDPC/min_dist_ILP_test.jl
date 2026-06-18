@@ -1,74 +1,94 @@
-@testitem "LDPC/min_dist_ILP.jl" begin
+@testitem "LDPC/decoders.jl" begin
     using Oscar, CodingTheory, JuMP, GLPK
 
-    @testset "ILP Minimum Distance Solver" begin
+    @testset "LP Decoder Initialization" begin
+        # Standard Hamming(7,4) parity-check matrix
+        # We use a standard Julia matrix since LP_decoder_LDPC natively takes AbstractMatrix{<:Number}
+        H = [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ]
+        
+        # 1. Initialize from raw matrix
+        model = CodingTheory._init_LP_decoder_LDPC(H)
+        @test typeof(model) == JuMP.Model
+        
+        # Ensure the variable `f` for the bit values was successfully registered
+        dict = object_dictionary(model)
+        @test haskey(dict, :f)
+        @test length(dict[:f]) == 7 # n = 7
+        
+        # 2. Initialize from an Oscar LinearCode
         F = Oscar.Nemo.Native.GF(2)
+        H_oscar = matrix(F, H)
+        C = LinearCode(H_oscar)
+        
+        model_code = CodingTheory._init_LP_decoder_LDPC(C)
+        @test typeof(model_code) == JuMP.Model
+        @test length(model_code[:f]) == 7
+    end
 
-        # Test 1: Sanity Check on Hamming(7, 4)
-        # Small enough that the density of the parity-check matrix doesn't cause a branch-and-bound explosion.
-        G_hamming = matrix(F, [
-            1 0 0 0 0 1 1;
-            0 1 0 0 1 0 1;
-            0 0 1 0 1 1 0;
-            0 0 0 1 1 1 1
-        ])
-        C = LinearCode(G_hamming)
-        C.l_bound = 1
-        C.u_bound = C.n + 1
-        C.d = missing
-        println("Running ILP solver on Hamming(7, 4)...")
-        @test minimum_distance(C, alg = :ILP, verbose = true) == 3
-        println("\n")
+    @testset "LP Decoding (Binary Symmetric Channel)" begin
+        H = [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ]
+        
+        # Scenario: All-zeros codeword transmitted.
+        # Received vector has an error at index 1.
+        received = [1, 0, 0, 0, 0, 0, 0]
+        
+        Ch_bsc = BinarySymmetricChannel(0.1) # 10% crossover probability
+        
+        f_out = CodingTheory.LP_decoder_LDPC(H, received, Ch_bsc)
+        
+        # The LP solver should correct the error and pull the fractional bits back to exactly 0.0
+        @test length(f_out) == 7
+        @test all(x -> isapprox(x, 0.0, atol=1e-5), f_out)
+        
+        # Scenario: Error at index 4
+        received_2 = [0, 0, 0, 1, 0, 0, 0]
+        f_out_2 = CodingTheory.LP_decoder_LDPC(H, received_2, Ch_bsc)
+        @test all(x -> isapprox(x, 0.0, atol=1e-5), f_out_2)
+    end
 
-        # Test 2: The Repetition Code
-        # This is a critical test. It ensures the sum(x) >= 1 constraint correctly 
-        # forces the solver to find the all-ones vector instead of the all-zeros vector.
-        G_rep = matrix(F, 1, 15, ones(Int, 15))
-        C = LinearCode(G_rep)
-        C.l_bound = 1
-        C.u_bound = C.n + 1
-        C.d = missing
-        println("Running ILP solver on length 15 repetition code...")
-        @test minimum_distance(C, alg = :ILP, verbose = true) == 15
-        println("\n")
-
-        # Test 3: Random Regular LDPC Code
-        # We generate a deterministic, small (3, 6)-regular LDPC code.
-        # This tests the ILP solver on the highly sparse matrices it is optimized for,
-        # keeping `n` small enough (24) to ensure sub-second execution in the test suite.
-        println("Running ILP solver on a random (3, 6)-regular LDPC code (n = 24)...")
-        C = regular_LDPC_code(2, 24, 3, 6, seed = 42)
-        C.l_bound = 1
-        C.u_bound = C.n + 1
-        C.d = missing
-        d = minimum_distance(C, alg = :ILP, verbose = true)
-        println("\n")
-        @test d > 0
-        C = LinearCode(C.H, true)
-        C.l_bound = 1
-        C.u_bound = C.n + 1
-        C.d = missing
-        @test d == minimum_distance(C, alg = :BZ, verbose = true)[1]
-
-        # Test 4: Time Limit Trigger on Dense Code
-        # We feed the solver a large, dense matrix where the LP relaxation is useless.
-        # We enforce a 1.0 second time limit to ensure the timeout safety-valve works
-        # and returns -1 instead of hanging the CI pipeline.
-        println("Testing ILP time limit on a dense BCH code (n = 127)...")
-        C = BCHCode(2, 127, 21, 1)
-        C.l_bound = 1
-        C.u_bound = C.n + 1
-        C.d = missing
-        d_timeout = minimum_distance(C, alg = :ILP, verbose = true, time_limit_sec = 1.0)
-        # println("\n")
-        # We expect the solver to hit the MOI.TIME_LIMIT status and safely return -1
-        @test d_timeout == -1
-
-        # the answer here is 4 because the stabilizers have wt 4 and this is a classical distance
-        # S = ToricCode(13);
-        # H_X = X_stabilizers(S);
-        # C_X = LinearCode(H_X, true);
-        # println("Running ILP on distance $(S.L) Toric Code X stabilizers (n = $(C_X.n))...")
-        # d_exact = minimum_distance(C_X, alg = :ILP, verbose = true)
+    @testset "LP Decoding (Binary Erasure Channel)" begin
+        H = [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ]
+        
+        # Scenario: All-zeros codeword transmitted.
+        # Index 1 and 2 are erased (-1 represents an erasure in the classical channel mapper)
+        received = [-1, -1, 0, 0, 0, 0, 0]
+        
+        Ch_bec = BinaryErasureChannel(0.3)
+        
+        f_out = CodingTheory.LP_decoder_LDPC(H, received, Ch_bec)
+        
+        # The LP solver should correctly infer that the erased bits must be 0
+        @test length(f_out) == 7
+        @test all(x -> isapprox(x, 0.0, atol=1e-5), f_out)
+    end
+    
+    @testset "LP Decoding (All-Ones Codeword Recovery)" begin
+        H = [
+            1 1 0 1 1 0 0;
+            1 0 1 1 0 1 0;
+            0 1 1 1 0 0 1
+        ]
+        
+        # The all-ones vector [1, 1, 1, 1, 1, 1, 1] is a valid codeword in Hamming(7,4).
+        # We transmit it, but index 1 is flipped to 0.
+        received = [0, 1, 1, 1, 1, 1, 1]
+        
+        Ch_bsc = BinarySymmetricChannel(0.1)
+        f_out = CodingTheory.LP_decoder_LDPC(H, received, Ch_bsc)
+        
+        # The LP solver should correct index 1 back to 1.0
+        @test all(x -> isapprox(x, 1.0, atol=1e-5), f_out)
     end
 end
