@@ -17,7 +17,7 @@ function node_adjacencies(C::LDPCCode)
         check_adj = [Int[] for _ in 1:nr]
         
         # O(|E|) traversal based on whether the matrix is natively sparse
-        if typeof(C.H) <: SMatElem
+        if typeof(C.H) <: SMat
             for (r, row) in enumerate(C.H)
                 for (c, val) in row
                     if !iszero(val)
@@ -97,7 +97,7 @@ function girth(C::LDPCCode)
             end
             
             is_var = u <= nc
-            neighbors = is_var ? check_adj[u] : var_adj[u - nc]
+            neighbors = is_var ? var_adj[u] : check_adj[u - nc]
             
             for n_idx in neighbors
                 v = is_var ? n_idx + nc : n_idx
@@ -160,7 +160,7 @@ function local_girth(C::LDPCCode, v::Int)
         head += 1
         
         is_var = u <= nc
-        neighbors = is_var ? check_adj[u] : var_adj[u - nc]
+        neighbors = is_var ?  var_adj[u] : check_adj[u - nc]
         
         for n_idx in neighbors
             w = is_var ? n_idx + nc : n_idx
@@ -234,7 +234,7 @@ function remove_cycles(C::LDPCCode, target_girth::Int; max_iters::Int=2000)
     var_adj = [Dict{Int, typeof(F(1))}() for _ in 1:nc]
     check_adj = [Dict{Int, typeof(F(1))}() for _ in 1:nr]
     
-    if typeof(C.H) <: SMatElem
+    if typeof(C.H) <: SMat
         for (r, row) in enumerate(C.H)
             for (c, val) in row
                 if !iszero(val)
@@ -373,10 +373,16 @@ function remove_cycles(C::LDPCCode, target_girth::Int; max_iters::Int=2000)
         end
     end
     
-    new_H = sparse_matrix(F, nr, nc, I_idx, J_idx, V_val)
+    # Safely initialize a matrix over the code's specific finite field
+    H_new = zero_matrix(C.F, nr, nc)
     
-    # Returning via LDPCCode instantly primes the new cache and distributions
-    return LDPCCode(new_H)
+    # Populate the matrix coordinates
+    for i in 1:length(I_idx)
+        H_new[I_idx[i], J_idx[i]] = V_val[i]
+    end
+    
+    # Re-instantiate the modified code
+    return LDPCCode(H_new)
 end
 
 """
@@ -493,27 +499,53 @@ function enumerate_simple_cycles(C::LDPCCode; len::Int = 16)
     nr, nc = size(C.H)
     total_nodes = nr + nc
 
-    cycles = Vector{Vector{Int}}()
-    unique_cycles = Set{Vector{Int}}()
-    
-    # Start the search from previously found cycles to save time
+    # Setup base unique cycles from cache to prevent duplicates
+    base_unique = Set{Vector{Int}}()
     if !isempty(C.cache[:simple_cycles])
-        cycles = copy(C.cache[:simple_cycles])
-        for c in cycles
-            push!(unique_cycles, sort(c))
+        for c in C.cache[:simple_cycles]
+            push!(base_unique, sort(c))
         end
     end
 
+    n_threads = Threads.nthreads()
+    
+    # 1. Preallocate private storage for each thread
+    cycles_tls = [Vector{Vector{Int}}() for _ in 1:n_threads]
+    # Seed each thread's unique set with the base set so it ignores already-cached cycles
+    unique_cycles_tls = [copy(base_unique) for _ in 1:n_threads]
+
     Threads.@threads for i in 1:nc
+        tid = Threads.threadid()
+        
         blocked = fill(false, total_nodes)
         B = [Int[] for _ in 1:total_nodes]
         stack = Int[]
-        _circuit_recursive!(i, i, blocked, B, stack, cycles, unique_cycles, len, check_adj, var_adj, nc)
+        
+        _circuit_recursive!(i, i, blocked, B, stack, cycles_tls[tid], unique_cycles_tls[tid], len, check_adj, var_adj, nc)
     end
 
+    # 2. Safely merge all thread-local results into the final output
+    final_cycles = copy(C.cache[:simple_cycles])
+    final_unique = copy(base_unique)
+    
+    for tid in 1:n_threads
+        for c in cycles_tls[tid]
+            # Sort for the uniqueness check (handles cycle phase shifts)
+            sc = sort(c)
+            # Double-check uniqueness across different threads
+            if !(sc in final_unique)
+                push!(final_unique, sc)
+                push!(final_cycles, c)
+            end
+        end
+    end
+
+    # Update cache
     C.cache[:max_cyc_len] = len
-    C.cache[:simple_cycles] = cycles
-    return cycles
+    C.cache[:simple_cycles] = final_cycles
+    
+    # Return safely filtered list
+    return filter(x -> length(x) <= len, final_cycles)
 end
 
 """

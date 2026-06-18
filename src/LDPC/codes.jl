@@ -215,6 +215,18 @@ design_dimension(C::LDPCCode) = C.k_design
 design_rate(C::LDPCCode) = C.k_design / C.n
 rate(C::LDPCCode) = dimension(C) / C.n
 
+"""
+    parity_check_matrix(C::AbstractLDPCCode)
+
+Retrieve the parity-check matrix H. Checks the cache first, then falls back to 
+the struct field, throwing an error if neither exists.
+"""
+function parity_check_matrix(C::AbstractLDPCCode)
+    haskey(C.cache, :H) && return C.cache[:H]
+    hasproperty(C, :H) && return C.H
+    error("Fatal: Parity-check matrix H not found in code struct or cache.")
+end
+
 #############################
       # setter functions
 #############################
@@ -228,8 +240,8 @@ function _degree_distribution(H::CTMatrixTypes)
     cols = zeros(Int, nc)
     rows = zeros(Int, nr)
     
-    # Check if the matrix is a sparse Oscar matrix (SMatElem)
-    if typeof(H) <: SMatElem
+    # Check if the matrix is a sparse Oscar matrix (SMat)
+    if typeof(H) <: SMat
         for (r, row) in enumerate(H)
             for (c, val) in row
                 if !iszero(val)
@@ -255,7 +267,7 @@ end
 function _density(H::CTMatrixTypes)
     nr, nc = size(H)
     
-    if typeof(H) <: SMatElem
+    if typeof(H) <: SMat
         # Most sparse matrix implementations track the number of non-zeros intrinsically
         count = nnz(H)
         return count, count / (nr * nc)
@@ -303,18 +315,17 @@ function Base.show(io::IO, C::AbstractLDPCCode)
         println(io, "\t", check_degree_polynomial(C))
         
         if C.n <= 30
-            # Route through the universal getter
-            H = parity_check_matrix(C)
-            nr, nc = size(H)
-            println(io, "Parity-check matrix: $nr × $nc")
-            
-            for i in 1:nr
-                print(io, "\t")
-                for j in 1:nc
-                    print(io, "$(H[i, j])")
-                    j != nc && print(io, " ")
+            # Safely attempt to fetch the matrix. 
+            # We use try/catch because getters might throw if the cache is empty.
+            try
+                H = parity_check_matrix(C)
+                if !ismissing(H)
+                    println(io, "Parity-check matrix:")
+                    # (Use whatever matrix printing logic you prefer here)
+                    println(io, H) 
                 end
-                println(io)
+            catch
+                println(io, "(Parity-check matrix not yet instantiated in cache)")
             end
         end
     end
