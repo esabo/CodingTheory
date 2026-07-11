@@ -162,11 +162,26 @@ function region_graph_from_base_nodes(base_nodes::Vector{BitSet})
     end
     
     # ---------------------------------------------------------
-    # 3. Finalize and Freeze into Immutable Structs
+    # 3. Compute Correct Overcounting Numbers
+    # ---------------------------------------------------------
+    # Overcounting numbers must be calculated top-down after all 
+    # ancestors have been finalized to ensure validity.
+    sizes = Int[length(ids[i]) for i in 1:length(ids)]
+    order = sortperm(sizes, rev=true)
+    for i in order
+        overcounting[i] = 1
+        for anc in ancestors[i]
+            overcounting[i] -= overcounting[anc]
+        end
+    end
+    
+    # ---------------------------------------------------------
+    # 4. Finalize and Freeze into Immutable Structs
     # ---------------------------------------------------------
     regions = Vector{Region}(undef, length(ids))
     for i in 1:length(ids)
-        regions[i] = Region(ids[i], parents[i], ancestors[i], subregions[i], overcounting[i])
+        sorted_id = sort!(collect(ids[i]))
+        regions[i] = Region(sorted_id, parents[i], ancestors[i], subregions[i], overcounting[i])
     end
     
     return RegionGraph(regions)
@@ -368,7 +383,7 @@ function remove_generational_skips(R::RegionGraph)
     return RegionGraph(new_regions)
 end
 
-function triangulate_base_regions(H::AbstractMatrix)
+function triangulate_base_regions(H::CTMatrixTypes)
     num_check, num_var = size(H)
     
     # 1. Build the Primal Graph (Variables connected if they share a check)
@@ -402,7 +417,7 @@ function triangulate_base_regions(H::AbstractMatrix)
         best_v = -1
         for v in 1:num_var
             if active[v]
-                deg = sum(1 for n in adj[v] if active[n])
+                deg = count(n -> active[n], adj[v])
                 if deg < min_deg
                     min_deg = deg
                     best_v = v
@@ -459,10 +474,12 @@ end
 function message_passing_order(R::RegionGraph)
     N = length(R.regions)
     
-    # Track how many unvisited subregions each region has
+    # Track how many direct children each region is waiting on
     in_degree = zeros(Int, N)
     for i in 1:N
-        in_degree[i] = length(R.regions[i].subregions)
+        for p in R.regions[i].parents
+            in_degree[p] += 1
+        end
     end
     
     # Initialize queue with strict leaves (in_degree == 0)
@@ -476,7 +493,7 @@ function message_passing_order(R::RegionGraph)
     order = Int[]
     sizehint!(order, N)
     
-    # Topological BFS (Upwards)
+    # Topological BFS (Upwards: Leaves -> Roots)
     head = 1
     while head <= length(queue)
         curr = queue[head]
@@ -492,7 +509,7 @@ function message_passing_order(R::RegionGraph)
         end
     end
     
-    # Sanity check for isolated cycles (should be impossible in a valid region graph)
+    # Sanity check for isolated cycles
     if length(order) != N
         error("Region Graph contains an invalid cycle. Cannot determine order.")
     end
@@ -595,7 +612,7 @@ struct GBPWorkspace
     current_synd_buffer::Vector{UInt8}
 end
 
-function init_gbp_workspace(R::RegionGraph, H::AbstractMatrix)
+function init_gbp_workspace(R::RegionGraph, H::CTMatrixTypes)
     num_regions = length(R.regions)
     num_check, num_var = size(H)
     
@@ -731,7 +748,7 @@ end
 Master GBP API Wrapper. 
 Executes full Generalized Belief Propagation with early termination.
 """
-function gbp_decode!(W::GBPWorkspace, R::RegionGraph, H::AbstractMatrix, total_llrs::Vector{Float64};
+function gbp_decode!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes, total_llrs::Vector{Float64};
                      target_syndrome::Vector{UInt8} = zeros(UInt8, size(H, 1)),
                      decimation_type::Val = Val(:none),
                      dec_thresh::Float64 = 10.0,
@@ -862,7 +879,7 @@ end
 Initializes the Log-Beliefs for all regions.
 Assigns channel LLRs and parity checks to strictly one region to prevent double-counting.
 """
-function init_region_beliefs!(W::GBPWorkspace, R::RegionGraph, H::AbstractMatrix, channel_llrs::Vector{Float64})
+function init_region_beliefs!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes, channel_llrs::Vector{Float64}, target_syndrome::Vector{UInt8})
     num_check, num_var = size(H)
     num_regions = length(R.regions)
     
@@ -940,7 +957,8 @@ function init_region_beliefs!(W::GBPWorkspace, R::RegionGraph, H::AbstractMatrix
                     end
                 end
                 
-                if parity != 0
+                # Check against the target syndrome instead of hardcoded 0
+                if parity != target_syndrome[c]
                     is_valid = false
                     break
                 end
