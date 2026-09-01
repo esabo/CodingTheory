@@ -22,6 +22,8 @@ abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
+abstract type AbstractGeneralized3DToricCode <: AbstractStabilizerCodeCSS end
+
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
 abstract type AbstractQuantumNoiseChannel <: AbstractChannel end
@@ -34,76 +36,27 @@ abstract type AbstractQuantumNoiseChannel <: AbstractChannel end
       # subsystemcode.jl
 #############################
 
-# TODO: make sure these have the same info and are in the same order
 mutable struct SubsystemCodeCSS <: AbstractSubsystemCodeCSS
-      F::CTFieldTypes
-      n::Int
-      k::Union{Int, Rational{BigInt}}
-      r::Int
-      d_bare::Union{Int, Missing}
-      d_dressed::Union{Int, Missing}
-      dx_bare::Union{Int, Missing}
-      dx_dressed::Union{Int, Missing}
-      dz_bare::Union{Int, Missing}
-      dz_dressed::Union{Int, Missing}
-      l_bound_bare::Int # lower bound on d_bare
-      u_bound_bare::Int # upper bound on d_bare
-      l_bound_dressed::Int # lower bound on d_dressed
-      u_bound_dressed::Int # upper bound on d_dressed
-      l_bound_dx_bare::Int # lower bound on dx_bare
-      u_bound_dx_bare::Int # upper bound on dx_bare
-      l_bound_dz_bare::Int # lower bound on dz_bare
-      u_bound_dz_bare::Int # upper bound on dz_bare
-      l_bound_dx_dressed::Int # lower bound on dz_dressed
-      u_bound_dx_dressed::Int # upper bound on dz_dressed
-      l_bound_dz_dressed::Int # lower bound on dz_dressed
-      u_bound_dz_dressed::Int # upper bound on dz_dressed
-      stabs::CTMatrixTypes
-      X_stabs::CTMatrixTypes
-      Z_stabs::CTMatrixTypes
-      X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      signs::Vector{zzModRingElem}
-      X_signs::Vector{zzModRingElem}
-      Z_signs::Vector{zzModRingElem}
-      logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      logs_mat::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      g_ops_mat::CTMatrixTypes
-      overcomplete::Bool
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      X_metacheck::Union{CTMatrixTypes, Missing}
-      Z_metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    r::Int
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    gauge_ops::Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 mutable struct SubsystemCode <: AbstractSubsystemCode
-      F::CTFieldTypes
-      n::Int
-      k::Union{Int, Rational{BigInt}}
-      r::Int
-      d_bare::Union{Int, Missing}
-      d_dressed::Union{Int, Missing}
-      l_bound_bare::Int # lower bound on d_bare
-      u_bound_bare::Int # upper bound on d_bare
-      l_bound_dressed::Int # lower bound on d_dressed
-      u_bound_dressed::Int # upper bound on d_dressed
-      stabs::CTMatrixTypes
-      logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      logs_mat::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      signs::Vector{zzModRingElem}
-      gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      g_ops_mat::CTMatrixTypes
-      overcomplete::Bool
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    r::Int
+    stabs::CTMatrixTypes
+    gauge_ops::Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 #############################
@@ -111,64 +64,22 @@ end
 #############################
 
 mutable struct StabilizerCodeCSS <: AbstractStabilizerCodeCSS
-      F::CTFieldTypes
-      n::Int
-      k::Union{Int, Rational{BigInt}}
-      d::Union{Int, Missing}
-      dx::Union{Int, Missing}
-      dz::Union{Int, Missing}
-      l_bound::Int # lower bound on d
-      u_bound::Int # upper bound on d
-      l_bound_dx::Int # lower bound on dx
-      u_bound_dx::Int # upper bound on dx
-      l_bound_dz::Int # lower bound on dz
-      u_bound_dz::Int # upper bound on dz
-      stabs::CTMatrixTypes
-      X_stabs::CTMatrixTypes
-      Z_stabs::CTMatrixTypes
-      X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      signs::Vector{zzModRingElem}
-      X_signs::Vector{zzModRingElem}
-      Z_signs::Vector{zzModRingElem}
-      logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      logs_mat::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
-      sgn_CWE_logs::Union{WeightEnumerator, Missing}
-      overcomplete::Bool
-      pure::Union{Bool, Missing}
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      X_metacheck::Union{CTMatrixTypes, Missing}
-      Z_metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 mutable struct StabilizerCode <: AbstractStabilizerCode
-      F::CTFieldTypes
-      n::Int
-      k::Union{Int, Rational{BigInt}}
-      d::Union{Int, Missing}
-      l_bound::Int # lower bound on d
-      u_bound::Int # upper bound on d
-      stabs::CTMatrixTypes
-      logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      logs_mat::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      signs::Vector{zzModRingElem}
-      sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
-      sgn_CWE_logs::Union{WeightEnumerator, Missing}
-      overcomplete::Bool
-      pure::Union{Bool, Missing}
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Union{Int, Rational{BigInt}}
+    stabs::CTMatrixTypes
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 #############################
@@ -176,245 +87,343 @@ end
 #############################
 
 mutable struct GraphStateSubsystem <: AbstractGraphStateSubsystem
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      r::Int
-      d_bare::Union{Int, Missing}
-      d_dressed::Union{Int, Missing}
-      l_bound_bare::Int # lower bound on d_bare
-      u_bound_bare::Int # upper bound on d_bare
-      l_bound_dressed::Int # lower bound on d_dressed
-      u_bound_dressed::Int # upper bound on d_dressed
-      stabs::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      signs::Vector{zzModRingElem}
-      wtenum::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      overcomplete::Bool
-      gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      g_ops_mat::CTMatrixTypes
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    r::Int
+    stabs::CTMatrixTypes
+    gauge_ops::Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 mutable struct GraphStateSubsystemCSS <: AbstractGraphStateSubsystemCSS
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      r::Int
-      d_bare::Union{Int, Missing}
-      d_dressed::Union{Int, Missing}
-      dx_bare::Union{Int, Missing}
-      dx_dressed::Union{Int, Missing}
-      dz_bare::Union{Int, Missing}
-      dz_dressed::Union{Int, Missing}
-      l_bound_bare::Int # lower bound on d_bare
-      u_bound_bare::Int # upper bound on d_bare
-      l_bound_dressed::Int # lower bound on d_dressed
-      u_bound_dressed::Int # upper bound on d_dressed
-      l_bound_dx_bare::Int # lower bound on dx_bare
-      u_bound_dx_bare::Int # upper bound on dx_bare
-      l_bound_dz_bare::Int # lower bound on dz_bare
-      u_bound_dz_bare::Int # upper bound on dz_bare
-      l_bound_dx_dressed::Int # lower bound on dz_dressed
-      u_bound_dx_dressed::Int # upper bound on dz_dressed
-      l_bound_dz_dressed::Int # lower bound on dz_dressed
-      u_bound_dz_dressed::Int # upper bound on dz_dressed
-      stabs::CTMatrixTypes
-      X_stabs::CTMatrixTypes
-      Z_stabs::CTMatrixTypes
-      X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      signs::Vector{zzModRingElem}
-      X_signs::Vector{zzModRingElem}
-      Z_signs::Vector{zzModRingElem}
-      char_vec::Vector{zzModRingElem}
-      sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      overcomplete::Bool
-      gauge_ops::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      g_ops_mat::CTMatrixTypes
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      X_metacheck::Union{CTMatrixTypes, Missing}
-      Z_metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    r::Int
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    gauge_ops::Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 mutable struct GraphStateStabilizer <: AbstractGraphStateStabilizer
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      d::Union{Int, Missing}
-      l_bound::Int # lower bound on d
-      u_bound::Int # upper bound on d
-      stabs::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      signs::Vector{zzModRingElem}
-      sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      overcomplete::Bool
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    stabs::CTMatrixTypes
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      d::Union{Int, Missing}
-      dx::Union{Int, Missing}
-      dz::Union{Int, Missing}
-      l_bound::Int # lower bound on d
-      u_bound::Int # upper bound on d
-      l_bound_dx::Int # lower bound on dx
-      u_bound_dx::Int # upper bound on dx
-      l_bound_dz::Int # lower bound on dz
-      u_bound_dz::Int # upper bound on dz
-      stabs::CTMatrixTypes
-      X_stabs::CTMatrixTypes
-      Z_stabs::CTMatrixTypes
-      X_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      Z_orig_code::Union{S, Missing} where S <: AbstractLinearCode
-      signs::Vector{zzModRingElem}
-      X_signs::Vector{zzModRingElem}
-      Z_signs::Vector{zzModRingElem}
-      char_vec::Vector{zzModRingElem}
-      sgn_CWE_stabs::Union{WeightEnumerator,Missing} # signed complete weight enumerator
-      overcomplete::Bool
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      X_metacheck::Union{CTMatrixTypes, Missing}
-      Z_metacheck::Union{CTMatrixTypes, Missing}
+    F::CTFieldTypes
+    n::Int
+    k::Int
+    X_stabs::CTMatrixTypes
+    Z_stabs::CTMatrixTypes
+    char_vec::Vector{zzModRingElem}
+    cache::Dict{Symbol, Any}
 end
 
 #############################
 # Quantum/product_codes.jl
 #############################
 
-# J. Tillich, G. Zémor. "Quantum LDPC codes with positive rate and minimum distance
-# proportional to n^(1/2)". (2013) arXiv:0903.0566v2
-mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
-      F::CTFieldTypes
-      n::Integer
-      k::Union{Integer, Rational{BigInt}}
-      d::Union{Integer, Missing}
-      dx::Union{Integer, Missing}
-      dz::Union{Integer, Missing}
-      l_bound::Int # lower bound on d
-      u_bound::Int # upper bound on d
-      l_bound_dx::Int # lower bound on dx
-      u_bound_dx::Int # upper bound on dx
-      l_bound_dz::Int # lower bound on dz
-      u_bound_dz::Int # upper bound on dz
-      stabs::CTMatrixTypes
-      X_stabs::CTMatrixTypes
-      Z_stabs::CTMatrixTypes
-      C1::Union{S, Missing} where S <: AbstractLinearCode
-      C2::Union{S, Missing} where S <: AbstractLinearCode
-      signs::Vector{zzModRingElem}
-      X_signs::Vector{zzModRingElem}
-      Z_signs::Vector{zzModRingElem}
-      logicals::Vector{Tuple{T, T}} where T <: CTMatrixTypes
-      logs_mat::CTMatrixTypes
-      char_vec::Vector{zzModRingElem}
-      overcomplete::Bool
-      stabs_stand::CTMatrixTypes
-      stand_r::Int
-      stand_k::Int
-      P_stand::Union{CTMatrixTypes, Missing}
-      sgn_CWE_stabs::Union{WeightEnumerator, Missing} # signed complete weight enumerator
-      sgn_CWE_dual::Union{WeightEnumerator, Missing} # S^⟂
-      X_metacheck::Union{CTMatrixTypes, Missing}
-      Z_metacheck::Union{CTMatrixTypes, Missing}
-end
 
 #############################
 # Quantum/GeneralizedToricCode.jl
 #############################
 
-struct MonomialCode <: AbstractMonomialCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
+mutable struct BivariateBicycleCode{T} <: AbstractStabilizerCodeCSS
+    LR::T # LaurentMPolyWrapRing
+    F::CTFieldTypes
+    a::Any # CTLRPolyElem
+    b::Any # CTLRPolyElem
+    a1::Tuple{Int, Int}
+    a2::Tuple{Int, Int}
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct FiniteMonomialCode <: AbstractMonomialCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
+mutable struct Generalized3DToricCode{T} <: AbstractGeneralized3DToricCode
+    LR::T # LaurentMPolyWrapRing
+    F::CTFieldTypes
+    a::Any # CTLRPolyElem
+    b::Any # CTLRPolyElem
+    a1::Tuple{Int, Int}
+    a2::Tuple{Int, Int}
+    l_z::Int
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct BivariateBicycleCode <: AbstractBivariateBicycleCode
-      R::MPolyQuoRing{fpMPolyRingElem}
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::MPolyQuoRingElem{fpMPolyRingElem}
-      g::MPolyQuoRingElem{fpMPolyRingElem}
-      l::Int
-      m::Int
+mutable struct QuantumConcatenatedCode <: AbstractStabilizerCode
+    outer_code::AbstractStabilizerCode
+    inner_code::AbstractStabilizerCode
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct CoprimeBivariateBicycleCode <: AbstractBivariateBicycleCode
-      R::CTPolyRing
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTPolyRingElem
-      g::CTPolyRingElem
-      l::Int
-      m::Int
+mutable struct GaugeFixedCode <: AbstractStabilizerCode
+    subsystem_code::AbstractSubsystemCode
+    choice::Symbol
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct GeneralizedToricCode <: AbstractGeneralizedToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
+mutable struct HypergraphProductCode <: AbstractStabilizerCodeCSS
+    C1::AbstractLinearCode
+    C2::AbstractLinearCode
+    n::Int
+    k::Int
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct FiniteGeneralizedToricCode <: AbstractGeneralizedToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
+mutable struct GeneralizedShorCode <: AbstractSubsystemCode
+    C1::AbstractLinearCode
+    C2::AbstractLinearCode
+    n::Int
+    k::Int
+    r::Union{Int, Missing} # Gauge qubits, computed lazily
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct Generalized3DToricCode <: AbstractGeneralized3DToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      f::CTLRPolyElem
-      g::CTLRPolyElem
+mutable struct HyperBicycleCodeCSS{T <: CTMatrixTypes} <: AbstractStabilizerCodeCSS
+    a::Vector{T}
+    b::Vector{T}
+    χ::Int
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
-struct FiniteGeneralized3DToricCode <: AbstractGeneralized3DToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
-      l::Int
+mutable struct HyperBicycleCode{T <: CTMatrixTypes} <: AbstractStabilizerCode
+    a::Vector{T}
+    b::Vector{T}
+    χ::Int
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+# Intercept property access to compute 'k' lazily when requested
+for T in (:HyperBicycleCodeCSS, :HyperBicycleCode)
+    @eval begin
+        function Base.getproperty(S::$T, prop::Symbol)
+            if prop == :k
+                k_val = getfield(S, :k)
+                if ismissing(k_val)
+                    # For CSS, k = n - rank(H_X) - rank(H_Z)
+                    # For non-CSS Stabilizer, k = n - rank(stabs)
+                    if $T == HyperBicycleCodeCSS
+                        H_X = X_stabilizers(S)
+                        H_Z = Z_stabilizers(S)
+                        k_val = S.n - rank(H_X) - rank(H_Z)
+                    else
+                        stabs = stabilizers(S)
+                        k_val = S.n - rank(stabs)
+                    end
+                    setfield!(S, :k, k_val)
+                    return k_val
+                end
+                return k_val
+            else
+                return getfield(S, prop)
+            end
+        end
+    end
+end
+
+mutable struct GeneralizedBicycleCode{T <: CTMatrixTypes} <: AbstractStabilizerCodeCSS
+    A::T
+    B::T
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+# Intercept property access to compute 'k' lazily when requested
+function Base.getproperty(S::GeneralizedBicycleCode, prop::Symbol)
+    if prop == :k
+        k_val = getfield(S, :k)
+        if ismissing(k_val)
+            H_X = X_stabilizers(S)
+            H_Z = Z_stabilizers(S)
+            k_val = S.n - rank(H_X) - rank(H_Z)
+            setfield!(S, :k, k_val)
+            return k_val
+        end
+        return k_val
+    else
+        return getfield(S, prop)
+    end
+end
+
+mutable struct LiftedProductCode{T} <: AbstractStabilizerCodeCSS
+    A::T
+    B::T
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct BiasTailoredLiftedProductCode{T} <: AbstractStabilizerCode
+    A::T
+    B::T
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+for T in (:LiftedProductCode, :BiasTailoredLiftedProductCode)
+    @eval begin
+        function Base.getproperty(S::$T, prop::Symbol)
+            if prop == :k
+                k_val = getfield(S, :k)
+                if ismissing(k_val)
+                    if $T == LiftedProductCode
+                        H_X = X_stabilizers(S)
+                        H_Z = Z_stabilizers(S)
+                        k_val = S.n - rank(H_X) - rank(H_Z)
+                    else
+                        stabs = stabilizers(S)
+                        k_val = S.n - rank(stabs)
+                    end
+                    setfield!(S, :k, k_val)
+                    return k_val
+                end
+                return k_val
+            else
+                return getfield(S, prop)
+            end
+        end
+    end
+end
+
+mutable struct AsymmetricProductCode <: AbstractStabilizerCodeCSS
+    S1::AbstractSubsystemCode
+    S2::AbstractSubsystemCode
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+mutable struct SymmetricProductCode <: AbstractStabilizerCodeCSS
+    vec_S::Vector{<:AbstractSubsystemCode}
+    D::Int
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+for T in (:AsymmetricProductCode, :SymmetricProductCode)
+    @eval begin
+        function Base.getproperty(S::$T, prop::Symbol)
+            if prop == :k
+                k_val = getfield(S, :k)
+                if ismissing(k_val)
+                    H_X = X_stabilizers(S)
+                    H_Z = Z_stabilizers(S)
+                    k_val = S.n - rank(H_X) - rank(H_Z)
+                    setfield!(S, :k, k_val)
+                    return k_val
+                end
+                return k_val
+            else
+                return getfield(S, prop)
+            end
+        end
+    end
+end
+
+mutable struct HomologicalProductCode <: AbstractStabilizerCodeCSS
+    S1::AbstractStabilizerCode
+    S2::AbstractStabilizerCode
+    U::CTMatrixTypes
+    V::CTMatrixTypes
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
+end
+
+# Intercept property access to compute 'k' lazily when requested
+function Base.getproperty(S::HomologicalProductCode, prop::Symbol)
+    if prop == :k
+        k_val = getfield(S, :k)
+        if ismissing(k_val)
+            H_X = X_stabilizers(S)
+            H_Z = Z_stabilizers(S)
+            k_val = S.n - rank(H_X) - rank(H_Z)
+            setfield!(S, :k, k_val)
+            return k_val
+        end
+        return k_val
+    else
+        return getfield(S, prop)
+    end
+end
+
+mutable struct CoprimeBivariateBicycleCode <: AbstractStabilizerCodeCSS
+    R::CTPolyRing
+    F::CTFieldTypes
+    a::CTPolyRingElem
+    b::CTPolyRingElem
+    N::Int
+    n::Int
+    k::Union{Int, Missing}
+    d::Union{Int, Missing}
+    l_bound::Int
+    u_bound::Int
+    cache::Dict{Symbol, Any}
 end
 
 #############################

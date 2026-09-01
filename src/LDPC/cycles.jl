@@ -385,17 +385,6 @@ function remove_cycles(C::LDPCCode, target_girth::Int; max_iters::Int=2000)
     return LDPCCode(H_new)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Attempt to structurally remove cycles of length up to `n_max` from the LDPC code `C`.
-Returns a strictly **new** `LDPCCode` object.
-"""
-function remove_cycles(C::LDPCCode, n_max::Int)
-    new_H = remove_cycles(parity_check_matrix(C), n_max)
-    return LDPCCode(new_H)
-end
-
 #############################
        # simple cycles
 #############################
