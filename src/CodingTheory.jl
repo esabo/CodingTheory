@@ -23,7 +23,7 @@ using DocStringExtensions
 using QuadGK
 using SpecialFunctions
 
-import LinearAlgebra: tr, Adjoint, transpose, kron, diagm, dot
+import LinearAlgebra: tr, Adjoint, transpose, kron, diagm, dot, Symmetric, eigvals, diagind
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
     is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
@@ -60,6 +60,8 @@ const CTPolyRingElem = PolyRingElem{<:CTFieldElem}
 const CTGroupAlgebra = GroupAlgebraElem{fpFieldElem, GroupAlgebra{fpFieldElem, FinGenAbGroup, FinGenAbGroupElem}}
 const CTChainComplex = Union{ComplexOfMorphisms{AbstractAlgebra.FPModule{fpFieldElem}}} # residue and group algebras later
 const CTPolyMatrix = Union{AbstractAlgebra.Generic.MatSpaceElem{fpPolyRingElem}, AbstractAlgebra.Generic.MatSpaceElem{FqPolyRingElem}}
+const CTLRPolyElem = AbstractAlgebra.Generic.LaurentMPolyWrap{fpFieldElem, fpMPolyRingElem,
+       AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}}
 
 include("Classical/types.jl")
 # Export Abstract Types
@@ -493,54 +495,52 @@ export DecoderWorkspace, HardDecisionWorkspace, SoftDecisionWorkspace,
 # include("LDPC/simulations.jl")
 
 
-   
 
+include("Quantum/types.jl")
+export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
+    AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
+    AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
+    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS #, AbstractGeneralizedToricCode
 
+include("Quantum/GeneralizedToricCode.jl")
+export BivariateBicycleCode, CoprimeBivariateBicycleCode
 
+#############################
+ # Quantum/subsystem_code.jl
+#############################
 
+include("Quantum/subsystem_code.jl")
+export SubsystemCode, field, length, num_qubits, dimension, cardinality,
+    rate, signs, X_signs, Z_signs, stabilizers, symplectic_stabilizers, X_stabilizers, Z_stabilizers,
+    num_X_stabs, num_Z_stabs, character_vector, is_over_complete, is_CSS, relative_distance, logicals,
+    logical_operators, bare_logicals, bare, logicals_matrix, gauges, gauge_operators, gauges_matrix,
+    gauge_operators_matrix, dressed, dressed_operators, dressed_logicals, gauge_group, gauge_group_matrix,
+    gauge_generators_matrix, gauge_group_generators_matrix, set_signs!, set_logicals!, set_minimum_distance!,
+    split_stabilizers, is_logical, syndrome, X_syndrome, Z_syndrome, promote_logicals_to_gauge!, swap_X_Z_logicals!,
+    swap_X_Z_gauge_operators!, all_stabilizers, elements, print_all_stabilizers, print_all_elements,
+    augment, expurgate, fix_gauge, set_X_stabilizers, set_Z_stabilizers, set_stabilizers,
+    set_Z_stabilizers!, set_distance_lower_bound!, permute_code!, permute_code, set_stabilizers!,
+    set_X_stabilizers!, standard_form_A, standard_form_A1, standard_form_A2, standard_form_B, standard_form_C1,
+    standard_form_C2, standard_form_D, standard_form_E, logicals_standard_form, promote_gauges_to_logical!,
+    promote_gauges_to_logical, promote_logicals_to_gauge, bare_minimum_distance_lower_bound,
+    bare_minimum_distance_upper_bound, dressed_minimum_distance_lower_bound,
+    dressed_minimum_distance_upper_bound, bare_X_minimum_distance_lower_bound,
+    bare_X_minimum_distance_upper_bound, dressed_X_minimum_distance_lower_bound,
+    bare_Z_minimum_distance_lower_bound, bare_Z_minimum_distance_upper_bound,
+    dressed_Z_minimum_distance_lower_bound, dressed_Z_minimum_distance_upper_bound,
+    X_minimum_distance, Z_minimum_distance, XZ_minimum_distance, set_bare_minimum_distance!,
+    set_bare_X_minimum_distance!, set_bare_Z_minimum_distance!, set_dressed_minimum_distance!,
+    set_dressed_X_minimum_distance!, set_dressed_Z_minimum_distance!
 
+#############################
+ # Quantum/stabilizer_code.jl
+#############################
 
-
-
-
-
-
-# #############################
-#  # Quantum/subsystem_code.jl
-# #############################
-
-# include("Quantum/subsystem_code.jl")
-# export SubsystemCode, field, length, num_qubits, dimension, cardinality,
-#     rate, signs, X_signs, Z_signs, stabilizers, symplectic_stabilizers, X_stabilizers, Z_stabilizers,
-#     num_X_stabs, num_Z_stabs, character_vector, is_over_complete, is_CSS, relative_distance, logicals,
-#     logical_operators, bare_logicals, bare, logicals_matrix, gauges, gauge_operators, gauges_matrix,
-#     gauge_operators_matrix, dressed, dressed_operators, dressed_logicals, gauge_group, gauge_group_matrix,
-#     gauge_generators_matrix, gauge_group_generators_matrix, set_signs!, set_logicals!, set_minimum_distance!,
-#     split_stabilizers, is_logical, syndrome, X_syndrome, Z_syndrome, promote_logicals_to_gauge!, swap_X_Z_logicals!,
-#     swap_X_Z_gauge_operators!, all_stabilizers, elements, print_all_stabilizers, print_all_elements,
-#     augment, expurgate, fix_gauge, set_X_stabilizers, set_Z_stabilizers, set_stabilizers,
-#     set_Z_stabilizers!, set_distance_lower_bound!, permute_code!, permute_code, set_stabilizers!,
-#     set_X_stabilizers!, standard_form_A, standard_form_A1, standard_form_A2, standard_form_B, standard_form_C1,
-#     standard_form_C2, standard_form_D, standard_form_E, logicals_standard_form, promote_gauges_to_logical!,
-#     promote_gauges_to_logical, promote_logicals_to_gauge, bare_minimum_distance_lower_bound,
-#     bare_minimum_distance_upper_bound, dressed_minimum_distance_lower_bound,
-#     dressed_minimum_distance_upper_bound, bare_X_minimum_distance_lower_bound,
-#     bare_X_minimum_distance_upper_bound, dressed_X_minimum_distance_lower_bound,
-#     bare_Z_minimum_distance_lower_bound, bare_Z_minimum_distance_upper_bound,
-#     dressed_Z_minimum_distance_lower_bound, dressed_Z_minimum_distance_upper_bound,
-#     X_minimum_distance, Z_minimum_distance, XZ_minimum_distance, set_bare_minimum_distance!,
-#     set_bare_X_minimum_distance!, set_bare_Z_minimum_distance!, set_dressed_minimum_distance!,
-#     set_dressed_X_minimum_distance!, set_dressed_Z_minimum_distance!
-
-# #############################
-#  # Quantum/stabilizer_code.jl
-# #############################
-
-# include("Quantum/stabilizer_code.jl")
-# export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code,
-#     minimum_distance_lower_bound, minimum_distance_upper_bound, X_minimum_distance_lower_bound,
-#     X_minimum_distance_upper_bound, Z_minimum_distance_lower_bound, Z_minimum_distance_upper_bound,
-#     set_X_minimum_distance!, set_Z_minimum_distance!
+include("Quantum/stabilizer_code.jl")
+export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code,
+    minimum_distance_lower_bound, minimum_distance_upper_bound, X_minimum_distance_lower_bound,
+    X_minimum_distance_upper_bound, Z_minimum_distance_lower_bound, Z_minimum_distance_upper_bound,
+    set_X_minimum_distance!, set_Z_minimum_distance!
 
 # #############################
 #    # Quantum/graphstate.jl

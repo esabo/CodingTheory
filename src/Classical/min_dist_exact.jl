@@ -3223,7 +3223,7 @@ function _fixed_subcode(C::AbstractLinearCode, aut::Vector{Int})
     H_sub = vcat(H_C, P_T_minus_I)
     
     # The fixed subcode is the right nullspace of H_sub
-    k_sub, G_sub_trans = right_kernel(H_sub)
+    k_sub, G_sub_trans = nullspace(H_sub)
     
     if k_sub == 0
         return nothing 

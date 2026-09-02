@@ -36,23 +36,28 @@ end
 Return the cluster state (graph state) on the rectangular lattice with width `w` and height `h`.
 """
 function ClusterState(w::Int, h::Int)
-    (0 <= w && 0 <= h) || throw(ArgumentError("Rectangle dimensions must be positive."))
-
-    # BUG this function has never been updated from the quadratic form
-    E = GF(2, 2, :ω)
-    ω = gen(E)
-    Eone = E(1)
-    A = zero_matrix(E, w * h, w * h)
+    (0 < w && 0 < h) || throw(ArgumentError("Rectangle dimensions must be strictly positive."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    Fone = F(1)
+    n = w * h
+    sym_stabs = zero_matrix(F, n, 2 * n)
+    
     curr = 1
     for r in 1:h
         for c in 1:w
-            A[curr, curr] = Eone
-            c != 1 && (A[curr, curr - 1] = ω;)
-            c != w && (A[curr, curr + 1] = ω;)
-            r != 1 && (A[curr, curr - w] = ω;)
-            r != h && (A[curr, curr + w] = ω;)
+            # X on the current vertex
+            sym_stabs[curr, curr] = F(1)
+            
+            # Z on the nearest neighbors
+            c != 1 && (sym_stabs[curr, curr - 1 + n] = Fone;)
+            c != w && (sym_stabs[curr, curr + 1 + n] = Fone;)
+            r != 1 && (sym_stabs[curr, curr - w + n] = Fone;)
+            r != h && (sym_stabs[curr, curr + w + n] = Fone;)
+            
             curr += 1
         end
     end
-    return StabilizerCode(A)
+    
+    return StabilizerCode(sym_stabs)
 end

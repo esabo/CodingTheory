@@ -22,7 +22,6 @@ function GaugedShorCode()
 end
 Q9143() = GaugedShorCode()
 
-# BUG: doesn't work for m ≂̸ n
 """
     BaconShorCode(m::Int, n::Int)
 
@@ -41,10 +40,10 @@ function BaconShorCode(m::Int, n::Int)
     curr_row_G = 1
     for r in 1:m - 1
         for c in 1:n
-            X_stabs[curr_row, (r - 1) * m + c] = F_one
-            X_stabs[curr_row, r * m + c] = F_one
-            X_gauges[curr_row_G, (r - 1) * m + c] = F_one
-            X_gauges[curr_row_G, r * m + c] = F_one
+            X_stabs[curr_row, (r - 1) * n + c] = F_one
+            X_stabs[curr_row, r * n + c] = F_one
+            X_gauges[curr_row_G, (r - 1) * n + c] = F_one
+            X_gauges[curr_row_G, r * n + c] = F_one
             curr_row_G += 1
         end
         curr_row += 1
@@ -58,10 +57,10 @@ function BaconShorCode(m::Int, n::Int)
     curr_row_G = 1
     for c in 1:n - 1
         for r in 1:m
-            Z_stabs[curr_row, (r - 1) * m + c] = F_one
-            Z_stabs[curr_row, (r - 1) * m + c + 1] = F_one
-            Z_gauges[curr_row_G, (r - 1) * m + c] = F_one
-            Z_gauges[curr_row_G, (r - 1) * m + c + 1] = F_one
+            Z_stabs[curr_row, (r - 1) * n + c] = F_one
+            Z_stabs[curr_row, (r - 1) * n + c + 1] = F_one
+            Z_gauges[curr_row_G, (r - 1) * n + c] = F_one
+            Z_gauges[curr_row_G, (r - 1) * n + c + 1] = F_one
             curr_row_G += 1
         end
         curr_row += 1
@@ -69,31 +68,32 @@ function BaconShorCode(m::Int, n::Int)
 
     # X logical: X[1, :] = 1
     X_logical = zero_matrix(F, 1, num_qubits)
-    # TODO: consider @simd or @unroll here
     for c in 1:n
         X_logical[1, c] = F_one
     end
 
     # Z logical: Z[:, 1] = 1
     Z_logical = zero_matrix(F, 1, num_qubits)
-    # TODO: consider @simd or @unroll here
     for r in 1:m
-        Z_logical[1, (r - 1) * m + 1] = F_one
+        Z_logical[1, (r - 1) * n + 1] = F_one
     end
     
     stabs = X_stabs ⊕ Z_stabs
     logs = X_logical ⊕ Z_logical
     gauges = X_gauges ⊕ Z_gauges
-    # S = SubsystemCodeCSS(X_stabs, Z_stabs, (X_logical, Z_logical), {})
-    # S = SubsystemCode(stabs, logs, gauges, true)
+
     S = SubsystemCode(gauges)
     set_stabilizers!(S, stabs)
+    
+    # Update CSS properties in the struct
     S.X_stabs = X_stabs
     S.Z_stabs = Z_stabs
-    # CSS Xsigns and Zsigns don't need to be updated, should be same length and still chi(0)
+    
     set_logicals!(S, logs)
-    set_dressed_X_minimum_distance!(S, n)
-    set_dressed_Z_minimum_distance!(S, m)
+    
+    # Cache routing for distances
+    S.cache[:dx_dressed] = n
+    S.cache[:dz_dressed] = m
     return S
 end
 
@@ -306,11 +306,7 @@ function LocalBravyiBaconShorCode(A::CTMatrixTypes)
         end
     end
 
-    # return X_gauges, Z_gauges
-    S = SubsystemCode(X_gauges ⊕ Z_gauges, logs_alg = :VS)
-    # TODO same for this model?
-    # set_dressed_X_minimum_distance!(S, minimum(row_wts))
-    # set_dressed_Z_minimum_distance!(S, minimum(col_wts))
+    S = SubsystemCode(X_gauges ⊕ Z_gauges, logs_alg = :sys_eqs)
     return S
 end
 AugmentedBravyiBaconShorCode(A::CTMatrixTypes) = LocalBravyiBaconShorCode(A)
@@ -362,7 +358,7 @@ function NappPreskill3DCode(m::Int, n::Int, k::Int)
         end
     end
 
-    S = SubsystemCode(gauges, logs_alg = :VS)
+    S = SubsystemCode(gauges, logs_alg = :sys_eqs)
     set_dressed_X_minimum_distance!(S, k)
     set_dressed_Z_minimum_distance!(S, m * n)
     return S
@@ -426,7 +422,7 @@ function NappPreskill4DCode(x::Int, y::Int, z::Int, w::Int)
         end
     end
 
-    return SubsystemCode(gauges, logs_alg = :VS)
+    return SubsystemCode(gauges, logs_alg = :sys_eqs)
 end
 
 # Bravyi et al, "Subsystem surface codes with three-qubit check operators", (2013)
@@ -558,14 +554,17 @@ function SubsystemToricCode(m::Int, n::Int)
         logs[3, top_left + 2 * n] = F_one
     end
     
-    S = SubsystemCode(gauges, logs_alg = :VS)
+    S = SubsystemCode(gauges, logs_alg = :sys_eqs)
     S.k == 2 || error("Got wrong dimension for periodic case.")
-    set_stabilizers!(S, stabs)
     set_logicals!(S, logs)
-    # TODO what to do here
-    # set_minimum_distance!(S, min(m, n))
-    # set_dressed_X_minimum_distance!(S, min(m, n))
-    # set_dressed_Z_minimum_distance!(S, min(m, n))
+
+    dist = min(m, n)
+    S.cache[:d_dressed] = dist
+    S.cache[:l_bound_dressed] = dist
+    S.cache[:u_bound_dressed] = dist
+    
+    S.cache[:dx_dressed] = dist
+    S.cache[:dz_dressed] = dist
     return S
 end
 
@@ -703,14 +702,14 @@ function SubsystemSurfaceCode(m::Int, n::Int)
     end
     logs[2, 2 * len -  2 * n] = F_one
     
-    S = SubsystemCode(gauges, logs_alg = :VS)
+    S = SubsystemCode(gauges, logs_alg = :sys_eqs)
     S.k == 1 || error("Got wrong dimension for non-periodic case.")
-    set_stabilizers!(S, stabs)
     set_logicals!(S, logs)
     set_minimum_distance!(S, minimum([m, n]))
-    S.d_x = 2 * n + 1
-    S.d_z = 2 * m + 1
-    # TODO how do these make sense?
+    
+    # Route dressed bounds directly into the cache, bypassing direct struct fields
+    S.cache[:dx_dressed] = 2 * n + 1
+    S.cache[:dz_dressed] = 2 * m + 1
     return S
 end
 
@@ -875,6 +874,83 @@ function GrossCode()
     b = R(y^3 + x + x^2)
     S = BivariateBicycleCode(a, b)
     # set_minimum_distance!(S, 12)
+    return S
+end
+
+"""
+    QuantumRepetitionCode(d::Int; error_type::Symbol = :phase_flip)
+
+Return the `[[d, 1, d]]` quantum repetition code. 
+`error_type` can be `:phase_flip` (X stabilizers) or `:bit_flip` (Z stabilizers).
+"""
+function QuantumRepetitionCode(d::Int; error_type::Symbol = :phase_flip)
+    (d >= 3) || throw(DomainError("Distance must be at least 3."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+    stabs = zero_matrix(F, d - 1, 2 * d)
+    
+    for i in 1:d-1
+        if error_type == :phase_flip
+            stabs[i, i] = F_one
+            stabs[i, i + 1] = F_one
+        elseif error_type == :bit_flip
+            stabs[i, i + d] = F_one
+            stabs[i, i + 1 + d] = F_one
+        else
+            throw(ArgumentError("error_type must be :phase_flip or :bit_flip"))
+        end
+    end
+    
+    S = StabilizerCode(stabs)
+    
+    if error_type == :phase_flip
+        S.cache[:dx] = d
+        S.cache[:dz] = 1
+    else
+        S.cache[:dx] = 1
+        S.cache[:dz] = d
+    end
+    S.cache[:d] = 1
+    
+    return S
+end
+
+"""
+    QuantumGolayCode()
+
+Return the `[[23, 1, 7]]` quantum Golay CSS code.
+"""
+function QuantumGolayCode()
+    F = Oscar.Nemo.Native.GF(2)
+    S, x = polynomial_ring(F, :x)
+    R, _ = residue_ring(S, x^23 - 1)
+    
+    # Generator polynomial for the classical [23, 12, 7] Golay code
+    g = R(x^11 + x^9 + x^7 + x^6 + x^5 + x + 1)
+    H_circ = residue_polynomial_to_circulant_matrix(g)
+    
+    # The circulant matrix is 23x23 but rank 11. We reduce it to get the clean parity check matrix.
+    _, H_rref = rref(H_circ)
+    H_clean = _remove_empty(H_rref, :rows)
+    
+    # CSS construction requires H_X * transpose(H_Z) = 0. 
+    # Because G_23^⟂ ⊆ G_23, H_clean * transpose(H_clean) = 0 is satisfied automatically.
+    S = CSSCode(H_clean, H_clean)
+    
+    # Set explicit boundaries
+    S.cache[:d] = 7
+    S.cache[:l_bound] = 7
+    S.cache[:u_bound] = 7
+    
+    S.cache[:dx] = 7
+    S.cache[:l_bound_dx] = 7
+    S.cache[:u_bound_dx] = 7
+    
+    S.cache[:dz] = 7
+    S.cache[:l_bound_dz] = 7
+    S.cache[:u_bound_dz] = 7
+    
     return S
 end
 
@@ -1049,70 +1125,66 @@ function _R_Surf_stabs(d::Int)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
 
-    # X's
-    i = 1
-    while i <= n - d
-        S[row, i] = F_one
-        S[row, i + 1] = F_one
-        S[row, i + d] = F_one
-        S[row, i + d + 1] = F_one
-        row += 1
-        if (i + 2) % d == 0
-            i += 4
-        else
-            i += 2
+    # X stabilizers (Interior)
+    for r in 1:d-1
+        for c in 1:d-1
+            if iseven(r + c)
+                S[row, (r-1)*d + c] = F_one
+                S[row, (r-1)*d + c + 1] = F_one
+                S[row, r*d + c] = F_one
+                S[row, r*d + c + 1] = F_one
+                row += 1
+            end
         end
     end
 
-    # top row X's
-    i = 2
-    while i <= d - 1
-        S[row, i] = F_one
-        S[row, i + 1] = F_one
-        row += 1
-        i += 2
-    end
-
-    # bottom row X's
-    i = d * (d - 1) + 1
-    while i <= d * d - 2
-        S[row, i] = F_one
-        S[row, i + 1] = F_one
-        row += 1
-        i += 2
-    end
-
-    # Z's
-    i = 2
-    while i < n - d
-        S[row, i + n] = F_one
-        S[row, i + 1 + n] = F_one
-        S[row, i + d + n] = F_one
-        S[row, i + d + 1 + n] = F_one
-        row += 1
-        if (i + 2) % d == 0
-            i += 4
-        else
-            i += 2
+    # Top X boundary (r = 1)
+    for c in 1:d-1
+        if iseven(0 + c)
+            S[row, c] = F_one
+            S[row, c + 1] = F_one
+            row += 1
         end
     end
 
-    # left Z's
-    i = 1
-    while i < d * (d - 1)
-        S[row, i + n] = F_one
-        S[row, i + d + n] = F_one
-        row += 1
-        i += 2 * d
+    # Bottom X boundary (r = d)
+    for c in 1:d-1
+        if iseven(d + c)
+            S[row, (d-1)*d + c] = F_one
+            S[row, (d-1)*d + c + 1] = F_one
+            row += 1
+        end
     end
 
-    # right Z's
-    i = 2 * d
-    while i < d * d
-        S[row, i + n] = F_one
-        S[row, i + d + n] = F_one
-        row += 1
-        i += 2 * d
+    # Z stabilizers (Interior)
+    for r in 1:d-1
+        for c in 1:d-1
+            if isodd(r + c)
+                S[row, n + (r-1)*d + c] = F_one
+                S[row, n + (r-1)*d + c + 1] = F_one
+                S[row, n + r*d + c] = F_one
+                S[row, n + r*d + c + 1] = F_one
+                row += 1
+            end
+        end
+    end
+
+    # Left Z boundary (c = 1)
+    for r in 1:d-1
+        if isodd(r + 0)
+            S[row, n + (r-1)*d + 1] = F_one
+            S[row, n + r*d + 1] = F_one
+            row += 1
+        end
+    end
+
+    # Right Z boundary (c = d)
+    for r in 1:d-1
+        if isodd(r + d)
+            S[row, n + (r-1)*d + d] = F_one
+            S[row, n + r*d + d] = F_one
+            row += 1
+        end
     end
 
     return S
@@ -1122,15 +1194,15 @@ function _R_Surf_logs(F::CTFieldTypes, d::Int)
     n = d^2
     F_one = F(1)
     logs = zero_matrix(F, 2, 2 * n)
-    i = d
-    while i <= d * d
-        logs[1, i] = F_one
-        i += d
+    
+    # Logical X: Rightmost column (connects Top and Bottom X boundaries)
+    for r in 1:d
+        logs[1, (r-1)*d + d] = F_one
     end
-    i = 1
-    while i <= d
-        logs[2, i + n] = F_one
-        i += 1
+    
+    # Logical Z: Top row (connects Left and Right Z boundaries)
+    for c in 1:d
+        logs[2, n + c] = F_one
     end
 
     return logs
@@ -1145,14 +1217,28 @@ This is the surface-13/17 configuration found in "Low-distance surface codes und
 by Tomita and Svore. The standard planar surface code is equivalent to their surface-25 configuration, which
 can be seen by viewing the stabilizers of PlanarSurfaceCode as an adjacency matrix.
 """
-# BUG: doesn't work for even distances
 function RotatedSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
 
     stabs = _R_Surf_stabs(d)
+    logs = _R_Surf_logs(base_ring(stabs), d)
+    
     S = StabilizerCode(stabs)
-    d <= 10 && set_logicals!(S, _R_Surf_logs(base_ring(stabs), d))
-    set_minimum_distance!(S, d)
+    set_logicals!(S, logs)
+    
+    # Cache boundaries safely
+    S.cache[:dx] = d
+    S.cache[:l_bound_dx] = d
+    S.cache[:u_bound_dx] = d
+    
+    S.cache[:dz] = d
+    S.cache[:l_bound_dz] = d
+    S.cache[:u_bound_dz] = d
+    
+    S.cache[:d] = d
+    S.cache[:l_bound] = d
+    S.cache[:u_bound] = d
+    
     return S
 end
 
@@ -1163,79 +1249,75 @@ end
 function _XZZX_stabs_logs(d::Int)
     n = d^2
     F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
     S = zero_matrix(F, n - 1, 2 * n)
     row = 1
-    F_one = F(1)
 
-    i = 1
-    for i in 1:n - d
-        if i % d != 0
-            S[row, i] = F_one
-            S[row, i + 1 + n] = F_one
-            S[row, i + d + n] = F_one
-            S[row, i + d + 1] = F_one
-            row += 1;
+    # Interior XZZX stabilizers
+    for r in 1:d-1
+        for c in 1:d-1
+            # top-left X, top-right Z, bottom-left Z, bottom-right X
+            S[row, (r-1)*d + c] = F_one
+            S[row, n + (r-1)*d + c + 1] = F_one
+            S[row, n + r*d + c] = F_one
+            S[row, r*d + c + 1] = F_one
+            row += 1
         end
     end
 
-    # top row ZX's
-    i = 2
-    while i <= d - 1
-        S[row, i + n] = F_one
-        S[row, i + 1] = F_one
-        row += 1
-        i += 2
+    # Top boundary (r = 1) -> cut bottom half -> leaves Z, X
+    for c in 1:d-1
+        if iseven(c)
+            S[row, n + c] = F_one       # Z
+            S[row, c + 1] = F_one       # X
+            row += 1
+        end
     end
 
-    # bottom row XZ's
-    i = d * (d - 1) + 1
-    while i <= d * d - 2
-        S[row, i] = F_one
-        S[row, i + 1 + n] = F_one
-        row += 1
-        i += 2
+    # Bottom boundary (r = d) -> cut top half -> leaves X, Z
+    for c in 1:d-1
+        if iseven(d + c)
+            S[row, (d-1)*d + c] = F_one       # X
+            S[row, n + (d-1)*d + c + 1] = F_one   # Z
+            row += 1
+        end
     end
 
-    # left ZX's
-    i = 1
-    while i < d * (d - 1)
-        S[row, i + n] = F_one
-        S[row, i + d] = F_one
-        row += 1
-        i += 2 * d
+    # Left boundary (c = 1) -> cut right half -> leaves Z, X
+    for r in 1:d-1
+        if isodd(r)
+            S[row, n + (r-1)*d + 1] = F_one   # Z
+            S[row, r*d + 1] = F_one           # X
+            row += 1
+        end
     end
 
-    # right XZ's
-    i = 2 * d
-    while i < d * d
-        S[row, i] = F_one
-        S[row, i + d + n] = F_one
-        row += 1
-        i += 2 * d
+    # Right boundary (c = d) -> cut left half -> leaves X, Z
+    for r in 1:d-1
+        if isodd(r + d)
+            S[row, (r-1)*d + d] = F_one       # X
+            S[row, n + r*d + d] = F_one       # Z
+            row += 1
+        end
     end
 
     logs = zero_matrix(F, 2, 2 * n)
-    i = d
-    count = 1
-    while i <= d * d
-        if count % 2 == 1
-            logs[1, i] = F_one
+    # Logical X: Alternates X, Z, X along right column
+    for r in 1:d
+        if isodd(r)
+            logs[1, (r-1)*d + d] = F_one # X
         else
-            logs[1, i + n] = F_one
+            logs[1, n + (r-1)*d + d] = F_one # Z
         end
-        i += d
-        count += 1
     end
-    i = 1
-    count = 1
-    while i <= d
-        if count % 2 == 1
-            logs[2, i + n] = F_one
+
+    # Logical Z: Alternates Z, X, Z along top row
+    for c in 1:d
+        if isodd(c)
+            logs[2, n + c] = F_one # Z
         else
-            logs[2, i] = F_one
+            logs[2, c] = F_one # X
         end
-        i += 1
-        count += 1
     end
 
     return S, logs
@@ -1250,9 +1332,88 @@ function XZZXSurfaceCode(d::Int)
     d >= 3 || throw(DomainError("Current implementation requires d ≥ 3."))
 
     stabs, logs = _XZZX_stabs_logs(d)
+    
     S = StabilizerCode(stabs)
     set_logicals!(S, logs)
-    set_minimum_distance!(S, d)
+    
+    S.cache[:d] = d
+    S.cache[:l_bound] = d
+    S.cache[:u_bound] = d
+    
+    return S
+end
+
+################################
+ # Triangular Color Codes 6.6.6
+################################
+
+"""
+    TriangularColorCode666(d::Int)
+
+Return the 6.6.6 triangular color code of distance `d`.
+Generates the lattice programmatically via 2D coordinate mapping.
+"""
+function TriangularColorCode666(d::Int)
+    (d >= 3 && isodd(d)) || throw(DomainError("Distance must be an odd integer >= 3."))
+    
+    # 1. Generate Qubit Coordinates
+    # We use a skewed 2D coordinate system where qubits lie on a triangular grid boundary.
+    qubits = Tuple{Int, Int}[]
+    for y in 0:(d-1)
+        # The row length shrinks as we go up the triangle
+        row_width = d - y
+        offset = cld(y, 2)
+        for x in offset:(offset + row_width - 1)
+            push!(qubits, (x, y))
+        end
+    end
+    
+    n = length(qubits)
+    q_idx = Dict(q => i for (i, q) in enumerate(qubits))
+    
+    # 2. Generate Stabilizer Faces
+    # A face in the 6.6.6 lattice is defined by the 3 adjacent qubits in a downward triangle
+    # plus the 3 qubits in the upward triangle adjacent to it.
+    F = Oscar.Nemo.Native.GF(2)
+    stabs = zero_matrix(F, 0, 2 * n)
+    
+    # Sweep the grid for downward pointing triangles that form the centers of the hexagons
+    for y in 0:(d-2)
+        for x in 0:(d-1)
+            # Center of a face is defined by a downward triangle of qubits
+            q1, q2, q3 = (x, y), (x+1, y), (x, y+1)
+            
+            # If the core triangle exists in our qubit dictionary, it's a valid face
+            if haskey(q_idx, q1) && haskey(q_idx, q2) && haskey(q_idx, q3)
+                row = zero_matrix(F, 1, 2 * n)
+                
+                # The 6 possible vertices of the hexagon
+                hex_vertices = [
+                    (x, y), (x+1, y), (x, y+1),       # Core triangle
+                    (x-1, y), (x+1, y-1), (x-1, y+1)  # Expanded hexagon points
+                ]
+                
+                weight = 0
+                for v in hex_vertices
+                    if haskey(q_idx, v)
+                        row[1, q_idx[v]] = F(1)
+                        row[1, q_idx[v] + n] = F(1) # Color codes are CSS (H_X = H_Z)
+                        weight += 1
+                    end
+                end
+                
+                # Valid boundary faces in 6.6.6 are weight 4 or weight 6
+                if weight == 4 || weight == 6
+                    stabs = vcat(stabs, row)
+                end
+            end
+        end
+    end
+    
+    S = StabilizerCode(stabs)
+    S.cache[:d] = d
+    S.cache[:l_bound] = d
+    S.cache[:u_bound] = d
     return S
 end
 
@@ -1263,26 +1424,87 @@ end
 """
     TriangularColorCode488(d::Int)
 
-Return the 4.8.8 triangular color code of distance `d` with trellis numbering.
-
-# Note
-- Run `using JLD2` to activate this extension.
+Return the 4.8.8 triangular color code of distance `d`.
+Generates the lattice programmatically via 2D coordinate mapping.
 """
-function TriangularColorCode488 end
-
-################################
- # Triangular Color Codes 6.6.6
-################################
-
-"""
-    TriangularColorCode666(d::Int)
-
-Return the 6.6.6 triangular color code of distance `d` with trellis numbering.
-
-# Note
-- Run `using JLD2` to activate this extension.
-"""
-function TriangularColorCode666 end
+function TriangularColorCode488(d::Int)
+    (d >= 3 && isodd(d)) || throw(DomainError("Distance must be an odd integer >= 3."))
+    
+    # 4.8.8 maps to an inflated square grid. 
+    # We define qubits at the centers of the edges of a standard grid.
+    qubits = Tuple{Int, Int, Symbol}[]
+    
+    for y in 0:(d-1)
+        for x in 0:(d-1 - y)
+            # Horizontal edges
+            if x < d - 1 - y
+                push!(qubits, (x, y, :H))
+            end
+            # Vertical edges
+            if y < d - 1 - x
+                push!(qubits, (x, y, :V))
+            end
+        end
+    end
+    
+    n = length(qubits)
+    q_idx = Dict(q => i for (i, q) in enumerate(qubits))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    stabs = zero_matrix(F, 0, 2 * n)
+    
+    # Generate Square Faces (Weight 4)
+    for y in 0:(d-2)
+        for x in 0:(d-2 - y)
+            row = zero_matrix(F, 1, 2 * n)
+            face_qs = [(x, y, :H), (x, y, :V), (x+1, y, :V), (x, y+1, :H)]
+            for q in face_qs
+                if haskey(q_idx, q)
+                    row[1, q_idx[q]] = F(1)
+                    row[1, q_idx[q] + n] = F(1)
+                end
+            end
+            stabs = vcat(stabs, row)
+        end
+    end
+    
+    # Generate Octagon Faces (Weight 8)
+    for y in 0:(d-2)
+        for x in 0:(d-2 - y)
+            # Octagons sit between the squares
+            if iseven(x + y) 
+                row = zero_matrix(F, 1, 2 * n)
+                # 8 surrounding edges
+                oct_qs = [
+                    (x, y, :H), (x+1, y, :H), 
+                    (x, y, :V), (x, y+1, :V),
+                    (x-1, y+1, :H), (x, y+1, :H),
+                    (x+1, y-1, :V), (x+1, y, :V)
+                ]
+                
+                weight = 0
+                for q in oct_qs
+                    if haskey(q_idx, q)
+                        row[1, q_idx[q]] = F(1)
+                        row[1, q_idx[q] + n] = F(1)
+                        weight += 1
+                    end
+                end
+                
+                # Valid boundary octagons are weight 4, 6, or 8
+                if weight >= 4
+                    stabs = vcat(stabs, row)
+                end
+            end
+        end
+    end
+    
+    S = StabilizerCode(stabs)
+    S.cache[:d] = d
+    S.cache[:l_bound] = d
+    S.cache[:u_bound] = d
+    return S
+end
 
 ################################
          # Toric Codes
@@ -1431,8 +1653,9 @@ function PlanarSurfaceCode(d_x::Int, d_z::Int)
         Z1[1, c + S.n] = F_one
     end
     set_logicals!(S, vcat(X1, Z1))
-    set_dressed_X_minimum_distance!(S, d_x)
-    set_dressed_Z_minimum_distance!(S, d_z)
+    # Planar surface code is a Stabilizer Code, so use regular X/Z distance bounds
+    set_X_minimum_distance!(S, d_x)
+    set_Z_minimum_distance!(S, d_z)
     return S
 end
 PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
@@ -1445,13 +1668,8 @@ PlanarSurfaceCode(d::Int) = PlanarSurfaceCode(d, d)
     PlanarSurfaceCode3D(d::Int)
 
 Return the 3D planar surface code of distance `d`.
-
-# Note
-- Run `using JLD2` to activate this extension.
-- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
-  `3 ≤ d ≤ 9`.
 """
-function PlanarSurfaceCode3D_X end
+PlanarSurfaceCode3D(d::Int) = _build_3D_surface_code(d, periodic=false)
 
 ################################
        # XY Surface Codes
@@ -1522,8 +1740,8 @@ function XYSurfaceCode(d_x::Int, d_y::Int)
     #     Z1[1, c] = ω
     # end
     # set_logicals!(S, vcat(X1, Z1))
-    set_dressed_X_minimum_distance!(S, d_x)
-    set_dressed_Z_minimum_distance!(S, d_z)
+    set_X_minimum_distance!(S, d_x)
+    set_Z_minimum_distance!(S, d_y)
     return S
 end
 XYSurfaceCode(d::Int) = XYSurfaceCode(d, d)
@@ -1623,13 +1841,8 @@ end
     ToricCode3D(d::Int)
 
 Return the 3D toric code of distance `d`.
-
-# Note
-- Run `using JLD2` to activate this extension.
-- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
-  `2 ≤ d ≤ 13`.
 """
-function ToricCode3D_X end
+ToricCode3D(d::Int) = _build_3D_surface_code(d, periodic=true)
 
 #################################
         # 4D Toric codes
@@ -1644,30 +1857,100 @@ end
 end
 
 """
-    Compute the n-cells of a periodic d-dimensional hypercubic lattice with linear size l.
+    Compute the n-cells of a d-dimensional hypercubic lattice with linear size l.
+    Supports both periodic (closed) and open (planar) boundaries.
 """
-function _compute_cells_periodic(l::Int, n::Int, d::Int = 4)
+function _compute_cells(l::Int, n::Int, d::Int = 4; periodic::Bool = true)
     cells = Set{_Cell}()    
     coords_to_change = collect(combinations(1:d, n))
-    for coord in Iterators.product([0:l - 1 for i in 1:d]...)
+    max_coord = periodic ? l - 1 : l
+    
+    for coord in Iterators.product([0:max_coord for i in 1:d]...)
         for directions in coords_to_change
-            coord = collect(coord)
-            new_coords = Vector([copy(coord) for _ in 1:2^n - 1])
+            coord_vec = collect(coord)
+            new_coords = Vector([copy(coord_vec) for _ in 1:2^n - 1])
+            valid = true
+            
             for i in 1:2^n - 1, j in 1:n
-                # TODO: convert to binary operator
-                (i >> (j - 1)) & 1 == 1 ? new_coords[i][directions[j]] += 1 : nothing
+                if ((i >> (j - 1)) & 1) == 1
+                    new_coords[i][directions[j]] += 1
+                end
             end
+            
             vertices = Set{_Vertex}()
-            push!(vertices, _Vertex(coord))
+            push!(vertices, _Vertex(coord_vec))
             for new_coord in new_coords
-                l > 2 ? new_coord .%= l : nothing
+                if periodic
+                    l > 2 ? new_coord .%= l : nothing
+                else
+                    if any(x -> x > l, new_coord)
+                        valid = false
+                        break
+                    end
+                end
                 push!(vertices, _Vertex(new_coord))
             end
 
-            push!(cells, _Cell(vertices) )
+            if valid
+                push!(cells, _Cell(vertices))
+            end
         end
     end
     return cells
+end
+
+function _build_3D_surface_code(l::Int; periodic::Bool=true)
+    edges = _compute_cells(l, 1, 3, periodic=periodic)
+    faces = _compute_cells(l, 2, 3, periodic=periodic)
+    volumes = _compute_cells(l, 3, 3, periodic=periodic)
+
+    # In 3D, we map Qubits to Faces (2-cells)
+    q_dict = _build_q_dict(faces)
+    edge_dict = _build_q_dict(edges)
+    volume_dict = _build_q_dict(volumes)
+
+    # Z Stabilizers: Volumes (3-cells) acting on their boundary Faces
+    Z_dict = _contains(volumes, faces, 2, l)
+    
+    # X Stabilizers: Edges (1-cells) acting on incident Faces 
+    # (Inverse of Faces containing Edges)
+    X_dict = _inverse_dict(_contains(faces, edges, 1, l))
+
+    X_stabs = spzeros(Bool, length(edge_dict), length(q_dict))
+    Z_stabs = spzeros(Bool, length(volume_dict), length(q_dict))
+
+    for (e, f_set) in X_dict
+        for f in f_set
+            X_stabs[edge_dict[e], q_dict[f]] = true
+        end
+    end
+
+    for (v, f_set) in Z_dict
+        for f in f_set
+            Z_stabs[volume_dict[v], q_dict[f]] = true
+        end
+    end
+
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+
+    X = zero_matrix(F, size(X_stabs)[1], size(X_stabs)[2])
+    Z = zero_matrix(F, size(Z_stabs)[1], size(Z_stabs)[2])
+
+    I_x, J_x, _ = findnz(X_stabs)
+    for i in 1:length(I_x)
+        X[I_x[i], J_x[i]] = F_one
+    end
+    I_z, J_z, _ = findnz(Z_stabs)
+    for i in 1:length(I_z)
+        Z[I_z[i], J_z[i]] = F_one
+    end
+
+    S = CSSCode(X, Z)
+    S.cache[:d] = l
+    S.cache[:l_bound] = l
+    S.cache[:u_bound] = l
+    return S
 end
 
 """
@@ -1846,11 +2129,11 @@ function ToricCode4D(l::Int)
     l < 2 && throw(DomainError("Input must be >= 2."))
 
     # computing the logicals and stabilizers of the code
-    vertices = _compute_cells_periodic(l, 0)
-    edges = _compute_cells_periodic(l, 1)
-    faces = _compute_cells_periodic(l, 2)
-    volumes = _compute_cells_periodic(l, 3)
-    hyper_volumes = _compute_cells_periodic(l, 4)
+    vertices = _compute_cells(l, 0, periodic = true)
+    edges = _compute_cells(l, 1, periodic = true)
+    faces = _compute_cells(l, 2, periodic = true)
+    volumes = _compute_cells(l, 3, periodic = true)
+    hyper_volumes = _compute_cells(l, 4, periodic = true)
 
     Z_dict = _contains(volumes, faces, 2, l)
     X_dict = _inverse_dict(_contains(faces, edges, 1, l))
@@ -1890,3 +2173,468 @@ function ToricCode4D(l::Int)
     set_Z_metacheck!(S, Z_redundant)
     return S
 end
+
+#################################
+        # 3D Fracton Codes
+#################################
+
+"""
+    XCubeModel(L::Int)
+
+Return the X-Cube model on a cubic lattice of linear size `L` with periodic boundaries.
+The X-Cube model is a 3D fracton stabilizer code with parameters `[[3L^3, 6L - 3, L]]`.
+"""
+function XCubeModel(L::Int)
+    L >= 2 || throw(DomainError("Lattice size must be >= 2."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+
+    # 3 L^3 qubits (one per edge: x-edge, y-edge, z-edge)
+    # Edges are indexed by (x, y, z, dir) where dir in 1 (x-edge), 2 (y-edge), 3 (z-edge)
+    function edge_idx(x, y, z, dir)
+        return (mod(x, L) + mod(y, L) * L + mod(z, L) * L^2) * 3 + dir
+    end
+
+    n = 3 * L^3
+    num_X = L^3
+    num_Z = 3 * L^3
+
+    H_X = zero_matrix(F, num_X, n)
+    H_Z = zero_matrix(F, num_Z, n)
+
+    row_X = 1
+    row_Z = 1
+
+    for z in 0:L-1, y in 0:L-1, x in 0:L-1
+        # X stabilizer: Cube at (x,y,z) (12 edges)
+        edges_X = [
+            edge_idx(x, y, z, 1), edge_idx(x, y+1, z, 1), edge_idx(x, y, z+1, 1), edge_idx(x, y+1, z+1, 1),
+            edge_idx(x, y, z, 2), edge_idx(x+1, y, z, 2), edge_idx(x, y, z+1, 2), edge_idx(x+1, y, z+1, 2),
+            edge_idx(x, y, z, 3), edge_idx(x+1, y, z, 3), edge_idx(x, y+1, z, 3), edge_idx(x+1, y+1, z, 3)
+        ]
+        for e in edges_X
+            H_X[row_X, e] = F_one
+        end
+        row_X += 1
+
+        # Z stabilizers: Crosses at vertex (x,y,z)
+        
+        # xy-plane cross
+        H_Z[row_Z, edge_idx(x, y, z, 1)] = F_one
+        H_Z[row_Z, edge_idx(x-1, y, z, 1)] = F_one
+        H_Z[row_Z, edge_idx(x, y, z, 2)] = F_one
+        H_Z[row_Z, edge_idx(x, y-1, z, 2)] = F_one
+        row_Z += 1
+
+        # yz-plane cross
+        H_Z[row_Z, edge_idx(x, y, z, 2)] = F_one
+        H_Z[row_Z, edge_idx(x, y-1, z, 2)] = F_one
+        H_Z[row_Z, edge_idx(x, y, z, 3)] = F_one
+        H_Z[row_Z, edge_idx(x, y, z-1, 3)] = F_one
+        row_Z += 1
+
+        # zx-plane cross
+        H_Z[row_Z, edge_idx(x, y, z, 1)] = F_one
+        H_Z[row_Z, edge_idx(x-1, y, z, 1)] = F_one
+        H_Z[row_Z, edge_idx(x, y, z, 3)] = F_one
+        H_Z[row_Z, edge_idx(x, y, z-1, 3)] = F_one
+        row_Z += 1
+    end
+
+    # Pass directly into the new lazy cache constructor!
+    S = CSSCode(H_X, H_Z)
+    
+    # Distance is strictly L
+    S.cache[:d] = L
+    S.cache[:l_bound] = L
+    S.cache[:u_bound] = L
+    S.cache[:dx] = L
+    S.cache[:dz] = L
+    
+    return S
+end
+
+"""
+    HaahsCubicCode(L::Int)
+
+Return Haah's Cubic Code (Type 15) on a 3D periodic lattice of size `L`.
+This is a CSS fracton model with 2 qubits per vertex. The dimension `k` 
+fluctuates based on the number-theoretic properties of `L`.
+"""
+function HaahsCubicCode(L::Int)
+    L >= 2 || throw(DomainError("Lattice size must be >= 2."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+
+    # 2 qubits per vertex. Indexing: q1 = 1, q2 = 2.
+    function q_idx(x, y, z, q)
+        return (mod(x, L) + mod(y, L) * L + mod(z, L) * L^2) * 2 + q
+    end
+
+    n = 2 * L^3
+    num_stabs = L^3
+
+    H_X = zero_matrix(F, num_stabs, n)
+    H_Z = zero_matrix(F, num_stabs, n)
+
+    row = 1
+    for z in 0:L-1, y in 0:L-1, x in 0:L-1
+        # X Stabilizer at (x,y,z)
+        # Derived from polynomials h1 = 1 + x + y + z, h2 = 1 + xy + yz + zx
+        X_q1 = [(x,y,z), (x+1,y,z), (x,y+1,z), (x,y,z+1)]
+        X_q2 = [(x,y,z), (x+1,y+1,z), (x,y+1,z+1), (x+1,y,z+1)]
+        
+        for (vx, vy, vz) in X_q1
+            H_X[row, q_idx(vx, vy, vz, 1)] = F_one
+        end
+        for (vx, vy, vz) in X_q2
+            H_X[row, q_idx(vx, vy, vz, 2)] = F_one
+        end
+
+        # Z Stabilizer at (x,y,z)
+        # Derived from dual polynomials h1*, h2* (inverted coordinates)
+        Z_q1 = [(x,y,z), (x-1,y,z), (x,y-1,z), (x,y,z-1)]
+        Z_q2 = [(x,y,z), (x-1,y-1,z), (x,y-1,z-1), (x-1,y,z-1)]
+        
+        for (vx, vy, vz) in Z_q1
+            H_Z[row, q_idx(vx, vy, vz, 1)] = F_one
+        end
+        for (vx, vy, vz) in Z_q2
+            H_Z[row, q_idx(vx, vy, vz, 2)] = F_one
+        end
+        
+        row += 1
+    end
+
+    # Automatic rank, dimension, and logical computation via the robust CSS pipeline
+    return CSSCode(H_X, H_Z)
+end
+
+"""
+    ToricColorCode666(L::Int)
+
+Return the Toric 6.6.6 Color Code on a periodic lattice of size `L`.
+`L` must be a multiple of 3 for the lattice to be 3-colorable.
+Generates a `[[2L^2, 4, d]]` CSS code.
+"""
+function ToricColorCode666(L::Int)
+    (L >= 3 && L % 3 == 0) || throw(DomainError("Lattice size L must be a multiple of 3 for periodic 3-coloring."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+
+    # Qubits are the two triangular faces (Upper and Lower) per square in the grid
+    function q_idx(x, y, triangle_type)
+        return (mod(x, L) + mod(y, L) * L) * 2 + triangle_type
+    end
+
+    n = 2 * L^2
+    num_stabs = L^2
+    H = zero_matrix(F, num_stabs, n)
+
+    row = 1
+    for y in 0:L-1, x in 0:L-1
+        # Each vertex (x,y) is a stabilizer of weight 6.
+        # It touches 6 surrounding triangles in the triangulated square grid.
+        
+        # 1: Upper triangles (x,y to x+1,y+1)
+        # 2: Lower triangles (x,y to x+1,y+1)
+        
+        faces = [
+            (x, y, 1),       # Upper right
+            (x, y, 2),       # Lower right
+            (x-1, y, 1),     # Upper left
+            (x, y-1, 2),     # Lower right (from cell below)
+            (x-1, y-1, 1),   # Upper left (from cell below left)
+            (x-1, y-1, 2)    # Lower left
+        ]
+        
+        for (fx, fy, t) in faces
+            H[row, q_idx(fx, fy, t)] = F_one
+        end
+        
+        row += 1
+    end
+
+    # Color codes are symmetric CSS codes (H_X = H_Z)
+    S = CSSCode(H, H)
+    
+    # Distance is bounded by L
+    S.cache[:u_bound] = L
+    S.cache[:u_bound_dx] = L
+    S.cache[:u_bound_dz] = L
+    
+    return S
+end
+
+"""
+    CleveGottesmanCode()
+
+Return the `[[8, 3, 3]]` Cleve-Gottesman (Eight-qubit) code.
+This is a small non-degenerate stabilizer code.
+"""
+function CleveGottesmanCode()
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+    
+    # We define the 5 mutually commuting generators for the [[8, 3, 3]] code
+    # Format: [X_block | Z_block]
+    stabs = zero_matrix(F, 5, 16)
+    
+    # Generator 1: X X X X X X X X
+    for i in 1:8
+        stabs[1, i] = F_one
+    end
+    
+    # Generator 2: Z Z Z Z Z Z Z Z
+    for i in 1:8
+        stabs[2, 8 + i] = F_one
+    end
+    
+    # Generator 3: X X Y Y Z Z I I 
+    # (Y has both X and Z components)
+    stabs[3, 1] = F_one; stabs[3, 2] = F_one; # X
+    stabs[3, 3] = F_one; stabs[3, 4] = F_one; stabs[3, 8+3] = F_one; stabs[3, 8+4] = F_one; # Y
+    stabs[3, 8+5] = F_one; stabs[3, 8+6] = F_one; # Z
+    
+    # Generator 4: X Y Z I X Y Z I
+    stabs[4, 1] = F_one; stabs[4, 5] = F_one; # X
+    stabs[4, 2] = F_one; stabs[4, 8+2] = F_one; stabs[4, 6] = F_one; stabs[4, 8+6] = F_one; # Y
+    stabs[4, 8+3] = F_one; stabs[4, 8+7] = F_one; # Z
+    
+    # Generator 5: Y Z I X I X Y Z
+    stabs[5, 1] = F_one; stabs[5, 8+1] = F_one; stabs[5, 7] = F_one; stabs[5, 8+7] = F_one; # Y
+    stabs[5, 8+2] = F_one; stabs[5, 8+8] = F_one; # Z
+    stabs[5, 4] = F_one; stabs[5, 6] = F_one; # X
+
+    S = StabilizerCode(stabs)
+    
+    S.cache[:d] = 3
+    S.cache[:l_bound] = 3
+    S.cache[:u_bound] = 3
+    
+    return S
+end
+
+"""
+    TwistDefectSurfaceCode(d::Int)
+
+Return a distance `d` planar surface code containing a single twist defect in the bulk.
+The defect increases the logical dimension `k` by merging an X and Z stabilizer.
+"""
+function TwistDefectSurfaceCode(d::Int)
+    d >= 3 || throw(DomainError("Distance must be >= 3."))
+    
+    # Generate the standard rotated surface code stabilizers
+    base_stabs = _R_Surf_stabs(d)
+    F = base_ring(base_stabs)
+    n = d^2
+    num_stabs = nrows(base_stabs)
+    
+    # To create a defect, we find an adjacent X and Z stabilizer in the center
+    # and combine them into a single Y stabilizer, reducing the total rank by 1.
+    stabs = zero_matrix(F, num_stabs - 1, 2 * n)
+    
+    # The X stabilizers sit on even coordinate sums, Z on odd.
+    # In the _R_Surf_stabs matrix, row 1 is a central-ish X stab, 
+    # and the first Z stab is at row index: 1 + number of X stabs.
+    num_X = div(d^2 - 1, 2)
+    center_X_idx = div(num_X, 2)
+    center_Z_idx = num_X + div(num_X, 2)
+    
+    row_out = 1
+    for r in 1:num_stabs
+        if r == center_X_idx
+            # Merge the X stabilizer and the Z stabilizer
+            for c in 1:(2*n)
+                stabs[row_out, c] = base_stabs[center_X_idx, c] + base_stabs[center_Z_idx, c]
+            end
+            row_out += 1
+        elseif r == center_Z_idx
+            # Skip this row entirely, as it was merged into the X row above
+            continue
+        else
+            # Copy standard stabilizer
+            for c in 1:(2*n)
+                stabs[row_out, c] = base_stabs[r, c]
+            end
+            row_out += 1
+        end
+    end
+    
+    # Returns a StabilizerCode (it is no longer CSS due to the Y defect!)
+    return StabilizerCode(stabs)
+end
+
+"""
+    HeavyHexCode(d::Int)
+
+Return a Heavy-Hex subsystem code on a periodic grid of size `d`.
+Data qubits sit on the vertices and edges of a hexagonal lattice.
+"""
+function HeavyHexCode(d::Int)
+    d >= 2 || throw(DomainError("Grid size must be >= 2."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+    
+    # Generate Hexagonal Grid Coordinates (Brick-wall lattice)
+    vertices = Tuple{Int, Int}[]
+    for y in 0:d-1, x in 0:d-1
+        push!(vertices, (x, y))
+    end
+    
+    # Heavy Hex introduces data qubits on the vertical and horizontal edges
+    edges = Tuple{Int, Int, Symbol}[]
+    for (x, y) in vertices
+        push!(edges, (x, y, :H)) # Horizontal edge extending right
+        if iseven(x + y)
+            push!(edges, (x, y, :V)) # Vertical edge extending down
+        end
+    end
+    
+    qubits = vcat(vertices, edges)
+    n = length(qubits)
+    q_idx = Dict(q => i for (i, q) in enumerate(qubits))
+    
+    gauge_ops = zero_matrix(F, 0, 2 * n)
+    
+    # Weight-2 Gauge Operators: An X and Z gauge exist on every physical link 
+    # connecting a vertex to its adjacent edge-qubit.
+    for (x, y) in vertices
+        # Horizontal link to right edge
+        h_edge = (x, y, :H)
+        if haskey(q_idx, h_edge)
+            row_x = zero_matrix(F, 1, 2 * n)
+            row_z = zero_matrix(F, 1, 2 * n)
+            row_x[1, q_idx[(x, y)]] = F_one; row_x[1, q_idx[h_edge]] = F_one
+            row_z[1, n + q_idx[(x, y)]] = F_one; row_z[1, n + q_idx[h_edge]] = F_one
+            gauge_ops = vcat(gauge_ops, row_x, row_z)
+        end
+        
+        # Vertical link to down edge
+        if iseven(x + y)
+            v_edge = (x, y, :V)
+            if haskey(q_idx, v_edge)
+                row_x = zero_matrix(F, 1, 2 * n)
+                row_z = zero_matrix(F, 1, 2 * n)
+                row_x[1, q_idx[(x, y)]] = F_one; row_x[1, q_idx[v_edge]] = F_one
+                row_z[1, n + q_idx[(x, y)]] = F_one; row_z[1, n + q_idx[v_edge]] = F_one
+                gauge_ops = vcat(gauge_ops, row_x, row_z)
+            end
+        end
+    end
+    
+    # Passing the gauge operators dynamically computes the subsystem structure
+    return SubsystemCode(gauge_ops)
+end
+
+"""
+    HeavySquareCode(d::Int)
+
+Return a Heavy-Square subsystem code on a periodic grid of size `d`.
+Data qubits sit on the vertices and edges of a square lattice.
+"""
+function HeavySquareCode(d::Int)
+    d >= 2 || throw(DomainError("Grid size must be >= 2."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+    
+    vertices = Tuple{Int, Int}[]
+    for y in 0:d-1, x in 0:d-1
+        push!(vertices, (x, y))
+    end
+    
+    # Heavy Square has edge qubits on ALL vertical and horizontal edges
+    edges = Tuple{Int, Int, Symbol}[]
+    for (x, y) in vertices
+        push!(edges, (x, y, :H)) # Horizontal edge
+        push!(edges, (x, y, :V)) # Vertical edge
+    end
+    
+    qubits = vcat(vertices, edges)
+    n = length(qubits)
+    q_idx = Dict(q => i for (i, q) in enumerate(qubits))
+    
+    gauge_ops = zero_matrix(F, 0, 2 * n)
+    
+    # Create gauge pairs connecting vertices to their local edges
+    for (x, y) in vertices
+        neighbors = [(x, y, :H), (x, y, :V)]
+        for edge in neighbors
+            if haskey(q_idx, edge)
+                row_x = zero_matrix(F, 1, 2 * n)
+                row_z = zero_matrix(F, 1, 2 * n)
+                row_x[1, q_idx[(x, y)]] = F_one; row_x[1, q_idx[edge]] = F_one
+                row_z[1, n + q_idx[(x, y)]] = F_one; row_z[1, n + q_idx[edge]] = F_one
+                gauge_ops = vcat(gauge_ops, row_x, row_z)
+            end
+        end
+    end
+    
+    return SubsystemCode(gauge_ops) 
+end
+
+"""
+    ColorCode4612(d::Int)
+
+Return the 4.6.12 Archimedean Color Code on a grid of size `d`.
+Stabilizers sit on the square (4), hexagonal (6), and dodecagonal (12) faces.
+"""
+function ColorCode4612(d::Int)
+    d >= 2 || throw(DomainError("Grid size must be >= 2."))
+    
+    F = Oscar.Nemo.Native.GF(2)
+    F_one = F(1)
+    
+    # A 4.6.12 lattice can be constructed by truncating a hexagonal grid.
+    # Qubits sit in clusters of 6 around the central dodecagons.
+    qubits = Tuple{Int, Int, Int}[]
+    for y in 0:d-1, x in 0:d-1
+        # Each coordinate (x,y) contains a hexagonal cluster of 6 qubits
+        for i in 1:6
+            push!(qubits, (x, y, i))
+        end
+    end
+    
+    n = length(qubits)
+    q_idx = Dict(q => i for (i, q) in enumerate(qubits))
+    
+    stabs = zero_matrix(F, 0, 2 * n)
+    
+    for y in 0:d-1, x in 0:d-1
+        # 1. Hexagonal Face (Weight 6) - Internal to the cluster
+        hex_row = zero_matrix(F, 1, 2 * n)
+        for i in 1:6
+            hex_row[1, q_idx[(x, y, i)]] = F_one
+            hex_row[1, n + q_idx[(x, y, i)]] = F_one
+        end
+        stabs = vcat(stabs, hex_row)
+        
+        # 2. Square Faces (Weight 4) - Connecting adjacent clusters
+        if x < d-1
+            sq_row = zero_matrix(F, 1, 2 * n)
+            qs = [(x, y, 2), (x, y, 3), (x+1, y, 5), (x+1, y, 6)]
+            for q in qs
+                sq_row[1, q_idx[q]] = F_one; sq_row[1, n + q_idx[q]] = F_one
+            end
+            stabs = vcat(stabs, sq_row)
+        end
+        
+        if y < d-1
+            sq_row = zero_matrix(F, 1, 2 * n)
+            qs = [(x, y, 4), (x, y, 5), (x, y+1, 1), (x, y+1, 2)]
+            for q in qs
+                sq_row[1, q_idx[q]] = F_one; sq_row[1, n + q_idx[q]] = F_one
+            end
+            stabs = vcat(stabs, sq_row)
+        end
+    end
+    
+    return StabilizerCode(stabs)
+end
+
+

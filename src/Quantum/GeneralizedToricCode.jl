@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Eric Sabo
+# Copyright (c) 2025 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -8,239 +8,179 @@
         # constructors
 #############################
 
-function _BB_ansatz_check(f::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem}, MPolyQuoRingElem{fpMPolyRingElem}}
-
-    count_x = 0
-    count_y = 0
-    for e in exponents(f.f)
-        if e[1] != 0 && e[2] != 0
-            return false
-        end
-        if e[1] != 0
-            count_x += 1
-        end
-        if e[2] != 0
-            count_y += 1
-        end
-    end
-    if count_x > 1 && count_y > 1
-        return false
-    end
-    return true
-end
-
 """
-    BivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+    BivariateBicycleCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
 
-Return the bivariate bicycle code defined by the residue ring elements `a` and `b`.
+Return a lazy, twisted Bivariate Bicycle Code defined by the polynomials `a` and `b` and twist vectors `a1`, `a2`.
 """
-function BivariateBicycleCode(a::T, b::T) where T <: Union{MPolyQuoRingElem{FqMPolyRingElem},
-    MPolyQuoRingElem{fpMPolyRingElem}}
-
-    R = parent(a)
-    R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
-    F = base_ring(base_ring(a))
-    order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
-    length(symbols(parent(a))) == 2 || throw(DomainError("Polynomials must be over two variables."))
-    g = gens(modulus(R))
-    length(g) == 2 || throw(DomainError("Residue rings must have only two generators."))
-
-    m = -1
-    l = -1
-    for g1 in g
-        exps = collect(exponents(g1))
-        length(exps) == 2 || throw(ArgumentError("Moduli of the incorrect form."))
-        iszero(exps[2]) || throw(ArgumentError("Moduli of the incorrect form."))
-        !iszero(exps[1][1]) && !iszero(exps[1][2]) && throw(ArgumentError("Moduli of the incorrect form."))
-        if iszero(exps[1][1])
-            m = exps[1][2]
-        else
-            l = exps[1][1]
-        end
-    end
-
-    if !_BB_ansatz_check(a) || !_BB_ansatz_check(b)
-        throw(ArgumentError("Polynomials do not satisfy the bivariate bicycle code ansatz."))
-    end
-
-    # already has the modulus built into R
-    I = ideal(R, [a, b])
-    Q, _ = quo(R, I)
+function BivariateBicycleCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
+    LR = parent(a)
+    LR == parent(b) || throw(ArgumentError("The polynomials must be over the same ring."))
+    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
+    
+    F = base_ring(LR)
+    
+    # Algebraically compute n and k in O(1) time without building matrices
+    R2 = Oscar._polyringquo(LR)
+    R = codomain(R2)
+    (x, y) = gens(LR)
+    
+    I = ideal(LR, [a, b, x^a1[1] * y^a1[2] - 1, x^a2[1] * y^a2[2] - 1])
+    II = ideal(R, R2.(gens(I)))
+    Q, _ = quo(R, II)
+    
     k_dim = 2 * vector_space_dimension(Q)
-
-    return BivariateBicycleCode(R, F, 2 * l * m, k_dim, a, b, l, m)
+    n_dim = 2 * length(monomial_basis(Q))
+    
+    cache = Dict{Symbol, Any}()
+    
+    return BivariateBicycleCode(
+        LR, F, a, b, a1, a2, 
+        n_dim, k_dim, missing, 1, n_dim, 
+        cache
+    )
 end
 
 """
-    CoprimeBivariateBicycleCode(a::MPolyQuoRingElem{FqMPolyRingElem}, b::MPolyQuoRingElem{FqMPolyRingElem})
+    BivariateBicycleCode(a::CTLRPolyElem, b::CTLRPolyElem, l::Int, m::Int)
 
-Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
-
-# Note
-
-- This is defined in https://arxiv.org/pdf/2408.10001.
+Return a lazy, standard (untwisted) Bivariate Bicycle Code where `a1 = (l, 0)` and `a2 = (0, m)`.
 """
-function CoprimeBivariateBicycleCode(a::ResElem, b::ResElem)
-    R = parent(a)
-    S = base_ring(a)
-    R == parent(b) || throw(DomainError("Polynomials must have the same parent."))
-    F = base_ring(S)
-    order(F) == 2 || throw(DomainError("This code family is currently only defined over binary fields."))
-    length(gens(S)) == 1 || throw(DomainError("Polynomials must be over one variable."))
-    f = modulus(R)
-    deg_P = degree(f)
-    f == gen(S)^deg_P - 1 || throw(ArgumentError("Residue ring not of the form π^(l * m) - 1."))
-
-    # BUG this is not particularly true since l or m could be factored itself and yet still be coprime
-    facs = Nemo.factor(deg_P)
-    length(facs) == 2 || throw(ArgumentError("Residue ring not of the form π^(l * m) - 1."))
-    k = collect(keys(facs.fac))
-    v = collect(values(facs.fac))
-    l = k[1]^v[1]
-    m = k[2]^v[2]
-
-    k_dim = 2 * degree(gcd(a, b, f))
-    return CoprimeBivariateBicycleCode(R, F, 2 * l * m, k_dim, a, b, l, m)
+function BivariateBicycleCode(a::CTLRPolyElem, b::CTLRPolyElem, l::Int, m::Int)
+    return BivariateBicycleCode(a, b, (l, 0), (0, m))
 end
 
 """
-    GeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem)
+    GeneralizedToricCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
+    GeneralizedToricCode(a::CTLRPolyElem, b::CTLRPolyElem, l::Int, m::Int)
 
-Return the generalized toric code defined by the polynomials `f` and `g`.
+Return a lazy `BivariateBicycleCode`. The Generalized Toric Code family is modeled 
+as a strict subset of Bivariate Bicycle codes with defined twist vectors.
 """
-function GeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem)
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
-    # TODO check polynomial ansatz here
+function GeneralizedToricCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
+    return BivariateBicycleCode(a, b, a1, a2)
+end
 
-    R2 = Oscar._polyringquo(LR)
+function GeneralizedToricCode(a::CTLRPolyElem, b::CTLRPolyElem, l::Int, m::Int)
+    return BivariateBicycleCode(a, b, l, m)
+end
+
+function _evaluate_BB_matrices!(S::BivariateBicycleCode)
+    haskey(S.cache, :H_X) && return
+    
+    R2 = Oscar._polyringquo(S.LR)
     R = codomain(R2)
-    (x, y) = gens(LR)
-    I = ideal(LR, [f, g])
+    (x, y) = gens(S.LR)
+    
+    swap = hom(S.LR, S.LR, [x^-1, y^-1])
+    a_anti = swap(S.a)
+    b_anti = swap(S.b)
+    
+    a_R2 = R2(S.a)
+    b_R2 = R2(S.b)
+    a_anti_R2 = R2(a_anti)
+    b_anti_R2 = R2(b_anti)
+    
+    I = ideal(S.LR, [x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1])
     II = ideal(R, R2.(gens(I)))
-    Q, _ = quo(R, II)
-    n = 2 * length(monomial_basis(Q))
+    Q, ϕ = quo(R, II)
 
-    return GeneralizedToricCode(LR, base_ring(LR), n, f, g)
+    mono = monomial_basis(Q)
+    len_mon = length(mono)
+    n = S.n
+    
+    LR_edge_index = Dict(mono[i] => i for i in 1:len_mon)
+    TB_edge_index = Dict(mono[i] => i + len_mon for i in 1:len_mon)
+
+    Fone = S.F(1)
+    row = 1
+    
+    # Preallocate matrices
+    X_stabs = zero_matrix(S.F, len_mon, n)
+    Z_stabs = zero_matrix(S.F, len_mon, n)
+    
+    for edge in mono
+        a_shift = simplify(ϕ(edge * a_R2))
+        for term in terms(a_shift.f)
+            X_stabs[row, TB_edge_index[term]] = Fone
+        end
+        
+        b_shift = simplify(ϕ(edge * b_R2))
+        for term in terms(b_shift.f)
+            X_stabs[row, LR_edge_index[term]] = Fone
+        end
+
+        b_shift_anti = simplify(ϕ(edge * b_anti_R2))
+        for term in terms(b_shift_anti.f)
+            Z_stabs[row, TB_edge_index[term]] = Fone
+        end
+        
+        a_shift_anti = simplify(ϕ(edge * a_anti_R2))
+        for term in terms(a_shift_anti.f)
+            Z_stabs[row, LR_edge_index[term]] = Fone
+        end
+        row += 1
+    end
+    
+    S.cache[:H_X] = X_stabs
+    S.cache[:H_Z] = Z_stabs
 end
 
-"""
-    FiniteGeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
-
-Return the generalized toric code defined by the polynomials `f` and `g` and twist vectors `a1`, `a2`.
-"""
-function FiniteGeneralizedToricCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int},
-    a2::Tuple{Int, Int})
-
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
-    # TODO check polynomial ansatz here
-
-    R2 = Oscar._polyringquo(LR)
-    R = codomain(R2)
-    (x, y) = gens(LR)
-    I = ideal(LR, [f, g, x^a1[1] * y^a1[2] - 1, x^a2[1] * y^a2[2] - 1])
-    II = ideal(R, R2.(gens(I)))
-    Q, _ = quo(R, II)
-    k_dim = 2 * vector_space_dimension(Q)
-    n = 2 * length(monomial_basis(Q))
-
-    return FiniteGeneralizedToricCode(LR, base_ring(LR), n, k_dim, f, g, a1, a2)
+# Accessors remain unchanged but call the updated evaluator:
+function X_stabilizers(S::BivariateBicycleCode)
+    _evaluate_BB_matrices!(S)
+    return S.cache[:H_X]
 end
 
-"""
-    MonomialCode(f::CTLRPolyElem, g::CTLRPolyElem)
-
-Return the monomial code defined by the polynomials `f` and `g`.
-"""
-function MonomialCode(f::CTLRPolyElem, g::CTLRPolyElem)
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
-
-    R2 = Oscar._polyringquo(LR)
-    R = codomain(R2)
-    (x, y) = gens(LR)
-    I = ideal(LR, [f, g])
-    II = ideal(R, R2.(gens(I)))
-    Q, _ = quo(R, II)
-    n = 2 * length(monomial_basis(Q))
-
-    return MonomialCode(LR, base_ring(LR), n, f, g)
+function Z_stabilizers(S::BivariateBicycleCode)
+    _evaluate_BB_matrices!(S)
+    return S.cache[:H_Z]
 end
 
-"""
-    FiniteMonomialCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int})
-
-Return the monomial code defined by the polynomials `f` and `g` and twist vectors `a1`, `a2`.
-"""
-function FiniteMonomialCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int},
-    a2::Tuple{Int, Int})
-
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 2 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in two variables."))
-
-    R2 = Oscar._polyringquo(LR)
-    R = codomain(R2)
-    (x, y) = gens(LR)
-    I = ideal(LR, [f, g, x^a1[1] * y^a1[2] - 1, x^a2[1] * y^a2[2] - 1])
-    II = ideal(R, R2.(gens(I)))
-    Q, _ = quo(R, II)
-    k_dim = 2 * vector_space_dimension(Q)
-    n = 2 * length(monomial_basis(Q))
-
-    return FiniteMonomialCode(LR, base_ring(LR), n, k_dim, f, g, a1, a2)
+function stabilizers(S::BivariateBicycleCode)
+    haskey(S.cache, :stabilizers) && return S.cache[:stabilizers]
+    
+    H_X = X_stabilizers(S)
+    H_Z = Z_stabilizers(S)
+    F = S.F
+    
+    stabs = vcat(hcat(H_X, zero_matrix(F, size(H_X, 1), S.n)),
+                 hcat(zero_matrix(F, size(H_Z, 1), S.n), H_Z))
+                 
+    S.cache[:stabilizers] = stabs
+    return stabs
 end
 
 #############################
       # getter functions
 #############################
 
-polynomial_ring(S::AbstractBivariateBicycleCode) = S.R
+Laurent_polynomial_ring(S::BivariateBicycleCode) = S.LR
 
-Laurent_polynomial_ring(S::Union{AbstractMonomialCode, AbstractGeneralizedToricCode}) = S.LR
-
-field(S::AbstractMonomialCode) = S.F
+field(S::BivariateBicycleCode) = S.F
 
 """
-    defining_polynomials(S::AbstractMonomialCode) -> Tuple{CTLRPolyElem, CTLRPolyElem}
+    defining_polynomials(S::BivariateBicycleCode) -> Tuple{CTLRPolyElem, CTLRPolyElem}
 
 Return the polynomials defining the monomial code `S`.
 """
-defining_polynomials(S::AbstractMonomialCode) = S.f, S.g
+defining_polynomials(S::BivariateBicycleCode) = S.a, S.b
 
 """
-    twist_vectors(S::AbstractMonomialCode) -> Tuple{Tuple{Int, Int}, Tuple{Int, Int}}
+    twist_vectors(S::BivariateBicycleCode) -> Tuple{Tuple{Int, Int}, Tuple{Int, Int}}
 
 Return the twist vectors of the monomial code `S` if they are defined.
 """
-function twist_vectors(S::AbstractMonomialCode)
-    if hasproperty(S, :a1) && hasproperty(S, :a2)
-        return S.a1, S.a2
-    elseif hasproperty(S, :l) && hasproperty(S, :m)
-        return (S.l, 0), (0, S.m)
-    else
-        throw(ArgumentError("The twist vectors are not defined for this code.."))
-    end
-end
+twist_vectors(S::BivariateBicycleCode) = S.a1, S.a2
 
-length(S::AbstractMonomialCode) = S.n
+length(S::BivariateBicycleCode) = S.n
 
 """
-    dimension(S::AbstractMonomialCode) -> Int
+    dimension(S::BivariateBicycleCode) -> Int
 
 Return the dimension of the monomial code `S` if it is defined.
 """
-function dimension(S::AbstractMonomialCode)
-    if hasproperty(S, :k)
-        return S.k
-    else
-        throw(ArgumentError("The dimension is not defined for this code. Use `maximum_dimension` instead."))
-    end
-end
+dimension(S::BivariateBicycleCode) = S.k
 
 
 #############################
@@ -252,156 +192,28 @@ end
 #############################
 
 """
-    maximum_dimension(S::Union{MonomialCode, GeneralizedToricCode}) -> Int
+    maximum_dimension(S::BivariateBicycleCode) -> Int
 
 Return the maximum dimension of the monomial code `S`.
 """
-function maximum_dimension(S::Union{MonomialCode, GeneralizedToricCode})
+function maximum_dimension(S::BivariateBicycleCode)
     R2 = Oscar._polyringquo(S.LR)
     R = codomain(R2)
     (x, y) = gens(S.LR)
-    I = ideal(S.LR, [S.f, S.g])
+    I = ideal(S.LR, [S.a, S.b])
     II = ideal(R, R2.(gens(I)))
     Q, ϕ = quo(R, II)
     return 2 * vector_space_dimension(Q)
 end
 
-"""
-    CSSCode(S::BivariateBicycleCode)
-
-Return the CSS code defined by the bivariate bicycle code `S`.
-"""
-function CSSCode(S::BivariateBicycleCode)
-    x = matrix(S.F, [mod1(i + 1, S.l) == j ? 1 : 0 for i in 1:S.l, j in 1:S.l]) ⊗ identity_matrix(S.F, S.m)
-    y = identity_matrix(S.F, S.l) ⊗ matrix(S.F, [mod1(i + 1, S.m) == j ? 1 : 0 for i in 1:S.m, j in 1:S.m])
-
-    A = zero_matrix(S.F, S.l * S.m, S.l * S.m)
-    for ex in exponents(lift(S.f))
-        # iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `a` must not have any `xy` terms"))
-        power, which = findmax(ex)
-        if which == 1
-            A += x^power
-        elseif which == 2
-            A += y^power
-        end
-    end
-
-    B = zero_matrix(S.F, S.l * S.m, S.l * S.m)
-    for ex in exponents(lift(S.g))
-        # iszero(ex[1]) || iszero(ex[2]) || throw(ArgumentError("Polynomial `b` must not have any `xy` terms"))
-        power, which = findmax(ex)
-        if which == 1
-            B += x^power
-        elseif which == 2
-            B += y^power
-        end
-    end
-
-
-    return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
-end
-
-"""
-    CSSCode(S::CoprimeBivariateBicycleCode)
-
-Return the coprime bivariate bicycle code defined by the residue ring elements `a` and `b`.
-
-# Note
-
-- This is defined in https://arxiv.org/pdf/2408.10001.
-"""
-function CSSCode(S::CoprimeBivariateBicycleCode)
-    deg_P = degree(modulus(S.R))
-    x = matrix(S.F, [mod1(i + 1, S.l) == j ? 1 : 0 for i in 1:S.l, j in 1:S.l]) ⊗ identity_matrix(S.F, S.m)
-    y = identity_matrix(S.F, S.l) ⊗ matrix(S.F, [mod1(i + 1, S.m) == j ? 1 : 0 for i in 1:S.m, j in 1:S.m])
-
-    P = x * y
-    A = zero_matrix(S.F, deg_P, deg_P)
-    exps = findall(i -> !is_zero(i), collect(coefficients(lift(S.a)))) .- 1
-    for ex in exps
-        A += P^ex
-    end
-
-    B = zero_matrix(S.F, deg_P, deg_P)
-    exps = findall(i -> !is_zero(i), collect(coefficients(lift(S.b)))) .- 1
-    for ex in exps
-        B += P^ex
-    end
-
-    return CSSCode(hcat(A, B), hcat(transpose(B), transpose(A)))
-end
-
-"""
-    CSSCode(S::FiniteGeneralizedToricCode)
-
-Return the CSS code defined by the finite generalized toric code `S`.
-"""
-function CSSCode(S::FiniteGeneralizedToricCode)
-    R2 = Oscar._polyringquo(S.LR)
-    R = codomain(R2)
-    (x, y) = gens(S.LR)
-    swap = hom(S.LR, S.LR, [x^-1, y^-1])
-    f_anti = swap(S.f)
-    g_anti = swap(S.g)
-    f_R2 = R2(S.f)
-    g_R2 = R2(S.g)
-    f_anti_R2 = R2(f_anti)
-    g_anti_R2 = R2(g_anti)
-    I = ideal(S.LR, [x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1])
-    II = ideal(R, R2.(gens(I)))
-    Q, ϕ = quo(R, II)
-
-    mono = monomial_basis(Q)
-    len_mon = length(mono)
-    n = 2 * len_mon
-    LR_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i for i in 1:len_mon)
-    TB_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i + len_mon for i in 1:len_mon)
-
-    Fone = S.F(1)
-    row = 1
-    X_stabs = zero_matrix(S.F, len_mon, n)
-    Z_stabs = zero_matrix(S.F, len_mon, n)
-    for edge in mono
-        f_shift = simplify(ϕ(edge * f_R2))
-        for term in terms(f_shift.f)
-            # X_12
-            X_stabs[row, TB_edge_index[term]] = Fone
-        end
-        g_shift = simplify(ϕ(edge * g_R2))
-        for term in terms(g_shift.f)
-            # X_14
-            X_stabs[row, LR_edge_index[term]] = Fone
-        end
-
-        g_shift = simplify(ϕ(edge * g_anti_R2))
-        for term in terms(g_shift.f)
-            # Z_12
-            Z_stabs[row, TB_edge_index[term]] = Fone
-        end
-        f_shift = simplify(ϕ(edge * f_anti_R2))
-        for term in terms(f_shift.f)
-            # Z_14
-            Z_stabs[row, LR_edge_index[term]] = Fone
-        end
-        row += 1
-    end
-
-    return CSSCode(X_stabs, Z_stabs)
-end
-
-# TODO add show methods for other codes
-function show(io::IO, S::AbstractGeneralizedToricCode)
-    if isa(S, FiniteGeneralizedToricCode)
-        println(io, "Finite Generalized Toric Code:")
-        println(io, "\tf: $(S.f)")
-        println(io, "\tg: $(S.g)")
-        println(io, "\ta1: $(S.a1)")
-        println(io, "\ta2: $(S.a2)")
-    else
-        println(io, "Generalized Toric Code:")
-        println(io, "\tf: $(S.f)")
-        println(io, "\tg: $(S.g)")
-    end
+function show(io::IO, S::BivariateBicycleCode)
+    println(io, "Bivariate Bicycle Code:")
+    println(io, "\tl: $(S.l)")
+    println(io, "\tm: $(S.m)")
+    println(io, "\ta: $(S.a)")
+    println(io, "\tb: $(S.b)")
+    println(io, "\ta1: $(S.a1)")
+    println(io, "\ta2: $(S.a2)")
 end
 
 """
@@ -409,11 +221,20 @@ end
 
 Return `true` if the logicals of the monomial code `S` are pure.
 """
-function is_pure(S::AbstractMonomialCode)
-    # TODO return true if l and m are odd?
-    I_f = ideal(S.R, [S.f])
-    I_g = ideal(S.R, [S.g])
-    return I_f ∩ I_g == I_f * I_g
+function is_pure(S::BivariateBicycleCode)
+    R2 = Oscar._polyringquo(S.LR)
+    R = codomain(R2)
+    (x, y) = gens(S.LR)
+    
+    # Quotient out the twists to get the proper base ring R
+    I_twist = ideal(S.LR, [x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1])
+    II_twist = ideal(R, R2.(gens(I_twist)))
+    Q, ϕ = quo(R, II_twist)
+    
+    I_a = ideal(Q, [ϕ(R2(S.a))])
+    I_b = ideal(Q, [ϕ(R2(S.b))])
+    
+    return I_a ∩ I_b == I_a * I_b
 end
 
 # """
@@ -434,22 +255,130 @@ end
          # 3D Trial
 #############################
 
-# this one is really the same as above
-function Generalized3DToricCode(f::CTLRPolyElem, g::CTLRPolyElem)
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
+"""
+    Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int}, l_z::Int)
+
+Return a lazy, twisted 3D Generalized Toric Code defined by the polynomials `a` and `b`.
+"""
+function Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem, a1::Tuple{Int, Int}, a2::Tuple{Int, Int}, l_z::Int)
+    l_z > 0 || throw(DomainError(l_z, "Parameter l_z must be positive"))
+    LR = parent(a)
+    LR == parent(b) || throw(ArgumentError("The polynomials must be over the same ring."))
     length(symbols(LR)) == 3 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in three variables."))
-    return Generalized3DToricCode(LR, base_ring(LR), f, g)
+    
+    F = base_ring(LR)
+    
+    R2 = Oscar._polyringquo(LR)
+    R = codomain(R2)
+    (x, y, z) = gens(LR)
+    
+    I = ideal(LR, [a, b, x^a1[1] * y^a1[2] - 1, x^a2[1] * y^a2[2] - 1, z^l_z - 1])
+    II = ideal(R, R2.(gens(I)))
+    Q, _ = quo(R, II)
+    
+    k_dim = 2 * vector_space_dimension(Q)
+    n_dim = 2 * length(monomial_basis(Q))
+    
+    cache = Dict{Symbol, Any}()
+    
+    return Generalized3DToricCode(
+        LR, F, a, b, a1, a2, l_z,
+        n_dim, k_dim, missing, 1, n_dim, 
+        cache
+    )
 end
 
-function FiniteGeneralized3DToricCode(f::CTLRPolyElem, g::CTLRPolyElem, a1::Tuple{Int, Int},
-    a2::Tuple{Int, Int}, l::Int)
+"""
+    Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem, l_x::Int, l_y::Int, l_z::Int)
 
-    l > 0 || throw(DomainError(l, "Parameter l must be positive"))
-    LR = parent(f)
-    LR == parent(g) || throw(ArgumentError("The polynomials must be over the same ring."))
-    length(symbols(LR)) == 3 || throw(ArgumentError("The polynomials must be over a Laurent polynomial ring in three variables."))
-    return FiniteGeneralized3DToricCode(LR, base_ring(LR), f, g, a1, a2, l)
+Return a lazy, standard (untwisted) 3D Generalized Toric Code.
+"""
+function Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem, l_x::Int, l_y::Int, l_z::Int)
+    return Generalized3DToricCode(a, b, (l_x, 0), (0, l_y), l_z)
+end
+
+function _evaluate_3D_matrices!(S::Generalized3DToricCode)
+    haskey(S.cache, :H_X) && return
+    
+    R2 = Oscar._polyringquo(S.LR)
+    R = codomain(R2)
+    (x, y, z) = gens(S.LR)
+    
+    swap = hom(S.LR, S.LR, [x^-1, y^-1, z^-1])
+    a_anti = swap(S.a)
+    b_anti = swap(S.b)
+    
+    a_R2 = R2(S.a)
+    b_R2 = R2(S.b)
+    a_anti_R2 = R2(a_anti)
+    b_anti_R2 = R2(b_anti)
+    
+    I = ideal(S.LR, [x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1, z^S.l_z - 1])
+    II = ideal(R, R2.(gens(I)))
+    Q, ϕ = quo(R, II)
+
+    mono = monomial_basis(Q)
+    len_mon = length(mono)
+    n = S.n
+    
+    LR_edge_index = Dict(mono[i] => i for i in 1:len_mon)
+    TB_edge_index = Dict(mono[i] => i + len_mon for i in 1:len_mon)
+
+    Fone = S.F(1)
+    row = 1
+    
+    X_stabs = zero_matrix(S.F, len_mon, n)
+    Z_stabs = zero_matrix(S.F, len_mon, n)
+    
+    for edge in mono
+        a_shift = simplify(ϕ(edge * a_R2))
+        for term in terms(a_shift.f)
+            X_stabs[row, TB_edge_index[term]] = Fone
+        end
+        
+        b_shift = simplify(ϕ(edge * b_R2))
+        for term in terms(b_shift.f)
+            X_stabs[row, LR_edge_index[term]] = Fone
+        end
+
+        b_shift_anti = simplify(ϕ(edge * b_anti_R2))
+        for term in terms(b_shift_anti.f)
+            Z_stabs[row, TB_edge_index[term]] = Fone
+        end
+        
+        a_shift_anti = simplify(ϕ(edge * a_anti_R2))
+        for term in terms(a_shift_anti.f)
+            Z_stabs[row, LR_edge_index[term]] = Fone
+        end
+        row += 1
+    end
+    
+    S.cache[:H_X] = X_stabs
+    S.cache[:H_Z] = Z_stabs
+end
+
+function X_stabilizers(S::Generalized3DToricCode)
+    _evaluate_3D_matrices!(S)
+    return S.cache[:H_X]
+end
+
+function Z_stabilizers(S::Generalized3DToricCode)
+    _evaluate_3D_matrices!(S)
+    return S.cache[:H_Z]
+end
+
+function stabilizers(S::Generalized3DToricCode)
+    haskey(S.cache, :stabilizers) && return S.cache[:stabilizers]
+    
+    H_X = X_stabilizers(S)
+    H_Z = Z_stabilizers(S)
+    F = S.F
+    
+    stabs = vcat(hcat(H_X, zero_matrix(F, size(H_X, 1), S.n)),
+                 hcat(zero_matrix(F, size(H_Z, 1), S.n), H_Z))
+                 
+    S.cache[:stabilizers] = stabs
+    return stabs
 end
 
 function maximum_dimension(S::AbstractGeneralized3DToricCode)
@@ -457,64 +386,122 @@ function maximum_dimension(S::AbstractGeneralized3DToricCode)
     R = codomain(R2)
     (x, y, z) = gens(S.LR)
     if isa(S, FiniteGeneralized3DToricCode)
-        I = ideal(S.LR, [S.f, S.g, x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1, z^S.l - 1])
+        I = ideal(S.LR, [S.a, S.b, x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1, z^S.l_z - 1])
     else
-        I = ideal(S.LR, [S.f, S.g])
+        I = ideal(S.LR, [S.a, S.b])
     end
     II = ideal(R, R2.(gens(I)))
     Q, ϕ = quo(R, II)
     return 2 * vector_space_dimension(Q)
 end
 
-function CSSCode(S::FiniteGeneralized3DToricCode)
-    R2 = Oscar._polyringquo(S.LR)
-    R = codomain(R2)
-    (x, y, z) = gens(S.LR)
-    swap = hom(S.LR, S.LR, [x^-1, y^-1, z^-1])
-    f_anti = swap(S.f)
-    g_anti = swap(S.g)
-    f_R2 = R2(S.f)
-    g_R2 = R2(S.g)
-    f_anti_R2 = R2(f_anti)
-    g_anti_R2 = R2(g_anti)
-    I = ideal(S.LR, [x^S.a1[1] * y^S.a1[2] - 1, x^S.a2[1] * y^S.a2[2] - 1, z^S.l - 1])
-    II = ideal(R, R2.(gens(I)))
-    Q, ϕ = quo(R, II)
+"""
+    CoprimeBivariateBicycleCode(a::CTPolyElem, b::CTPolyElem, N::Int)
 
-    mono = monomial_basis(Q)
-    len_mon = length(mono)
-    n = 2 * len_mon
-    LR_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i for i in 1:len_mon)
-    TB_edge_index = Dict{fpMPolyRingElem, Int}(mono[i] => i + len_mon for i in 1:len_mon)
+Return a lazy Coprime Bivariate Bicycle Code (Generalized Bicycle Code) 
+constructed directly from univariate polynomials `a` and `b` modulo `z^N - 1`.
 
-    Fone = S.F(1)
-    row = 1
-    X_stabs = zero_matrix(S.F, len_mon, n)
-    Z_stabs = zero_matrix(S.F, len_mon, n)
-    for edge in mono
-        f_shift = simplify(ϕ(edge * f_R2))
-        for term in terms(f_shift.f)
-            # X_12
-            X_stabs[row, TB_edge_index[term]] = Fone
-        end
-        g_shift = simplify(ϕ(edge * g_R2))
-        for term in terms(g_shift.f)
-            # X_14
-            X_stabs[row, LR_edge_index[term]] = Fone
-        end
+When grid dimensions `l` and `m` are coprime, the bivariate group algebra is 
+isomorphic to the univariate group algebra over Z_N (where N = lm). This allows 
+the code to be constructed directly using a single shift parameter N, avoiding 
+computationally expensive 2D algebraic geometries.
+"""
+function CoprimeBivariateBicycleCode(a::CTPolyRingElem, b::CTPolyRingElem, N::Int)
+    R = parent(a)
+    R == parent(b) || throw(ArgumentError("The polynomials must be over the same ring."))
+    
+    F = base_ring(R)
+    
+    # Algebraically compute k in O(1) time
+    # The rank of circulant matrix [A | B] is N - deg(gcd(a, b, z^N - 1))
+    # Therefore, k = 2N - 2 * rank = 2 * deg(gcd(a, b, z^N - 1))
+    z = gen(R)
+    mod_poly = z^N - 1
+    g = gcd(a, gcd(b, mod_poly))
+    
+    k_dim = 2 * degree(g)
+    n_dim = 2 * N
+    
+    cache = Dict{Symbol, Any}()
+    
+    return CoprimeBivariateBicycleCode(
+        R, F, a, b, N,
+        n_dim, k_dim, missing, 1, n_dim, 
+        cache
+    )
+end
 
-        g_shift = simplify(ϕ(edge * g_anti_R2))
-        for term in terms(g_shift.f)
-            # Z_12
-            Z_stabs[row, TB_edge_index[term]] = Fone
+function _evaluate_CoprimeBB_matrices!(S::CoprimeBivariateBicycleCode)
+    haskey(S.cache, :H_X) && return
+    
+    N = S.N
+    F = S.F
+    R = S.R
+    z = gen(R)
+    mod_poly = z^N - 1
+    
+    # Preallocate circulant matrices
+    A = zero_matrix(F, N, N)
+    B = zero_matrix(F, N, N)
+    
+    for i in 1:N
+        # Row i corresponds to shifting the polynomial by z^(i-1)
+        a_shift = (z^(i - 1) * S.a) % mod_poly
+        for d in 0:(N - 1)
+            A[i, d + 1] = coeff(a_shift, d)
         end
-        f_shift = simplify(ϕ(edge * f_anti_R2))
-        for term in terms(f_shift.f)
-            # Z_14
-            Z_stabs[row, LR_edge_index[term]] = Fone
+        
+        b_shift = (z^(i - 1) * S.b) % mod_poly
+        for d in 0:(N - 1)
+            B[i, d + 1] = coeff(b_shift, d)
         end
-        row += 1
     end
+    
+    # Standard Generalized Bicycle formulation:
+    # H_X = [A | B]
+    H_X = hcat(A, B)
+    
+    # H_Z = [B^T | A^T]
+    H_Z = hcat(transpose(B), transpose(A))
+    
+    S.cache[:H_X] = H_X
+    S.cache[:H_Z] = H_Z
+end
 
-    return CSSCode(X_stabs, Z_stabs)
+function X_stabilizers(S::CoprimeBivariateBicycleCode)
+    _evaluate_CoprimeBB_matrices!(S)
+    return S.cache[:H_X]
+end
+
+function Z_stabilizers(S::CoprimeBivariateBicycleCode)
+    _evaluate_CoprimeBB_matrices!(S)
+    return S.cache[:H_Z]
+end
+
+function stabilizers(S::CoprimeBivariateBicycleCode)
+    haskey(S.cache, :stabilizers) && return S.cache[:stabilizers]
+    
+    H_X = X_stabilizers(S)
+    H_Z = Z_stabilizers(S)
+    F = S.F
+    
+    stabs = vcat(hcat(H_X, zero_matrix(F, size(H_X, 1), S.n)),
+                 hcat(zero_matrix(F, size(H_Z, 1), S.n), H_Z))
+                 
+    S.cache[:stabilizers] = stabs
+    return stabs
+end
+
+polynomial_ring(S::CoprimeBivariateBicycleCode) = S.R
+field(S::CoprimeBivariateBicycleCode) = S.F
+defining_polynomials(S::CoprimeBivariateBicycleCode) = S.a, S.b
+Base.length(S::CoprimeBivariateBicycleCode) = S.n
+dimension(S::CoprimeBivariateBicycleCode) = S.k
+
+function Base.show(io::IO, S::CoprimeBivariateBicycleCode)
+    println(io, "Coprime Bivariate Bicycle Code (Generalized Bicycle Code):")
+    println(io, "\tN: $(S.N)")
+    println(io, "\ta: $(S.a)")
+    println(io, "\tb: $(S.b)")
+    println(io, "\t[n, k]: [$(S.n), $(S.k)]")
 end

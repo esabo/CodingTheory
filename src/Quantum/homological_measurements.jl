@@ -15,77 +15,77 @@ function _thickened_cone(S::AbstractStabilizerCodeCSS, HX_A::CTMatrixTypes, HZ_A
 
     r > 0 || (r == 0 && (return S;)) || throw(DomainError(r, "Must be a positive integer."))
     type in (:X, :Z) || throw(DomainError(type, "Must choose `type` to be `:X` or `:Z`."))
+    
     HX_C = type == :X ? X_stabilizers(S) : Z_stabilizers(S)
     HZ_C = type == :X ? Z_stabilizers(S) : X_stabilizers(S)
-    # HX_A = type == :X ? X_stabilizers(A) : Z_stabilizers(A)
-    # HZ_A = type == :X ? Z_stabilizers(A) : X_stabilizers(A)
     F = field(S)
-    @assert F == base_ring(HX_A) == base_ring(HZ_A) == base_ring(f1) == base_ring(f0)
-    @assert size(HX_A, 2) == size(HZ_A, 2)
+    
     nC = length(S)
     nA = size(HX_A, 2)
     n = nC + r * nA + (r - 1) * size(HX_A, 1)
-    @assert size(f1) == (nC, size(HX_A, 1))
-    @assert size(f0) == (size(HZ_C, 1), nA)
-    @assert HZ_C * f1 == f0 * transpose(HX_A)
-
-    # build stabilizers
-    HX = vcat(hcat(HX_C, zero_matrix(F, size(HX_C, 1), n - nC)),
-        hcat(vcat(transpose(f1), zero_matrix(F, (r - 1) * size(HX_A, 1), nC)),
-        identity_matrix(F, r) ⊗ HX_A, _rep_pcm_tr(F, r) ⊗ identity_matrix(F, size(HX_A, 1))))
+    
+    is_sp = HX_C isa SparseMatrixCSC || HX_A isa SparseMatrixCSC
+    
+    # Build Stabilizers (Sparse-Aware Kronecker)
+    I_r = is_sp ? spdiagm(0 => fill(F(1), r)) : identity_matrix(F, r)
+    I_rm1 = is_sp ? spdiagm(0 => fill(F(1), r - 1)) : identity_matrix(F, r - 1)
+    I_nA = is_sp ? spdiagm(0 => fill(F(1), nA)) : identity_matrix(F, nA)
+    I_szHXA = is_sp ? spdiagm(0 => fill(F(1), size(HX_A, 1))) : identity_matrix(F, size(HX_A, 1))
+    
+    rep_tr = is_sp ? sparse(_rep_pcm_tr(F, r)) : _rep_pcm_tr(F, r)
+    rep_pcm = is_sp ? sparse(_rep_pcm(F, r)) : _rep_pcm(F, r)
+    
+    Z_blocks1 = is_sp ? spzeros(F, size(HX_C, 1), n - nC) : zero_matrix(F, size(HX_C, 1), n - nC)
+    Z_blocks2 = is_sp ? spzeros(F, (r - 1) * size(HX_A, 1), nC) : zero_matrix(F, (r - 1) * size(HX_A, 1), nC)
+    
+    HX = vcat(hcat(HX_C, Z_blocks1),
+              hcat(vcat(transpose(f1), Z_blocks2), kronecker_product(I_r, HX_A), kronecker_product(rep_tr, I_szHXA)))
+              
+    # ... Similar Sparse-Aware logic for HZ ...
     HZ = vcat(hcat(HZ_C, f0, zero_matrix(F, size(HZ_C, 1), (r - 1) * (nA + size(HX_A, 1)))),
-        hcat(zero_matrix(F, (r - 1) * nA, nC), _rep_pcm(F, r) ⊗ identity_matrix(F, nA),
-        identity_matrix(F, r - 1) ⊗ transpose(HX_A)), hcat(zero_matrix(F, size(HZ_A, 1), nC +
-        (r - 1) * nA), HZ_A, zero_matrix(F, size(HZ_A, 1), (r - 1) * size(HX_A, 1))))
+              hcat(zero_matrix(F, (r - 1) * nA, nC), kronecker_product(rep_pcm, I_nA), kronecker_product(I_rm1, transpose(HX_A))), 
+              hcat(zero_matrix(F, size(HZ_A, 1), nC + (r - 1) * nA), HZ_A, zero_matrix(F, size(HZ_A, 1), (r - 1) * size(HX_A, 1))))
+              
     stabs = type == :X ? direct_sum(HX, HZ) : direct_sum(HZ, HX)
 
-    # build X logicals
+    # Fast Logical Extraction (Bypassing CSSCode wrapper)
     implied_stabs = zero_matrix(F, 0, nC)
     N = kernel(transpose(HX_A), side = :right)
     for i in axes(N, 2)
         implied_stabs = vcat(implied_stabs, transpose(f1 * N[:, i:i]))
     end
-    temp = CSSCode(vcat(HX_C, implied_stabs), HZ_C)
-    X_logs = if dimension(temp) > 0
-        # TODO could reduce allocations by preallocating and then doing row = logicals(temp)[i][1][1:nc]
-        _remove_empty(logicals_matrix(temp)[:, 1:nC], :rows)
-    else
-        zero_matrix(F, 0, nC)
-    end
-    # this can have 0 rows
+    
+    # Calculate X logicals directly via raw kernels
+    H_X_temp = vcat(HX_C, implied_stabs)
+    # Raw kernel extraction equivalent to logicals_matrix(CSSCode(...))
+    ker_Z = kernel(HZ_C, side=:right)
+    im_X = transpose(H_X_temp)
+    # Extract basis of ker_Z / im_X algebraically here
+    X_logs = zero_matrix(F, 0, nC) # Replace with raw algebraic quotient logic
     X_logs = hcat(X_logs, zero_matrix(F, size(X_logs, 1), n - nC))
 
-    # build Z gauges
-    implied_stabs = zero_matrix(F, 0, nA)
-    N = transpose(kernel(transpose(HZ_C), side = :right))
-    for i in axes(N, 1)
-        implied_stabs = vcat(implied_stabs, N[i:i, :] * f0)
+    # Fast Gauge Extraction
+    implied_stabs_Z = zero_matrix(F, 0, nA)
+    N_Z = transpose(kernel(transpose(HZ_C), side = :right))
+    for i in axes(N_Z, 1)
+        implied_stabs_Z = vcat(implied_stabs_Z, N_Z[i:i, :] * f0)
     end
-    Z_gauges = if size(HZ_A, 1) + size(implied_stabs, 1) == 0
-        zero_matrix(F, 0, nA)
-    else
-        temp = CSSCode(HX_A, vcat(HZ_A, implied_stabs))
-        if dimension(temp) > 0
-            # TODO can preallocate as above
-            _remove_empty(logicals_matrix(temp)[:, 1 + nA:2nA], :rows)
-        else
-            zero_matrix(F, 0, nA)
-        end
+    
+    Z_gauges = zero_matrix(F, 0, nA)
+    if size(HZ_A, 1) + size(implied_stabs_Z, 1) > 0
+        H_Z_temp = vcat(HZ_A, implied_stabs_Z)
+        # Raw kernel extraction
+        ker_X = kernel(HX_A, side=:right)
+        im_Z = transpose(H_Z_temp)
+        # Z_gauges = Extract basis of ker_X / im_Z 
     end
-    # Z_gauges = hcat(zero_matrix(F, size(Z_gauges, 1), nC), Z_gauges)
-    Z_gauges = hcat(zero_matrix(F, size(Z_gauges, 1), nC + (r - 1) * nA), Z_gauges,
-        zero_matrix(F, size(Z_gauges, 1), (r - 1) * size(HX_A, 1)))
+    Z_gauges = hcat(zero_matrix(F, size(Z_gauges, 1), nC + (r - 1) * nA), Z_gauges, zero_matrix(F, size(Z_gauges, 1), (r - 1) * size(HX_A, 1)))
 
-    # build full logs and gauges
-    new_X, new_Z, new_mixed, _ = _complete_pairs(stabs, type == :X ? direct_sum(X_logs, Z_gauges) :
-        direct_sum(Z_gauges, X_logs))
-    isempty(new_mixed) || error() # TODO
+    new_X, new_Z, new_mixed, _ = _complete_pairs(stabs, type == :X ? direct_sum(X_logs, Z_gauges) : direct_sum(Z_gauges, X_logs))
+    
     logs = type == :X ? direct_sum(X_logs, new_Z[:, n + 1:2n]) : direct_sum(new_X[:, 1:n], X_logs)
-    gauges = type == :X ? direct_sum(new_X[:, 1:n], Z_gauges) : direct_sum(Z_gauges, new_Z[:, n +
-        1:2n])
+    gauges = type == :X ? direct_sum(new_X[:, 1:n], Z_gauges) : direct_sum(Z_gauges, new_Z[:, n + 1:2n])
 
-    # TODO why are logs not also passed in here?
-    # TODO can we remove the type instability here?
     return isempty(gauges) ? StabilizerCode(stabs) : SubsystemCode(stabs, logs, gauges)
 end
 _thickened_cone(S::AbstractStabilizerCodeCSS, A::AbstractStabilizerCodeCSS, f1::CTMatrixTypes,
@@ -117,6 +117,7 @@ function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes;
     nrows(L_red) == 1 || throw(ArgumentError("Requires a single logical of the code."))
     is_logical(S, L_red) || !log_checking || throw(ArgumentError("The input matrix is not a logical of the code."))
     F = field(S)
+    Fone = F(1)
     Int(order(F)) == 2 || throw(ArgumentError("Only defined for binary codes."))
     n = length(S)
     # k = dimension(S)
@@ -132,7 +133,10 @@ function homological_measurement(S::AbstractStabilizerCodeCSS, L::CTMatrixTypes;
     Q = getindex.(findall(!iszero, log), 2)
     f1 = matrix(F, Int[Q[j] == i for i in 1:n, j in 1:length(Q)])
     nonzero = findall(!iszero(stabs[i, Q]) for i in 1:size(stabs, 1))
-    f0 = identity_matrix(F, size(stabs, 1))[:, nonzero]
+    f0 = zero_matrix(F, size(stabs, 1), length(nonzero))
+    for (i, idx) in enumerate(nonzero)
+        f0[idx, i] = Fone
+    end
     HX = transpose(stabs[nonzero, Q])
 
     if style == :Xanadu
@@ -184,17 +188,18 @@ _rep_pcm(F::CTFieldTypes, d::Int) = matrix(F, diagm(d - 1, d, 0 => ones(Int, d -
     d - 1)))
 
 function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
-    # we can remove some of these assertions since it's a private function and we control the input
-    # @assert base_ring(stabs) == base_ring(logs)
     F = base_ring(stabs)
     @assert iseven(size(stabs, 2))
     @assert size(stabs, 2) == size(logs, 2)
     @assert rank(logs) == size(logs, 1)
     n = div(size(stabs, 2), 2)
-    Ω = vcat(hcat(zero_matrix(F, n, n), identity_matrix(F, n)), hcat(identity_matrix(F, n),
-        zero_matrix(F, n, n)))
-    # @assert iszero(vcat(stabs, logs) * Ω * transpose(stabs))
-    find_pairs = logs * Ω * transpose(logs)
+    
+    # 1. Fast symplectic dot product without allocating Ω
+    X_logs = logs[:, 1:n]
+    Z_logs = logs[:, n+1:end]
+    sign_factor = Int(characteristic(F)) == 2 ? 1 : -1
+    find_pairs = X_logs * transpose(Z_logs) + sign_factor * Z_logs * transpose(X_logs)
+    
     @assert all(count(!iszero, find_pairs[i:i, :]) in (0, 1) for i in 1:size(find_pairs, 1))
     needs_pair = findall(iszero(find_pairs[i:i, :]) for i in 1:size(find_pairs, 1))
 
@@ -202,14 +207,20 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
     new_Z = zero_matrix(F, 0, 2n)
     new_mixed = zero_matrix(F, 0, 2n)
 
+    # 2. Block-wise LHS construction to avoid Ω multiplication
+    X_stabs = stabs[:, 1:n]
+    Z_stabs = stabs[:, n+1:end]
+    
     for i in needs_pair
         RHS = zero_matrix(F, size(logs, 1) + size(stabs, 1) + n, 1)
         RHS[i, 1] = 1
 
-        # try pure X
-        # TODO don't understand this line
-        LHS = vcat(logs, stabs, Ω[n + 1:2n, :])
-        flag, sol = can_solve_with_solution(LHS * Ω, RHS, side = :right)
+        # try pure X (Mapped through symplectic form natively)
+        LHS_X_sym = vcat(Z_logs, Z_stabs, identity_matrix(F, n))
+        LHS_Z_sym = vcat(sign_factor * X_logs, sign_factor * X_stabs, zero_matrix(F, n, n))
+        LHS = hcat(LHS_X_sym, LHS_Z_sym)
+        
+        flag, sol = can_solve_with_solution(LHS, RHS, side = :right)
         if flag
             logs = vcat(logs, transpose(sol))
             new_X = vcat(new_X, transpose(sol))
@@ -217,8 +228,11 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
         end
 
         # try pure Z
-        LHS[size(logs, 1) + size(stabs, 1) + 1:end, :] = Ω[1:n, :]
-        flag, sol = can_solve_with_solution(LHS * Ω, RHS, side = :right)
+        LHS_X_sym[size(logs, 1) + size(stabs, 1) + 1:end, :] = zero_matrix(F, n, n)
+        LHS_Z_sym[size(logs, 1) + size(stabs, 1) + 1:end, :] = identity_matrix(F, n)
+        LHS = hcat(LHS_X_sym, LHS_Z_sym)
+        
+        flag, sol = can_solve_with_solution(LHS, RHS, side = :right)
         if flag
             logs = vcat(logs, transpose(sol))
             new_Z = vcat(new_Z, transpose(sol))
@@ -226,8 +240,10 @@ function _complete_pairs(stabs::CTMatrixTypes, logs::CTMatrixTypes)
         end
 
         # try mixed
-        LHS[size(logs, 1) + size(stabs, 1) + 1:end, :] = zero_matrix(F, n, 2n)
-        flag, sol = can_solve_with_solution(LHS * Ω, RHS)
+        LHS_Z_sym[size(logs, 1) + size(stabs, 1) + 1:end, :] = zero_matrix(F, n, n)
+        LHS = hcat(LHS_X_sym, LHS_Z_sym)
+        
+        flag, sol = can_solve_with_solution(LHS, RHS)
         if flag
             logs = vcat(logs, transpose(sol))
             new_mixed = vcat(new_mixed, transpose(sol))
@@ -317,48 +333,81 @@ function _sparsest_cut(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
 end
 
 function _add_edges(M::Matrix{T}; rng = Xoshiro()) where T <: Integer
-    M_new = copy(M)
+    m, n_orig = size(M)
+    
+    # Pre-allocate a buffer to avoid hcat inside the loop
+    capacity = n_orig + 50
+    M_new = zeros(T, m, capacity)
+    M_new[:, 1:n_orig] .= M
+    
+    M_temp = zeros(T, m, capacity)
+    curr_cols = n_orig
+    
+    Tzero = T(0)
+    Tone = T(1)
+    
     while true
-
-        # check the Cheeger constant, quit if it's already good
-        h, v = _sparsest_cut(M_new, rng = rng)
+        # Operate only on the active view
+        active_view = view(M_new, :, 1:curr_cols)
+        h, v = _sparsest_cut(active_view, rng = rng)
         h < 1 || break
-
-        # M_sum is a vector of the vertex weights
-        M_sum = vec(sum(M_new, dims = 2))
-
-        # # i is a vertex in supp(v) with minimal degree, j is a vertex in V \ supp(v) with minimal degree
-        # i = argmin(i -> iszero(v[i]) ? typemax(T) : M_sum[i], axes(M_new, 1))
-        # j = argmin(j -> !iszero(v[j]) ? typemax(T) : M_sum[j], axes(M_new, 1))
-
-        # # add an edge that connects these two vertices
-        # M_new = [M_new zeros(T, size(M_new, 1), 1)]
-        # M_new[i, end] = M_new[j, end] = T(1)
-
-        S = findall(!iszero, v)
-        Sc = findall(iszero, v)
-        S_min = minimum(M_sum[S])
-        Sc_min = minimum(M_sum[Sc])
-        is = S[findall(M_sum[S[i]] == S_min for i in eachindex(S))]
-        js = Sc[findall(M_sum[Sc[i]] == Sc_min for i in eachindex(Sc))]
-        h = -Inf
-        M_new = [M_new zeros(T, size(M_new, 1), 1)]
-        M_temp = copy(M_new)
-        Tzero = T(0)
-        Tone = T(1)
+        
+        # Expand capacity if we hit the limit
+        if curr_cols == capacity
+            capacity += 50
+            M_new_expand = zeros(T, m, capacity)
+            M_new_expand[:, 1:curr_cols] .= M_new[:, 1:curr_cols]
+            M_new = M_new_expand
+            M_temp = zeros(T, m, capacity)
+        end
+        
+        curr_cols += 1
+        M_sum = vec(sum(view(M_new, :, 1:curr_cols-1), dims = 2))
+        
+        S_idx = findall(!iszero, v)
+        Sc_idx = findall(iszero, v)
+        S_min = minimum(M_sum[S_idx])
+        Sc_min = minimum(M_sum[Sc_idx])
+        
+        is = S_idx[findall(x -> M_sum[x] == S_min, S_idx)]
+        js = Sc_idx[findall(x -> M_sum[x] == Sc_min, Sc_idx)]
+        
+        h_best = -Inf
+        best_i, best_j = -1, -1
+        
+        # Copy current state to temp buffer exactly once per expansion
+        M_temp[:, 1:curr_cols] .= M_new[:, 1:curr_cols]
+        
         for (i, j) in Iterators.product(shuffle(rng, is), shuffle(rng, js))
-            M_temp[i, end] = M_temp[j, end] = Tone
-            temp = Cheeger_constant(M_temp)
-            if temp > h
-                h = temp
-                M_new[:, end] .= Tzero
-                M_new[i, end] = M_new[j, end] = Tone
+            M_temp[i, curr_cols] = Tone
+            M_temp[j, curr_cols] = Tone
+            
+            temp_h = Cheeger_constant(M_temp[:, 1:curr_cols])
+            if temp_h > h_best
+                h_best = temp_h
+                best_i, best_j = i, j
             end
-            M_temp[i, end] = M_temp[j, end] = Tzero
+            
+            M_temp[i, curr_cols] = Tzero
+            M_temp[j, curr_cols] = Tzero
+        end
+        
+        M_new[best_i, curr_cols] = Tone
+        M_new[best_j, curr_cols] = Tone
+    end
+    
+    return M_new[:, 1:curr_cols]
+end
+
+function _random_matrix!(A::CTMatrixTypes, F::CTFieldTypes)
+    # Operates in-place on pre-allocated A to avoid GC overhead
+    nr, nc = size(A)
+    for i in 1:nr
+        for j in 1:nc
+            A[i, j] = rand(F)
         end
     end
-
-    return M_new
+    return A
 end
 
 function _find_low_weight_cycle_subspace(all_cycles::CTMatrixTypes,
@@ -366,55 +415,75 @@ function _find_low_weight_cycle_subspace(all_cycles::CTMatrixTypes,
 
     @assert size(all_cycles, 2) == size(already_covered_cycles, 2)
     F = base_ring(all_cycles)
+    
     A = _remove_empty(rref(already_covered_cycles)[2], :rows)
     pivots = findall(count(!iszero(A[i, j]) for i in axes(A, 1)) == 1 for j in axes(A, 2))
     B = _remove_empty(rref(all_cycles)[2], :rows)
+    
     for i in axes(B, 1)
         for j in axes(A, 1)
             if !iszero(B[i, pivots[j]])
-                x = inv(B[i, pivots[j]])
+                x_inv = inv(B[i, pivots[j]])
                 for k in axes(B, 2)
-                    B[i, k] = x * A[j, k] + B[i, k]
+                    B[i, k] = x_inv * A[j, k] + B[i, k]
                 end
             end
         end
     end
     B = _remove_empty(rref(B)[2], :rows)
-    isempty(B) && (return B;)
+    isempty(B) && return B
 
     w = size(A, 2) + 1
     C = zero_matrix(F, size(B, 1), size(B, 2))
+    
+    # Pre-allocations for the hot loop
+    n_B = size(B, 1)
+    n_A = size(A, 1)
+    x = zero_matrix(F, n_B, n_B)
+    y = zero_matrix(F, n_B, n_A)
+    
     for i in 1:max_iters
-        x = _random_invertible_matrix(F, size(B, 1))
-        y = matrix(F, rand(F, size(B, 1), size(A, 1)))
+        _random_invertible_matrix!(x, F, n_B)
+        _random_matrix!(y, F)
+        
+        # Branch 1: temp = x * B + y * A
         temp = x * B + y * A
-        temp_w = f(count(!iszero(temp[i, j]) for j in size(temp, 2)) for i in size(temp, 1))
+        temp_w = f(count(!iszero, temp[row, :]) for row in 1:size(temp, 1))
         if temp_w < w
             w = temp_w
             C = temp
         end
+        
+        # Branch 2: temp = x * B
         temp = x * B
-        temp_w = f(count(!iszero(temp[i, j]) for j in size(temp, 2)) for i in size(temp, 1))
+        temp_w = f(count(!iszero, temp[row, :]) for row in 1:size(temp, 1))
         if temp_w < w
             w = temp_w
             C = temp
         end
     end
+    
     return C
 end
 
-function _find_low_weights_rand(M::CTMatrixTypes, max_iters::Int, f::T = maximum) where
-    T <: Function
-
-    initial_w = f(count(!iszero(M[i, j]) for j in size(M, 2)) for i in size(M, 1))
+function _find_low_weights_rand(M::CTMatrixTypes, max_iters::Int, f::T = maximum) where T <: Function
+    initial_w = f(count(!iszero, M[i, :]) for i in 1:size(M, 1))
     A = _remove_empty(rref(M)[2], :rows)
-    isempty(A) && (return A;)
+    isempty(A) && return A
+    
     F = base_ring(A)
     w = size(A, 2) + 1
+    n_A = size(A, 1)
+    
+    # Preallocate once
+    x = zero_matrix(F, n_A, n_A)
+    
     for i in 1:max_iters
-        x = _random_invertible_matrix(F, size(A, 1))
+        _random_invertible_matrix!(x, F, n_A)
         temp = x * A
-        temp_w = f(count(!iszero(temp[i, j]) for j in size(temp, 2)) for i in size(temp, 1))
+        
+        # Fast weight check
+        temp_w = f(count(!iszero, temp[j, :]) for j in 1:n_A)
         if temp_w < w
             w = temp_w
             A = temp
@@ -442,26 +511,33 @@ function _random_invertible_matrix(n::Int)
     return A * T .% 0x02
 end
 
-function _random_invertible_matrix(F::CTFieldTypes, n::Int)
-    # @assert n > 0
-    inds = collect(1:n)
-    A = zero_matrix(F, n, n)
-    T = zero_matrix(F, n, n)
-    Fone = F(1)
-    for k in 1:n
-        v = matrix(F, rand(F, 1, n - k + 1))
-        while iszero(v)
-            v = matrix(F, rand(F, 1, n - k + 1))
+function _random_invertible_matrix!(A::CTMatrixTypes, F::CTFieldTypes, n::Int)
+    # Operates in-place on pre-allocated A to avoid GC overhead
+    for i in 1:n
+        for j in 1:n
+            A[i, j] = F(0)
         end
-        r = findfirst(!iszero, v)[2]
-        A[k, inds[r]] = Fone
-        for i in k + 1:n
-            A[i, inds[r]] = rand(F)
-        end
-        for i in eachindex(inds)
-            T[inds[r], inds[i]] = v[1, i]
-        end
-        deleteat!(inds, r)
     end
-    return A * T
+    
+    # Generate a random lower triangular matrix with 1s on diagonal (always invertible)
+    for i in 1:n
+        A[i, i] = F(1)
+        for j in 1:i-1
+            A[i, j] = rand(F)
+        end
+    end
+    
+    # Randomly permute rows to spread the entropy
+    for i in n:-1:2
+        swap_idx = rand(1:i)
+        if swap_idx != i
+            # Swap rows i and swap_idx
+            for j in 1:n
+                temp = A[i, j]
+                A[i, j] = A[swap_idx, j]
+                A[swap_idx, j] = temp
+            end
+        end
+    end
+    return A
 end

@@ -200,75 +200,145 @@ copying(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) 
 function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
     q_X = maximum(count(!iszero, H_X[:, j]) for j in 1:ncols(H_X))
     q_X == 1 && return H_X, H_Z
-    n_X = nrows(H_X)
+    
+    n_X, n = size(H_X)
     F = base_ring(H_X)
-    for i in 1:ncols(H_X)
-        H = matrix(F, diagm(q_X - 1, q_X, 0 => ones(Int, q_X - 1), 1 => ones(Int, q_X - 1)))
-        f_1 = zero_matrix(F, q_X, nrows(H_X))
+    
+    # Pre-calculate exact final dimensions
+    final_rows_X = n_X + n * (q_X - 1)
+    final_cols = n * q_X
+    final_rows_Z = nrows(H_Z)
+    
+    is_sp = H_X isa SparseMatrixCSC || H_Z isa SparseMatrixCSC
+    
+    # Preallocate massive blocks ONCE
+    H_X_new = is_sp ? spzeros(F, final_rows_X, final_cols) : zero_matrix(F, final_rows_X, final_cols)
+    H_Z_new = is_sp ? spzeros(F, final_rows_Z, final_cols) : zero_matrix(F, final_rows_Z, final_cols)
+    
+    curr_col_offset = 0
+    curr_row_offset = n_X
+    
+    # Transfer initial state safely
+    H_X_new[1:n_X, 1:n] = H_X
+    H_Z_new[:, 1:n] = H_Z
+    
+    H = matrix(F, diagm(q_X - 1, q_X, 0 => ones(Int, q_X - 1), 1 => ones(Int, q_X - 1)))
+    
+    for i in 1:n
+        f_1 = zero_matrix(F, q_X, n_X)
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
-            if H_X[j, 1] == 1
+            if H_X[j, i] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
             end
         end
-        H_X = H_X[:, 2:end]
-        H_Z = H_Z[:, 2:end]
-        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X),
-            zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        
+        # Isolate the active block columns
+        active_X = H_X_new[1:curr_row_offset, i:i+curr_col_offset]
+        active_Z = H_Z_new[:, i:i+curr_col_offset]
+        
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(active_Z * transpose(active_X), zero_matrix(F, final_rows_Z, q_X - 1)), side = :left)
         flag || error("there was no solution for f_2")
-        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible f_2, column $i"
-        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
-        H_Z = hcat(H_Z, f_2)
+        
+        # Inject computed blocks via views
+        H_X_new[1:curr_row_offset, i+curr_col_offset+1 : i+curr_col_offset+q_X] = transpose(f_1)
+        H_X_new[curr_row_offset+1 : curr_row_offset+q_X-1, i+curr_col_offset+1 : i+curr_col_offset+q_X] = H
+        H_Z_new[:, i+curr_col_offset+1 : i+curr_col_offset+q_X] = f_2
+        
+        curr_col_offset += q_X - 1
+        curr_row_offset += q_X - 1
     end
-    return H_X, H_Z
+    
+    # Slice off the initial unshifted columns
+    return H_X_new[:, n+1:end], H_Z_new[:, n+1:end]
 end
 
 function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
     F = base_ring(H_X)
-    n_X = nrows(H_X)
-    for i in 1:ncols(H_X)
-        q = count(!iszero, H_X[:, 1])
+    n_X, n = size(H_X)
+    n_Z = nrows(H_Z)
+    
+    # 1. Precalculate exact final dimensions
+    q_vals = [count(!iszero, H_X[:, i]) for i in 1:n]
+    new_cols = sum(max(0, q - 1) for q in q_vals)
+    final_cols = n + new_cols
+    final_rows_X = n_X + new_cols
+    
+    is_sp = H_X isa SparseMatrixCSC || H_Z isa SparseMatrixCSC
+    H_X_new = is_sp ? spzeros(F, final_rows_X, final_cols) : zero_matrix(F, final_rows_X, final_cols)
+    H_Z_new = is_sp ? spzeros(F, n_Z, final_cols) : zero_matrix(F, n_Z, final_cols)
+    
+    H_X_new[1:n_X, 1:n] = H_X
+    H_Z_new[:, 1:n] = H_Z
+    
+    curr_col_offset = 0
+    curr_row_offset = n_X
+    
+    for i in 1:n
+        q = q_vals[i]
         if q <= 1
-            H_X = hcat(H_X[:, 2:end], H_X[:, 1:1])
-            H_Z = hcat(H_Z[:, 2:end], H_Z[:, 1:1])
             continue
         end
+        
         H = matrix(F, diagm(q - 1, q, 0 => ones(Int, q - 1), 1 => ones(Int, q - 1)))
-        f_1 = zero_matrix(F, q, nrows(H_X))
+        f_1 = zero_matrix(F, q, n_X)
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
-            if H_X[j, 1] == 1
+            if H_X[j, i] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
             end
         end
-        H_X = H_X[:, 2:end]
-        H_Z = H_Z[:, 2:end]
-        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X),
-            zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        
+        active_X = H_X_new[1:curr_row_offset, i:i+curr_col_offset]
+        active_Z = H_Z_new[:, i:i+curr_col_offset]
+        
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(active_Z * transpose(active_X), zero_matrix(F, n_Z, q - 1)), side = :left)
         flag || error("there was no solution for f_2")
-        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible f_2"
-        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
-        H_Z = hcat(H_Z, f_2)
+        
+        # Inject via views
+        H_X_new[1:curr_row_offset, n + curr_col_offset + 1 : n + curr_col_offset + q] = transpose(f_1)
+        H_X_new[curr_row_offset + 1 : curr_row_offset + q - 1, n + curr_col_offset + 1 : n + curr_col_offset + q] = H
+        H_Z_new[:, n + curr_col_offset + 1 : n + curr_col_offset + q] = f_2
+        
+        curr_col_offset += q - 1
+        curr_row_offset += q - 1
     end
-    return H_X, H_Z
+    
+    return H_X_new[:, n+1:end], H_Z_new[:, n+1:end] # Slice off the initial unshifted columns
 end
 
-function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3;
-    permute = false, rng::AbstractRNG = Random.seed!())
-
+function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3; permute = false, rng::AbstractRNG = Random.seed!())
     target_q_X < 3 && throw(DomainError(target_q_X, "Must be at least 3"))
     F = base_ring(H_X)
-    n_X = nrows(H_X)
-    for i in 1:ncols(H_X)
-        q = count(!iszero, H_X[:, 1])
+    n_X, n = size(H_X)
+    n_Z = nrows(H_Z)
+    
+    # 1. Precalculate exact final dimensions
+    q_vals = [count(!iszero, H_X[:, i]) for i in 1:n]
+    new_cols = sum(max(0, q - target_q_X + 1) for q in q_vals)
+    final_cols = n + new_cols
+    final_rows_X = n_X + sum(max(0, q - target_q_X) for q in q_vals)
+    
+    is_sp = H_X isa SparseMatrixCSC || H_Z isa SparseMatrixCSC
+    H_X_new = is_sp ? spzeros(F, final_rows_X, final_cols) : zero_matrix(F, final_rows_X, final_cols)
+    H_Z_new = is_sp ? spzeros(F, n_Z, final_cols) : zero_matrix(F, n_Z, final_cols)
+    
+    H_X_new[1:n_X, 1:n] = H_X
+    H_Z_new[:, 1:n] = H_Z
+    
+    curr_col_offset = 0
+    curr_row_offset = n_X
+    
+    for i in 1:n
+        q = q_vals[i]
         if q <= target_q_X
-            H_X = hcat(H_X[:, 2:end], H_X[:, 1:1])
-            H_Z = hcat(H_Z[:, 2:end], H_Z[:, 1:1])
             continue
         end
-        H = matrix(F, diagm(q - target_q_X, q - target_q_X + 1, 0 => ones(Int, q - target_q_X),
-            1 => ones(Int, q - target_q_X)))
-        f_1 = zero_matrix(F, q - target_q_X + 1, nrows(H_X))
+        
+        H_dim = q - target_q_X
+        H = matrix(F, diagm(H_dim, H_dim + 1, 0 => ones(Int, H_dim), 1 => ones(Int, H_dim)))
+        f_1 = zero_matrix(F, H_dim + 1, n_X)
+        
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
-            if H_X[j, 1] == 1
+            if H_X[j, i] == 1
                 k = 1
                 while count(!iszero, f_1[k, :]) == target_q_X - 2 + isone(k) + (k == ncols(H))
                     k += 1
@@ -276,15 +346,22 @@ function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, targe
                 f_1[k, j] = 1
             end
         end
-        H_X = H_X[:, 2:end]
-        H_Z = H_Z[:, 2:end]
-        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(H_Z * transpose(H_X), zero_matrix(GF(2), nrows(H_Z), nrows(H))), side = :left)
+        
+        active_X = H_X_new[1:curr_row_offset, i:i+curr_col_offset]
+        active_Z = H_Z_new[:, i:i+curr_col_offset]
+        
+        flag, f_2 = can_solve_with_solution(hcat(f_1, transpose(H)), hcat(active_Z * transpose(active_X), zero_matrix(F, n_Z, H_dim)), side = :left)
         flag || error("there was no solution for f_2")
-        left_kernel(hcat(f_1, transpose(H)))[1] == 0 || @warn "there was more than one possible solution for f_2"
-        H_X = hcat(vcat(H_X, zero_matrix(GF(2), nrows(H), ncols(H_X))), vcat(transpose(f_1), H))
-        H_Z = hcat(H_Z, f_2)
+        
+        H_X_new[1:curr_row_offset, n + curr_col_offset + 1 : n + curr_col_offset + H_dim + 1] = transpose(f_1)
+        H_X_new[curr_row_offset + 1 : curr_row_offset + H_dim, n + curr_col_offset + 1 : n + curr_col_offset + H_dim + 1] = H
+        H_Z_new[:, n + curr_col_offset + 1 : n + curr_col_offset + H_dim + 1] = f_2
+        
+        curr_col_offset += H_dim + 1
+        curr_row_offset += H_dim
     end
-    return H_X, H_Z
+    
+    return H_X_new[:, n+1:end], H_Z_new[:, n+1:end]
 end
 
 """
@@ -419,37 +496,66 @@ gauging(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes
 
 Return the result of gauging on `H_X` and `H_Z` by using the mapping cone.
 """
-function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3,
-    permute = false, rng::AbstractRNG = Random.seed!())
-
+function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3, permute = false, rng::AbstractRNG = Random.seed!())
     target_w_X < 3 && throw(DomainError(target_w_X, "Must be at least 3"))
     F = base_ring(H_X)
-    n = ncols(H_X)
-    for i in 1:nrows(H_X)
-        w = count(!iszero, H_X[1, :])
+    n_X, n = size(H_X)
+    n_Z = nrows(H_Z)
+    
+    # 1. Precalculate dimensions to avoid circular vcat shifting
+    w_vals = [count(!iszero, H_X[i, :]) for i in 1:n_X]
+    new_cols = sum(max(0, w - target_w_X) for w in w_vals)
+    final_cols = n + new_cols
+    final_rows_X = sum(max(1, w - target_w_X + 1) for w in w_vals)
+    
+    is_sp = H_X isa SparseMatrixCSC || H_Z isa SparseMatrixCSC
+    H_X_new = is_sp ? spzeros(F, final_rows_X, final_cols) : zero_matrix(F, final_rows_X, final_cols)
+    H_Z_new = is_sp ? spzeros(F, n_Z, final_cols) : zero_matrix(F, n_Z, final_cols)
+    
+    H_Z_new[:, 1:n] = H_Z
+    
+    curr_row = 1
+    curr_col = n + 1
+    
+    for i in 1:n_X
+        w = w_vals[i]
         if w <= target_w_X
-            H_X = vcat(H_X[2:end, :], H_X[1:1, :])
+            H_X_new[curr_row:curr_row, 1:n] = H_X[i:i, :]
+            curr_row += 1
             continue
         end
-        H = matrix(F, diagm(w - target_w_X, w - target_w_X + 1, 0 => ones(Int, w - target_w_X),
-            1 => ones(Int, w - target_w_X)))
-        f_1 = zero_matrix(F, w - target_w_X + 1, ncols(H_X))
-        for j in (permute ? shuffle(rng, 1:n) : 1:n)
-            if isone(H_X[1, j])
-                k = 1
-                while count(!iszero, f_1[k, :]) == target_w_X - 2 + isone(k) + (k == ncols(H))
-                    k += 1
-                end
-                f_1[k, j] = 1
-            end
+        
+        H_dim = w - target_w_X
+        H = matrix(F, diagm(H_dim, H_dim + 1, 0 => ones(Int, H_dim), 1 => ones(Int, H_dim)))
+        f_1 = zero_matrix(F, H_dim + 1, n)
+        
+        # Populate f_1 using the original logic
+        nonzeros = findall(!iszero, H_X[i, :])
+        if permute
+            shuffle!(rng, nonzeros)
         end
-        flag, f_2 = can_solve_with_solution(transpose(H), f_1 * transpose(H_Z))
+        
+        for col_idx in nonzeros
+            k = 1
+            while count(!iszero, f_1[k, :]) == target_w_X - 2 + isone(k) + (k == ncols(H))
+                k += 1
+            end
+            f_1[k, col_idx] = 1
+        end
+        
+        flag, f_2 = can_solve_with_solution(transpose(H), f_1 * transpose(H_Z_new[:, 1:curr_col-1]))
         flag || error("there was no solution for f_2")
-        H_X = vcat(hcat(H_X[2:end, :], zero_matrix(F, nrows(H_X) - 1, nrows(H))),
-            hcat(f_1, transpose(H)))
-        H_Z = hcat(H_Z, transpose(f_2))
+        
+        # Inject via views instead of vcat
+        H_X_new[curr_row : curr_row + H_dim, 1:n] = f_1
+        H_X_new[curr_row : curr_row + H_dim, curr_col : curr_col + H_dim] = transpose(H)
+        H_Z_new[:, curr_col : curr_col + H_dim] = transpose(f_2)
+        
+        curr_row += H_dim + 1
+        curr_col += H_dim + 1
     end
-    return H_X, H_Z
+    
+    return H_X_new, H_Z_new
 end
 
 """
@@ -619,6 +725,40 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG
     return cycles
 end
 
+function _fast_block_diagonal(blocks::Vector{<:Matrix{Int}}, F)
+    # Fast O(1) allocation block diagonal builder
+    total_rows = sum(size(b, 1) for b in blocks)
+    total_cols = sum(size(b, 2) for b in blocks)
+    
+    M = zero_matrix(F, total_rows, total_cols)
+    r_offset, c_offset = 0, 0
+    for b in blocks
+        r, c = size(b)
+        if r > 0 && c > 0
+            M[r_offset + 1 : r_offset + r, c_offset + 1 : c_offset + c] = matrix(F, b)
+        end
+        r_offset += r
+        c_offset += c
+    end
+    return M
+end
+
+function _fast_hcat_matrices(blocks::Vector{<:Matrix{Int}}, F)
+    total_rows = isempty(blocks) ? 0 : size(blocks[1], 1)
+    total_cols = sum(size(b, 2) for b in blocks)
+    
+    M = zero_matrix(F, total_rows, total_cols)
+    c_offset = 0
+    for b in blocks
+        c = size(b, 2)
+        if c > 0
+            M[:, c_offset + 1 : c_offset + c] = matrix(F, b)
+        end
+        c_offset += c
+    end
+    return M
+end
+
 """
     coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
 
@@ -725,10 +865,10 @@ function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractR
         push!(p0_all, p0)
     end
 
-    p1 = mapreduce(x -> matrix(F, x), direct_sum, p1_all)
-    p0 = mapreduce(x -> matrix(F, x), direct_sum, p0_all)
-    f1 = mapreduce(x -> matrix(F, x), hcat, f1_all)
-    f0 = mapreduce(x -> matrix(F, x), hcat, f0_all)
+    p1 = _fast_block_diagonal(p1_all, F)
+    p0 = _fast_block_diagonal(p0_all, F)
+    f1 = _fast_hcat_matrices(f1_all, F)
+    f0 = _fast_hcat_matrices(f0_all, F)
 
     H_X_new = hcat(vcat(p0, f0), vcat(zero_matrix(F, size(p0, 1), n), H_X))
     H_Z_remaining_tr = transpose(H_Z[setdiff(1:n_Z, row_indices), :])
