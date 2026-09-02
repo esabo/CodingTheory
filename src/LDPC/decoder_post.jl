@@ -13,6 +13,7 @@ struct OSDWorkspace
     # Gaussian Elimination Matrix
     H_dense::Matrix{UInt8}
     H_work::Matrix{UInt8}
+    s_work::Vector{UInt8}     # Syndrome, row-reduced in lockstep with H_work
     
     # Sorting and Permutation Tracking
     reliabilities::Vector{Float64}
@@ -48,13 +49,21 @@ function init_osd_workspace(H::AbstractMatrix)
     
     return OSDWorkspace(
         num_var, num_check,
-        H_dense, zeros(UInt8, num_check, num_var),
+        H_dense, zeros(UInt8, num_check, num_var), zeros(UInt8, num_check),
         zeros(Float64, num_var), collect(1:num_var), zeros(Int, num_var),
         zeros(Bool, num_var), zeros(Int, num_var),
         zeros(UInt8, num_var), zeros(UInt8, num_var), zeros(UInt8, num_var),
         zeros(UInt8, num_var)
     )
 end
+
+"""
+Initialize the OSD workspace from a Flint matrix.
+The array methods are reserved for callers crossing the Python boundary, so the
+one-time conversion to a plain Julia matrix lives here.
+"""
+init_osd_workspace(H::Union{fpMatrix, FqMatrix}) =
+    init_osd_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
 Evaluates a specific OSD bit-flip pattern. 
@@ -161,7 +170,7 @@ end
 
 function _fast_osd!(W::OSDWorkspace, method::Val, order::Val, total_llrs::Vector{Float64}, cs_lambda::Int)
     
-    # 1. Sort by Reliability & Copy Syndrome
+    # 1. Sort by Reliability & Permute Columns (W.s_work is loaded by the caller)
     for v in 1:W.num_var
         W.reliabilities[v] = abs(total_llrs[v])
         W.hard_decisions[v] = total_llrs[v] < 0.0 ? 0x01 : 0x00
@@ -174,7 +183,6 @@ function _fast_osd!(W::OSDWorkspace, method::Val, order::Val, total_llrs::Vector
             W.H_work[c, i] = W.H_dense[c, W.perm[i]]
         end
     end
-    copyto!(W.s_work, syndrome)
     
     # 2. Quantum Gaussian Elimination (In-place)
     fill!(W.is_mrb, true)
@@ -296,6 +304,12 @@ function init_grand_workspace(H::AbstractMatrix)
         zeros(UInt8, num_check), zeros(UInt8, num_check)
     )
 end
+
+"""
+Initialize the GRAND workspace from a Flint matrix. See [`init_osd_workspace`](@ref).
+"""
+init_grand_workspace(H::Union{fpMatrix, FqMatrix}) =
+    init_grand_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
 Executes Post-BP GRAND. 
@@ -426,6 +440,12 @@ function init_wbf_workspace(H::AbstractMatrix)
         zeros(UInt8, num_var), zeros(UInt8, num_check)
     )
 end
+
+"""
+Initialize the WBF workspace from a Flint matrix. See [`init_osd_workspace`](@ref).
+"""
+init_wbf_workspace(H::Union{fpMatrix, FqMatrix}) =
+    init_wbf_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
 Executes Post-BP WBF. 

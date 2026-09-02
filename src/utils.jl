@@ -288,6 +288,20 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
 end
 
 """
+The 0/1 support pattern of `A` as a dense `Matrix{UInt8}`. Reads entries through
+`iszero` rather than Flint's `nmod_mat` accessor, so unlike the converters above
+it accepts `FqMatrix` as well as `fpMatrix`.
+"""
+function _Flint_matrix_to_Julia_support_matrix(A::Union{fpMatrix, FqMatrix})
+    nr, nc = size(A)
+    S = zeros(UInt8, nr, nc)
+    for i in 1:nr, j in 1:nc
+        iszero(A[i, j]) || (S[i, j] = 0x01)
+    end
+    return S
+end
+
+"""
 Assumes the input is in rref form and returns the indexs of the columns that do not contain a pivot entry.
 Note that rref form here requires pivot entries have been normalized to 1.
 """

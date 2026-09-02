@@ -102,6 +102,17 @@ function csr_of(H::AbstractMatrix)
 end
 
 """
+    csr_of(H::Union{fpMatrix, FqMatrix}) -> (row_ptr, col_ind)
+
+Flint-native form, for CodingTheory callers holding an Oscar matrix. The plain
+array and compressed-sparse-row entry points throughout this file are reserved
+for the Python caller, which never sees a Flint matrix, so the conversion to a
+dense Julia matrix is confined to this thin layer -- and, since every use of it
+is a workspace constructor, is paid once per matrix rather than once per decode.
+"""
+csr_of(H::Union{fpMatrix, FqMatrix}) = csr_of(_Flint_matrix_to_Julia_support_matrix(H))
+
+"""
     layered_schedule(row_ptr, col_ind, num_check, num_var; base = 1)
 
 Partition the checks into layers such that no two checks in a layer share a
@@ -203,6 +214,14 @@ function layered_schedule(H::AbstractMatrix)
     layer_ptr, layer_checks = layered_schedule(row_ptr, col_ind, size(H, 1), size(H, 2))
     return [layer_checks[layer_ptr[l]:(layer_ptr[l + 1] - 1)] for l in 1:(length(layer_ptr) - 1)]
 end
+
+"""
+    layered_schedule(H::Union{fpMatrix, FqMatrix}) -> Vector{Vector{Int}}
+
+Flint-native form, as in [`csr_of`](@ref).
+"""
+layered_schedule(H::Union{fpMatrix, FqMatrix}) =
+    layered_schedule(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
     serial_schedule(num_check) -> (layer_ptr, layer_checks)
@@ -344,6 +363,17 @@ function init_soft_workspace(H::AbstractMatrix; schedule::Symbol = :flooding,
                                schedule = schedule, layer_ptr = layer_ptr,
                                layer_checks = layer_checks, base = 1)
 end
+
+"""
+    init_soft_workspace(H::Union{fpMatrix, FqMatrix}; schedule, layer_ptr, layer_checks)
+
+Flint-native form, as in [`csr_of`](@ref).
+"""
+init_soft_workspace(H::Union{fpMatrix, FqMatrix}; schedule::Symbol = :flooding,
+                    layer_ptr::AbstractVector{<:Integer} = _NO_INDICES,
+                    layer_checks::AbstractVector{<:Integer} = _NO_INDICES) =
+    init_soft_workspace(_Flint_matrix_to_Julia_support_matrix(H); schedule = schedule,
+                        layer_ptr = layer_ptr, layer_checks = layer_checks)
 
 """
 Validate and copy a caller-supplied layer partition: every check exactly once,

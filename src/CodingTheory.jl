@@ -486,7 +486,8 @@ include("LDPC/MP_decoders.jl")
 export DecoderWorkspace, HardDecisionWorkspace, SoftDecisionWorkspace, 
        init_hard_workspace, load_hard_channel!, init_soft_workspace, 
        load_soft_channel!, decode!, boxplus_exact, boxplus_minsum, 
-       boxplus_minsum_correction, layered_schedule, balance_of_layered_schedule
+       boxplus_minsum_correction, csr_of, layered_schedule, serial_schedule, 
+       balance_of_layered_schedule
 
 #############################
     # LDPC/simulations.jl
