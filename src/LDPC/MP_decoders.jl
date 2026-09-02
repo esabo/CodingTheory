@@ -916,6 +916,25 @@ checks share no variable, so their updates are independent, and each layer's new
 messages are folded into the posteriors before the next layer reads them. That
 immediate feedback is the point of layering: it typically halves the iteration
 count against flooding for the same work per iteration.
+
+The inner loop is sequential, so the partition itself does not change the
+numbers -- only the ORDER `layer_checks` lists the checks in does. It is there
+for a future parallel implementation of a layer, and to document independence.
+
+MIN-SUM CAVEAT. The min-sum family can reach an exact stationary point here on a
+SMALL DENSE HIGH-RATE matrix decoded from a CONSTANT channel LLR vector, which is
+the usual syndrome-decoding setup. When every input to an unsatisfied check has
+the same magnitude, min-sum's outgoing magnitude equals it exactly, this engine
+folds it straight back, and the posterior lands on exactly 0.0; a min-sum check
+with a 0.0 input emits 0.0 on every other edge, so the zeros spread and the state
+repeats forever. `:offset_min_sum` reaches the same point one layer later, since
+`max(0, |agg| - β)` maps the surviving `β` magnitudes to zero. On the 3x7
+Hamming(7,4) matrix this costs 5 of the 7 nonzero syndromes.
+
+Prefer `:flooding` or `:sum_product` in that regime; `:normalized_min_sum`, whose
+correction is multiplicative and so cannot cancel exactly, degrades less. Sparse
+graphs are essentially unaffected. `oscillation = :active` detects the stall on
+the second iteration. See `notes/MP_and_OSD_decoder_findings.md`.
 """
 function _fast_decode!(W::SoftDecisionWorkspace{Float64}, algo::Val, ::Val{:layered},
                        decimation_type::Val, osc_type::Val, max_iter::Int,
@@ -1074,6 +1093,10 @@ Keyword arguments:
   * `syndrome`, `erasures`, `decimated_bits`, `decimated_values`: forwarded to
     [`load_soft_channel!`](@ref).
   * `out`: a length-`num_var` integer buffer to receive the hard decisions.
+
+On a small dense high-rate matrix decoded from a constant channel LLR vector, the
+min-sum family under `:layered`/`:serial` can stall at an exact stationary point;
+see the `:layered` engine above and `notes/MP_and_OSD_decoder_findings.md`.
 """
 function decode!(W::SoftDecisionWorkspace{Float64}, LLR_in::AbstractVector{<:Real};
                  algorithm::Symbol = :offset_min_sum,
