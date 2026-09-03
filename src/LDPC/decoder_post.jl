@@ -281,6 +281,12 @@ struct GRANDWorkspace
     perm::Vector{Int}
     candidate_cw::Vector{UInt8}
     
+    # Least Reliable Bits, ascending by reliability.
+    # lrb_reliabilities[i] is the reliability of lrb_indices[i], so it is
+    # nondecreasing in i. The search bound in `grand_decode!` relies on that.
+    lrb_indices::Vector{Int}
+    lrb_reliabilities::Vector{Float64}
+    
     # Syndrome Tracking
     target_syndrome::Vector{UInt8}
     current_syndrome::Vector{UInt8}
@@ -301,19 +307,64 @@ function init_grand_workspace(H::AbstractMatrix)
     return GRANDWorkspace(
         num_var, num_check, var_to_checks,
         zeros(Float64, num_var), collect(1:num_var), zeros(UInt8, num_var),
+        zeros(Int, num_var), zeros(Float64, num_var),
         zeros(UInt8, num_check), zeros(UInt8, num_check)
     )
 end
 
 """
 Initialize the GRAND workspace from a Flint matrix. See [`init_osd_workspace`](@ref).
+
+This delegates to the `AbstractMatrix` method above, so it is the only place any
+new `GRANDWorkspace` field has to be initialized.
 """
 init_grand_workspace(H::Union{fpMatrix, FqMatrix}) =
     init_grand_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
+Toggles every parity check touched by variable `v`. Used to walk the syndrome
+incrementally instead of recomputing it per candidate.
+"""
+@inline function _grand_toggle_checks!(W::GRANDWorkspace, v::Int)
+    @inbounds for c in W.var_to_checks[v]
+        W.current_syndrome[c] ⊻= 0x01
+    end
+    return nothing
+end
+
+"""
+Tests one candidate error pattern. `flip_2` and `flip_3` are 0 for patterns of
+weight below 3. `W.current_syndrome` is left exactly as it was found, so the
+caller may probe patterns in any order.
+"""
+@inline function _grand_syndrome_matches!(W::GRANDWorkspace, flip_1::Int, flip_2::Int, flip_3::Int)
+    _grand_toggle_checks!(W, flip_1)
+    flip_2 != 0 && _grand_toggle_checks!(W, flip_2)
+    flip_3 != 0 && _grand_toggle_checks!(W, flip_3)
+    
+    matched = W.current_syndrome == W.target_syndrome
+    
+    _grand_toggle_checks!(W, flip_1)
+    flip_2 != 0 && _grand_toggle_checks!(W, flip_2)
+    flip_3 != 0 && _grand_toggle_checks!(W, flip_3)
+    
+    return matched
+end
+
+"""
 Executes Post-BP GRAND. 
-Sweeps all weight-1, weight-2, and weight-3 error patterns across the `max_lrb` Least Reliable Bits.
+Searches every error pattern of weight up to `max_weight` (capped at 3) over the
+`max_lrb` Least Reliable Bits and returns the syndrome-matching pattern of least
+soft cost `sum(abs(total_llrs[i]) for i in flipped)`. That is the same
+maximum-likelihood rule [`osd_decode!`](@ref) ranks its candidates by; returning
+the first match in Hamming-weight order instead would prefer one expensive flip
+over several cheap ones.
+
+The sweeps are still nested by Hamming weight, but every loop is bounded by the
+cost of the best match so far. Since `W.lrb_reliabilities` is nondecreasing, the
+cheapest pattern still reachable from a loop index is the one taking the next
+consecutive bits, so a bound failure prunes the entire remaining subtree and the
+result is provably the minimum-cost pattern in the search space.
 """
 function grand_decode!(W::GRANDWorkspace, total_llrs::Vector{Float64};
                        syndrome::Vector{UInt8} = zeros(UInt8, W.num_check),
@@ -342,68 +393,82 @@ function grand_decode!(W::GRANDWorkspace, total_llrs::Vector{Float64};
     end
     
     # 2. Sort to find the Least Reliable Bits (Ascending order)
-    sortperm!(W.perm, W.reliabilities)
+    # QuickSort is fully in-place, so unlike the default algorithm it needs no
+    # scratch buffer and keeps this call allocation-free.
+    sortperm!(W.perm, W.reliabilities, alg = QuickSort)
     search_space = min(max_lrb, W.num_var)
-    lrb_indices = W.perm[1:search_space]
-    
-    # Helper to check syndrome incrementally
-    @inline function _check_pattern(flips...)
-        # Apply flips incrementally
-        for v in flips
-            W.candidate_cw[v] ⊻= 0x01
-            for c in W.var_to_checks[v]
-                W.current_syndrome[c] ⊻= 0x01
-            end
-        end
-        
-        success = W.current_syndrome == W.target_syndrome
-        
-        # Revert flips to leave workspace clean for next pattern
-        if !success
-            for v in flips
-                W.candidate_cw[v] ⊻= 0x01
-                for c in W.var_to_checks[v]
-                    W.current_syndrome[c] ⊻= 0x01
-                end
-            end
-        end
-        return success
+    @inbounds for i in 1:search_space
+        W.lrb_indices[i] = W.perm[i]
+        W.lrb_reliabilities[i] = W.reliabilities[W.perm[i]]
     end
     
+    lrb = W.lrb_indices
+    rel = W.lrb_reliabilities
+    
+    # Cheapest syndrome-matching pattern found so far. best_1 is nonzero exactly
+    # when a match exists, which `best_cost` cannot report because zero-reliability
+    # bits make a cost of 0.0 legitimate.
+    best_cost = Inf
+    best_1 = 0
+    best_2 = 0
+    best_3 = 0
+    
     # 3. Weight-1 Sweep
-    if max_weight >= 1
+    @inbounds if max_weight >= 1
         for i in 1:search_space
-            if _check_pattern(lrb_indices[i])
-                return true, W.candidate_cw
+            rel[i] >= best_cost && break
+            if _grand_syndrome_matches!(W, lrb[i], 0, 0)
+                best_cost = rel[i]
+                best_1 = lrb[i]; best_2 = 0; best_3 = 0
             end
         end
     end
     
     # 4. Weight-2 Sweep
-    if max_weight >= 2
-        for i in 1:search_space
-            for j in (i+1):search_space
-                if _check_pattern(lrb_indices[i], lrb_indices[j])
-                    return true, W.candidate_cw
+    @inbounds if max_weight >= 2
+        for i in 1:(search_space - 1)
+            # Cheapest pair still reachable from i onwards is (i, i+1)
+            rel[i] + rel[i + 1] >= best_cost && break
+            for j in (i + 1):search_space
+                cost = rel[i] + rel[j]
+                cost >= best_cost && break
+                if _grand_syndrome_matches!(W, lrb[i], lrb[j], 0)
+                    best_cost = cost
+                    best_1 = lrb[i]; best_2 = lrb[j]; best_3 = 0
                 end
             end
         end
     end
     
     # 5. Weight-3 Sweep
-    if max_weight >= 3
-        for i in 1:search_space
-            for j in (i+1):search_space
-                for k in (j+1):search_space
-                    if _check_pattern(lrb_indices[i], lrb_indices[j], lrb_indices[k])
-                        return true, W.candidate_cw
+    @inbounds if max_weight >= 3
+        for i in 1:(search_space - 2)
+            rel[i] + rel[i + 1] + rel[i + 2] >= best_cost && break
+            for j in (i + 1):(search_space - 1)
+                rel[i] + rel[j] + rel[j + 1] >= best_cost && break
+                for k in (j + 1):search_space
+                    cost = rel[i] + rel[j] + rel[k]
+                    cost >= best_cost && break
+                    if _grand_syndrome_matches!(W, lrb[i], lrb[j], lrb[k])
+                        best_cost = cost
+                        best_1 = lrb[i]; best_2 = lrb[j]; best_3 = lrb[k]
                     end
                 end
             end
         end
     end
     
-    return false, W.candidate_cw
+    best_1 == 0 && return false, W.candidate_cw
+    
+    # 6. Commit the winning pattern so the workspace matches the returned estimate
+    for v in (best_1, best_2, best_3)
+        if v != 0
+            W.candidate_cw[v] ⊻= 0x01
+            _grand_toggle_checks!(W, v)
+        end
+    end
+    
+    return true, W.candidate_cw
 end
 
 # ==============================================================================

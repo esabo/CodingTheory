@@ -343,7 +343,7 @@ the `MP_decoders_old.jl` API: `layered_schedule(H, schedule = :layered)`,
 `decimated_bits`/`decimated_values`. **This file needs rewriting; there is
 currently no working test coverage of `MP_decoders.jl` at all.**
 
-### 4.3 The one `decoder_post_test.jl` failure is a real algorithmic limitation **[run]**
+### 4.3 `grand_decode!` ranked by Hamming weight, not soft cost — now FIXED **[run]**
 
 `test/LDPC/decoder_post_test.jl:77` expects `grand_decode!` to return
 `[1,1,1,0,0,0,0]` for `llrs = [0.5, 0.8, -5.0, 5.0, 5.0, 5.0, 5.0]`; it returns
@@ -357,13 +357,44 @@ weight-3 — and returns the first pattern that matches the syndrome, without ev
 comparing soft costs. The weight-1 flip of bit 3 is found before any weight-2
 pattern is tried, so the higher-cost answer wins.
 
-This is independent of `a4dfb8e`, which only added an `init_grand_workspace`
-convenience method and did not touch `grand_decode!` **[src]**. Either the test
-expectation should be relaxed to "a valid codeword", or `grand_decode!` should
-be upgraded to an ORBGRAND-style ordering by soft cost rather than by Hamming
-weight. Note the same weakness makes `grand_decode!` inconsistent with
-`osd_decode!`, which *does* rank candidates by soft distance
-(`decoder_post.jl:98-104`).
+This was independent of `a4dfb8e`, which only added an `init_grand_workspace`
+convenience method and did not touch `grand_decode!` **[src]**. The same weakness
+made `grand_decode!` inconsistent with `osd_decode!`, which *does* rank
+candidates by soft distance (`decoder_post.jl:98-104`).
+
+**Resolution.** `grand_decode!` now returns the minimum-soft-cost pattern in its
+search space, and the test expectation was left untouched. The sweeps still
+enumerate by Hamming weight, but they track the cheapest match rather than
+returning the first, and each loop carries a lower bound: because `sortperm!`
+leaves the least-reliable array nondecreasing, the cheapest pattern still
+reachable from any index takes the next consecutive bits, so a subtree can be
+pruned once `rel[i] + rel[i+1] + rel[i+2] >= best_cost`. That yields the same
+provable optimality as cost-ordered (ORBGRAND-style) enumeration without a heap
+or a sort.
+
+Cost-ordered enumeration was prototyped and rejected on measurement: it pays an
+unconditional sort over every candidate pattern on each call, which costs more
+than the syndrome checks it avoids (298 patterns generated, costed and sorted to
+skip ~80 checks at `max_lrb = 12`, and it degrades as the space grows). On a
+512-bit rate-1/2 code the shipped branch-and-bound version is *faster than the
+original buggy code* — 4.10 vs 5.03 us/call on a match, 16.92 vs 21.36 on the
+no-match worst case at `max_lrb = 20` — and the decode loop is now
+allocation-free at **0 bytes/call**, down from 4320, after switching
+`sortperm!` to the fully in-place `alg = QuickSort`. Note that omitting the
+`syndrome` keyword still allocates 320 bytes from the `zeros(UInt8, W.num_check)`
+default in the signature; that is pre-existing and callers crossing the Python
+boundary pass a syndrome anyway.
+
+Verified by 500 randomised trials against the cost-ordered prototype (0 soft-cost
+disagreements) and 400 trials against exhaustive brute force on a 16-bit code.
+`decoder_post_test.jl` went from 20 pass / 1 fail to **65 pass / 0 fail / 0
+error**, all additions additive. The new coverage includes an exhaustive-brute-force
+cross-check and a field-by-field comparison of the array and Flint
+`GRANDWorkspace` constructors over `fieldnames`, which will catch any future
+added-but-uninitialised field — the failure mode that caused bug 1 above.
+
+Still open in the same file: `_fast_osd!` builds `mrb_indices = Int[]` by `push!`
+on every call, so `osd_decode!` is not allocation-free.
 
 ### 4.4 The layer partition has no effect on the numerical result **[run]**
 

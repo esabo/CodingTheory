@@ -483,11 +483,13 @@ export LP_decoder_LDPC
 #############################
 
 include("LDPC/MP_decoders.jl")
-export DecoderWorkspace, HardDecisionWorkspace, SoftDecisionWorkspace, 
-       init_hard_workspace, load_hard_channel!, init_soft_workspace, 
-       load_soft_channel!, decode!, boxplus_exact, boxplus_minsum, 
-       boxplus_minsum_correction, csr_of, layered_schedule, serial_schedule, 
-       balance_of_layered_schedule
+# The hard-decision decoder lives only in the non-included `MP_decoders_old.jl`,
+# so `DecoderWorkspace`, `HardDecisionWorkspace`, `init_hard_workspace` and
+# `load_hard_channel!` are not exported. Restore them alongside a port of that
+# file, not before.
+export SoftDecisionWorkspace, init_soft_workspace, load_soft_channel!, decode!, 
+       boxplus_exact, boxplus_minsum, boxplus_minsum_correction, csr_of, 
+       layered_schedule, serial_schedule, balance_of_layered_schedule
 
 #############################
     # LDPC/simulations.jl
