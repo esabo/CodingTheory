@@ -492,3 +492,38 @@ Python boundary as `MP_decoders.jl`.
   most-reliable-basis construction, and OSD order 2 recovers the exact weight-1
   error for all 7 Hamming syndromes **[run]** — noted only because the descending
   loop reads like a mistake at first glance.
+
+### 4.10 `Pkg.test()` cannot run on `weight_dist` at all **[run]**
+
+Unrelated to the decoders, but it blocks whole-suite verification, so anyone
+working on this branch will hit it immediately.
+
+`ext/JLD2Ext/JLD2Ext.jl:4` does
+`import CodingTheory: TriangularColorCode488, TriangularColorCode666, ...`, but
+`include("Quantum/misc_known_codes.jl")` is **commented out** at
+`src/CodingTheory.jl:559`, so those names are never defined in the module. The
+extension therefore fails to precompile:
+
+```
+✗ CodingTheory → JLD2Ext
+ERROR: LoadError: UndefVarError: `TriangularColorCode488` not defined in `CodingTheory`
+  @ ext/JLD2Ext/Quantum/misc_known_codes.jl:11
+```
+
+Because `JLD2` is a direct dependency of `test/Project.toml`, the extension loads
+during `Pkg.test()` and the failure aborts the entire suite before any test
+runs. Individual test items still run fine through `TestItemRunner` against the
+package environment, which is how the decoder work here was verified.
+
+This is **not** caused by any change described in this document: it is already
+present at `a4dfb8e^`, and the same `include` is commented out there. It is the
+same *class* of defect as section 4.1 — a declared/imported name with no
+definition behind it — and it appears to be fallout from the branch's
+in-progress state, since `Quantum/weight_dist.jl` and the whole Quantum
+known-codes export block are commented out alongside it.
+
+Two candidate fixes, both a judgement call for whoever owns the refactor:
+re-enable `include("Quantum/misc_known_codes.jl")`, or guard/trim `JLD2Ext` so
+it does not import names the package does not currently define. Deliberately not
+attempted here, since uncommenting a large disabled section on someone else's
+in-flight branch is likely to cascade.
