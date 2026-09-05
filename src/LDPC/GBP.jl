@@ -581,453 +581,605 @@ function Base.show(io::IO, ::MIME"text/plain", R::RegionGraph)
     end
 end
 
+"""
+    bethe_region_graph(H::CTMatrixTypes) -> RegionGraph
+
+The Bethe region graph: one outer region per parity check holding that check's
+support, and one inner region per variable.
+
+This is the region graph on which generalized belief propagation reduces exactly
+to ordinary sum-product belief propagation, so it is the control that validates a
+GBP implementation. Note that it is *not* what `canonical_region_graph` returns:
+that takes the intersection closure of the check supports, whose inner regions
+may hold several variables and which is therefore already a strictly stronger
+approximation than Bethe.
+
+Counting numbers are `1` for each check region and `1 - deg(v)` for each variable
+region, which satisfies the validity conditions of `is_valid_region_graph`.
+"""
+function bethe_region_graph(H::CTMatrixTypes)
+    num_check, num_var = size(H)
+
+    supports = [Int[] for _ in 1:num_check]
+    if H isa SparseMatrixCSC
+        rows = rowvals(H)
+        for v in 1:num_var, i in nzrange(H, v)
+            push!(supports[rows[i]], v)
+        end
+    else
+        for c in 1:num_check, v in 1:num_var
+            iszero(H[c, v]) || push!(supports[c], v)
+        end
+    end
+    for c in 1:num_check
+        sort!(supports[c])
+    end
+
+    # Only variables that appear in some check get a region.
+    live = [v for v in 1:num_var if any(v in supports[c] for c in 1:num_check)]
+    var_region = Dict(v => num_check + k for (k, v) in enumerate(live))
+
+    checks_of = Dict(v => Int[] for v in live)
+    for c in 1:num_check, v in supports[c]
+        push!(checks_of[v], c)
+    end
+
+    regs = Vector{Region}(undef, num_check + length(live))
+    for c in 1:num_check
+        kids = [var_region[v] for v in supports[c]]
+        regs[c] = Region(copy(supports[c]), Int[], Int[], kids, 1)
+    end
+    for v in live
+        ps = sort(checks_of[v])
+        regs[var_region[v]] = Region([v], ps, copy(ps), Int[], 1 - length(ps))
+    end
+    return RegionGraph(regs)
+end
+
 #############################
             # GBP
 #############################
 
 # ==============================================================================
-# GENERALIZED BELIEF PROPAGATION WORKSPACE
+# GENERALIZED BELIEF PROPAGATION
 # ==============================================================================
+#
+# The Yedidia-Freeman-Weiss parent-to-child algorithm on a region graph.
+#
+# Three conventions carry the correctness of this file, and getting any of them
+# wrong silently degrades GBP into something weaker:
+#
+#   1. Sign. A positive channel LLR favours bit 0, matching `MP_decoders.jl`.
+#
+#   2. Local factors. `f_r` holds EVERY factor whose support lies inside `r`:
+#      the channel term of each variable in `r`, and every parity check whose
+#      support is contained in `r`. It is tempting to assign each factor to just
+#      one region to avoid double counting, but that is wrong here -- the
+#      counting numbers already prevent double counting in the region-based free
+#      energy, and a region's belief is a *local joint* that needs every factor
+#      it covers. This is also exactly what makes the Bethe region graph reduce
+#      to ordinary sum-product BP.
+#
+#   3. Beliefs. Writing `D(r)` for the strict descendants of `r`,
+#
+#          b_r = f_r + sum of m_e over e in E(r),
+#          E(r) = { (p -> c) : c in {r} u D(r), p not in {r} u D(r) },
+#
+#      so a region also receives the messages that other regions send into its
+#      descendants. That term is what lets information travel between outer
+#      regions: without it an outer region never hears from any other, its
+#      belief is frozen at `f_r`, and the iteration does nothing.
+#
+# The message update enforces `b_c = sum_{x_p \ x_c} b_p` at a fixed point:
+#
+#     m_{p->c} <- marginalise(b_p onto x_c) - (b_c - m_{p->c}).
 
 struct GBPWorkspace
     num_regions::Int
     num_edges::Int
-    
-    # Shared State (Log-Beliefs)
+    num_var::Int
+
+    # Region state. `local_factors` and `log_beliefs` share `log_belief_offsets`.
+    local_factors::Vector{Float64}
     log_beliefs::Vector{Float64}
     log_belief_offsets::Vector{Int}
-    
-    # Edge State (Messages: Parent -> Child)
+
+    # Edge state. Messages run parent -> child.
     edge_to_parent::Vector{Int}
     edge_to_child::Vector{Int}
     messages::Vector{Float64}
+    new_messages::Vector{Float64}
     message_offsets::Vector{Int}
-    
-    # Marginalization Maps
+
+    # `marg_maps[e][s_p + 1]` is the child state index for parent state `s_p`.
     marg_maps::Vector{Vector{Int}}
-    
-    # Topological Schedule & Early Termination Buffers
+
+    # `belief_edges[r]` is E(r). `belief_bits[r][k]` gives the bit positions
+    # inside `r` of the variables of edge `belief_edges[r][k]`'s child, in that
+    # child's sorted variable order.
+    belief_edges::Vector{Vector{Int}}
+    belief_bits::Vector{Vector{Vector{Int}}}
+    # Inverse of the above, so a serial schedule can apply one message delta
+    # without recomputing every belief.
+    edge_targets::Vector{Vector{Tuple{Int, Int}}}
+
+    region_vars::Vector{Vector{Int}}
+    counting::Vector{Int}
+    var_regions::Vector{Vector{Int}}
+
     edge_update_order::Vector{Int}
     is_decimated::Vector{Bool}
     current_synd_buffer::Vector{UInt8}
+    marg_buffer::Vector{Float64}
+end
+
+"""
+Numerically stable log-sum-exp for combining probabilities in the log domain.
+"""
+@inline function _log_add_exp(x::Float64, y::Float64)
+    x == -Inf && return y
+    y == -Inf && return x
+    m = max(x, y)
+    return m + log1p(exp(-abs(x - y)))
+end
+
+# The max-log approximation.
+@inline _log_add_exp_approx(x::Float64, y::Float64) = max(x, y)
+
+# Strict descendants of every region, by transitive closure of `subregions`.
+function _gbp_descendants(R::RegionGraph)
+    n = length(R.regions)
+    desc = [Set{Int}() for _ in 1:n]
+    # Process shorter regions first so children are complete before parents.
+    order = sortperm([length(R.regions[i].id) for i in 1:n])
+    for i in order
+        for c in R.regions[i].subregions
+            push!(desc[i], c)
+            union!(desc[i], desc[c])
+        end
+    end
+    return desc
+end
+
+# Bit positions inside `outer` of each variable of `inner`, in `inner` order.
+function _gbp_bit_positions(outer::Vector{Int}, inner::Vector{Int})
+    pos = Vector{Int}(undef, length(inner))
+    for (k, v) in enumerate(inner)
+        idx = findfirst(==(v), outer)
+        isnothing(idx) && error("region $inner is not contained in $outer")
+        pos[k] = idx - 1
+    end
+    return pos
+end
+
+@inline function _gbp_project(s::Int, bits::Vector{Int})
+    sc = 0
+    @inbounds for i in eachindex(bits)
+        sc |= (((s >> bits[i]) & 1) << (i - 1))
+    end
+    return sc
 end
 
 function init_gbp_workspace(R::RegionGraph, H::CTMatrixTypes)
     num_regions = length(R.regions)
     num_check, num_var = size(H)
-    
-    # ---------------------------------------------------------
-    # 1. Allocate Log-Belief Strides
-    # ---------------------------------------------------------
+
+    region_vars = [sort!(collect(R.regions[i].id)) for i in 1:num_regions]
+    counting = [R.regions[i].overcounting_number for i in 1:num_regions]
+
     log_belief_offsets = zeros(Int, num_regions + 1)
     log_belief_offsets[1] = 1
-    
     for i in 1:num_regions
-        num_states = 2^(length(R.regions[i].id))
-        log_belief_offsets[i+1] = log_belief_offsets[i] + num_states
+        log_belief_offsets[i + 1] = log_belief_offsets[i] + 2^length(region_vars[i])
     end
-    
-    total_belief_states = log_belief_offsets[end] - 1
-    log_beliefs = zeros(Float64, total_belief_states)
-    
-    # ---------------------------------------------------------
-    # 2. Enumerate Edges & Allocate Message Strides
-    # ---------------------------------------------------------
+    total_states = log_belief_offsets[end] - 1
+
+    # Edges, one per (child, parent) pair.
     edge_to_parent = Int[]
     edge_to_child = Int[]
     message_offsets = Int[1]
-    
     for c_idx in 1:num_regions
         for p_idx in R.regions[c_idx].parents
             push!(edge_to_parent, p_idx)
             push!(edge_to_child, c_idx)
-            
-            num_child_states = 2^(length(R.regions[c_idx].id))
-            push!(message_offsets, message_offsets[end] + num_child_states)
+            push!(message_offsets, message_offsets[end] + 2^length(region_vars[c_idx]))
         end
     end
-    
     num_edges = length(edge_to_parent)
-    total_message_states = message_offsets[end] - 1
-    messages = zeros(Float64, total_message_states)
-    
-    # ---------------------------------------------------------
-    # 3. Build the Bitwise Marginalization Maps
-    # ---------------------------------------------------------
+
+    # Parent-state -> child-state maps.
     marg_maps = Vector{Vector{Int}}(undef, num_edges)
-    
     for e in 1:num_edges
-        p_idx = edge_to_parent[e]
-        c_idx = edge_to_child[e]
-        
-        p_vars = sort!(collect(R.regions[p_idx].id))
-        c_vars = sort!(collect(R.regions[c_idx].id))
-        
-        p_bit_indices = Int[]
-        for cv in c_vars
-            idx = findfirst(==(cv), p_vars) 
-            push!(p_bit_indices, idx - 1) 
-        end
-        
-        num_p_states = 2^(length(p_vars))
-        map_e = zeros(Int, num_p_states)
-        
-        for s_p in 0:(num_p_states - 1)
-            s_c = 0
-            for (c_bit_idx, p_bit_idx) in enumerate(p_bit_indices)
-                bit_val = (s_p >> p_bit_idx) & 1
-                s_c |= (bit_val << (c_bit_idx - 1))
-            end
-            map_e[s_p + 1] = s_c + 1
+        pv = region_vars[edge_to_parent[e]]
+        cv = region_vars[edge_to_child[e]]
+        bits = _gbp_bit_positions(pv, cv)
+        map_e = Vector{Int}(undef, 2^length(pv))
+        for s in 0:(2^length(pv) - 1)
+            map_e[s + 1] = _gbp_project(s, bits) + 1
         end
         marg_maps[e] = map_e
     end
-    
-    # ---------------------------------------------------------
-    # 4. Generate the Two-Way Topological Schedule
-    # ---------------------------------------------------------
-    region_order_up = message_passing_order(R)     # Leaves -> Roots
-    region_order_down = reverse(region_order_up)   # Roots -> Leaves
-    
-    edge_update_order = Int[]
-    sizehint!(edge_update_order, 2 * num_edges)
-    
-    # Downward Pass
-    for r in region_order_down
+
+    # E(r) and the bit maps needed to read each of its messages.
+    desc = _gbp_descendants(R)
+    belief_edges = [Int[] for _ in 1:num_regions]
+    belief_bits = [Vector{Vector{Int}}() for _ in 1:num_regions]
+    edge_targets = [Tuple{Int, Int}[] for _ in 1:num_edges]
+    for r in 1:num_regions
+        inside = union(Set(r), desc[r])
         for e in 1:num_edges
-            if edge_to_parent[e] == r
-                push!(edge_update_order, e)
-            end
+            c = edge_to_child[e]
+            p = edge_to_parent[e]
+            (c in inside && !(p in inside)) || continue
+            push!(belief_edges[r], e)
+            push!(belief_bits[r], _gbp_bit_positions(region_vars[r], region_vars[c]))
+            push!(edge_targets[e], (r, length(belief_edges[r])))
         end
     end
-    
-    # Upward Pass
-    for r in region_order_up
-        for e in 1:num_edges
-            if edge_to_child[e] == r
-                push!(edge_update_order, e)
-            end
-        end
+
+    var_regions = [Int[] for _ in 1:num_var]
+    for r in 1:num_regions, v in region_vars[r]
+        push!(var_regions[v], r)
     end
-    
-    # ---------------------------------------------------------
-    # 5. Initialize Decimation & Syndrome Buffers
-    # ---------------------------------------------------------
-    is_decimated = zeros(Bool, num_var)
-    current_synd_buffer = zeros(UInt8, num_check)
-    
+
+    # Two-way topological sweep: roots to leaves, then leaves to roots. Both
+    # passes update the same parent -> child messages, which is correct here
+    # because the beliefs now carry information in both directions.
+    up = message_passing_order(R)
+    order = Int[]
+    sizehint!(order, 2 * num_edges)
+    for r in reverse(up), e in 1:num_edges
+        edge_to_parent[e] == r && push!(order, e)
+    end
+    for r in up, e in 1:num_edges
+        edge_to_child[e] == r && push!(order, e)
+    end
+
+    max_child_states = num_edges == 0 ? 1 :
+        maximum(2^length(region_vars[edge_to_child[e]]) for e in 1:num_edges)
+
     return GBPWorkspace(
-        num_regions, num_edges,
-        log_beliefs, log_belief_offsets,
-        edge_to_parent, edge_to_child, messages, message_offsets,
+        num_regions, num_edges, num_var,
+        zeros(Float64, total_states), zeros(Float64, total_states), log_belief_offsets,
+        edge_to_parent, edge_to_child,
+        zeros(Float64, message_offsets[end] - 1), zeros(Float64, message_offsets[end] - 1),
+        message_offsets,
         marg_maps,
-        edge_update_order, is_decimated, current_synd_buffer
+        belief_edges, belief_bits, edge_targets,
+        region_vars, counting, var_regions,
+        order, zeros(Bool, num_var), zeros(UInt8, num_check),
+        zeros(Float64, max_child_states)
     )
 end
 
-# ==============================================================================
-# GBP DECODING ENGINE
-# ==============================================================================
-
-"""
-Numerically stable Log-Sum-Exp for combining probabilities in the log domain.
-"""
-@inline function _log_add_exp(x::Float64, y::Float64)
-    x == -Inf && return y
-    y == -Inf && return x
-    max_val = max(x, y)
-    return max_val + log1p(exp(-abs(x - y)))
+@inline function _gbp_normalize!(W::GBPWorkspace, r::Int)
+    off = W.log_belief_offsets[r] - 1
+    ns = W.log_belief_offsets[r + 1] - W.log_belief_offsets[r]
+    m = -Inf
+    @inbounds for s in 1:ns
+        v = W.log_beliefs[off + s]
+        v > m && (m = v)
+    end
+    m == -Inf && return
+    @inbounds for s in 1:ns
+        W.log_beliefs[off + s] -= m
+    end
+    return
 end
 
-# The Max-Log Approximation
-@inline function _log_add_exp_approx(x::Float64, y::Float64)
-    return max(x, y)
+# b_r = f_r + sum of messages in E(r).
+function _gbp_recompute_beliefs!(W::GBPWorkspace)
+    copyto!(W.log_beliefs, W.local_factors)
+    @inbounds for r in 1:W.num_regions
+        off = W.log_belief_offsets[r] - 1
+        ns = W.log_belief_offsets[r + 1] - W.log_belief_offsets[r]
+        es = W.belief_edges[r]
+        for k in eachindex(es)
+            moff = W.message_offsets[es[k]] - 1
+            bits = W.belief_bits[r][k]
+            for s in 0:(ns - 1)
+                W.log_beliefs[off + s + 1] == -Inf && continue
+                W.log_beliefs[off + s + 1] += W.messages[moff + _gbp_project(s, bits) + 1]
+            end
+        end
+        _gbp_normalize!(W, r)
+    end
+    return
+end
+
+# Apply one message's change to every belief that includes it.
+@inline function _gbp_apply_delta!(W::GBPWorkspace, e::Int, delta::Vector{Float64})
+    @inbounds for (r, k) in W.edge_targets[e]
+        off = W.log_belief_offsets[r] - 1
+        ns = W.log_belief_offsets[r + 1] - W.log_belief_offsets[r]
+        bits = W.belief_bits[r][k]
+        for s in 0:(ns - 1)
+            W.log_beliefs[off + s + 1] == -Inf && continue
+            W.log_beliefs[off + s + 1] += delta[_gbp_project(s, bits) + 1]
+        end
+    end
+    return
+end
+
+# One message: marginalise the parent belief and divide out the child's copy.
+@inline function _gbp_message!(W::GBPWorkspace, e::Int, damping::Float64,
+                               dest::Vector{Float64})
+    p = W.edge_to_parent[e]
+    c = W.edge_to_child[e]
+    p_off = W.log_belief_offsets[p] - 1
+    c_off = W.log_belief_offsets[c] - 1
+    m_off = W.message_offsets[e] - 1
+    n_c = W.message_offsets[e + 1] - W.message_offsets[e]
+    n_p = W.log_belief_offsets[p + 1] - W.log_belief_offsets[p]
+
+    buf = W.marg_buffer
+    @inbounds for i in 1:n_c
+        buf[i] = -Inf
+    end
+    map_e = W.marg_maps[e]
+    @inbounds for s_p in 1:n_p
+        v = W.log_beliefs[p_off + s_p]
+        v == -Inf && continue
+        sc = map_e[s_p]
+        buf[sc] = _log_add_exp(buf[sc], v)
+    end
+
+    # Normalise the outgoing message so repeated sweeps cannot drift.
+    mx = -Inf
+    @inbounds for s_c in 1:n_c
+        old = W.messages[m_off + s_c]
+        cav = W.log_beliefs[c_off + s_c] - old
+        raw = buf[s_c] == -Inf ? -Inf : (cav == -Inf ? buf[s_c] : buf[s_c] - cav)
+        new = if raw == -Inf
+            -Inf
+        elseif old == -Inf
+            raw
+        else
+            damping * raw + (1.0 - damping) * old
+        end
+        dest[s_c] = new
+        new > mx && (mx = new)
+    end
+    if mx != -Inf
+        @inbounds for s_c in 1:n_c
+            dest[s_c] != -Inf && (dest[s_c] -= mx)
+        end
+    end
+    return n_c
+end
+
+@inline function _gbp_region_llr(W::GBPWorkspace, r::Int, v::Int)
+    off = W.log_belief_offsets[r] - 1
+    ns = W.log_belief_offsets[r + 1] - W.log_belief_offsets[r]
+    bit = findfirst(==(v), W.region_vars[r]) - 1
+    l0 = -Inf
+    l1 = -Inf
+    @inbounds for s in 0:(ns - 1)
+        b = W.log_beliefs[off + s + 1]
+        b == -Inf && continue
+        if ((s >> bit) & 1) == 0
+            l0 = _log_add_exp(l0, b)
+        else
+            l1 = _log_add_exp(l1, b)
+        end
+    end
+    return l0 - l1
 end
 
 """
-Master GBP API Wrapper. 
-Executes full Generalized Belief Propagation with early termination.
+    gbp_marginal_llrs(W::GBPWorkspace; mode::Symbol = :smallest) -> Vector{Float64}
+
+Single-variable LLRs, positive favouring bit 0.
+
+At a consistent fixed point every region containing a variable agrees on its
+marginal, so the two modes coincide. Off the fixed point they do not:
+
+  * `:smallest` reads the innermost region containing the variable. These are the
+    beliefs whose consistency the message updates actually enforce, and on the
+    Bethe region graph this is exactly the ordinary BP posterior, which is what
+    makes GBP reduce to BP there.
+  * `:counting` takes the counting-number weighted combination over every region
+    containing the variable. Valid, but it is not BP's posterior on Bethe.
 """
-function gbp_decode!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes, total_llrs::Vector{Float64};
+function gbp_marginal_llrs(W::GBPWorkspace; mode::Symbol = :smallest)
+    llrs = zeros(Float64, W.num_var)
+    if mode === :smallest
+        @inbounds for v in 1:W.num_var
+            rs = W.var_regions[v]
+            isempty(rs) && continue
+            best = rs[1]
+            for r in rs
+                length(W.region_vars[r]) < length(W.region_vars[best]) && (best = r)
+            end
+            llrs[v] = _gbp_region_llr(W, best, v)
+        end
+    elseif mode === :counting
+        @inbounds for v in 1:W.num_var
+            acc = 0.0
+            for r in W.var_regions[v]
+                # Clamp so a region that forbids one value outright cannot turn a
+                # negative counting number into a sign flip.
+                acc += W.counting[r] * clamp(_gbp_region_llr(W, r, v), -1.0e3, 1.0e3)
+            end
+            llrs[v] = acc
+        end
+    else
+        throw(ArgumentError("mode must be :smallest or :counting, got :$mode"))
+    end
+    return llrs
+end
+
+"""
+    extract_hard_decisions(W::GBPWorkspace, R::RegionGraph, num_var::Int)
+
+Hard decisions from the counting-number weighted marginals.
+"""
+function extract_hard_decisions(W::GBPWorkspace, R::RegionGraph, num_var::Int)
+    llrs = gbp_marginal_llrs(W)
+    bits = zeros(UInt8, num_var)
+    @inbounds for v in 1:min(num_var, W.num_var)
+        bits[v] = llrs[v] < 0 ? 0x01 : 0x00
+    end
+    return bits
+end
+
+"""
+Initializes the local factors, and hence the beliefs, of every region.
+
+Each region receives every factor whose support it contains: the channel term of
+each of its variables and each parity check lying wholly inside it. Messages are
+reset to zero.
+"""
+function init_region_beliefs!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes,
+                              channel_llrs::Vector{Float64},
+                              target_syndrome::Vector{UInt8})
+    num_check, num_var = size(H)
+
+    check_adj = [Int[] for _ in 1:num_check]
+    if H isa SparseMatrixCSC
+        rows = rowvals(H)
+        for v in 1:num_var, i in nzrange(H, v)
+            push!(check_adj[rows[i]], v)
+        end
+    else
+        for c in 1:num_check, v in 1:num_var
+            iszero(H[c, v]) || push!(check_adj[c], v)
+        end
+    end
+
+    fill!(W.local_factors, 0.0)
+    fill!(W.messages, 0.0)
+    fill!(W.new_messages, 0.0)
+
+    @inbounds for r in 1:W.num_regions
+        rv = W.region_vars[r]
+        rset = Set(rv)
+        ns = 2^length(rv)
+        off = W.log_belief_offsets[r] - 1
+
+        inside = [c for c in 1:num_check if issubset(check_adj[c], rset)]
+        # Bit positions within the region for each contained check.
+        cbits = [[findfirst(==(v), rv) - 1 for v in check_adj[c]] for c in inside]
+
+        for s in 0:(ns - 1)
+            bad = false
+            for (ci, c) in enumerate(inside)
+                par = 0x00
+                for b in cbits[ci]
+                    par ⊻= UInt8((s >> b) & 1)
+                end
+                if par != target_syndrome[c]
+                    bad = true
+                    break
+                end
+            end
+            if bad
+                W.local_factors[off + s + 1] = -Inf
+                continue
+            end
+            acc = 0.0
+            for (i, v) in enumerate(rv)
+                ((s >> (i - 1)) & 1) == 1 && (acc -= channel_llrs[v])
+            end
+            W.local_factors[off + s + 1] = acc
+        end
+    end
+
+    _gbp_recompute_beliefs!(W)
+    return W
+end
+
+function _gbp_syndrome_ok(W::GBPWorkspace, H::CTMatrixTypes, bits::Vector{UInt8},
+                          target_syndrome::Vector{UInt8})
+    num_check, num_var = size(H)
+    if H isa SparseMatrixCSC
+        fill!(W.current_synd_buffer, 0x00)
+        rows = rowvals(H)
+        @inbounds for v in 1:num_var
+            bits[v] == 0x01 || continue
+            for i in nzrange(H, v)
+                W.current_synd_buffer[rows[i]] ⊻= 0x01
+            end
+        end
+        @inbounds for c in 1:num_check
+            W.current_synd_buffer[c] == target_syndrome[c] || return false
+        end
+    else
+        @inbounds for c in 1:num_check
+            syn = target_syndrome[c]
+            for v in 1:num_var
+                iszero(H[c, v]) || (syn ⊻= bits[v])
+            end
+            syn == 0x00 || return false
+        end
+    end
+    return true
+end
+
+"""
+Master GBP API wrapper. Executes generalized belief propagation with early
+termination on syndrome validity.
+
+`schedule` is `:flooding` (all messages from the current beliefs, then one
+belief rebuild) or `:serial` (each message applied before the next is computed).
+Returns `(success, hard_decisions, iterations)`.
+"""
+function gbp_decode!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes,
+                     total_llrs::Vector{Float64};
                      target_syndrome::Vector{UInt8} = zeros(UInt8, size(H, 1)),
                      decimation_type::Val = Val(:none),
                      dec_thresh::Float64 = 10.0,
                      dec_rounds::Int = 3,
-                     max_iter::Int = 50, 
-                     damping::Float64 = 0.5)
-    
+                     max_iter::Int = 50,
+                     damping::Float64 = 0.5,
+                     schedule::Symbol = :flooding)
     num_check, num_var = size(H)
-    
-    # Reset decimation flags
     fill!(W.is_decimated, false)
-    
-    # 1. Initialize Log-Beliefs (Assigns LLRs and Quantum Parity Constraints)
     init_region_beliefs!(W, R, H, total_llrs, target_syndrome)
-    
-    marg_buffer = Float64[]
-    
-    @inbounds begin
-        for iter in 1:max_iter
-            
-            # ---------------------------------------------------------
-            # 2. MESSAGE PASSING ENGINE (Parent -> Child Updates)
-            # ---------------------------------------------------------
+
+    bits = extract_hard_decisions(W, R, num_var)
+    _gbp_syndrome_ok(W, H, bits, target_syndrome) && return true, bits, 0
+
+    delta = Float64[]
+    scratch = Float64[]
+
+    for iter in 1:max_iter
+        if schedule === :serial
             for e in W.edge_update_order
-                p_idx = W.edge_to_parent[e]
-                c_idx = W.edge_to_child[e]
-                
-                p_off = W.log_belief_offsets[p_idx] - 1
-                c_off = W.log_belief_offsets[c_idx] - 1
+                n_c = W.message_offsets[e + 1] - W.message_offsets[e]
+                length(scratch) < n_c && resize!(scratch, n_c)
+                length(delta) < n_c && resize!(delta, n_c)
+                _gbp_message!(W, e, damping, scratch)
                 m_off = W.message_offsets[e] - 1
-                
-                num_c_states = W.message_offsets[e+1] - W.message_offsets[e]
-                num_p_states = W.log_belief_offsets[p_idx+1] - W.log_belief_offsets[p_idx]
-                
-                if length(marg_buffer) < num_c_states
-                    resize!(marg_buffer, num_c_states)
+                @inbounds for s in 1:n_c
+                    old = W.messages[m_off + s]
+                    new = scratch[s]
+                    delta[s] = (new == -Inf || old == -Inf) ? 0.0 : new - old
+                    W.messages[m_off + s] = new
                 end
-                for i in 1:num_c_states; marg_buffer[i] = -Inf; end
-                
-                map_e = W.marg_maps[e]
-                for s_p in 1:num_p_states
-                    s_c = map_e[s_p]
-                    parent_val = W.log_beliefs[p_off + s_p]
-                    marg_buffer[s_c] = _log_add_exp(marg_buffer[s_c], parent_val)
-                end
-                
-                max_belief = -Inf
-                for s_c in 1:num_c_states
-                    old_msg = W.messages[m_off + s_c]
-                    child_belief = W.log_beliefs[c_off + s_c]
-                    
-                    new_msg_raw = marg_buffer[s_c] - (child_belief - old_msg)
-                    new_msg = (damping * new_msg_raw) + ((1.0 - damping) * old_msg)
-                    
-                    W.messages[m_off + s_c] = new_msg
-                    updated_belief = child_belief + (new_msg - old_msg)
-                    W.log_beliefs[c_off + s_c] = updated_belief
-                    
-                    if updated_belief > max_belief
-                        max_belief = updated_belief
-                    end
-                end
-                
-                if max_belief > -Inf
-                    for s_c in 1:num_c_states
-                        W.log_beliefs[c_off + s_c] -= max_belief
-                    end
+                _gbp_apply_delta!(W, e, delta)
+            end
+        else
+            for e in W.edge_update_order
+                n_c = W.message_offsets[e + 1] - W.message_offsets[e]
+                length(scratch) < n_c && resize!(scratch, n_c)
+                _gbp_message!(W, e, damping, scratch)
+                m_off = W.message_offsets[e] - 1
+                @inbounds for s in 1:n_c
+                    W.new_messages[m_off + s] = scratch[s]
                 end
             end
-            
-            # ---------------------------------------------------------
-            # 3. DECIMATION HOOK
-            # ---------------------------------------------------------
-            _apply_gbp_decimation!(decimation_type, W, R, num_var, iter, dec_thresh, dec_rounds)
-            
-            # ---------------------------------------------------------
-            # 4. EARLY TERMINATION (Extract bits and check syndrome)
-            # ---------------------------------------------------------
-            current_bits = extract_hard_decisions(W, R, num_var)
-            is_valid = true
-            
-            if H isa SparseMatrixCSC
-                # FAST PATH: Column-major iteration for CSC Matrices
-                fill!(W.current_synd_buffer, 0x00)
-                rows = rowvals(H)
-                
-                for v in 1:num_var
-                    if current_bits[v] == 0x01
-                        for i in nzrange(H, v)
-                            W.current_synd_buffer[rows[i]] ⊻= 0x01
-                        end
-                    end
-                end
-                
-                for c in 1:num_check
-                    if W.current_synd_buffer[c] != target_syndrome[c]
-                        is_valid = false
-                        break
-                    end
-                end
-            else
-                # SLOW PATH: Dense matrix check
-                for c in 1:num_check
-                    syn = target_syndrome[c]
-                    for v in 1:num_var
-                        if H[c, v] != 0
-                            syn ⊻= current_bits[v]
-                        end
-                    end
-                    if syn != 0x00
-                        is_valid = false
-                        break
-                    end
-                end
-            end
-            
-            if is_valid
-                return true, current_bits, iter
-            end
+            copyto!(W.messages, W.new_messages)
+            _gbp_recompute_beliefs!(W)
         end
-    end
-    
-    final_bits = extract_hard_decisions(W, R, num_var)
-    return false, final_bits, max_iter
-end
 
-"""
-Initializes the Log-Beliefs for all regions.
-Assigns channel LLRs and parity checks to strictly one region to prevent double-counting.
-"""
-function init_region_beliefs!(W::GBPWorkspace, R::RegionGraph, H::CTMatrixTypes, channel_llrs::Vector{Float64}, target_syndrome::Vector{UInt8})
-    num_check, num_var = size(H)
-    num_regions = length(R.regions)
-    
-    # 1. Map Checks to BitSets
-    check_adj = [BitSet() for _ in 1:num_check]
-    if H isa SparseMatrixCSC
-        rows = rowvals(H)
-        for c in 1:num_var
-            for i in nzrange(H, c)
-                push!(check_adj[rows[i]], c)
-            end
-        end
-    else
-        for c in 1:num_check
-            for v in 1:num_var
-                if !iszero(H[c, v])
-                    push!(check_adj[c], v)
-                end
-            end
-        end
-    end
-    
-    # 2. Assign Variables to EXACTLY ONE Region
-    var_assignment = zeros(Int, num_var)
-    for v in 1:num_var
-        for r_idx in 1:num_regions
-            if v in R.regions[r_idx].id
-                var_assignment[v] = r_idx
-                break
-            end
-        end
-        if var_assignment[v] == 0
-            error("Variable $v is not contained in any region!")
-        end
-    end
-    
-    # 3. Assign Parity Checks to EXACTLY ONE Region
-    check_assignment = zeros(Int, num_check)
-    for c in 1:num_check
-        for r_idx in 1:num_regions
-            if issubset(check_adj[c], R.regions[r_idx].id)
-                check_assignment[c] = r_idx
-                break
-            end
-        end
-        if check_assignment[c] == 0
-            error("Parity check $c is not fully contained in any region!")
-        end
-    end
-    
-    # 4. Initialize the Log-Beliefs Array
-    fill!(W.log_beliefs, 0.0)
-    fill!(W.messages, 0.0) # Reset messages to 0 (log(1))
-    
-    @inbounds for r_idx in 1:num_regions
-        r_vars = sort!(collect(R.regions[r_idx].id))
-        num_vars = length(r_vars)
-        num_states = 2^num_vars
-        offset = W.log_belief_offsets[r_idx] - 1
-        
-        # Find which variables and checks were assigned to this specific region
-        assigned_vars = [i for i in 1:num_vars if var_assignment[r_vars[i]] == r_idx]
-        assigned_checks = [c for c in 1:num_check if check_assignment[c] == r_idx]
-        
-        for s in 0:(num_states - 1)
-            is_valid = true
-            
-            # A. Enforce Parity Checks assigned to this region
-            for c in assigned_checks
-                parity = 0
-                for (bit_idx, v) in enumerate(r_vars)
-                    if v in check_adj[c]
-                        bit_val = (s >> (bit_idx - 1)) & 1
-                        parity ⊻= bit_val
-                    end
-                end
-                
-                # Check against the target syndrome instead of hardcoded 0
-                if parity != target_syndrome[c]
-                    is_valid = false
-                    break
-                end
-            end
-            
-            # Invalid states get -Inf log-probability (0 probability)
-            if !is_valid
-                W.log_beliefs[offset + s + 1] = -Inf
-                continue
-            end
-            
-            # B. Inject Channel Information for variables assigned to this region
-            # If bit_val == 1, we penalize it by -LLR. 
-            state_belief = 0.0
-            for bit_idx in assigned_vars
-                bit_val = (s >> (bit_idx - 1)) & 1
-                if bit_val == 1
-                    state_belief -= channel_llrs[r_vars[bit_idx]]
-                end
-            end
-            
-            W.log_beliefs[offset + s + 1] = state_belief
-        end
-    end
-end
+        _apply_gbp_decimation!(decimation_type, W, R, num_var, iter, dec_thresh, dec_rounds)
 
-"""
-Extracts the final hard decisions by marginalizing the converged Log-Beliefs.
-"""
-function extract_hard_decisions(W::GBPWorkspace, R::RegionGraph, num_var::Int)
-    hard_decisions = zeros(UInt8, num_var)
-    
-    @inbounds for v in 1:num_var
-        # Find the first region containing this variable
-        target_r = 0
-        for r_idx in 1:length(R.regions)
-            if v in R.regions[r_idx].id
-                target_r = r_idx
-                break
-            end
-        end
-        
-        r_vars = sort!(collect(R.regions[target_r].id))
-        bit_pos = findfirst(==(v), r_vars) - 1 # 0-indexed for bit shifting
-        
-        num_states = 2^(length(r_vars))
-        offset = W.log_belief_offsets[target_r] - 1
-        
-        log_prob_0 = -Inf
-        log_prob_1 = -Inf
-        
-        # Marginalize the region's beliefs down to this specific variable
-        for s in 0:(num_states - 1)
-            belief = W.log_beliefs[offset + s + 1]
-            belief == -Inf && continue
-            
-            bit_val = (s >> bit_pos) & 1
-            if bit_val == 0
-                log_prob_0 = _log_add_exp(log_prob_0, belief)
-            else
-                log_prob_1 = _log_add_exp(log_prob_1, belief)
-            end
-        end
-        
-        # Hard decision based on max log-probability
-        hard_decisions[v] = log_prob_1 > log_prob_0 ? 0x01 : 0x00
+        bits = extract_hard_decisions(W, R, num_var)
+        _gbp_syndrome_ok(W, H, bits, target_syndrome) && return true, bits, iter
     end
-    
-    return hard_decisions
+
+    return false, extract_hard_decisions(W, R, num_var), max_iter
 end
 
 # ==============================================================================
@@ -1036,67 +1188,32 @@ end
 
 @inline _apply_gbp_decimation!(::Val{:none}, W, R, num_var, iter, thresh, rounds) = nothing
 
-function _apply_gbp_decimation!(::Val{:hard}, W::GBPWorkspace, R::RegionGraph, num_var::Int, iter::Int, thresh::Float64, rounds::Int)
-    if iter % rounds != 0
-        return
-    end
-    
+function _apply_gbp_decimation!(::Val{:hard}, W::GBPWorkspace, R::RegionGraph,
+                                num_var::Int, iter::Int, thresh::Float64, rounds::Int)
+    iter % rounds == 0 || return
+    llrs = gbp_marginal_llrs(W)
+    changed = false
+
     @inbounds for v in 1:num_var
-        if !W.is_decimated[v]
-            # 1. Find the first region to calculate the marginal LLR
-            target_r = 0
-            for r_idx in 1:length(R.regions)
-                if v in R.regions[r_idx].id
-                    target_r = r_idx
-                    break
-                end
-            end
-            
-            r_vars = sort!(collect(R.regions[target_r].id))
-            bit_pos = findfirst(==(v), r_vars) - 1 
-            num_states = 2^(length(r_vars))
-            offset = W.log_belief_offsets[target_r] - 1
-            
-            log_prob_0, log_prob_1 = -Inf, -Inf
-            
-            for s in 0:(num_states - 1)
-                belief = W.log_beliefs[offset + s + 1]
-                belief == -Inf && continue
-                
-                bit_val = (s >> bit_pos) & 1
-                if bit_val == 0
-                    log_prob_0 = _log_add_exp(log_prob_0, belief)
-                else
-                    log_prob_1 = _log_add_exp(log_prob_1, belief)
-                end
-            end
-            
-            # LLR = Log(P(0)) - Log(P(1))
-            llr = log_prob_0 - log_prob_1
-            
-            # 2. Check threshold and Decimate
-            if abs(llr) > thresh
-                W.is_decimated[v] = true
-                locked_val = llr > 0 ? 0 : 1
-                
-                # 3. Banish contradictory states in ALL regions containing this variable
-                for r_idx in 1:length(R.regions)
-                    if v in R.regions[r_idx].id
-                        r_vars_all = sort!(collect(R.regions[r_idx].id))
-                        local_bit_pos = findfirst(==(v), r_vars_all) - 1
-                        local_num_states = 2^(length(r_vars_all))
-                        local_offset = W.log_belief_offsets[r_idx] - 1
-                        
-                        for s in 0:(local_num_states - 1)
-                            # If the state's bit doesn't match the locked value, destroy it
-                            if ((s >> local_bit_pos) & 1) != locked_val
-                                W.log_beliefs[local_offset + s + 1] = -Inf
-                            end
-                        end
-                    end
-                end
+        W.is_decimated[v] && continue
+        abs(llrs[v]) > thresh || continue
+        W.is_decimated[v] = true
+        changed = true
+        locked = llrs[v] > 0 ? 0 : 1
+        # Banish contradictory states in every region holding this variable.
+        # This edits the local factors, not the beliefs, so the constraint
+        # survives the next belief rebuild.
+        for r in W.var_regions[v]
+            rv = W.region_vars[r]
+            bit = findfirst(==(v), rv) - 1
+            ns = 2^length(rv)
+            off = W.log_belief_offsets[r] - 1
+            for s in 0:(ns - 1)
+                ((s >> bit) & 1) != locked && (W.local_factors[off + s + 1] = -Inf)
             end
         end
     end
-end
 
+    changed && _gbp_recompute_beliefs!(W)
+    return
+end

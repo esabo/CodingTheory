@@ -466,10 +466,12 @@ export OSDWorkspace, init_osd_workspace, osd_decode!,
 include("LDPC/GBP.jl")
 export Region, RegionGraph, id, parents, ancestors, subregions, overcounting_number, 
        regions, base_regions, leaves, outer_regions, basic_clusters, 
-       canonical_region_graph, region_graph_from_base_nodes, is_valid_region_graph, 
+       canonical_region_graph, bethe_region_graph, region_graph_from_base_nodes,
+       is_valid_region_graph, 
        remove_zero_overcounting_numbers, remove_generational_skips, 
        triangulate_base_regions, message_passing_order, GBPWorkspace, 
-       init_gbp_workspace, gbp_decode!, init_region_beliefs!, extract_hard_decisions
+       init_gbp_workspace, gbp_decode!, init_region_beliefs!, extract_hard_decisions,
+       gbp_marginal_llrs
 
 #############################
     # LDPC/LP_decoders.jl
