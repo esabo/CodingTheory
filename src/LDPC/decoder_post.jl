@@ -66,25 +66,24 @@ init_osd_workspace(H::Union{fpMatrix, FqMatrix}) =
     init_osd_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
-Evaluates a specific OSD bit-flip pattern. 
-Re-encodes the LRB using the permuted syndrome and updates W.best_cw if it is the new minimum.
+Evaluates a specific OSD bit-flip pattern over permuted column indices.
+Re-encodes the LRB using the permuted syndrome and updates `W.best_cw` if it
+is the new minimum soft cost.
 """
-@inline function _evaluate_pattern!(W::OSDWorkspace, flip_1::Int, flip_2::Int, current_min_dist::Float64)
-    # Load base MRB decisions
+@inline function _evaluate_pattern!(W::OSDWorkspace, flip_indices, current_min_dist::Float64)
     for i in 1:W.num_var
         W.candidate_cw[i] = W.hard_decisions[W.perm[i]]
     end
-    
-    # Apply requested flips
-    if flip_1 > 0; W.candidate_cw[flip_1] ⊻= 0x01; end
-    if flip_2 > 0; W.candidate_cw[flip_2] ⊻= 0x01; end
-    
-    # Re-encode LRB
+
+    @inbounds for i in flip_indices
+        W.candidate_cw[i] ⊻= 0x01
+    end
+
     for col in 1:W.num_var
         if !W.is_mrb[col]
             row = W.pivot_map[col]
-            parity_val = W.s_work[row] 
-            
+            parity_val = W.s_work[row]
+
             @simd for m_col in 1:W.num_var
                 if W.is_mrb[m_col]
                     parity_val ⊻= (W.H_work[row, m_col] & W.candidate_cw[m_col])
@@ -93,8 +92,7 @@ Re-encodes the LRB using the permuted syndrome and updates W.best_cw if it is th
             W.candidate_cw[col] = parity_val
         end
     end
-    
-    # Calculate Euclidean distance
+
     dist = 0.0
     for i in 1:W.num_var
         orig_i = W.perm[i]
@@ -102,17 +100,21 @@ Re-encodes the LRB using the permuted syndrome and updates W.best_cw if it is th
             dist += W.reliabilities[orig_i]
         end
     end
-    
-    # Track the global best
+
     if dist < current_min_dist
         for i in 1:W.num_var
             W.best_cw[W.perm[i]] = W.candidate_cw[i]
         end
         return dist
     end
-    
+
     return current_min_dist
 end
+
+@inline _evaluate_pattern!(W::OSDWorkspace, flip_1::Int, flip_2::Int, current_min_dist::Float64) =
+    flip_2 > 0 ? _evaluate_pattern!(W, (flip_1, flip_2), current_min_dist) :
+    flip_1 > 0 ? _evaluate_pattern!(W, (flip_1,), current_min_dist) :
+    _evaluate_pattern!(W, (), current_min_dist)
 
 # ==============================================================================
 # STANDARD OSD SWEEPS
@@ -166,6 +168,44 @@ end
             min_dist = _evaluate_pattern!(W, i, j, min_dist)
         end
     end
+end
+
+# ==============================================================================
+# GENERIC OSD SWEEPS (order > 2)
+# ==============================================================================
+
+@inline function _run_osd_sweeps_standard_generic!(order::Int, W::OSDWorkspace, mrb_indices::AbstractVector{Int})
+    min_dist = _evaluate_pattern!(W, (), Inf)
+    for weight in 1:order
+        for combo in Combinatorics.combinations(mrb_indices, weight)
+            min_dist = _evaluate_pattern!(W, combo, min_dist)
+        end
+    end
+    return nothing
+end
+
+@inline function _run_osd_sweeps_cs_generic!(order::Int, W::OSDWorkspace, mrb_indices::AbstractVector{Int}, cs_lambda::Int)
+    min_dist = _evaluate_pattern!(W, (), Inf)
+    for i in mrb_indices
+        min_dist = _evaluate_pattern!(W, (i,), min_dist)
+    end
+
+    cs_start = max(1, length(mrb_indices) - cs_lambda + 1)
+    cs_indices = @view mrb_indices[cs_start:end]
+    for weight in 2:order
+        for combo in Combinatorics.combinations(cs_indices, weight)
+            min_dist = _evaluate_pattern!(W, combo, min_dist)
+        end
+    end
+    return nothing
+end
+
+@inline function _run_osd_sweeps!(::Val{:standard}, ::Val{N}, W, mrb_indices, cs_lambda) where {N}
+    N > 2 && _run_osd_sweeps_standard_generic!(N, W, mrb_indices)
+end
+
+@inline function _run_osd_sweeps!(::Val{:cs}, ::Val{N}, W, mrb_indices, cs_lambda) where {N}
+    N > 2 && _run_osd_sweeps_cs_generic!(N, W, mrb_indices, cs_lambda)
 end
 
 function _fast_osd!(W::OSDWorkspace, method::Val, order::Val, total_llrs::Vector{Float64}, cs_lambda::Int)

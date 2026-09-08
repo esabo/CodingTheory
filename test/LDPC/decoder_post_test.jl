@@ -67,6 +67,20 @@
         # 2. Combinatorial Sweep (OSD-CS)
         cw_cs = CodingTheory.osd_decode!(W, llrs, method=:cs, order=2, cs_lambda=4)
         @test cw_cs == expected_cw
+
+        # 3. Higher-order generic sweeps (orders 3 and 7)
+        cw_std3 = CodingTheory.osd_decode!(W, llrs, method=:standard, order=3)
+        @test cw_std3 == expected_cw
+
+        cw_cs7 = CodingTheory.osd_decode!(W, llrs, method=:cs, order=7, cs_lambda=4)
+        @test cw_cs7 == expected_cw
+
+        # Order 7 CS should still return a valid codeword on a nontrivial LLR vector.
+        llrs_rich = Float64[0.2, -0.3, 0.1, 0.4, -0.5, 0.6, -0.7]
+        cw_cs7_rich = CodingTheory.osd_decode!(W, llrs_rich, method=:cs, order=7, cs_lambda=4)
+        H_bits = UInt8[iszero(H[c, v]) ? 0x00 : 0x01 for c in 1:3, v in 1:7]
+        syndrome = UInt8[reduce(⊻, H_bits[c, v] & cw_cs7_rich[v] for v in 1:7) for c in 1:3]
+        @test syndrome == UInt8[0, 0, 0]
     end
 
     @testset "Guessing Random Additive Noise Decoding (GRAND)" begin
