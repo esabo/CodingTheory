@@ -284,7 +284,7 @@ export RandomMatrixProductCode, constituent_codes, defining_matrix, MatrixProduc
 
 include("Classical/min_dist_exact.jl")
 export information_sets, heuristic_info_set_selection, minimum_distance, 
-       minimum_distance_zssmp
+       minimum_distance_zssmp, generate_automorphisms
 
 #############################
 # Classical/min_dist_heuristics.jl
@@ -552,6 +552,13 @@ export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_cod
 #############################
 
 include("Quantum/min_dist_exact.jl")
+
+#############################
+# Quantum/min_dist_probabilistic.jl
+#############################
+
+include("Quantum/min_dist_probabilistic.jl")
+export probabilistic_minimum_distance
 
 # #############################
 #    # Quantum/graphstate.jl

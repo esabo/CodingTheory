@@ -29,8 +29,36 @@ use subfield subcode to bound
 
 ## Quantum
 
-exact algorithms
-lower bounds w/ Gray code
-upper bounds w/ random information sets
-native QDistRnd but also interface to original GAP version
-graph states
+For a binary CSS stabilizer code, use
+`minimum_distance(S; which=:X|:Z|:full, alg=:auto)`. The exact solvers search
+directly for a vector with zero stabilizer syndrome and a nonzero logical label:
+
+- `:Gray` exhausts the normalizer with bit-packed, threaded Gray-code ranges.
+- `:Wagner` performs a bit-packed, quotient-aware meet-in-the-middle search in
+  increasing physical weight.
+- `:ILP` uses JuMP and GLPK. It solves one logical minimization problem and
+  strengthens low-degree parity checks with odd-set inequalities.
+- `:auto` uses Gray for small normalizer dimension, an available ILP extension
+  for large or sparse problems, and Wagner otherwise.
+
+Exact ILP solves have no time limit by default. Set `time_limit_sec` explicitly
+only when an inconclusive timeout is acceptable.
+
+Probabilistic ISD computes an upper bound rather than certifying the distance:
+
+```julia
+d, logical = probabilistic_minimum_distance(
+    S; which=:X, alg=:Stern, p=2, l=12,
+    max_iters=100_000, info_set_alg=:Brouwer,
+    automorphisms=coordinate_permutations, seed=1)
+```
+
+The available binary CSS variants are `:Prange`, `:LeeBrickell`, and `:Stern`.
+They are threaded and bit-pack parity tails and logical labels. Candidate
+logicality is incorporated in each ISD collision or combination test; the
+implementation does not repeatedly invoke a classical solver and discard
+stabilizer results. Classical information-set preprocessors can seed the
+systematic forms. Supplied coordinate automorphisms are composed with those
+preprocessed forms before the remaining random trials. They seed equivalent
+information sets only; the solver does not restrict the search to an
+automorphism-fixed subcode, which could miss an asymmetric minimum logical.

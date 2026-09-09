@@ -38,6 +38,47 @@ function _pack_binary_columns(A::_CSSBinaryMatrix)
     return packed
 end
 
+function _pack_binary_rows(A::_CSSBinaryMatrix)
+    nr, nc = size(A)
+    chunks = cld(nc, 64)
+    packed = [zeros(UInt64, chunks) for _ in 1:nr]
+
+    if A isa SparseMatrixCSC
+        vals = SparseArrays.nonzeros(A)
+        rows = SparseArrays.rowvals(A)
+        @inbounds for c in 1:nc, ptr in SparseArrays.nzrange(A, c)
+            iszero(vals[ptr]) && continue
+            packed[rows[ptr]][(c - 1) ÷ 64 + 1] |=
+                UInt64(1) << ((c - 1) % 64)
+        end
+    else
+        @inbounds for r in 1:nr, c in 1:nc
+            iszero(A[r, c]) && continue
+            packed[r][(c - 1) ÷ 64 + 1] |=
+                UInt64(1) << ((c - 1) % 64)
+        end
+    end
+    return packed
+end
+
+@inline function _xor_packed!(target::Vector{UInt64}, source::Vector{UInt64})
+    @inbounds @simd for i in eachindex(target, source)
+        target[i] ⊻= source[i]
+    end
+    return target
+end
+
+@inline _packed_weight(v::Vector{UInt64}) =
+    sum(count_ones, v; init=0)
+
+function _unpack_binary_vector(v::Vector{UInt64}, n::Int)
+    result = zeros(Int, n)
+    @inbounds for c in 1:n
+        result[c] = Int((v[(c - 1) ÷ 64 + 1] >> ((c - 1) % 64)) & UInt64(1))
+    end
+    return result
+end
+
 """
     _minimum_distance_css_gray_binary(H, logical_checks)
 
@@ -58,38 +99,66 @@ function _minimum_distance_css_gray_binary(
     G = _convert_binary_to_int_matrix(generator_matrix(C))
     k_normalizer, n = size(G)
 
+    iszero(k_normalizer) && return -1, zeros(Int, n)
     k_normalizer <= 62 || throw(ArgumentError(
         "Gray enumeration supports normalizer dimension at most 62; use `alg=:Wagner` for this code."))
 
     row_labels = (G * transpose(L_int)) .% 2
-    current = zeros(Int, n)
-    current_label = zeros(Int, nrows(L_int))
-    best = zeros(Int, n)
-    best_weight = n + 1
-    previous_gray = UInt64(0)
+    packed_rows = _pack_binary_rows(G)
+    packed_labels = _pack_binary_rows(row_labels)
     stop = UInt64(1) << k_normalizer
+    candidate_count = stop - 1
+    task_count = min(Threads.nthreads(), Int(candidate_count))
+    local_best = fill((n + 1, typemax(UInt64)), task_count)
 
-    for i in UInt64(1):(stop - 1)
-        gray = i ⊻ (i >> 1)
-        changed = trailing_zeros(gray ⊻ previous_gray) + 1
-        @inbounds @simd for c in 1:n
-            current[c] ⊻= G[changed, c]
-        end
-        @inbounds @simd for c in eachindex(current_label)
-            current_label[c] ⊻= row_labels[changed, c]
+    Threads.@threads for task in 1:task_count
+        first_i = UInt64(1) +
+            (UInt64(task - 1) * candidate_count) ÷ UInt64(task_count)
+        last_i =
+            (UInt64(task) * candidate_count) ÷ UInt64(task_count)
+        current = zeros(UInt64, cld(n, 64))
+        current_label = zeros(UInt64, cld(size(L_int, 1), 64))
+        gray = first_i ⊻ (first_i >> 1)
+
+        bits = gray
+        while !iszero(bits)
+            row = trailing_zeros(bits) + 1
+            _xor_packed!(current, packed_rows[row])
+            _xor_packed!(current_label, packed_labels[row])
+            bits &= bits - UInt64(1)
         end
 
-        if any(!iszero, current_label)
-            w = count(!iszero, current)
-            if w < best_weight
-                best_weight = w
-                copyto!(best, current)
+        best_weight = n + 1
+        best_index = typemax(UInt64)
+        for i in first_i:last_i
+            if any(!iszero, current_label)
+                weight = _packed_weight(current)
+                if weight < best_weight
+                    best_weight = weight
+                    best_index = i
+                end
             end
+            i == last_i && break
+            next_gray = (i + UInt64(1)) ⊻ ((i + UInt64(1)) >> 1)
+            changed = trailing_zeros(gray ⊻ next_gray) + 1
+            _xor_packed!(current, packed_rows[changed])
+            _xor_packed!(current_label, packed_labels[changed])
+            gray = next_gray
         end
-        previous_gray = gray
+        local_best[task] = (best_weight, best_index)
     end
 
-    return best_weight == n + 1 ? (-1, zeros(Int, n)) : (best_weight, best)
+    best_weight, best_index = minimum(local_best)
+    best_weight == n + 1 && return -1, zeros(Int, n)
+
+    best = zeros(UInt64, cld(n, 64))
+    bits = best_index ⊻ (best_index >> 1)
+    while !iszero(bits)
+        row = trailing_zeros(bits) + 1
+        _xor_packed!(best, packed_rows[row])
+        bits &= bits - UInt64(1)
+    end
+    return best_weight, _unpack_binary_vector(best, n)
 end
 
 """
@@ -115,18 +184,27 @@ function _minimum_distance_css_wagner_binary(
     L_columns = _pack_binary_columns(logical_checks)
     H_chunks = cld(nrows(H), 64)
     L_chunks = cld(nrows(logical_checks), 64)
-    Entry = Tuple{Tuple, Vector{Int}}
+    Syndrome = typeof(Tuple(zeros(UInt64, H_chunks)))
+    Label = typeof(Tuple(zeros(UInt64, L_chunks)))
+    Entry = Tuple{Label, Vector{Int}}
 
     for w in 1:max_d
         verbose && println("Checking CSS logical operators of weight $w...")
-        for w_left in max(0, w - (n - mid)):min(w, mid)
+        splits = collect(max(0, w - (n - mid)):min(w, mid))
+        witnesses = Vector{Union{Nothing, Vector{Int}}}(nothing, length(splits))
+        found = Threads.Atomic{Bool}(false)
+
+        Threads.@threads for split_index in eachindex(splits)
+            found[] && continue
+            w_left = splits[split_index]
             w_right = w - w_left
-            table = Dict{Tuple, Vector{Entry}}()
+            table = Dict{Syndrome, Vector{Entry}}()
             left_syndrome = zeros(UInt64, H_chunks)
             left_label = zeros(UInt64, L_chunks)
             left_support = Int[]
 
             function build_left!(next_column::Int, remaining::Int)
+                found[] && return
                 if iszero(remaining)
                     syndrome = Tuple(left_syndrome)
                     label = Tuple(left_label)
@@ -163,6 +241,7 @@ function _minimum_distance_css_wagner_binary(
             right_support = Int[]
 
             function probe_right!(next_column::Int, remaining::Int)
+                found[] && return nothing
                 if iszero(remaining)
                     syndrome = Tuple(right_syndrome)
                     haskey(table, syndrome) || return nothing
@@ -201,6 +280,12 @@ function _minimum_distance_css_wagner_binary(
             end
 
             witness = probe_right!(mid + 1, w_right)
+            if witness !== nothing
+                witnesses[split_index] = witness
+                found[] = true
+            end
+        end
+        for witness in witnesses
             witness === nothing || return w, witness
         end
     end
@@ -216,21 +301,29 @@ matrices are binary; `H` may be a sparse parity-check matrix.
 function _minimum_distance(
     H::_CSSBinaryMatrix, logical_checks::_CSSBinaryMatrix;
     alg::Symbol=:auto, max_d::Int=ncols(H), verbose::Bool=false,
-    time_limit_sec::Float64=300.0
+    time_limit_sec::Union{Nothing, Float64}=nothing,
+    ilp_parity_cut_max_degree::Int=10
 )
     alg ∈ (:auto, :Gray, :Wagner, :ILP) ||
         throw(ArgumentError("CSS matrix minimum distance supports `:auto`, `:Gray`, `:Wagner`, and `:ILP`."))
     0 <= max_d <= ncols(H) ||
         throw(DomainError(max_d, "`max_d` must lie between zero and the code length."))
 
+    ilp_available = !isempty(methods(_minimum_distance_css_ILP))
     chosen = alg
     if chosen == :auto
-        if H isa SparseMatrixCSC
-            normalizer_dimension = ncols(H) - _binary_sparse_rank(H)
-            chosen = normalizer_dimension <= 24 && ncols(H) <= 256 ? :Gray : :Wagner
+        normalizer_dimension = if H isa SparseMatrixCSC
+            ncols(H) - _binary_sparse_rank(H)
         else
             H_dense = matrix(Oscar.Nemo.Native.GF(2), _convert_binary_to_int_matrix(H))
-            chosen = ncols(H) - rank(H_dense) <= 24 ? :Gray : :Wagner
+            ncols(H) - rank(H_dense)
+        end
+        if normalizer_dimension <= 24 && ncols(H) <= 256
+            chosen = :Gray
+        elseif ilp_available && (H isa SparseMatrixCSC || ncols(H) >= 96)
+            chosen = :ILP
+        else
+            chosen = :Wagner
         end
     end
 
@@ -238,8 +331,11 @@ function _minimum_distance(
         d, witness = _minimum_distance_css_gray_binary(H, logical_checks)
         return d > max_d ? (-1, zeros(Int, ncols(H))) : (d, witness)
     elseif chosen == :ILP
+        ilp_available || throw(ArgumentError(
+            "Load JuMP and GLPK before selecting the CSS `:ILP` solver."))
         return _minimum_distance_css_ILP(H, logical_checks;
-            max_d=max_d, verbose=verbose, time_limit_sec=time_limit_sec)
+            max_d=max_d, verbose=verbose, time_limit_sec=time_limit_sec,
+            parity_cut_max_degree=ilp_parity_cut_max_degree)
     end
     return _minimum_distance_css_wagner_binary(
         H, logical_checks; max_d=max_d, verbose=verbose)
@@ -273,7 +369,8 @@ end
 function _compute_css_distance(
     S::AbstractStabilizerCodeCSS, which::Symbol;
     alg::Symbol=:auto, max_d::Int=S.n, verbose::Bool=false,
-    time_limit_sec::Float64=300.0
+    time_limit_sec::Union{Nothing, Float64}=nothing,
+    ilp_parity_cut_max_degree::Int=10
 )
     distance_key = which == :X ? :dx : :dz
     haskey(S.cache, distance_key) && return _css_cached_distance_result(S, which)
@@ -281,7 +378,8 @@ function _compute_css_distance(
     H, logical_checks = _css_distance_problem(S, which)
     d, v = _minimum_distance(H, logical_checks;
         alg=alg, max_d=max_d, verbose=verbose,
-        time_limit_sec=time_limit_sec)
+        time_limit_sec=time_limit_sec,
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
     d == -1 && return d, zero_matrix(S.F, 1, 2 * S.n)
 
     witness = _css_quantum_witness(S, which, v)
@@ -304,7 +402,9 @@ The witness is returned in symplectic `[X | Z]` form.
 """
 function minimum_distance(
     S::AbstractStabilizerCodeCSS; which::Symbol=:full, alg::Symbol=:auto,
-    max_d::Int=S.n, verbose::Bool=false, time_limit_sec::Float64=300.0
+    max_d::Int=S.n, verbose::Bool=false,
+    time_limit_sec::Union{Nothing, Float64}=nothing,
+    ilp_parity_cut_max_degree::Int=10
 )
     which ∈ (:full, :X, :Z) ||
         throw(ArgumentError("Expected `which` to be `:full`, `:X`, or `:Z`."))
@@ -316,17 +416,20 @@ function minimum_distance(
     if which != :full
         return _compute_css_distance(
             S, which; alg=alg, max_d=max_d, verbose=verbose,
-            time_limit_sec=time_limit_sec)
+            time_limit_sec=time_limit_sec,
+            ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
     end
     haskey(S.cache, :d) && return _css_cached_distance_result(S, :full)
 
     dx, wx = _compute_css_distance(
         S, :X; alg=alg, max_d=max_d, verbose=verbose,
-        time_limit_sec=time_limit_sec)
+        time_limit_sec=time_limit_sec,
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
     z_limit = dx == -1 ? max_d : min(max_d, dx)
     dz, wz = _compute_css_distance(
         S, :Z; alg=alg, max_d=z_limit, verbose=verbose,
-        time_limit_sec=time_limit_sec)
+        time_limit_sec=time_limit_sec,
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
     (dx == -1 && dz == -1) &&
         return -1, zero_matrix(S.F, 1, 2 * S.n)
 

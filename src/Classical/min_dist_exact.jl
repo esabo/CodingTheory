@@ -272,6 +272,7 @@ Generates a set of permutation vectors (automorphisms) for known code families.
 These vectors can be passed to the `minimum_distance_master` search engine.
 """
 function _generate_known_automorphisms(C::AbstractLinearCode)
+    auts = Vector{Vector{Int}}()
     if typeof(C) <: AbstractCyclicCode
         return _generate_cyclic_auts(C.n)
         # TODO make this type
@@ -283,18 +284,19 @@ function _generate_known_automorphisms(C::AbstractLinearCode)
         return _generate_extended_qr_auts(C.n - 1)
         # TODO make this type
     elseif isa(C, ProductCode)
-        # For a product code C1 x C2, where k = k1 * k2
-        # Shift in C1 across all blocks of C2
-        row_shift = zeros(Int, C.k)
-        for i in 0:C.k1-1, j in 0:C.k2-1
-            row_shift[i * C.k2 + j + 1] = ((i + 1) % C.k1) * C.k2 + j + 1
+        n1, n2 = C.C1.n, C.C2.n
+
+        # Shift physical coordinates in C1 across all blocks of C2.
+        row_shift = zeros(Int, C.n)
+        for i in 0:n1-1, j in 0:n2-1
+            row_shift[i * n2 + j + 1] = ((i + 1) % n1) * n2 + j + 1
         end
         push!(auts, row_shift)
 
-        # Shift in C2 across all blocks of C1
-        col_shift = zeros(Int, C.k)
-        for i in 0:C.k1-1, j in 0:C.k2-1
-            col_shift[i * C.k2 + j + 1] = i * C.k2 + ((j + 1) % C.k2) + 1
+        # Shift physical coordinates in C2 across all blocks of C1.
+        col_shift = zeros(Int, C.n)
+        for i in 0:n1-1, j in 0:n2-1
+            col_shift[i * n2 + j + 1] = i * n2 + ((j + 1) % n2) + 1
         end
         push!(auts, col_shift)
     elseif isa(C, ReedMullerCode)
@@ -303,6 +305,15 @@ function _generate_known_automorphisms(C::AbstractLinearCode)
         return Vector{Vector{Int}}() # No known automorphisms for this code family
     end
 end
+
+"""
+    generate_automorphisms(C::AbstractLinearCode)
+
+Return known coordinate-permutation generators for `C`. An empty vector means
+that no family-specific generators are currently implemented.
+"""
+generate_automorphisms(C::AbstractLinearCode) =
+    _generate_known_automorphisms(C)
 
 """
     _generate_cyclic_auts(n::Int)
@@ -1006,7 +1017,9 @@ function _precompute_weight2_table_nonbinary(A_idx::Matrix{Int}, add_t::Matrix{I
     return w2_min
 end
 
-function _make_systematic_gf!(M::CTMatrixTypes, perm::Vector{Int}, k::Int)
+function _make_systematic_gf!(
+    M::Union{CTMatrixTypes, AbstractMatrix}, perm::Vector{Int}, k::Int
+)
     n = size(M, 2)
     
     for i in 1:k
