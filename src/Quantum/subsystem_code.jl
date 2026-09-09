@@ -385,7 +385,7 @@ function stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
             # Standard form algorithms require dense matrices
             stabs_base = stabilizers(S)
             is_sparse = stabs_base isa SparseMatrixCSC
-            stabs_dense = is_sparse ? matrix(S.F, stabs_base) : stabs_base
+            stabs_dense = _dense_code_matrix(stabs_base, S.F)
             
             stabs_stand, P_stand, stand_r, stand_k, _ = _standard_form_stabilizer(stabs_dense)
             
@@ -403,7 +403,9 @@ function stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
     
     # Lazily build unified stabs for CSS codes
     if CSSTrait(typeof(S)) == IsCSS()
-        unified_stabs = direct_sum(S.X_stabs, S.Z_stabs)
+        X_stabs = _dense_code_matrix(S.X_stabs, S.F)
+        Z_stabs = _dense_code_matrix(S.Z_stabs, S.F)
+        unified_stabs = direct_sum(X_stabs, Z_stabs)
         S.cache[:stabs] = unified_stabs
         return unified_stabs
     end

@@ -8,6 +8,89 @@
         # constructors
 #############################
 
+# CodingTheory also exports `nonzeros` for cyclic/Goppa codes, so SparseArrays
+# accessors must be fully qualified on CSC matrices.
+Oscar.nrows(A::SparseMatrixCSC) = size(A, 1)
+Oscar.ncols(A::SparseMatrixCSC) = size(A, 2)
+
+function _code_matrix_base_ring(A::SparseMatrixCSC)
+    vals = SparseArrays.nonzeros(A)
+    if eltype(A) <: Integer
+        all(x -> iszero(x) || isone(x), vals) ||
+            throw(ArgumentError("Integer sparse code matrices are interpreted over GF(2) and must contain only zeros and ones."))
+        return Oscar.Nemo.Native.GF(2)
+    end
+
+    isempty(vals) && throw(ArgumentError(
+        "Cannot infer the finite field of an all-zero SparseMatrixCSC. Use an Oscar matrix with an explicit base ring."))
+    F = parent(first(vals))
+    all(x -> parent(x) == F, vals) ||
+        throw(ArgumentError("All sparse matrix entries must belong to the same finite field."))
+    return F
+end
+_code_matrix_base_ring(A::CTMatrixTypes) = base_ring(A)
+
+function _binary_sparse_rank(A::SparseMatrixCSC)
+    nr, nc = size(A)
+    chunks = cld(nc, 64)
+    rows = [zeros(UInt64, chunks) for _ in 1:nr]
+    vals = SparseArrays.nonzeros(A)
+    rows_idx = SparseArrays.rowvals(A)
+
+    @inbounds for c in 1:nc
+        chunk = (c - 1) ÷ 64 + 1
+        bit = UInt64(1) << ((c - 1) % 64)
+        for ptr in SparseArrays.nzrange(A, c)
+            iszero(vals[ptr]) || (rows[rows_idx[ptr]][chunk] |= bit)
+        end
+    end
+
+    pivots = Dict{Int, Vector{UInt64}}()
+    rnk = 0
+    for row in rows
+        while true
+            pivot = 0
+            for chunk in eachindex(row)
+                if !iszero(row[chunk])
+                    pivot = 64 * (chunk - 1) + trailing_zeros(row[chunk]) + 1
+                    break
+                end
+            end
+            iszero(pivot) && break
+
+            if haskey(pivots, pivot)
+                @inbounds @simd for chunk in eachindex(row)
+                    row[chunk] ⊻= pivots[pivot][chunk]
+                end
+            else
+                pivots[pivot] = row
+                rnk += 1
+                break
+            end
+        end
+    end
+    return rnk
+end
+
+function _code_matrix_rank(A::SparseMatrixCSC, F::CTFieldTypes)
+    Int(order(F)) == 2 && return _binary_sparse_rank(A)
+    return rank(_dense_code_matrix(A, F))
+end
+_code_matrix_rank(A::SMat, F::CTFieldTypes) = rank(dense_matrix(A))
+_code_matrix_rank(A::CTMatrixTypes, F::CTFieldTypes) = rank(A)
+
+function _dense_code_matrix(A::SparseMatrixCSC, F::CTFieldTypes)
+    B = zero_matrix(F, size(A)...)
+    vals = SparseArrays.nonzeros(A)
+    rows = SparseArrays.rowvals(A)
+    @inbounds for c in axes(A, 2), ptr in SparseArrays.nzrange(A, c)
+        B[rows[ptr], c] = F(vals[ptr])
+    end
+    return B
+end
+_dense_code_matrix(A::SMat, F::CTFieldTypes) = dense_matrix(A)
+_dense_code_matrix(A::CTMatrixTypes, F::CTFieldTypes) = A
+
 """
 $(TYPEDSIGNATURES)
 
@@ -17,15 +100,15 @@ evaluation to avoid eager rank and dual computations.
 """
 function LinearCode(G::CTMatrixTypes, parity::Bool = false)
     is_sparse = G isa SparseMatrixCSC || G isa SMat
-    iszero(G) && return parity ? IdentityCode(base_ring(G), ncols(G)) : ZeroCode(base_ring(G), ncols(G))
+    F = _code_matrix_base_ring(G)
+    iszero(G) && return parity ? IdentityCode(F, ncols(G)) : ZeroCode(F, ncols(G))
 
-    # _remove_empty strips empty rows, but we skip it for sparse matrices to preserve topology
-    G_clean = is_sparse ? deepcopy(G) : _remove_empty(deepcopy(G), :rows)
-    F = base_ring(G_clean)
+    G_clean = G isa SMat ? copy(G) : _remove_empty(deepcopy(G), :rows)
     n = ncols(G_clean)
     
-    # Calculate rank once to establish dimension, skipping full O(n^3) RREF
-    actual_rank = is_sparse ? nrows(G_clean) : rank(G_clean)
+    # Sparse parity checks are often overcomplete, so nrows(G) is not a valid
+    # substitute for rank. Binary CSC matrices use packed GF(2) elimination.
+    actual_rank = _code_matrix_rank(G_clean, F)
     cache = Dict{Symbol, Any}()
 
     if parity
@@ -53,36 +136,30 @@ Safely handles mixed sparse and dense matrix types.
 """
 function LinearCode(G::CTMatrixTypes, H::CTMatrixTypes; check_orthogonality::Bool = false)
     ncols(G) == ncols(H) || throw(ArgumentError("G and H must have the same number of columns (received ncols(G) = $(ncols(G)), ncols(H) = $(ncols(H)))."))
-    base_ring(G) == base_ring(H) || throw(ArgumentError("G and H must be over the same field."))
     
     is_sparse = (G isa SparseMatrixCSC || G isa SMat) || (H isa SparseMatrixCSC || H isa SMat)
     
-    G_clean = is_sparse ? deepcopy(G) : _remove_empty(deepcopy(G), :rows)
-    H_clean = is_sparse ? deepcopy(H) : _remove_empty(deepcopy(H), :rows)
+    F = _code_matrix_base_ring(G)
+    F == _code_matrix_base_ring(H) || throw(ArgumentError("G and H must be over the same field."))
+    G_clean = G isa SMat ? copy(G) : _remove_empty(deepcopy(G), :rows)
+    H_clean = H isa SMat ? copy(H) : _remove_empty(deepcopy(H), :rows)
     
     if check_orthogonality
-        # Safely perform G * H^T by temporarily promoting to dense if types mismatch
-        if typeof(G_clean) != typeof(H_clean)
-            G_temp = G_clean isa SMat ? dense_matrix(G_clean) : G_clean
-            H_temp = H_clean isa SMat ? dense_matrix(H_clean) : H_clean
-            iszero(G_temp * transpose(H_temp)) || throw(ArgumentError("H is not orthogonal to G."))
-        else
-            iszero(G_clean * transpose(H_clean)) || throw(ArgumentError("H is not orthogonal to G."))
-        end
+        G_temp = _dense_code_matrix(G_clean, F)
+        H_temp = _dense_code_matrix(H_clean, F)
+        iszero(G_temp * transpose(H_temp)) || throw(ArgumentError("H is not orthogonal to G."))
     end
     
-    # Skip rank checks if sparse to prevent dense O(n^3) expansion
-    k = is_sparse ? nrows(G_clean) : rank(G_clean)
-    if !is_sparse
-        rank(H_clean) == ncols(G_clean) - k || throw(ArgumentError("H does not have the correct rank to be a parity-check matrix for G."))
-    end
+    k = _code_matrix_rank(G_clean, F)
+    _code_matrix_rank(H_clean, F) == ncols(G_clean) - k ||
+        throw(ArgumentError("H does not have the correct rank to be a parity-check matrix for G."))
 
     ub1, _ = is_sparse ? (ncols(G_clean), 0) : _min_wt_row(G_clean)
     ub2, _ = is_sparse ? (ncols(H_clean), 0) : _min_wt_row(H_clean)
     ub = min(ub1, ub2)
     
     cache = Dict{Symbol, Any}(:G => G_clean, :H => H_clean)
-    return LinearCode(base_ring(G_clean), ncols(G_clean), k, missing, 1, ub, cache)
+    return LinearCode(F, ncols(G_clean), k, missing, 1, ub, cache)
 end
 
 """
@@ -243,6 +320,7 @@ function generator_matrix(C::AbstractLinearCode, stand_form::Bool = false)
             
             if H_mat isa SparseMatrixCSC || H_mat isa SMat
                 @warn "Computing the generator matrix from a sparse parity-check matrix requires computing the kernel. This will likely result in a dense matrix and may cause severe memory explosion for large codes (n > 10,000)."
+                H_mat = _dense_code_matrix(H_mat, C.F)
             end
             
             G_raw = kernel(H_mat, side = :right)
@@ -263,7 +341,8 @@ function generator_matrix(C::AbstractLinearCode, stand_form::Bool = false)
     
     if stand_form
         if !haskey(cache, :G_stand)
-            G_stand, H_stand, P_stand, _ = _standard_form(cache[:G])
+            G_for_standard_form = _dense_code_matrix(cache[:G], C.F)
+            G_stand, H_stand, P_stand, _ = _standard_form(G_for_standard_form)
             cache[:G_stand] = G_stand
             cache[:H_stand] = H_stand
             cache[:P_stand] = P_stand
@@ -298,6 +377,7 @@ function parity_check_matrix(C::AbstractLinearCode, stand_form::Bool = false)
             
             if G_mat isa SparseMatrixCSC || G_mat isa SMat
                 @warn "Computing the parity-check matrix from a sparse generator matrix requires computing the kernel. This will likely result in a dense matrix and may cause severe memory explosion for large codes (n > 10,000)."
+                G_mat = _dense_code_matrix(G_mat, C.F)
             end
             
             H_raw = kernel(G_mat, side = :right)

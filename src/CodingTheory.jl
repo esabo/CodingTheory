@@ -547,6 +547,12 @@ export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_cod
     X_minimum_distance_upper_bound, Z_minimum_distance_lower_bound, Z_minimum_distance_upper_bound,
     set_X_minimum_distance!, set_Z_minimum_distance!
 
+#############################
+# Quantum/min_dist_exact.jl
+#############################
+
+include("Quantum/min_dist_exact.jl")
+
 # #############################
 #    # Quantum/graphstate.jl
 # #############################

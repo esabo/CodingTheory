@@ -8,12 +8,22 @@
   # Binary Helper Functions
 #############################
 
-function _convert_binary_to_int_matrix(A::CTMatrixTypes)
+function _convert_binary_to_int_matrix(A::SparseMatrixCSC)
+    B = zeros(Int, size(A))
+    vals = SparseArrays.nonzeros(A)
+    rows = SparseArrays.rowvals(A)
+    @inbounds for c in axes(A, 2), ptr in SparseArrays.nzrange(A, c)
+        iszero(vals[ptr]) || (B[rows[ptr], c] = 1)
+    end
+    return B
+end
+
+function _convert_binary_to_int_matrix(A::Union{CTMatrixTypes, AbstractMatrix})
     nr, nc = size(A)
     B = zeros(Int, nr, nc)
     for r in 1:nr
         for c in 1:nc
-            B[r, c] = is_zero(A[r, c]) ? 0 : 1
+            B[r, c] = iszero(A[r, c]) ? 0 : 1
         end
     end
     return B
@@ -540,17 +550,27 @@ function information_sets(G::CTMatrixTypes, alg::Symbol = :Edmonds; permute::Boo
             other_cols = setdiff(1:nc, set_i)
             σ = [set_i; other_cols]
             Gp = G_clean[:, σ]
-            _, Gp_rref = rref(Gp)
+            _make_systematic_gf!(Gp, collect(1:nc), rnk)
             
             if only_A
-                push!(gen_mats, Gp_rref[:, (rnk + 1):nc])
+                push!(gen_mats, Gp[:, (rnk + 1):nc])
             else
-                push!(gen_mats, Gp_rref)
+                push!(gen_mats, Gp)
             end
             
             push!(perms, σ)
             push!(rnks, rnk)
         end
+    end
+
+    # A fixed Brouwer block partition may begin with a rank-deficient block.
+    # Never let that turn an exact search into an empty search that depends on
+    # the randomized ISD preprocessor to discover an upper bound.
+    if isempty(gen_mats)
+        Gp, _, Pp, rnk = _standard_form(G_clean)
+        push!(gen_mats, only_A ? Gp[:, rnk + 1:nc] : Gp)
+        push!(perms, Pp)
+        push!(rnks, rnk)
     end
 
     return gen_mats, perms, rnks
@@ -637,10 +657,6 @@ function _information_set_lower_bound(r::Int, n::Int, k::Int, l::Int, rank_defs:
         for k_i in rank_defs
             lower += max(0, r - k + k_i)
         end
-    end
-
-    if lower > 0 && verbose
-        println("Initial lower bound raised to: $lower")
     end
 
     (!triply_even && !doubly_even && even) && (lower += lower % 2)
@@ -1932,10 +1948,32 @@ function _Brouwer_Zimmermann_nonbinary_recursive!(
     end
 end
 
+_minimum_distance_zero_witness(C::AbstractLinearCode) = zero_matrix(C.F, 1, C.n)
+
+function _minimum_distance_cached_result(C::AbstractLinearCode)
+    witness = get(getfield(C, :cache), :minimum_distance_witness,
+        _minimum_distance_zero_witness(C))
+    return C.d, witness
+end
+
+function _record_minimum_distance_result!(
+    C::AbstractLinearCode, d::Int, witness::CTMatrixTypes
+)
+    if d > 0
+        C.d = d
+        C.l_bound = d
+        C.u_bound = d
+        if !iszero(witness)
+            getfield(C, :cache)[:minimum_distance_witness] = witness
+        end
+    end
+    return d, witness
+end
+
 function _minimum_distance_BZ_binary(C::AbstractLinearCode;
     info_set_alg::Symbol = :auto, scheduler::Symbol = :recursive, verbose::Bool = false)
 
-    !ismissing(C.d) && return C.d
+    !ismissing(C.d) && return _minimum_distance_cached_result(C)
     num_thrds = Threads.nthreads()
     G = generator_matrix(C, true) 
     k, n = size(G)
@@ -1943,7 +1981,9 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
     if k > 0.75 * n && (2^(n - k) < 1e7)
         verbose && println("High-rate code: using dual weight enumerator.")
         HWE = weight_enumerator(C)
-        return minimum(filter(x -> x != 0, [collect(exponent_vectors(HWE.polynomial))[i][1] for i in 1:length(HWE.polynomial)]))
+        d = minimum(filter(!iszero, keys(HWE.counts)))
+        return _record_minimum_distance_result!(
+            C, d, _minimum_distance_zero_witness(C))
     end
 
     # 1. Information Set Selection
@@ -1962,7 +2002,7 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
         a_values[1] = 1
     else
         verbose && println("Using $info_set_alg overlapping information sets.")
-        z_mats_raw, perms_mats, rnks = information_sets(C.G, info_set_alg, permute = true)
+        z_mats_raw, perms_mats, rnks = information_sets(G, info_set_alg, permute = true)
         
         valid_idx = Int[]
         for i in 1:length(z_mats_raw)
@@ -2171,17 +2211,21 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
                         
                         start_depth = isempty(prefix) ? 0 : prefix[end]
                         local_best_msg = zeros(Int, config.rnk)
+                        task_best_w = Threads.Atomic{Int}(best_w[])
+                        task_lock = Threads.SpinLock()
                         
                         _Brouwer_Zimmermann_binary_serial!(
                             config.A, a_j, start_depth, length(prefix), local_tail, 
-                            best_w, local_best_msg, update_lock, config.lbt, config.max_canc, config.w2, 
+                            task_best_w, local_best_msg, task_lock, config.lbt, config.max_canc, config.w2,
                             keep_going, C.l_bound, local_msg, config.auts
                         )
                         
                         lock(update_lock) do
-                            if best_w[] < C.u_bound
-                                C.u_bound = best_w[]
-                                copyto!(best_msg_global, local_best_msg)
+                            if task_best_w[] < best_w[]
+                                Threads.atomic_xchg!(best_w, task_best_w[])
+                                C.u_bound = task_best_w[]
+                                fill!(best_msg_global, 0)
+                                copyto!(best_msg_global, 1, local_best_msg, 1, length(local_best_msg))
                                 best_j_global = j
                                 verbose && println("New minimum/witness found in BB21 (Queue): $(C.u_bound)")
                             end
@@ -2291,17 +2335,21 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
                         
                         start_depth = isempty(prefix) ? 0 : prefix[end]
                         local_best_msg = zeros(Int, config.rnk)
+                        task_best_w = Threads.Atomic{Int}(best_w[])
+                        task_lock = Threads.SpinLock()
                         
                         _Brouwer_Zimmermann_binary_serial!(
                             config.A, r, start_depth, p_spawn, local_tail, 
-                            best_w, local_best_msg, update_lock, config.lbt, config.max_canc, config.w2, 
+                            task_best_w, local_best_msg, task_lock, config.lbt, config.max_canc, config.w2,
                             keep_going, C.l_bound, local_msg, config.auts
                         )
                         
                         lock(update_lock) do
-                            if best_w[] < C.u_bound
-                                C.u_bound = best_w[]
-                                copyto!(best_msg_global, local_best_msg)
+                            if task_best_w[] < best_w[]
+                                Threads.atomic_xchg!(best_w, task_best_w[])
+                                C.u_bound = task_best_w[]
+                                fill!(best_msg_global, 0)
+                                copyto!(best_msg_global, 1, local_best_msg, 1, length(local_best_msg))
                                 best_j_global = j
                             end
                         end
@@ -2389,7 +2437,7 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
         @assert iszero(parity_check_matrix(C) * transpose(y)) "Verification failed: computed codeword is not in the codespace."
     end
     
-    return C.d, y
+    return _record_minimum_distance_result!(C, C.d, y)
 end
 
 """
@@ -2437,7 +2485,7 @@ end
 
 function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode;
     scheduler::Symbol = :recursive, verbose::Bool = false)
-    !ismissing(C.d) && return C.d
+    !ismissing(C.d) && return _minimum_distance_cached_result(C)
     
     G_stand = generator_matrix(C, true)
     k, n = size(G_stand)
@@ -2866,18 +2914,25 @@ function _minimum_distance_BZ_nonbinary(C::AbstractLinearCode;
         y = matrix(C.F, 1, n, global_min_codeword) * P
     end
     
-    return C.d, y
+    return _record_minimum_distance_result!(C, C.d, y)
 end
 
 """
-    _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=6, verbose::Bool=false)
+    _minimum_distance_wagner_mitm_binary(H; max_d::Int=6, verbose::Bool=false)
 
-Optimized exact minimum distance solver using Wagner's Meet-in-the-Middle.
+Optimized exact minimum distance solver using Wagner's Meet-in-the-Middle on
+the binary parity-check matrix `H`. Returns `(distance, witness)`, where the
+witness is an integer vector. If no word of weight at most `max_d` is found,
+returns `(-1, zeros(Int, ncols(H)))`.
+
 Eliminates Combinatorics allocations for w <= 3 using hardcoded zero-allocation nested loops.
 Eliminates scalar coefficient loops and uses modulo 2 arithmetic for direct hash collisions.
 """
-function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=6, verbose::Bool=false)
-    H = _convert_binary_to_int_matrix(parity_check_matrix(C))
+function _minimum_distance_wagner_mitm_binary(
+    H_input::Union{CTMatrixTypes, AbstractMatrix};
+    max_d::Int=6, verbose::Bool=false
+)
+    H = _convert_binary_to_int_matrix(H_input)
     r, n = size(H)
     
     mid = div(n, 2)
@@ -2941,10 +2996,10 @@ function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=
             for (syn_R, R_cols) in right_table
                 if haskey(left_table, syn_R)
                     verbose && println("Binary Collision found! Left wt: $w_L, Right wt: $w_R")
-                    witness = zero_matrix(C.F, 1, n)
+                    witness = zeros(Int, n)
                     L_cols = left_table[syn_R]
-                    for idx in L_cols witness[1, idx] = one(C.F) end
-                    for idx in R_cols witness[1, idx] = one(C.F) end
+                    for idx in L_cols witness[idx] = 1 end
+                    for idx in R_cols witness[idx] = 1 end
                     return w, witness
                 end
             end
@@ -2952,7 +3007,40 @@ function _minimum_distance_wagner_mitm_binary(C::AbstractLinearCode; max_d::Int=
     end
     
     verbose && println("No codewords found up to weight $max_d.")
-    return -1, zero_matrix(C.F, 1, n)
+    return -1, zeros(Int, n)
+end
+
+function _minimum_distance_wagner_mitm_binary(
+    C::AbstractLinearCode; max_d::Int=6, verbose::Bool=false
+)
+    Int(order(C.F)) == 2 ||
+        throw(ArgumentError("The binary Wagner solver requires a code over GF(2)."))
+    d, witness = _minimum_distance_wagner_mitm_binary(
+        parity_check_matrix(C); max_d=max_d, verbose=verbose)
+    return d, matrix(C.F, 1, C.n, witness)
+end
+
+"""
+    _minimum_distance(H; alg::Symbol = :auto, max_d::Int = 6, verbose::Bool = false)
+
+Binary minimum-distance kernel on a parity-check matrix `H`.
+
+This is the H-centric path: Wagner (and later ILP/ISD) search `ker(H)` without
+constructing a generator matrix. Sparse Julia or Oscar matrices are accepted.
+
+Generator-matrix algorithms such as Brouwer–Zimmermann are **not** applicable
+here; call `minimum_distance(::AbstractLinearCode; alg = :BZ)` for those.
+
+Returns `(d, witness)` with `witness::Vector{Int}`. If no word of weight at
+most `max_d` is found, `d == -1` and `witness` is the zero vector.
+"""
+function _minimum_distance(H::Union{CTMatrixTypes, AbstractMatrix};
+    alg::Symbol = :auto, max_d::Int = 6, verbose::Bool = false)
+
+    alg ∈ (:auto, :Wagner) || throw(ArgumentError(
+        "Matrix-level `_minimum_distance` currently supports `:auto` and `:Wagner` on a binary parity-check matrix. Use `minimum_distance(::AbstractLinearCode)` for generator-matrix algorithms such as `:BZ`."))
+
+    return _minimum_distance_wagner_mitm_binary(H; max_d = max_d, verbose = verbose)
 end
 
 """
@@ -3061,12 +3149,9 @@ using the dynamically optimal algorithm or the explicit algorithm of `alg`.
 function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
     info_set_alg::Symbol = :auto, auts::Vector{Vector{Int}} = [Int[]], verbose::Bool = false)
 
-    # Safely check if distance is already computed to avoid throwing a type instability error
-    if haskey(C.cache, :d) && !ismissing(C.cache[:d])
-        return C.cache[:d], (isdefined(C, :witness) ? C.witness : zero_matrix(C.F, 1, C.n))
-    end
+    !ismissing(C.d) && return _minimum_distance_cached_result(C)
 
-    alg ∈ (:auto, :BZ, :trellis, :bruteforce, :wt_dist, :Leon, :Wagner, :ILP, :hybrid) ||
+    alg ∈ (:auto, :BZ, :trellis, :bruteforce, :wt_dist, :Wagner, :ILP, :hybrid) ||
         throw(ArgumentError("Unexpected algorithm '$alg'."))
     info_set_alg ∈ (:auto, :Brouwer, :Zimmermann, :White, :Chen, :Bouyuklieva, :Edmonds) ||
         throw(ArgumentError("Unknown information set algorithm. Expected `:auto`, `:Brouwer`, `:Zimmermann`, `:White`, `:Chen`, `:Bouyuklieva`, or `:Edmonds`."))
@@ -3082,8 +3167,9 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         if card_C <= 1e6 
             verbose && println("Auto: Small cardinality ($card_C). Routing to Primal Brute Force.")
             HWE_dict = weight_distribution(C)
-            C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
-            return C.d, zero_matrix(C.F, 1, n) 
+            d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
+            return _record_minimum_distance_result!(
+                C, d, _minimum_distance_zero_witness(C))
         end
 
         # 2. TRIVIAL FAST PATH: Dual Brute Force 
@@ -3093,8 +3179,9 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
             dual_counts = weight_distribution(D)
             # FIX: Input is the dual code, its dimension is n - k
             HWE_dict = MacWilliams_HWE_transform(dual_counts, C.n, n - k, q)
-            C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
-            return C.d, zero_matrix(C.F, 1, n)
+            d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
+            return _record_minimum_distance_result!(
+                C, d, _minimum_distance_zero_witness(C))
         end
 
         # 3. SPARSITY TRAP (LDPC / Sparse Parity Matrices)
@@ -3102,10 +3189,9 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         density = count(!iszero, H) / length(H)
         if density < 0.10 && n <= 150
             verbose && println("Auto: High sparsity ($(round(density*100, digits=1))%). Routing to ILP.")
-            d_ilp = _minimum_distance_ILP(C; verbose = verbose)
+            d_ilp, witness_ilp = _minimum_distance_ILP(C; verbose = verbose)
             if d_ilp > 0
-                C.d = d_ilp
-                return C.d, zero_matrix(C.F, 1, n)
+                return _record_minimum_distance_result!(C, d_ilp, witness_ilp)
             end
             verbose && println("ILP stalled or failed. Falling back...")
         end
@@ -3116,8 +3202,7 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
             d_wagner, witness_wagner = _minimum_distance_wagner_mitm_binary(C; max_d = 5, verbose = false)
             if d_wagner != -1
                 verbose && println("Auto: Wagner MitM caught early collision!")
-                C.d = d_wagner
-                return C.d, witness_wagner
+                return _record_minimum_distance_result!(C, d_wagner, witness_wagner)
             end
             verbose && println("Auto: No low-weight words found.")
         end
@@ -3130,8 +3215,8 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         # If ZSSMP dropped the bound to the theoretical minimum (e.g. GV bound), we can terminate early
         if !ismissing(C.u_bound) && !ismissing(C.l_bound) && C.u_bound <= C.l_bound
             verbose && println("Auto: ZSSMP Preprocessor found a codeword matching the theoretical lower bound. Terminating early!")
-            C.d = C.u_bound
-            return C.d, matrix(C.F, 1, n, global_min_codeword)
+            return _record_minimum_distance_result!(
+                C, C.u_bound, matrix(C.F, 1, n, global_min_codeword))
         end
 
         # 6. TRELLIS PROFILING
@@ -3140,8 +3225,9 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         
         if peak_E <= 14 
             verbose && println("Auto: Trellis profile is thin (Peak E = $peak_E). Routing to Pure Trellis.")
-            C.d = _minimum_distance_trellis(C; num_trials = 50, verbose = verbose)
-            return C.d, zero_matrix(C.F, 1, n)
+            d = _minimum_distance_trellis(C; num_trials = 50, verbose = verbose)
+            return _record_minimum_distance_result!(
+                C, d, _minimum_distance_zero_witness(C))
             
         elseif peak_E <= 18 || (peak_E <= 26 && ismissing(C.l_bound) ? false : C.l_bound >= 10)
             if peak_E > 18
@@ -3152,8 +3238,9 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
             end
             
             pinch_span = max(1, peak_E - 5)
-            C.d = _minimum_distance_hybrid(C; max_span = pinch_span, num_trials = 50, verbose = verbose)
-            return C.d, zero_matrix(C.F, 1, n)
+            d = _minimum_distance_hybrid(C; max_span = pinch_span, num_trials = 50, verbose = verbose)
+            return _record_minimum_distance_result!(
+                C, d, _minimum_distance_zero_witness(C))
         end
 
         # 7. BROUWER-ZIMMERMANN FALLBACK
@@ -3169,32 +3256,37 @@ function minimum_distance(C::AbstractLinearCode; alg::Symbol = :auto,
         if q == 2 return _minimum_distance_BZ_binary(C; info_set_alg = info_set_alg, verbose = verbose)
         else return _minimum_distance_BZ_nonbinary(C; verbose = verbose) end
     elseif alg == :trellis
-        C.d = _minimum_distance_trellis(C; num_trials = 50, verbose = verbose)
-        return C.d, zero_matrix(C.F, 1, n)
+        d = _minimum_distance_trellis(C; num_trials = 50, verbose = verbose)
+        return _record_minimum_distance_result!(
+            C, d, _minimum_distance_zero_witness(C))
     elseif alg == :hybrid
-        C.d = _minimum_distance_hybrid(C; num_trials = 50, verbose = verbose)
-        return C.d, zero_matrix(C.F, 1, n)
+        d = _minimum_distance_hybrid(C; num_trials = 50, verbose = verbose)
+        return _record_minimum_distance_result!(
+            C, d, _minimum_distance_zero_witness(C))
     elseif alg == :bruteforce
         HWE_dict = weight_distribution(C)
-        C.d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
-        return C.d, zero_matrix(C.F, 1, n)
+        d = minimum(filter(x -> x != 0, collect(keys(HWE_dict))))
+        return _record_minimum_distance_result!(
+            C, d, _minimum_distance_zero_witness(C))
     elseif alg == :wt_dist
         HWE = weight_enumerator(C; verbose=verbose)
-        !ismissing(C.d) && return C.d, zero_matrix(C.F, 1, n)
-        C.d = minimum(filter(x -> x != 0, collect(keys(HWE.counts))))
-        return C.d, zero_matrix(C.F, 1, n)
+        if !ismissing(C.d)
+            return _record_minimum_distance_result!(
+                C, C.d, _minimum_distance_zero_witness(C))
+        end
+        d = minimum(filter(x -> x != 0, collect(keys(HWE.counts))))
+        return _record_minimum_distance_result!(
+            C, d, _minimum_distance_zero_witness(C))
     elseif alg == :Wagner
-        if q == 2 return _minimum_distance_wagner_mitm_binary(C; verbose = verbose)
-        else return _minimum_distance_wagner_mitm_nonbinary(C; verbose = verbose) end
+        if q == 2
+            d, witness = _minimum_distance_wagner_mitm_binary(C; verbose = verbose)
+        else
+            d, witness = _minimum_distance_wagner_mitm_nonbinary(C; verbose = verbose)
+        end
+        return d > 0 ? _record_minimum_distance_result!(C, d, witness) : (d, witness)
     elseif alg == :ILP
-        return _minimum_distance_ILP(C; verbose = verbose), zero_matrix(C.F, 1, n)
-    elseif info_set_alg == :Edmonds
-        verbose && println("Using Lisoněk-Trummer (Edmonds Matroid) optimal disjoint partitioning.")
-        z_mats_raw, perms_mats, rnks = _partition_lisonek_trummer(G)
-
-        t = count(x -> x == k, rnks)
-        a_values = zeros(Int, length(rnks))
-        a_values[1] = 1
+        d, witness = _minimum_distance_ILP(C; verbose = verbose)
+        return d > 0 ? _record_minimum_distance_result!(C, d, witness) : (d, witness)
     end
 end
 

@@ -227,4 +227,20 @@
         show(io, C_GRS)
         @test true 
     end
+
+    @testset "Sparse parity-check construction" begin
+        using SparseArrays
+
+        # Hamming H = [P^T | I] for the generator used above, plus a repeated row.
+        H = sparse([1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+                   [2, 3, 4, 5, 1, 3, 4, 6, 1, 2, 4, 7, 2, 3, 4, 5],
+                   ones(Int, 16), 4, 7)
+        C = LinearCode(H, true)
+        @test C.n == 7
+        @test C.k == 4
+        @test size(parity_check_matrix(C), 1) == 4
+        G = generator_matrix(C)
+        @test size(G, 1) == 4
+        @test iszero(G * transpose(matrix(C.F, Array(H))))
+    end
 end

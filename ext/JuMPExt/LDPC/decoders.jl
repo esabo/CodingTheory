@@ -17,7 +17,7 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
     curr = 1
     for (j, cn) in enumerate(check_adj_list)
         if length(cn) > 15
-            @warn "Check node degree $(length(cn)) is very high. The LP powerset formulation will generate $2^$(length(cn)) variables and may crash."
+            @warn "Check node degree $(length(cn)) is very high. The LP powerset formulation will generate $(2^length(cn)) variables and may crash."
         end
         wmap[j] = curr
         inner_subsets = Vector{Vector{Int}}()

@@ -23,12 +23,12 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
     
     n = ncols(X_matrix)
     n == ncols(Z_matrix) || throw(ArgumentError("Both matrices must have the same length in the CSS construction."))
-    F = base_ring(X_matrix)
-    F == base_ring(Z_matrix) || throw(ArgumentError("Both matrices must be over the same base field."))
+    F = _code_matrix_base_ring(X_matrix)
+    F == _code_matrix_base_ring(Z_matrix) || throw(ArgumentError("Both matrices must be over the same base field."))
     
     is_sparse = X_matrix isa SparseMatrixCSC
-    X_dense = is_sparse ? matrix(F, X_matrix) : X_matrix
-    Z_dense = is_sparse ? matrix(F, Z_matrix) : Z_matrix
+    X_dense = _dense_code_matrix(X_matrix, F)
+    Z_dense = _dense_code_matrix(Z_matrix, F)
     
     iszero(Z_dense * transpose(X_dense)) || throw(ArgumentError("The given matrices are not symplectic orthogonal."))
     
@@ -47,8 +47,8 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
     
     over_comp = (nrows(X_dense) > X_rank) || (nrows(Z_dense) > Z_rank)
     
-    X_final = is_sparse ? sparse(X_dense) : X_dense
-    Z_final = is_sparse ? sparse(Z_dense) : Z_dense
+    X_final = is_sparse ? _remove_empty(deepcopy(X_matrix), :rows) : X_dense
+    Z_final = is_sparse ? _remove_empty(deepcopy(Z_matrix), :rows) : Z_dense
 
     cache = Dict{Symbol, Any}(
         :overcomplete => over_comp,

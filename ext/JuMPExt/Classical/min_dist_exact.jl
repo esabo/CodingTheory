@@ -11,11 +11,12 @@ Return the exact minimum distance and witness codeword using an Integer Linear P
 Intercepts the NP-hard search space by mapping the parity constraints to integer multiples of `q`.
 """
 function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, time_limit_sec::Float64 = 300.0)
-    r, n = C.n - C.k, C.n
+    n = C.n
     q = Int(order(C.F))
     
     # Extract integer representation of the parity check matrix
     H_mat = parity_check_matrix(C)
+    r = nrows(H_mat)
     H = zeros(Int, r, n)
     for i in 1:r, j in 1:n
         H[i, j] = CodingTheory._is_binary(C) ? Int(H_mat[i, j]) : CodingTheory._field_elem_to_int(H_mat[i, j])
@@ -137,15 +138,12 @@ Directly invoke the Integer Linear Programming (ILP) solver to find the exact mi
 Bypasses the standard exact combinatorial solvers, which is highly recommended for exceptionally sparse LDPC codes.
 """
 function minimum_distance_ilp(C::AbstractLinearCode; time_limit_sec::Float64 = 300.0, verbose::Bool = false)
-    !ismissing(C.d) && return C.d, (isdefined(C, :witness) ? C.witness : zero_matrix(C.F, 1, C.n))
+    !ismissing(C.d) && return CodingTheory._minimum_distance_cached_result(C)
     
     d_ilp, witness_ilp = _minimum_distance_ILP(C; verbose=verbose, time_limit_sec=time_limit_sec)
     
     if d_ilp != -1
-        C.d = d_ilp
-        C.u_bound = d_ilp
-        C.l_bound = d_ilp
-        return d_ilp, witness_ilp
+        return CodingTheory._record_minimum_distance_result!(C, d_ilp, witness_ilp)
     else
         error("ILP Solver failed to find the exact minimum distance within the allotted constraints.")
     end

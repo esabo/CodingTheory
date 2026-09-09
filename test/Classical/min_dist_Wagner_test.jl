@@ -1,5 +1,5 @@
 @testitem "Classical/min_dist_Wagner.jl" begin
-    using Oscar, CodingTheory
+    using Oscar, CodingTheory, SparseArrays
 
     @testset "Wagner Meet-in-the-Middle Minimum Distance Solvers" begin
         F2 = Oscar.Nemo.Native.GF(2)
@@ -27,6 +27,12 @@
             d_bin, witness_bin = CodingTheory._minimum_distance_wagner_mitm_binary(C_bin, max_d=5, verbose=false)
             @test d_bin == 3
             @test iszero(parity_check_matrix(C_bin) * transpose(witness_bin))
+
+            H_int = CodingTheory._convert_binary_to_int_matrix(parity_check_matrix(C_bin))
+            d_sp, w_sp = CodingTheory._minimum_distance(sparse(H_int); alg=:Wagner, max_d=5)
+            @test d_sp == 3
+            @test sum(w_sp) == 3
+            @test iszero(parity_check_matrix(C_bin) * matrix(F2, length(w_sp), 1, w_sp))
             
             # Test 2: Master Routing
             reset_bounds!(C_bin)
