@@ -6,13 +6,29 @@
 
 const _CSSBinaryMatrix = Union{CTMatrixTypes, AbstractMatrix}
 
-"""
-    _minimum_distance_css_ILP(H, logical_checks; kwargs...)
+function _minimum_distance_css_HiGHS end
 
-Extension point for the quotient-aware CSS integer-programming solver. Load
-JuMP and GLPK to activate it.
-"""
-function _minimum_distance_css_ILP end
+function _css_ilp_backends()
+    backends = Symbol[]
+    !isempty(methods(_minimum_distance_css_HiGHS)) && push!(backends, :HiGHS)
+    return backends
+end
+
+function _minimum_distance_css_ILP(
+    H, logical_checks; optimizer::Symbol=:auto,
+    _return_status::Bool=false, kwargs...
+)
+    available = _css_ilp_backends()
+    isempty(available) && throw(ArgumentError(
+        "Load JuMP and HiGHS before selecting the CSS `:ILP` solver."))
+    selected = optimizer == :auto ? first(available) : optimizer
+    selected ∈ (:HiGHS,) ||
+        throw(ArgumentError("Expected `optimizer` to be `:auto` or `:HiGHS`."))
+    selected ∈ available || throw(ArgumentError(
+        "The $selected CSS ILP backend is not loaded. Available backends: $(join(available, ", "))."))
+    result = _minimum_distance_css_HiGHS(H, logical_checks; kwargs...)
+    return _return_status ? result : (result[1], result[2])
+end
 
 function _pack_binary_columns(A::_CSSBinaryMatrix)
     nr, nc = size(A)
@@ -171,12 +187,14 @@ because a right label can forbid only one left label.
 """
 function _minimum_distance_css_wagner_binary(
     H::_CSSBinaryMatrix, logical_checks::_CSSBinaryMatrix;
-    max_d::Int=ncols(H), verbose::Bool=false
+    min_d::Int=1, max_d::Int=ncols(H), verbose::Bool=false
 )
     ncols(H) == ncols(logical_checks) ||
         throw(ArgumentError("The parity-check and logical-check matrices must have the same number of columns."))
     0 <= max_d <= ncols(H) ||
         throw(DomainError(max_d, "`max_d` must lie between zero and the code length."))
+    1 <= min_d <= max_d + 1 ||
+        throw(DomainError(min_d, "`min_d` must lie between one and `max_d + 1`."))
 
     n = ncols(H)
     mid = n ÷ 2
@@ -188,7 +206,7 @@ function _minimum_distance_css_wagner_binary(
     Label = typeof(Tuple(zeros(UInt64, L_chunks)))
     Entry = Tuple{Label, Vector{Int}}
 
-    for w in 1:max_d
+    for w in min_d:max_d
         verbose && println("Checking CSS logical operators of weight $w...")
         splits = collect(max(0, w - (n - mid)):min(w, mid))
         witnesses = Vector{Union{Nothing, Vector{Int}}}(nothing, length(splits))
@@ -300,16 +318,20 @@ matrices are binary; `H` may be a sparse parity-check matrix.
 """
 function _minimum_distance(
     H::_CSSBinaryMatrix, logical_checks::_CSSBinaryMatrix;
-    alg::Symbol=:auto, max_d::Int=ncols(H), verbose::Bool=false,
+    alg::Symbol=:auto, min_d::Int=1, max_d::Int=ncols(H), verbose::Bool=false,
     time_limit_sec::Union{Nothing, Float64}=nothing,
-    ilp_parity_cut_max_degree::Int=10
+    ilp_parity_cut_max_degree::Int=10, ilp_optimizer::Symbol=:auto,
+    ilp_threads::Int=0, ilp_cyclic_period::Union{Nothing, Int}=nothing,
+    _return_status::Bool=false
 )
     alg ∈ (:auto, :Gray, :Wagner, :ILP) ||
         throw(ArgumentError("CSS matrix minimum distance supports `:auto`, `:Gray`, `:Wagner`, and `:ILP`."))
     0 <= max_d <= ncols(H) ||
         throw(DomainError(max_d, "`max_d` must lie between zero and the code length."))
+    1 <= min_d <= max_d + 1 ||
+        throw(DomainError(min_d, "`min_d` must lie between one and `max_d + 1`."))
 
-    ilp_available = !isempty(methods(_minimum_distance_css_ILP))
+    ilp_available = !isempty(_css_ilp_backends())
     chosen = alg
     if chosen == :auto
         normalizer_dimension = if H isa SparseMatrixCSC
@@ -329,16 +351,25 @@ function _minimum_distance(
 
     if chosen == :Gray
         d, witness = _minimum_distance_css_gray_binary(H, logical_checks)
-        return d > max_d ? (-1, zeros(Int, ncols(H))) : (d, witness)
+        result = d > max_d ?
+            (-1, zeros(Int, ncols(H)), :infeasible) :
+            (d, witness, :optimal)
+        return _return_status ? result : (result[1], result[2])
     elseif chosen == :ILP
         ilp_available || throw(ArgumentError(
-            "Load JuMP and GLPK before selecting the CSS `:ILP` solver."))
+            "Load JuMP and HiGHS before selecting the CSS `:ILP` solver."))
         return _minimum_distance_css_ILP(H, logical_checks;
-            max_d=max_d, verbose=verbose, time_limit_sec=time_limit_sec,
-            parity_cut_max_degree=ilp_parity_cut_max_degree)
+            min_d=min_d, max_d=max_d, verbose=verbose,
+            time_limit_sec=time_limit_sec,
+            parity_cut_max_degree=ilp_parity_cut_max_degree,
+            optimizer=ilp_optimizer, threads=ilp_threads,
+            cyclic_period=ilp_cyclic_period,
+            _return_status=_return_status)
     end
-    return _minimum_distance_css_wagner_binary(
-        H, logical_checks; max_d=max_d, verbose=verbose)
+    d, witness = _minimum_distance_css_wagner_binary(
+        H, logical_checks; min_d=min_d, max_d=max_d, verbose=verbose)
+    result = (d, witness, d == -1 ? :infeasible : :optimal)
+    return _return_status ? result : (result[1], result[2])
 end
 
 function _css_distance_problem(S::AbstractStabilizerCodeCSS, which::Symbol)
@@ -370,17 +401,58 @@ function _compute_css_distance(
     S::AbstractStabilizerCodeCSS, which::Symbol;
     alg::Symbol=:auto, max_d::Int=S.n, verbose::Bool=false,
     time_limit_sec::Union{Nothing, Float64}=nothing,
-    ilp_parity_cut_max_degree::Int=10
+    ilp_parity_cut_max_degree::Int=10, ilp_optimizer::Symbol=:auto,
+    ilp_threads::Int=0, ilp_cyclic_period::Union{Nothing, Int}=nothing
 )
     distance_key = which == :X ? :dx : :dz
-    haskey(S.cache, distance_key) && return _css_cached_distance_result(S, which)
+    if haskey(S.cache, distance_key)
+        d, witness = _css_cached_distance_result(S, which)
+        return d, witness, :optimal
+    end
+
+    keys = _css_distance_cache_keys(which)
+    lower = get(S.cache, keys.lower, 1)
+    upper = get(S.cache, keys.upper, S.n)
+    upper_witness = get(S.cache, keys.upper_witness, nothing)
+    if lower == upper
+        _close_css_sector_if_proven!(S, which)
+        d, witness = _css_cached_distance_result(S, which)
+        return d, witness, :optimal
+    end
+
+    search_max = min(max_d, isnothing(upper_witness) ? upper : upper - 1)
+    if search_max < lower
+        if !isnothing(upper_witness) && upper <= max_d
+            set_minimum_distance_lower_bound!(S, upper; which=which)
+            d, witness = _css_cached_distance_result(S, which)
+            return d, witness, :optimal
+        end
+        return -1, zero_matrix(S.F, 1, 2 * S.n), :infeasible
+    end
 
     H, logical_checks = _css_distance_problem(S, which)
-    d, v = _minimum_distance(H, logical_checks;
-        alg=alg, max_d=max_d, verbose=verbose,
+    d, v, status = _minimum_distance(H, logical_checks;
+        alg=alg, min_d=lower, max_d=search_max, verbose=verbose,
         time_limit_sec=time_limit_sec,
-        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
-    d == -1 && return d, zero_matrix(S.F, 1, 2 * S.n)
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree,
+        ilp_optimizer=ilp_optimizer, ilp_threads=ilp_threads,
+        ilp_cyclic_period=ilp_cyclic_period, _return_status=true)
+    if status == :time_limit
+        if d != -1
+            witness = _css_quantum_witness(S, which, v)
+            set_minimum_distance_upper_bound!(S, d, witness; which=which)
+        end
+        return -1, zero_matrix(S.F, 1, 2 * S.n), status
+    end
+    if d == -1
+        set_minimum_distance_lower_bound!(
+            S, min(search_max + 1, upper); which=which)
+        if !isnothing(upper_witness) && search_max == upper - 1
+            d, witness = _css_cached_distance_result(S, which)
+            return d, witness, :optimal
+        end
+        return d, zero_matrix(S.F, 1, 2 * S.n), status
+    end
 
     witness = _css_quantum_witness(S, which, v)
     if which == :X
@@ -390,7 +462,7 @@ function _compute_css_distance(
         set_Z_minimum_distance!(S, d)
         S.cache[:Z_minimum_distance_witness] = witness
     end
-    return d, witness
+    return d, witness, status
 end
 
 """
@@ -404,7 +476,8 @@ function minimum_distance(
     S::AbstractStabilizerCodeCSS; which::Symbol=:full, alg::Symbol=:auto,
     max_d::Int=S.n, verbose::Bool=false,
     time_limit_sec::Union{Nothing, Float64}=nothing,
-    ilp_parity_cut_max_degree::Int=10
+    ilp_parity_cut_max_degree::Int=10, ilp_optimizer::Symbol=:auto,
+    ilp_threads::Int=0, ilp_cyclic_period::Union{Nothing, Int}=nothing
 )
     which ∈ (:full, :X, :Z) ||
         throw(ArgumentError("Expected `which` to be `:full`, `:X`, or `:Z`."))
@@ -414,22 +487,33 @@ function minimum_distance(
         "Logical minimum distance is undefined for a CSS stabilizer state with k = 0."))
 
     if which != :full
-        return _compute_css_distance(
+        d, witness, _ = _compute_css_distance(
             S, which; alg=alg, max_d=max_d, verbose=verbose,
             time_limit_sec=time_limit_sec,
-            ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
+            ilp_parity_cut_max_degree=ilp_parity_cut_max_degree,
+            ilp_optimizer=ilp_optimizer, ilp_threads=ilp_threads,
+            ilp_cyclic_period=ilp_cyclic_period)
+        return d, witness
     end
     haskey(S.cache, :d) && return _css_cached_distance_result(S, :full)
 
-    dx, wx = _compute_css_distance(
+    dx, wx, status_x = _compute_css_distance(
         S, :X; alg=alg, max_d=max_d, verbose=verbose,
         time_limit_sec=time_limit_sec,
-        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree,
+        ilp_optimizer=ilp_optimizer, ilp_threads=ilp_threads,
+        ilp_cyclic_period=ilp_cyclic_period)
     z_limit = dx == -1 ? max_d : min(max_d, dx)
-    dz, wz = _compute_css_distance(
+    dz, wz, status_z = _compute_css_distance(
         S, :Z; alg=alg, max_d=z_limit, verbose=verbose,
         time_limit_sec=time_limit_sec,
-        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree)
+        ilp_parity_cut_max_degree=ilp_parity_cut_max_degree,
+        ilp_optimizer=ilp_optimizer, ilp_threads=ilp_threads,
+        ilp_cyclic_period=ilp_cyclic_period)
+    if status_x == :time_limit || status_z == :time_limit
+        haskey(S.cache, :d) && return _css_cached_distance_result(S, :full)
+        return -1, zero_matrix(S.F, 1, 2 * S.n)
+    end
     (dx == -1 && dz == -1) &&
         return -1, zero_matrix(S.F, 1, 2 * S.n)
 

@@ -8,6 +8,25 @@
         # constructors
 #############################
 
+function _css_symplectic_matrix(
+    X::CTMatrixTypes, Z::CTMatrixTypes, is_sparse::Bool
+)
+    if X isa SparseMatrixCSC && Z isa SparseMatrixCSC &&
+       eltype(X) <: Integer && eltype(Z) <: Integer
+        T = promote_type(eltype(X), eltype(Z))
+        return vcat(
+            hcat(X, spzeros(T, nrows(X), ncols(Z))),
+            hcat(spzeros(T, nrows(Z), ncols(X)), Z)
+        )
+    elseif X isa SparseMatrixCSC && Z isa SparseMatrixCSC
+        F = _code_matrix_base_ring(
+            nrows(X) > 0 && !iszero(X) ? X : Z)
+        return _sparse_code_matrix(direct_sum(
+            _dense_code_matrix(X, F), _dense_code_matrix(Z, F)))
+    end
+    return direct_sum(X, Z)
+end
+
 """
     StabilizerCodeCSS(X_matrix::CTMatrixTypes, Z_matrix::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
     CSSCode(X_matrix::CTMatrixTypes, Z_matrix::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing}= missing, logs_alg::Symbol = :stnd_frm)
@@ -17,42 +36,44 @@ Return a CSS code whose `X`-stabilizers are given by `X_matrix`, `Z`-stabilizers
 function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzModRingElem}, Missing} = 
     missing, logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes
 
+    is_sparse = _is_sparse_code_matrix(X_matrix)
+    X_matrix = _normalize_quantum_matrix(X_matrix)
+    Z_matrix = _normalize_quantum_matrix(Z_matrix)
     logs_alg ∈ (:stnd_frm, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm. Use :stnd_frm or :sys_eqs."))
-    iszero(X_matrix) && throw(ArgumentError("The `X` stabilizer matrix is empty."))
-    iszero(Z_matrix) && throw(ArgumentError("The `Z` stabilizer matrix is empty."))
-    
     n = ncols(X_matrix)
+    n > 0 || throw(ArgumentError("The stabilizer matrices must have positive length."))
     n == ncols(Z_matrix) || throw(ArgumentError("Both matrices must have the same length in the CSS construction."))
     F = _code_matrix_base_ring(X_matrix)
     F == _code_matrix_base_ring(Z_matrix) || throw(ArgumentError("Both matrices must be over the same base field."))
     
-    is_sparse = X_matrix isa SparseMatrixCSC
-    X_dense = _dense_code_matrix(X_matrix, F)
-    Z_dense = _dense_code_matrix(Z_matrix, F)
-    
-    iszero(Z_dense * transpose(X_dense)) || throw(ArgumentError("The given matrices are not symplectic orthogonal."))
-    
+    X_clean = _remove_empty(deepcopy(X_matrix), :rows)
+    Z_clean = _remove_empty(deepcopy(Z_matrix), :rows)
+    if is_sparse
+        X_clean = _sparse_code_matrix(X_clean)
+        Z_clean = _sparse_code_matrix(Z_clean)
+    end
+    stabs = _css_symplectic_matrix(X_clean, Z_clean, is_sparse)
+    are_symplectic_orthogonal(stabs, stabs) ||
+        throw(ArgumentError("The given matrices are not symplectic orthogonal."))
+
     p = Int(characteristic(F))
     clean_char_vec = ismissing(char_vec) ? zzModRingElem[] : _process_char_vec(char_vec, p, 2 * n)
 
-    X_dense = _remove_empty(X_dense, :rows)
-    Z_dense = _remove_empty(Z_dense, :rows)
-
-    X_rank = rank(X_dense)
-    Z_rank = rank(Z_dense)
+    X_rank = _additive_rank(X_clean, F)
+    Z_rank = _additive_rank(Z_clean, F)
     rnk = X_rank + Z_rank
+
+    dim_code = _quantum_dimension(F, n, rnk)
     
-    dim_code = BigInt(order(F))^n // BigInt(p)^rnk
-    isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
+    over_comp = (nrows(X_clean) > X_rank) || (nrows(Z_clean) > Z_rank)
     
-    over_comp = (nrows(X_dense) > X_rank) || (nrows(Z_dense) > Z_rank)
-    
-    X_final = is_sparse ? _remove_empty(deepcopy(X_matrix), :rows) : X_dense
-    Z_final = is_sparse ? _remove_empty(deepcopy(Z_matrix), :rows) : Z_dense
+    X_final = X_clean
+    Z_final = Z_clean
 
     cache = Dict{Symbol, Any}(
+        :stabs => stabs,
         :overcomplete => over_comp,
-        :logs_alg => logs_alg
+        :logs_alg => degree(F) == 1 ? logs_alg : :sys_eqs
     )
 
     return StabilizerCodeCSS(F, n, dim_code, X_final, Z_final, clean_char_vec, cache)
@@ -69,37 +90,40 @@ Return the stabilizer code whose stabilizers is determined by `stabs`.
 function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm)
 
+    is_sparse = _is_sparse_code_matrix(stabs)
+    stabs = _normalize_quantum_matrix(stabs)
     logs_alg ∈ (:stnd_frm, :sys_eqs) || throw(ArgumentError("Unrecognized logicals algorithm. Use :stnd_frm or :sys_eqs."))
-    iszero(stabs) && throw(ArgumentError("The stabilizer matrix is empty."))
-    
-    F = base_ring(stabs)
+    F = _code_matrix_base_ring(stabs)
     p = Int(characteristic(F))
+    iseven(ncols(stabs)) ||
+        throw(ArgumentError("A symplectic stabilizer matrix must have an even number of columns."))
     n = div(ncols(stabs), 2)
+    n > 0 || throw(ArgumentError("The stabilizer matrix must have positive length."))
     clean_char_vec = ismissing(char_vec) ? zzModRingElem[] : _process_char_vec(char_vec, p, 2 * n)
     
-    is_sparse = stabs isa SparseMatrixCSC
-    stabs_dense = is_sparse ? matrix(F, stabs) : stabs
-    stabs_dense = _remove_empty(stabs_dense, :rows)
-    are_symplectic_orthogonal(stabs_dense, stabs_dense) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
+    stabs_final = _remove_empty(deepcopy(stabs), :rows)
+    is_sparse && (stabs_final = _sparse_code_matrix(stabs_final))
+    are_symplectic_orthogonal(stabs_final, stabs_final) || throw(ArgumentError("The given stabilizers are not symplectic orthogonal."))
     
-    rnk = rank(stabs_dense)
-    dim_code = BigInt(order(F))^n // BigInt(p)^rnk
-    isinteger(dim_code) && (dim_code = round(Int, log(BigInt(p), dim_code));)
-    over_comp = nrows(stabs_dense) > rnk
+    rnk = _additive_rank(stabs_final, F)
+    dim_code = _quantum_dimension(F, n, rnk)
+    over_comp = nrows(stabs_final) > rnk
     
-    is_css_S, X_stabs_dense, Z_stabs_dense = robust_CSS_split(stabs_dense)
-
-    stabs_final = is_sparse ? sparse(stabs_dense) : stabs_dense
+    is_css_S, X_stabs_dense, Z_stabs_dense = if rnk == 0
+        (true, zero_matrix(F, 0, n), zero_matrix(F, 0, n))
+    else
+        robust_CSS_split(_dense_code_matrix(stabs_final, F))
+    end
 
     cache = Dict{Symbol, Any}(
         :stabs => stabs_final,
         :overcomplete => over_comp,
-        :logs_alg => logs_alg
+        :logs_alg => degree(F) == 1 ? logs_alg : :sys_eqs
     )
     
     if is_css_S
-        X_stabs = is_sparse ? sparse(X_stabs_dense) : X_stabs_dense
-        Z_stabs = is_sparse ? sparse(Z_stabs_dense) : Z_stabs_dense
+        X_stabs = is_sparse ? _sparse_code_matrix(X_stabs_dense) : X_stabs_dense
+        Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs_dense) : Z_stabs_dense
         return StabilizerCodeCSS(F, n, dim_code, X_stabs, Z_stabs, clean_char_vec, cache)
     else
         return StabilizerCode(F, n, dim_code, stabs_final, clean_char_vec, cache)
@@ -153,6 +177,53 @@ function StabilizerCodeCSS(C::LinearCode; char_vec::Union{Vector{zzModRingElem},
     return S
 end
 CSSCode(C::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) = StabilizerCodeCSS(C, char_vec = char_vec, logs_alg = logs_alg)
+
+function _quadratic_code_to_symplectic(
+    C::AbstractLinearCode, K::CTFieldTypes,
+    basis::Union{Missing, Vector{<:CTFieldElem}}=missing
+)
+    E = C.F
+    order(E) == order(K)^2 ||
+        throw(ArgumentError("The classical code must be over a quadratic extension of the requested symplectic field."))
+    β = ismissing(basis) ? first(primitive_basis(E, K)) : basis
+    length(β) == 2 ||
+        throw(ArgumentError("A quadratic extension basis must contain two elements."))
+    is_basis(E, K, β)[1] ||
+        throw(ArgumentError("The supplied elements are not a basis of the quadratic extension."))
+
+    G = generator_matrix(C)
+    additive_generators = vcat(β[1] * G, β[2] * G)
+    expanded = expand_matrix(additive_generators, K, β)
+    n = C.n
+    symplectic = hcat(expanded[:, 1:2:2n], expanded[:, 2:2:2n])
+    prime_field = _prime_subfield(K)
+    prime_basis = degree(K) == 1 ?
+        [one(K)] : first(primitive_basis(K, prime_field))
+    return reduce(vcat, [α * symplectic for α in prime_basis])
+end
+
+"""
+    StabilizerCode(C::AbstractLinearCode, F; basis=missing, ...)
+
+Construct the symplectic stabilizer code over `F` associated with a Hermitian
+self-orthogonal linear code over the quadratic extension of `F`. The optional
+`basis` is an ordered extension basis; a primitive basis is used by default.
+"""
+function StabilizerCode(
+    C::AbstractLinearCode, F::CTFieldTypes;
+    basis::Union{Missing, Vector{<:CTFieldElem}}=missing,
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing,
+    logs_alg::Symbol=:stnd_frm
+)
+    is_Hermitian_self_orthogonal(C) ||
+        throw(ArgumentError("The classical code must be Hermitian self-orthogonal."))
+    stabs = _quadratic_code_to_symplectic(C, F, basis)
+    S = StabilizerCode(stabs; char_vec=char_vec, logs_alg=logs_alg)
+    S.cache[:quadratic_code] = C
+    S.cache[:quadratic_basis] =
+        ismissing(basis) ? first(primitive_basis(C.F, F)) : basis
+    return S
+end
 
 """
     StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}}
@@ -360,18 +431,29 @@ set_Z_minimum_distance!(::IsNotCSS, S::AbstractStabilizerCode, d::Int) =
      # general functions
 #############################
 
-function _logicals(stabs::T, dual_gens::T, logs_alg::Symbol = :sys_eqs) where {T <: CTMatrixTypes}
+function _logicals(
+    stabs::CTMatrixTypes, dual_gens::CTMatrixTypes,
+    logs_alg::Symbol = :sys_eqs
+)
     logs_alg ∈ (:sys_eqs,) || throw(ArgumentError("Unrecognized logicals algorithm. Use :sys_eqs."))
 
-    L = _quotient_space(dual_gens, stabs, logs_alg)
-    logs = _make_pairs(L)
+    F = _code_matrix_base_ring(dual_gens)
+    L = _additive_quotient_space(stabs, dual_gens, F)
+    logs = _pair_operators(L, false)
     # verify
     n = div(ncols(L), 2)
-    logs_mat = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    logs_mat = _pairs_to_matrix(
+        logs, F, n, _is_sparse_code_matrix(L))
     are_symplectic_orthogonal(stabs, logs_mat) || error("Computed logicals do not commute with the codespace.")
-    prod = hcat(logs_mat[:, n + 1:end], -logs_mat[:, 1:n]) * transpose(logs_mat)
-    sum(_Flint_matrix_to_Julia_int_matrix(prod), dims = 1) == ones(Int, 1, size(prod, 1)) ||
-        error("Computed logicals do not have the right commutation relations.")
+    prod = _trace_symplectic_product_matrix(
+        logs_mat, logs_mat, F)
+    expected = zero_matrix(base_ring(prod), nrows(logs_mat), nrows(logs_mat))
+    for i in 1:2:nrows(logs_mat)
+        expected[i, i + 1] = one(base_ring(prod))
+        expected[i + 1, i] = -one(base_ring(prod))
+    end
+    prod == expected ||
+        error("Computed logicals do not have canonical commutation relations.")
     return logs, logs_mat
 end
 
@@ -389,6 +471,52 @@ function random_CSS_code(n::Int, k::Int)
     Zind = [findfirst(!iszero, Zrref[2][i, :])[2] for i in 1:Zrref[1]]
     return CSSCode(d[Xind, :], dt[Zind, :])
 end
+
+function _random_symplectic_pairs(rng::AbstractRNG, F::CTFieldTypes, n::Int)
+    n > 0 || throw(DomainError(n, "The code length must be positive."))
+    prime_field = _prime_subfield(F)
+    additive_dimension = 2 * degree(F) * n
+    coefficients = matrix(
+        prime_field,
+        rand(rng, prime_field, additive_dimension, additive_dimension)
+    )
+    while rank(coefficients) != additive_dimension
+        coefficients = matrix(
+            prime_field,
+            rand(rng, prime_field, additive_dimension, additive_dimension)
+        )
+    end
+    M = _lift_prime_matrix(coefficients, F) *
+        _additive_ambient_basis(F, 2n)
+    return _make_pairs(M)
+end
+
+"""
+    random_stabilizer_code([rng], F, n, k; char_vec=missing)
+
+Construct a random (not guaranteed uniformly sampled) `[[n,k]]` stabilizer
+code over `F`.
+"""
+function random_stabilizer_code(
+    rng::AbstractRNG, F::CTFieldTypes, n::Int, k::Union{Int, Rational};
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing
+)
+    0 <= k <= n || throw(DomainError(k, "Expected 0 ≤ k ≤ n."))
+    num_stabs_rat = degree(F) * (n - k)
+    denominator(Rational{BigInt}(num_stabs_rat)) == 1 ||
+        throw(DomainError(k, "The requested additive dimension is incompatible with the field."))
+    num_stabs = Int(num_stabs_rat)
+    pairs = _random_symplectic_pairs(rng, F, n)
+    stabs = num_stabs == 0 ? zero_matrix(F, 0, 2n) :
+        reduce(vcat, [pairs[i][1] for i in 1:num_stabs])
+    return StabilizerCode(stabs; char_vec=char_vec)
+end
+random_stabilizer_code(F::CTFieldTypes, n::Int, k::Union{Int, Rational}; kwargs...) =
+    random_stabilizer_code(Random.default_rng(), F, n, k; kwargs...)
+random_stabilizer_code(rng::AbstractRNG, n::Int, k::Union{Int, Rational}; kwargs...) =
+    random_stabilizer_code(rng, Oscar.Nemo.Native.GF(2), n, k; kwargs...)
+random_stabilizer_code(n::Int, k::Union{Int, Rational}; kwargs...) =
+    random_stabilizer_code(Random.default_rng(), n, k; kwargs...)
 
 """
     is_CSS_T_code(S::AbstractStabilizerCode)
@@ -422,8 +550,13 @@ function is_CSS_T_code(::IsCSS, S::AbstractStabilizerCode; verbose::Bool = false
         flag = Threads.Atomic{Bool}(true)
         Threads.@threads for m in 1:num_thrds
             c = deepcopy(z)
-            for u in GrayCode(k, r, Int[], mutate = true)
+            u = zeros(Int, k)
+            for support in Combinatorics.combinations(1:k, r)
                 if flag[]
+                    fill!(u, 0)
+                    @inbounds for i in support
+                        u[i] = 1
+                    end
                     LinearAlgebra.mul!(c, G, u)
                     wt_c = 0
                     supp_c = Int[]

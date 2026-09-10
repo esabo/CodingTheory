@@ -8,6 +8,14 @@
         0 0 0 1 1 1 1
     ])
 
+    @testset "Integer systematicization stays in GF(2)" begin
+        G = [1 1 0 1; 1 0 1 1]
+        permutation = collect(1:4)
+        CodingTheory._make_systematic_gf!(G, permutation, 2)
+        @test all(x -> x == 0 || x == 1, G)
+        @test G[:, 1:2] == [1 0; 0 1]
+    end
+
     function check_isd_result(alg::Symbol; kwargs...)
         S = CSSCode(H, H)
         d, witness = probabilistic_minimum_distance(

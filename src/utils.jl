@@ -210,9 +210,14 @@ end
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
 """
 function are_symplectic_orthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
-    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices in product must both be over the same base ring."))
-    
-    return iszero(hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)]) * transpose(B))
+    ncols(A) == ncols(B) && iseven(ncols(A)) ||
+        throw(ArgumentError("Symplectic matrices must have the same even length."))
+    (nrows(A) == 0 || nrows(B) == 0) && return true
+    F_A = _code_matrix_base_ring(A)
+    F_B = _code_matrix_base_ring(B)
+    F_A == F_B ||
+        throw(ArgumentError("Matrices in product must both be over the same base ring."))
+    return iszero(_trace_symplectic_product_matrix(A, B, F_A))
 end
 
 # function traceinnerproduct(u::CTMatrixTypes, v::CTMatrixTypes)
@@ -330,11 +335,18 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
 end
 
 """
-Internal function to compute a basis for the quotient space `C2 / C1` 
-using ultra-fast Gaussian elimination, bypassing Oscar's vector space morphisms.
+Internal function to compute a row basis for the quotient space `span(G2) / span(G1)`.
 Assumes `span(G1) ⊆ span(G2)`.
 """
 function _quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes)
+    base_ring(G1) == base_ring(G2) ||
+        throw(ArgumentError("Quotient spaces must use the same field."))
+    ncols(G1) == ncols(G2) ||
+        throw(ArgumentError("Quotient spaces must have the same ambient dimension."))
+    contained, _ = can_solve_with_solution(G2, G1, side=:left)
+    contained ||
+        throw(ArgumentError("The first row space is not contained in the second."))
+
     F = base_ring(G1)
     nr1, nc = nrows(G1), ncols(G1)
     nr2 = nrows(G2)
@@ -372,8 +384,10 @@ function _quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes)
     rnk2, Q_full = rref(G2_red)
     
     # Extract only the linearly independent quotient basis vectors
-    return view(Q_full, 1:rnk2, 1:nc)
+    return rnk2 == 0 ? zero_matrix(F, 0, nc) : Q_full[1:rnk2, 1:nc]
 end
+
+_quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes, ::Symbol) = _quotient_space(G1, G2)
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
 #   largestconsecrun([1,1,1,4]) == 4
@@ -1408,7 +1422,7 @@ end
 
 function print_string_array(A::Vector{String}, without_Is=false)
     for a in A
-        if !withoutIs
+        if !without_Is
             println(a)
         else
             for i in a
@@ -1422,90 +1436,6 @@ function print_string_array(A::Vector{String}, without_Is=false)
         end
     end
 end
-# BUG: do these set functions exist anymore?
-print_char_array(A::Vector{Vector{Char}}, without_Is=false) = print_string_array(set_char_to_string_array(A), without_Is)
-printsymplecticarray(A::Vector{Vector{T}}, without_Is=false) where T <: Int = print_string_array(set_symplectic_to_string_array(A), without_Is)
-
-"""
-    pseudoinverse(M::CTMatrixTypes)
-
-Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
-
-# Notes
-* This is not the Penrose-Moore pseudoinverse.
-"""
-function pseudoinverse(M::CTMatrixTypes)
-    # let this fail elsewhere if not actually over a quadratic extension
-    if degree(base_ring(M)) != 1
-        # TODO: quadratic_to_symplectic is no longer defined, this will need changed
-        M = transpose(quadratic_to_symplectic(M))
-    else
-        M = transpose(M)
-    end
-
-    nr, nc = size(M)
-    _, E = rref(hcat(M, identity_matrix(base_ring(M), nr)))
-    E = E[:, (nc + 1):end]
-    p_inv = E[1:nc, :]
-    dual = E[nc + 1:nr, :]
-
-    # verify
-    _, M_rref = rref(M)
-    E * M == M_rref || error("Pseudoinverse calculation failed (transformation incorrect).")
-    M_rref[1:nc, 1:nc] == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (failed to get I).")
-    iszero(M_rref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-    p_inv * M == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 1).")
-    transpose(M) * transpose(p_inv) == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 2).")
-    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
-    iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
-    return p_inv
-end
-
-# """
-#     quadratic_to_symplectic(M::CTMatrixTypes)
-
-# Return the matrix `M` converted from the quadratic to the symplectic form.
-# """
-# function quadratic_to_symplectic(M::CTMatrixTypes)
-#     E = base_ring(M)
-#     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-#     F = GF(Int(characteristic(E)), div(degree(E), 2), :ω)
-#     nr = nrows(M)
-#     nc = ncols(M)
-#     Msym = zero_matrix(F, nr, 2 * nc)
-#     for c in 1:nc
-#         for r in 1:nr
-#             # TODO: benchmark this without the branching
-#             if !iszero(M[r, c])
-#                 Msym[r, c] = F(coeff(M[r, c], 0))
-#                 Msym[r, c + nc] = F(coeff(M[r, c], 1))
-#             end
-#         end
-#     end
-#     return Msym
-# end
-
-# """
-#     symplectictoquadratic(M::CTMatrixTypes)
-
-# Return the matrix `M` converted from the symplectic to the quadratic form.
-# """
-# function symplectictoquadratic(M::CTMatrixTypes)
-#     iseven(ncols(M)) || error("Input to symplectictoquadratic is not of even length.")
-#     nr = nrows(M)
-#     nc = div(ncols(M), 2)
-#     F = base_ring(M)
-#     E = GF(Int(characteristic(F)), 2 * degree(F), :ω)
-#     ω = gen(E)
-#     ϕ = embed(F, E)
-#     Mquad = zero_matrix(E, nr, nc)
-#     for c in 1:nc
-#         for r in 1:nr
-#             Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + nc]) * ω
-#         end
-#     end
-#     return Mquad
-# end
 
 function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Char}}
     n = length(str)
@@ -1596,6 +1526,13 @@ function tr(x::CTFieldElem, K::CTFieldTypes; verify::Bool = false)
     return sum([x^(q^i) for i in 0:(n - 1)])
 end
 
+function _subfield_preimage(
+    K::CTFieldTypes, L::CTFieldTypes, x::CTFieldElem
+)
+    degree(K) == 1 && return K(lift(Nemo.ZZ, x))
+    return preimage(embed(K, L), x)
+end
+
 # function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
 #     return [tr(x * i) for i in basis] #, K, verify
 # end
@@ -1613,18 +1550,20 @@ end
 function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldElem})
     m = div(degree(L), degree(K))
     L_elms = collect(L)
-    D = Dict{FqFieldElem, FqMatrix}()
+    D = Dict{CTFieldElem, CTMatrixTypes}()
     for x in L_elms
-        D[x] = matrix(L, 1, m, [CodingTheory.tr(x * λi, K) for λi in λ])
+        D[x] = matrix(K, 1, m,
+            [_subfield_preimage(K, L, CodingTheory.tr(x * λi, K))
+             for λi in λ])
     end
     return D
 end
 
-# BUG this is building the expanded matrix in the wrong ring, added change_base_ring below
-function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
+function _expand_matrix(M::CTMatrixTypes, D::AbstractDict, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
-    M_exp = zero_matrix(base_ring(M), nrows(M), ncols(M) * m)
+    K = base_ring(first(values(D)))
+    M_exp = zero_matrix(K, nrows(M), ncols(M) * m)
     for r in 1:nrows(M)
         for c in 1:ncols(M)
             M_exp[r, (c - 1) * m + 1:c * m] = D[M[r, c]]
@@ -1648,9 +1587,13 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
     flag, λ = _is_basis(L, β, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
 
-    # λ = dual_basis(L, K, β)
-    D = _expansion_dict(L, K, λ)
-    return change_base_ring(K, _expand_matrix(M, D, m))
+    M_expanded = zero_matrix(K, nrows(M), ncols(M) * m)
+    for r in 1:nrows(M), c in 1:ncols(M), j in 1:m
+        M_expanded[r, (c - 1) * m + j] =
+            _subfield_preimage(
+                K, L, CodingTheory.tr(M[r, c] * λ[j], K))
+    end
+    return M_expanded
 end
 
 """

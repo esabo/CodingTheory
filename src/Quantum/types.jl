@@ -28,6 +28,27 @@ abstract type AbstractGeneralized3DToricCode <: AbstractStabilizerCodeCSS end
 
 abstract type AbstractQuantumNoiseChannel <: AbstractChannel end
 
+function Base.getproperty(S::AbstractSubsystemCode, property::Symbol)
+    property in fieldnames(typeof(S)) &&
+        return getfield(S, property)
+    cache = getfield(S, :cache)
+    haskey(cache, property) && return cache[property]
+    property == :weight_enum && return weight_enumerator(S)
+    property == :weight_dist && return weight_distribution(S)
+    throw(ErrorException(
+        "type $(typeof(S)) has no field or cached property `$property`."))
+end
+
+function Base.setproperty!(
+    S::AbstractSubsystemCode, property::Symbol, value
+)
+    if property in fieldnames(typeof(S))
+        return setfield!(S, property, value)
+    end
+    getfield(S, :cache)[property] = value
+    return value
+end
+
 #############################
       # concrete types
 #############################
@@ -171,17 +192,6 @@ end
 mutable struct QuantumConcatenatedCode <: AbstractStabilizerCode
     outer_code::AbstractStabilizerCode
     inner_code::AbstractStabilizerCode
-    n::Int
-    k::Int
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
-    cache::Dict{Symbol, Any}
-end
-
-mutable struct GaugeFixedCode <: AbstractStabilizerCode
-    subsystem_code::AbstractSubsystemCode
-    choice::Symbol
     n::Int
     k::Int
     d::Union{Int, Missing}

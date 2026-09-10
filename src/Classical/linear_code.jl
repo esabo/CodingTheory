@@ -76,7 +76,7 @@ function _code_matrix_rank(A::SparseMatrixCSC, F::CTFieldTypes)
     Int(order(F)) == 2 && return _binary_sparse_rank(A)
     return rank(_dense_code_matrix(A, F))
 end
-_code_matrix_rank(A::SMat, F::CTFieldTypes) = rank(dense_matrix(A))
+_code_matrix_rank(A::SMat, F::CTFieldTypes) = rank(matrix(A))
 _code_matrix_rank(A::CTMatrixTypes, F::CTFieldTypes) = rank(A)
 
 function _dense_code_matrix(A::SparseMatrixCSC, F::CTFieldTypes)
@@ -88,8 +88,42 @@ function _dense_code_matrix(A::SparseMatrixCSC, F::CTFieldTypes)
     end
     return B
 end
-_dense_code_matrix(A::SMat, F::CTFieldTypes) = dense_matrix(A)
+_dense_code_matrix(A::SMat, F::CTFieldTypes) = matrix(A)
 _dense_code_matrix(A::CTMatrixTypes, F::CTFieldTypes) = A
+
+_is_sparse_code_matrix(A) = A isa Union{SparseMatrixCSC, SMat}
+_sparse_code_matrix(A::Union{SparseMatrixCSC, SMat}) = A
+function _sparse_code_matrix(A::CTMatrixTypes)
+    F = base_ring(A)
+    if Int(order(F)) == 2
+        values = [iszero(A[r, c]) ? 0 : 1
+                  for r in 1:nrows(A), c in 1:ncols(A)]
+        return sparse(values)
+    end
+    iszero(A) && return sparse_matrix(F, nrows(A), ncols(A))
+    return sparse_matrix(F, Matrix(A))
+end
+_normalize_quantum_matrix(A::SMat) =
+    matrix(A)
+_normalize_quantum_matrix(A::CTMatrixTypes) = A
+
+function _prime_subfield(F::CTFieldTypes)
+    degree(F) == 1 && return F
+    return GF(Int(characteristic(F)))
+end
+
+function _additive_expansion(A::CTMatrixTypes, F::CTFieldTypes=base_ring(A))
+    dense = _dense_code_matrix(A, F)
+    degree(F) == 1 && return dense
+    prime_field = _prime_subfield(F)
+    basis, _ = primitive_basis(F, prime_field)
+    return expand_matrix(dense, prime_field, basis)
+end
+
+function _additive_rank(A::CTMatrixTypes, F::CTFieldTypes=base_ring(A))
+    degree(F) == 1 && return _code_matrix_rank(A, F)
+    return rank(_additive_expansion(A, F))
+end
 
 """
 $(TYPEDSIGNATURES)

@@ -25,7 +25,7 @@ function _css_isd_preprocessor_permutations(
         throw(ArgumentError("Unknown CSS ISD information-set preprocessor `$info_set_alg`."))
     F = Oscar.Nemo.Native.GF(2)
     _, raw_permutations, ranks = information_sets(
-        matrix(F, G), info_set_alg; permute=true)
+        matrix(F, G), info_set_alg; permute=false)
     k = size(G, 1)
     for (perm, rnk) in zip(raw_permutations, ranks)
         rnk == k || continue
@@ -98,7 +98,9 @@ function _css_isd_stern_candidates!(
 ) where F
     k, n = size(G)
     half_k = k ÷ 2
-    1 <= p <= half_k && p <= k - half_k || return nothing
+    half_k >= 1 || return _css_isd_prange_candidates!(
+        G, row_labels, max_weight, report!)
+    p = min(max(1, p), half_k, k - half_k)
     0 <= l <= n - k || throw(DomainError(
         l, "The Stern collision window must not exceed the parity tail."))
     l <= 64 || throw(DomainError(
@@ -200,7 +202,7 @@ failure to find a vector does not certify a lower bound.
 """
 function _minimum_distance_css_isd_binary(
     H::_CSSBinaryMatrix, logical_checks::_CSSBinaryMatrix;
-    alg::Symbol=:Prange, max_weight::Int=ncols(H),
+    alg::Symbol=:Prange, lower_bound::Int=1, max_weight::Int=ncols(H),
     max_iters::Int=10_000, p::Int=2, l::Int=12,
     info_set_alg::Symbol=:random,
     automorphisms::Vector{<:AbstractVector{<:Integer}}=Vector{Vector{Int}}(),
@@ -212,6 +214,9 @@ function _minimum_distance_css_isd_binary(
         throw(ArgumentError("The parity-check and logical-check matrices must have the same number of columns."))
     1 <= max_weight <= ncols(H) ||
         throw(DomainError(max_weight, "`max_weight` must lie between one and the code length."))
+    1 <= lower_bound <= max_weight ||
+        throw(DomainError(lower_bound,
+            "`lower_bound` must lie between one and `max_weight`."))
     max_iters > 0 ||
         throw(DomainError(max_iters, "`max_iters` must be positive."))
 
@@ -232,6 +237,7 @@ function _minimum_distance_css_isd_binary(
     master_seed = isnothing(seed) ? rand(UInt64) : UInt64(seed)
 
     Threads.@threads for iteration in 1:max_iters
+        best_weight[] == lower_bound && continue
         rng = Random.Xoshiro(master_seed + UInt64(iteration))
         σ = if iteration <= length(permutations)
             copy(permutations[iteration])
@@ -289,16 +295,7 @@ function _record_css_isd_upper_bound!(
     S::AbstractStabilizerCodeCSS, which::Symbol, d::Int, witness
 )
     d == -1 && return d, witness
-    bound_key = which == :X ? :u_bound_dx : :u_bound_dz
-    witness_key = which == :X ? :X_minimum_distance_upper_bound_witness :
-        :Z_minimum_distance_upper_bound_witness
-    if d < get(S.cache, bound_key, S.n + 1)
-        S.cache[bound_key] = d
-        S.cache[witness_key] = witness
-    end
-    S.cache[:u_bound] = min(
-        get(S.cache, :u_bound_dx, S.n + 1),
-        get(S.cache, :u_bound_dz, S.n + 1))
+    set_minimum_distance_upper_bound!(S, d, witness; which=which)
     return d, witness
 end
 
@@ -313,7 +310,7 @@ function probabilistic_minimum_distance(
     S::AbstractStabilizerCodeCSS; which::Symbol=:full, alg::Symbol=:Prange,
     max_weight::Int=S.n, max_iters::Int=10_000, p::Int=2, l::Int=12,
     info_set_alg::Symbol=:random,
-    automorphisms::Vector{<:AbstractVector{<:Integer}}=Vector{Vector{Int}}(),
+    automorphisms=nothing,
     seed::Union{Nothing, Integer}=nothing, verbose::Bool=false
 )
     which ∈ (:full, :X, :Z) ||
@@ -322,27 +319,48 @@ function probabilistic_minimum_distance(
         throw(ArgumentError("CSS ISD is currently implemented only over GF(2)."))
     S.k > 0 || throw(ArgumentError(
         "Logical minimum distance is undefined for a CSS stabilizer state with k = 0."))
+    resolved_automorphisms = isnothing(automorphisms) ?
+        distance_automorphisms(S) : automorphisms
 
     if which == :full
         dx, wx = probabilistic_minimum_distance(
             S; which=:X, alg=alg, max_weight=max_weight,
             max_iters=max_iters, p=p, l=l, info_set_alg=info_set_alg,
-            automorphisms=automorphisms, seed=seed, verbose=verbose)
+            automorphisms=resolved_automorphisms, seed=seed, verbose=verbose)
         z_max = dx == -1 ? max_weight : min(max_weight, dx)
         dz, wz = probabilistic_minimum_distance(
             S; which=:Z, alg=alg, max_weight=z_max,
             max_iters=max_iters, p=p, l=l, info_set_alg=info_set_alg,
-            automorphisms=automorphisms,
+            automorphisms=resolved_automorphisms,
             seed=isnothing(seed) ? nothing : seed + 1, verbose=verbose)
         return dz == -1 || (dx != -1 && dx <= dz) ? (dx, wx) : (dz, wz)
     end
 
+    keys = _css_distance_cache_keys(which)
+    if haskey(S.cache, keys.exact)
+        return _css_cached_distance_result(S, which)
+    end
+    lower = get(S.cache, keys.lower, 1)
+    upper = get(S.cache, keys.upper, S.n)
+    cached_witness = get(S.cache, keys.upper_witness, nothing)
+    search_max = min(max_weight, isnothing(cached_witness) ? upper : upper - 1)
+    if search_max < lower
+        return isnothing(cached_witness) ?
+            (-1, zero_matrix(S.F, 1, 2 * S.n)) :
+            (upper, cached_witness)
+    end
+
     H, logical_checks = _css_distance_problem(S, which)
     d, vector_witness = _minimum_distance_css_isd_binary(
-        H, logical_checks; alg=alg, max_weight=max_weight,
+        H, logical_checks; alg=alg, lower_bound=lower,
+        max_weight=search_max,
         max_iters=max_iters, p=p, l=l, info_set_alg=info_set_alg,
-        automorphisms=automorphisms, seed=seed, verbose=verbose)
-    witness = d == -1 ? zero_matrix(S.F, 1, 2 * S.n) :
+        automorphisms=resolved_automorphisms, seed=seed, verbose=verbose)
+    if d == -1 && !isnothing(cached_witness)
+        return upper, cached_witness
+    end
+    witness = d == -1 ?
+        zero_matrix(S.F, 1, 2 * S.n) :
         _css_quantum_witness(S, which, vector_witness)
     return _record_css_isd_upper_bound!(S, which, d, witness)
 end

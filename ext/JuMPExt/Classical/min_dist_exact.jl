@@ -23,8 +23,8 @@ function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, tim
     end
     
     verbose && println("Formulating ILP model for [$n, $(C.k)] code over GF($q)...")
-    model = Model(GLPK.Optimizer)
-    set_optimizer_attribute(model, "tm_lim", round(Int, time_limit_sec * 1000)) 
+    model = Model(HiGHS.Optimizer)
+    set_time_limit_sec(model, time_limit_sec)
     
     if !verbose
         set_silent(model)
@@ -53,7 +53,7 @@ function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, tim
     end
     
     # --- SOLVE ---
-    verbose && println("Handing off to GLPK solver (Time limit: $(time_limit_sec)s)...")
+    verbose && println("Handing off to HiGHS solver (Time limit: $(time_limit_sec)s)...")
     optimize!(model)
     
     status = termination_status(model)
@@ -64,7 +64,7 @@ function _minimum_distance_ILP(C::AbstractLinearCode; verbose::Bool = false, tim
         witness_raw = Int.(round.(value.(v)))
         witness = matrix(C.F, 1, n, [C.F(val) for val in witness_raw])
         
-        verbose && println("GLPK found exact optimum: d = $d")
+        verbose && println("HiGHS found exact optimum: d = $d")
         return d, witness
     elseif status == MOI.TIME_LIMIT
         verbose && println("Solver hit the time limit of $(time_limit_sec)s before proving optimality.")
@@ -91,7 +91,7 @@ function _fractional_distance_LP(C::AbstractLinearCode; verbose::Bool = false)
     min_fractional_dist = Float64(n + 1)
     
     for target_i in 1:n
-        model = Model(GLPK.Optimizer)
+        model = Model(HiGHS.Optimizer)
         set_silent(model)
         
         # Continuous variables for the LP relaxation

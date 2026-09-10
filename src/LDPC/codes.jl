@@ -31,6 +31,7 @@ function LDPCCode(H::CTMatrixTypes)
     k_design = max(1, nc - nr)
     
     cache = Dict{Symbol, Any}(
+        :H => H,
         :col_degs => cols,
         :row_degs => rows,
         :c_bound => c_max,

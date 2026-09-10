@@ -15,124 +15,173 @@ Return the subsystem code whose gauge group is determined by `G`.
 """
 function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing)
 
+    is_sparse = _is_sparse_code_matrix(G)
+    G = _normalize_quantum_matrix(G)
     iszero(G) && throw(ArgumentError("The gauge matrix is empty."))
     G = _remove_empty(G, :rows)
 
-    F = base_ring(G)
+    F = _code_matrix_base_ring(G)
     p = Int(characteristic(F))
     n = div(ncols(G), 2)
     clean_char_vec = ismissing(char_vec) ? zzModRingElem[] : _process_char_vec(char_vec, p, 2 * n)
 
-    is_sparse = G isa SparseMatrixCSC
-    G_dense = is_sparse ? matrix(F, G) : G
+    G_dense = _dense_code_matrix(G, F)
 
-    # 1. Compute Stabilizers
-    P = hcat(G_dense[:, n + 1:end], -G_dense[:, 1:n]) * transpose(G_dense)
-    K_cols = kernel(transpose(P), side = :right)
-    rnk_K = rank(K_cols)
-    if ncols(K_cols) == rnk_K
-        K = transpose(K_cols)
-    else
-        nr = nrows(K_cols)
-        K = zero_matrix(F, rnk_K, nr)
-        for r in 1:nr, c in 1:rnk_K
-            !iszero(K_cols[r, c]) && (K[c, r] = K_cols[r, c])
-        end
-    end
-    stabs_dense = _remove_empty(K * G_dense, :rows)
-    iszero(stabs_dense) && error("Error computing the stabilizer group of the subsystem code; ker G ∩ G has dimension zero.")
+    # Stabilizers are the trace-symplectic center of the additive gauge group.
+    stabs = _additive_center(G, F)
+    stabs_dense = _dense_code_matrix(stabs, F)
 
-    if rank(stabs_dense) == rank(G_dense)
+    rnk_stabs = _additive_rank(stabs, F)
+    rnk_gauge = _additive_rank(G, F)
+    if rnk_stabs == rnk_gauge
         println("Stabilizer code detected.")
-        return StabilizerCode(is_sparse ? sparse(stabs_dense) : stabs_dense, char_vec = char_vec)
+        return StabilizerCode(is_sparse ? _sparse_code_matrix(stabs_dense) : stabs_dense, char_vec = char_vec)
     end
 
-    # 2. Robust CSS Split of Stabilizers
-    is_css_S, X_stabs_dense, Z_stabs_dense = robust_CSS_split(stabs_dense)
-
-    # 3. Compute Bare Logicals
-    ker_G_cols = kernel(hcat(G_dense[:, n + 1:end], -G_dense[:, 1:n]), side = :right)
-    rnk_ker_G = rank(ker_G_cols)
-    if ncols(ker_G_cols) == rnk_ker_G
-        ker_G = transpose(ker_G_cols)
+    k, r = _subsystem_dimensions(F, n, rnk_stabs, rnk_gauge)
+    is_css_S, X_stabs_dense, Z_stabs_dense = if rnk_stabs == 0
+        (true, zero_matrix(F, 0, n), zero_matrix(F, 0, n))
     else
-        nr = nrows(ker_G_cols)
-        ker_G = zero_matrix(F, rnk_ker_G, nr)
-        for r in 1:nr, c in 1:rnk_ker_G
-            !iszero(ker_G_cols[r, c]) && (ker_G[c, r] = ker_G_cols[r, c])
-        end
+        robust_CSS_split(stabs_dense)
     end
+    is_css_G, _, _ = robust_CSS_split(G_dense)
 
-    BL = _quotient_space(ker_G, stabs_dense, :sys_eqs)
-    if iszero(BL) || nrows(BL) == 0
-        bare_logs_dense = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
-        logs_mat_dense = zero_matrix(F, 0, 2n)
-    else
-        is_css_BL, L_X, L_Z = robust_CSS_split(BL)
-        if is_css_S && is_css_BL
-            bare_logs_dense = _make_CSS_pairs(L_X, L_Z)
-        else
-            bare_logs_dense = _make_pairs(BL)
-        end
-        logs_mat_dense = reduce(vcat, [reduce(vcat, bare_logs_dense[i]) for i in 1:length(bare_logs_dense)])
-    end
+    # Bare logicals live in C(G)/S; dressed gauges live in G/S.
+    centralizer = _additive_centralizer(G, F)
+    bare_logs = _pair_operators(
+        _additive_quotient_space(stabs, centralizer, F), is_css_S)
+    gauge_ops = _pair_operators(
+        _additive_quotient_space(stabs, G, F), is_css_S)
+    length(gauge_ops) == r || error("Failed to extract $r symplectic gauge pairs.")
+    expected_logical_pairs = _logical_pair_count(F, k)
+    length(bare_logs) == expected_logical_pairs ||
+        error("Failed to extract $expected_logical_pairs symplectic logical pairs.")
 
-    # 4. Compute Gauge Operators
-    GO = _quotient_space(G_dense, stabs_dense, :sys_eqs)
-    if iszero(GO) || nrows(GO) == 0
-        gauge_ops_dense = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
-        g_ops_mat_dense = zero_matrix(F, 0, 2n)
-    else
-        is_css_GO, G_X, G_Z = robust_CSS_split(GO)
-        if is_css_S && is_css_GO
-            gauge_ops_dense = _make_CSS_pairs(G_X, G_Z)
-        else
-            gauge_ops_dense = _make_pairs(GO)
-        end
-        g_ops_mat_dense = reduce(vcat, [reduce(vcat, gauge_ops_dense[i]) for i in 1:length(gauge_ops_dense)])
-    end
-
-    # 5. Fast Dimensions
-    rnk_stabs = rank(stabs_dense)
-    r = length(gauge_ops_dense)
-    top = BigInt(order(F))^n
-    k = top // BigInt(p)^(rnk_stabs + r)
-    isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-
-    # 6. Sparse Reseeding & Cache Construction
-    stabs = is_sparse ? sparse(stabs_dense) : stabs_dense
-    g_ops_mat = is_sparse ? sparse(g_ops_mat_dense) : g_ops_mat_dense
-    
-    gauge_ops = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
-    for i in 1:length(gauge_ops_dense)
-        push!(gauge_ops, (is_sparse ? sparse(gauge_ops_dense[i][1]) : gauge_ops_dense[i][1], 
-                          is_sparse ? sparse(gauge_ops_dense[i][2]) : gauge_ops_dense[i][2]))
+    if is_sparse
+        stabs = _sparse_code_matrix(stabs_dense)
+        gauge_ops = [(_sparse_code_matrix(pair[1]),
+                      _sparse_code_matrix(pair[2])) for pair in gauge_ops]
+        bare_logs = [(_sparse_code_matrix(pair[1]),
+                      _sparse_code_matrix(pair[2])) for pair in bare_logs]
     end
 
     cache = Dict{Symbol, Any}(
         :stabs => stabs,
-        :g_ops_mat => g_ops_mat
+        :gauge_ops => gauge_ops,
+        :g_ops_mat => _pairs_to_matrix(gauge_ops, F, n, is_sparse),
+        :overcomplete => nrows(stabs_dense) > rnk_stabs,
+        :logs_alg => :sys_eqs
     )
-
     if k > 0
-        logs_mat = is_sparse ? sparse(logs_mat_dense) : logs_mat_dense
-        bare_logs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
-        for i in 1:length(bare_logs_dense)
-            push!(bare_logs, (is_sparse ? sparse(bare_logs_dense[i][1]) : bare_logs_dense[i][1], 
-                              is_sparse ? sparse(bare_logs_dense[i][2]) : bare_logs_dense[i][2]))
-        end
         cache[:logicals] = bare_logs
-        cache[:logs_mat] = logs_mat
+        cache[:logs_mat] = _pairs_to_matrix(bare_logs, F, n, is_sparse)
     end
 
-    if is_css_S
-        X_stabs = is_sparse ? sparse(X_stabs_dense) : X_stabs_dense
-        Z_stabs = is_sparse ? sparse(Z_stabs_dense) : Z_stabs_dense
+    if is_css_S && is_css_G
+        X_stabs = is_sparse ? _sparse_code_matrix(X_stabs_dense) : X_stabs_dense
+        Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs_dense) : Z_stabs_dense
         return SubsystemCodeCSS(F, n, k, r, X_stabs, Z_stabs, gauge_ops, clean_char_vec, cache)
     else
         return SubsystemCode(F, n, k, r, stabs, gauge_ops, clean_char_vec, cache)
     end
 end
+
+"""
+    SubsystemCode(C::AbstractLinearCode, F; basis=missing, ...)
+
+Construct the subsystem code over `F` whose gauge space is the additive
+symplectic image of a linear code over the quadratic extension of `F`.
+"""
+function SubsystemCode(
+    C::AbstractLinearCode, F::CTFieldTypes;
+    basis::Union{Missing, Vector{<:CTFieldElem}}=missing,
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing
+)
+    gauge_group = _quadratic_code_to_symplectic(C, F, basis)
+    S = SubsystemCode(gauge_group; char_vec=char_vec)
+    S.cache[:quadratic_code] = C
+    S.cache[:quadratic_basis] =
+        ismissing(basis) ? first(primitive_basis(C.F, F)) : basis
+    return S
+end
+
+"""
+    SubsystemCodeCSS(X_gauges, Z_gauges; char_vec=missing)
+    CSSSubsystemCode(X_gauges, Z_gauges; char_vec=missing)
+
+Construct a CSS subsystem code from trimmed `X`- and `Z`-type gauge
+generators. The constructor may return a stabilizer code when the gauge group
+is abelian.
+"""
+function SubsystemCodeCSS(
+    X_gauges::T, Z_gauges::T;
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing
+) where {T <: CTMatrixTypes}
+    is_sparse = _is_sparse_code_matrix(X_gauges)
+    X_gauges = _normalize_quantum_matrix(X_gauges)
+    Z_gauges = _normalize_quantum_matrix(Z_gauges)
+    ncols(X_gauges) == ncols(Z_gauges) ||
+        throw(ArgumentError("The X and Z gauge matrices must have the same length."))
+    _code_matrix_base_ring(X_gauges) == _code_matrix_base_ring(Z_gauges) ||
+        throw(ArgumentError("The X and Z gauge matrices must use the same field."))
+    gauges = _css_symplectic_matrix(X_gauges, Z_gauges, false)
+    is_sparse && (gauges = _sparse_code_matrix(gauges))
+    return SubsystemCode(gauges; char_vec=char_vec)
+end
+
+function SubsystemCodeCSS(
+    C_X::AbstractLinearCode, C_Z::AbstractLinearCode;
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing
+)
+    C_X.F == C_Z.F ||
+        throw(ArgumentError("The X and Z gauge codes must use the same field."))
+    C_X.n == C_Z.n ||
+        throw(ArgumentError("The X and Z gauge codes must have the same length."))
+    return SubsystemCodeCSS(
+        generator_matrix(C_X), generator_matrix(C_Z); char_vec=char_vec)
+end
+
+CSSSubsystemCode(args...; kwargs...) = SubsystemCodeCSS(args...; kwargs...)
+
+"""
+    random_subsystem_code([rng], F, n, k, r; char_vec=missing)
+
+Construct a random (not guaranteed uniformly sampled) `[[n,k,r]]` subsystem
+code over `F`.
+"""
+function random_subsystem_code(
+    rng::AbstractRNG, F::CTFieldTypes, n::Int,
+    k::Union{Int, Rational}, r::Int;
+    char_vec::Union{Vector{zzModRingElem}, Missing}=missing
+)
+    0 <= k <= n || throw(DomainError(k, "Expected 0 ≤ k ≤ n."))
+    num_stabs_rat = degree(F) * (n - k) - r
+    denominator(Rational{BigInt}(num_stabs_rat)) == 1 ||
+        throw(DomainError(k, "The requested additive dimension is incompatible with the field."))
+    num_stabs = Int(num_stabs_rat)
+    0 <= r && num_stabs >= 0 ||
+        throw(DomainError(r, "The gauge dimension is incompatible with n and k."))
+    pairs = _random_symplectic_pairs(rng, F, n)
+    rows = CTMatrixTypes[]
+    append!(rows, [pairs[i][1] for i in 1:num_stabs])
+    for i in (num_stabs + 1):(num_stabs + r)
+        push!(rows, pairs[i][1], pairs[i][2])
+    end
+    gauge_group = isempty(rows) ? zero_matrix(F, 0, 2n) : reduce(vcat, rows)
+    isempty(rows) &&
+        return StabilizerCode(gauge_group; char_vec=char_vec)
+    return SubsystemCode(gauge_group; char_vec=char_vec)
+end
+random_subsystem_code(
+    F::CTFieldTypes, n::Int, k::Union{Int, Rational}, r::Int; kwargs...
+) =
+    random_subsystem_code(Random.default_rng(), F, n, k, r; kwargs...)
+random_subsystem_code(
+    rng::AbstractRNG, n::Int, k::Union{Int, Rational}, r::Int; kwargs...
+) = random_subsystem_code(
+    rng, Oscar.Nemo.Native.GF(2), n, k, r; kwargs...)
+random_subsystem_code(n::Int, k::Union{Int, Rational}, r::Int; kwargs...) =
+    random_subsystem_code(Random.default_rng(), n, k, r; kwargs...)
 
 """
     SubsystemCode(G_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing) where T <: Union{String, Vector{Char}}
@@ -156,16 +205,19 @@ by `L`, gauge operators (not including stabilizers) by `G`.
 function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     char_vec::Union{Vector{zzModRingElem}, Missing} = missing)
 
+    is_sparse = _is_sparse_code_matrix(S)
+    S = _normalize_quantum_matrix(S)
+    L = _normalize_quantum_matrix(L)
+    G = _normalize_quantum_matrix(G)
     iszero(S) && error("The stabilizer matrix is empty.")
     S = _remove_empty(S, :rows)
     n = div(ncols(S), 2)
-    F = base_ring(S)
+    F = _code_matrix_base_ring(S)
     p = Int(characteristic(F))
 
-    is_sparse = S isa SparseMatrixCSC
-    S_dense = is_sparse ? matrix(F, S) : S
-    L_dense = is_sparse ? matrix(F, L) : L
-    G_dense = is_sparse ? matrix(F, G) : G
+    S_dense = _dense_code_matrix(S, F)
+    L_dense = _dense_code_matrix(L, F)
+    G_dense = _dense_code_matrix(G, F)
 
     are_symplectic_orthogonal(S_dense, S_dense) || error("The given stabilizers are not symplectic orthogonal.")
 
@@ -178,7 +230,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     else
         L_dense = _remove_empty(L_dense, :rows)
         are_symplectic_orthogonal(S_dense, L_dense) || error("Logicals do not commute with the code.")
-        prod = hcat(L_dense[:, n + 1:end], -L_dense[:, 1:n]) * transpose(L_dense)
+        prod = _trace_symplectic_product_matrix(L_dense, L_dense, F)
         iszero(prod) && error("Logicals should not be symplectic self-orthogonal.")
         
         is_css_L, L_X, L_Z = robust_CSS_split(L_dense)
@@ -200,7 +252,7 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
         if !iszero(logs_mat_dense)
             are_symplectic_orthogonal(logs_mat_dense, G_dense) || error("Gauges do not commute with the logicals.")
         end
-        prod = hcat(G_dense[:, n + 1:end], -G_dense[:, 1:n]) * transpose(G_dense)
+        prod = _trace_symplectic_product_matrix(G_dense, G_dense, F)
         iszero(prod) && error("Gauges should not be symplectic self-orthogonal.")
         
         is_css_G, G_X, G_Z = robust_CSS_split(G_dense)
@@ -213,40 +265,45 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
     end
 
     clean_char_vec = ismissing(char_vec) ? zzModRingElem[] : _process_char_vec(char_vec, p, 2 * n)
-    rnk_G = rank(G_dense)
-    top = BigInt(order(F))^n
-    r = div(rnk_G, 2)
-    rnk_S = rank(S_dense)
-    k = top // BigInt(p)^(rnk_S + r)
-    isinteger(k) && (k = round(Int, log(BigInt(p), k));)
-    
-    S_final = is_sparse ? sparse(S_dense) : S_dense
-    g_ops_mat_final = is_sparse ? sparse(g_ops_mat_dense) : g_ops_mat_dense
-    logs_mat_final = is_sparse ? sparse(logs_mat_dense) : logs_mat_dense
+    rnk_S = _additive_rank(S_dense, F)
+    rnk_G_only = (iszero(G_dense) || nrows(G_dense) == 0) ?
+        0 : _additive_rank(G_dense, F)
+    k, r = _subsystem_dimensions(F, n, rnk_S, rnk_S + rnk_G_only)
+    length(g_ops_pairs_dense) == r ||
+        error("Expected $r independent symplectic gauge pairs.")
+    expected_logical_pairs = _logical_pair_count(F, k)
+    length(log_pairs_dense) == expected_logical_pairs ||
+        error("Expected $expected_logical_pairs independent symplectic logical pairs.")
+
+    S_final = is_sparse ? _sparse_code_matrix(S_dense) : S_dense
+    g_ops_mat_final = is_sparse ? _sparse_code_matrix(g_ops_mat_dense) : g_ops_mat_dense
+    logs_mat_final = is_sparse ? _sparse_code_matrix(logs_mat_dense) : logs_mat_dense
 
     log_pairs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
     for i in 1:length(log_pairs_dense)
-        push!(log_pairs, (is_sparse ? sparse(log_pairs_dense[i][1]) : log_pairs_dense[i][1], 
-                          is_sparse ? sparse(log_pairs_dense[i][2]) : log_pairs_dense[i][2]))
+        push!(log_pairs, (is_sparse ? _sparse_code_matrix(log_pairs_dense[i][1]) : log_pairs_dense[i][1],
+                          is_sparse ? _sparse_code_matrix(log_pairs_dense[i][2]) : log_pairs_dense[i][2]))
     end
 
     g_ops_pairs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
     for i in 1:length(g_ops_pairs_dense)
-        push!(g_ops_pairs, (is_sparse ? sparse(g_ops_pairs_dense[i][1]) : g_ops_pairs_dense[i][1], 
-                            is_sparse ? sparse(g_ops_pairs_dense[i][2]) : g_ops_pairs_dense[i][2]))
+        push!(g_ops_pairs, (is_sparse ? _sparse_code_matrix(g_ops_pairs_dense[i][1]) : g_ops_pairs_dense[i][1],
+                            is_sparse ? _sparse_code_matrix(g_ops_pairs_dense[i][2]) : g_ops_pairs_dense[i][2]))
     end
 
     cache = Dict{Symbol, Any}(
         :stabs => S_final,
         :logicals => log_pairs,
         :logs_mat => logs_mat_final,
+        :gauge_ops => g_ops_pairs,
         :g_ops_mat => g_ops_mat_final,
-        :overcomplete => nrows(S_dense) > rnk_S
+        :overcomplete => nrows(S_dense) > rnk_S,
+        :logs_alg => :provided
     )
-    
+
     if is_css_S
-        X_stabs = is_sparse ? sparse(X_stabs_dense) : X_stabs_dense
-        Z_stabs = is_sparse ? sparse(Z_stabs_dense) : Z_stabs_dense
+        X_stabs = is_sparse ? _sparse_code_matrix(X_stabs_dense) : X_stabs_dense
+        Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs_dense) : Z_stabs_dense
         return SubsystemCodeCSS(F, n, k, r, X_stabs, Z_stabs, g_ops_pairs, clean_char_vec, cache)
     else
         return SubsystemCode(F, n, k, r, S_final, g_ops_pairs, clean_char_vec, cache)
@@ -267,9 +324,6 @@ function SubsystemCode(S_Pauli::Vector{T}, L_Pauli::Vector{T}, G_Pauli::Vector{T
     iszero(G) && error("The processed Pauli strings returned a set of empty gauge group generators.")
     return SubsystemCode(S, L, G, char_vec = char_vec)
 end
-
-# CSS construction, Euclidean and Hermitian
-# min dist is min dressed logical operator weight
 
 #############################
       # getter functions
@@ -303,7 +357,8 @@ dimension(S::AbstractSubsystemCode) = S.k
 
 Return the cardinality of the stabilizer group of the code.
 """
-cardinality(S::AbstractSubsystemCode) = BigInt(characteristic(S.F))^(S.n - S.k - get(S.cache, :r, S.r))
+cardinality(S::AbstractSubsystemCode) =
+    BigInt(characteristic(S.F))^_additive_rank(stabilizers(S), S.F)
 
 """
     rate(S::AbstractSubsystemCode)
@@ -381,16 +436,20 @@ Return the stabilizer matrix of the code. Computes the unified matrix for CSS co
 """
 function stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
     if standform
+        degree(S.F) == 1 ||
+            error("Stabilizer standard form currently requires a prime-field symplectic representation.")
         if !haskey(S.cache, :stabs_stand)
             # Standard form algorithms require dense matrices
             stabs_base = stabilizers(S)
-            is_sparse = stabs_base isa SparseMatrixCSC
+            is_sparse = _is_sparse_code_matrix(stabs_base)
             stabs_dense = _dense_code_matrix(stabs_base, S.F)
             
             stabs_stand, P_stand, stand_r, stand_k, _ = _standard_form_stabilizer(stabs_dense)
             
-            S.cache[:stabs_stand] = is_sparse ? sparse(stabs_stand) : stabs_stand
-            S.cache[:P_stand] = is_sparse ? sparse(P_stand) : P_stand
+            S.cache[:stabs_stand] =
+                is_sparse ? _sparse_code_matrix(stabs_stand) : stabs_stand
+            S.cache[:P_stand] = ismissing(P_stand) ? missing :
+                (is_sparse ? _sparse_code_matrix(P_stand) : P_stand)
             S.cache[:stand_r] = stand_r
             S.cache[:stand_k] = stand_k
         end
@@ -575,33 +634,44 @@ logicals(S::T) where {T <: AbstractSubsystemCode} = logicals(LogicalTrait(T), S)
 function logicals(::HasLogicals, S::AbstractSubsystemCode)
     S.k == 0 && return Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
     haskey(S.cache, :logicals) && return S.cache[:logicals]
-    
-    # If not in cache, we lazily compute for stabilizer codes using standard form
-    if GaugeTrait(typeof(S)) == HasNoGauges()
-        stabs_stand = stabilizers(S; standform = true)
-        r = S.cache[:stand_r]
-        k = S.cache[:stand_k]
-        P = S.cache[:P_stand]
-        
-        # Dense Compute / Sparse Store
-        stabs_dense = stabs_stand isa SparseMatrixCSC ? matrix(S.F, stabs_stand) : stabs_stand
-        P_dense = (P === missing) ? missing : (P isa SparseMatrixCSC ? matrix(S.F, P) : P)
-        
-        logs_dense = _make_pairs(_logicals_standard_form(stabs_dense, S.n, k, r, P_dense))
-        
-        is_sparse = stabs_stand isa SparseMatrixCSC
-        logs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
-        for i in 1:length(logs_dense)
-            push!(logs, (is_sparse ? sparse(logs_dense[i][1]) : logs_dense[i][1], 
-                         is_sparse ? sparse(logs_dense[i][2]) : logs_dense[i][2]))
-        end
-        
-        S.cache[:logicals] = logs
-        S.cache[:logs_mat] = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
-        return logs
-    else
+
+    GaugeTrait(typeof(S)) == HasNoGauges() ||
         error("Logicals not found in cache. For subsystem codes, logicals should be seeded during initialization.")
+
+    logs_alg = get(S.cache, :logs_alg, :stnd_frm)
+    stabs = stabilizers(S)
+    is_sparse = _is_sparse_code_matrix(stabs)
+    stabs_dense = _dense_code_matrix(stabs, S.F)
+
+    if logs_alg == :sys_eqs
+        dual_gens = _additive_centralizer(stabs, S.F)
+        logs_dense, logs_mat_dense = _logicals(stabs, dual_gens, :sys_eqs)
+        logs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
+        for i in eachindex(logs_dense)
+            push!(logs, (is_sparse ? _sparse_code_matrix(logs_dense[i][1]) : logs_dense[i][1],
+                         is_sparse ? _sparse_code_matrix(logs_dense[i][2]) : logs_dense[i][2]))
+        end
+        S.cache[:logicals] = logs
+        S.cache[:logs_mat] =
+            is_sparse ? _sparse_code_matrix(logs_mat_dense) : logs_mat_dense
+        return logs
     end
+
+    stabs_stand = stabilizers(S; standform = true)
+    r = S.cache[:stand_r]
+    k = S.cache[:stand_k]
+    P = S.cache[:P_stand]
+    stabs_stand_dense = _dense_code_matrix(stabs_stand, S.F)
+    P_dense = (P === missing) ? missing : _dense_code_matrix(P, S.F)
+    logs_dense = _make_pairs(_logicals_standard_form(stabs_stand_dense, S.n, k, r, P_dense))
+    logs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
+    for i in eachindex(logs_dense)
+        push!(logs, (is_sparse ? _sparse_code_matrix(logs_dense[i][1]) : logs_dense[i][1],
+                     is_sparse ? _sparse_code_matrix(logs_dense[i][2]) : logs_dense[i][2]))
+    end
+    S.cache[:logicals] = logs
+    S.cache[:logs_mat] = reduce(vcat, [reduce(vcat, logs[i]) for i in eachindex(logs)])
+    return logs
 end
 logicals(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
 logical_operators(S::AbstractSubsystemCode) = logicals(S)
@@ -629,14 +699,17 @@ Return a matrix of logical operators as determined by the stabilizers in standar
 """
 logicals_standard_form(S::T) where {T <: AbstractSubsystemCode} = logicals_standard_form(LogicalTrait(T), S)
 function logicals_standard_form(::HasLogicals, S::AbstractSubsystemCode)
+    degree(S.F) == 1 ||
+        error("Standard-form logical extraction requires a prime-field symplectic representation; use logicals(S) for additive extension-field codes.")
     stabs_stand = stabilizers(S; standform = true)
     
-    stabs_dense = stabs_stand isa SparseMatrixCSC ? matrix(S.F, stabs_stand) : stabs_stand
+    stabs_dense = _dense_code_matrix(stabs_stand, S.F)
     P = S.cache[:P_stand]
-    P_dense = (P === missing) ? missing : (P isa SparseMatrixCSC ? matrix(S.F, P) : P)
+    P_dense = P === missing ? missing : _dense_code_matrix(P, S.F)
     
     logs_stand = _logicals_standard_form(stabs_dense, S.n, S.cache[:stand_k], S.cache[:stand_r], P_dense)
-    return stabs_stand isa SparseMatrixCSC ? sparse(logs_stand) : logs_stand
+    return _is_sparse_code_matrix(stabs_stand) ?
+        _sparse_code_matrix(logs_stand) : logs_stand
 end
 logicals_standard_form(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
 
@@ -680,7 +753,8 @@ gauge_operators_matrix(S::AbstractSubsystemCode) = gauges_matrix(S)
 Return a matrix giving a (maybe overcomplete) basis for the gauge group.
 """
 gauge_group(S::T) where {T <: AbstractSubsystemCode} = gauge_group(GaugeTrait(T), S)
-gauge_group(::HasGauges, S::AbstractSubsystemCode) = vcat(stabilizers(S), gauges_matrix(S))
+gauge_group(::HasGauges, S::AbstractSubsystemCode) =
+    _vcat_code_matrices(S.F, stabilizers(S), gauges_matrix(S))
 gauge_group(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
 gauge_group_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 gauge_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
@@ -789,8 +863,13 @@ Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
 otherwise errors.
 """
 function relative_distance(S::AbstractSubsystemCode)
-    !ismissing(S.d) || error("Missing minimum distance for this code.")
-    return S.d / S.n
+    d = if GaugeTrait(typeof(S)) == HasGauges()
+        get(S.cache, :d_dressed, get(S.cache, :d, missing))
+    else
+        get(S.cache, :d, missing)
+    end
+    ismissing(d) && error("Missing minimum distance for this code.")
+    return d / S.n
 end
 
 """
@@ -804,12 +883,12 @@ Return a vector of pairs generators for the dressed operators of `S`.
 - Here, the dressed operators are the logicals and the gauge operators.
 """
 function dressed(S::T) where {T <: AbstractSubsystemCode}
-    if LogicalTrait(T) == HasNoLogicals
+    if LogicalTrait(T) == HasNoLogicals()
         error("Type $T has no logicals.")
-    elseif GaugeTrait(T) == HasNoGauges
+    elseif GaugeTrait(T) == HasNoGauges()
         error("Type $T has no gauges.")
     end
-    return S.logicals ∪ S.gauge_ops
+    return logicals(S) ∪ gauges(S)
 end
 dressed_operators(S::AbstractSubsystemCode) = dressed(S)
 dressed_logicals(S::AbstractSubsystemCode) = dressed(S)
@@ -820,7 +899,7 @@ Return the currently stored lower bound on the bare minimum distance.
 """
 bare_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
     bare_minimum_distance_lower_bound(GaugeTrait(T), S)
-bare_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = S.l_bound_bare
+bare_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = get(S.cache, :l_bound_bare, missing)
 bare_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
@@ -830,7 +909,7 @@ Return the currently stored upper bound on the bare minimum distance.
 """
 bare_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
     bare_minimum_distance_upper_bound(GaugeTrait(T), S)
-bare_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = S.u_bound_bare
+bare_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = get(S.cache, :u_bound_bare, missing)
 bare_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
@@ -840,7 +919,7 @@ Return the currently stored lower bound on the dressed minimum distance.
 """
 dressed_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
     dressed_minimum_distance_lower_bound(GaugeTrait(T), S)
-dressed_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = S.l_bound_dressed
+dressed_minimum_distance_lower_bound(::HasGauges, S::AbstractSubsystemCode) = get(S.cache, :l_bound_dressed, missing)
 dressed_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
@@ -850,7 +929,7 @@ Return the currently stored upper bound on the dressed minimum distance.
 """
 dressed_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
     dressed_minimum_distance_upper_bound(GaugeTrait(T), S)
-dressed_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = S.u_bound_dressed
+dressed_minimum_distance_upper_bound(::HasGauges, S::AbstractSubsystemCode) = get(S.cache, :u_bound_dressed, missing)
 dressed_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
@@ -860,7 +939,7 @@ Return the currently stored lower bound on the bare `X`-minimum distance.
 """
 bare_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
 bare_X_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.l_bound_dx_bare
+    get(S.cache, :l_bound_dx_bare, missing)
 bare_X_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 bare_X_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -874,7 +953,7 @@ Return the currently stored upper bound on the bare `X`-minimum distance.
 """
 bare_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
 bare_X_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.u_bound_dx_bare
+    get(S.cache, :u_bound_dx_bare, missing)
 bare_X_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 bare_X_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -888,7 +967,7 @@ Return the currently stored lower bound on the dressed `X`-minimum distance.
 """
 dressed_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
 dressed_X_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.l_bound_dx_dressed
+    get(S.cache, :l_bound_dx_dressed, missing)
 dressed_X_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 dressed_X_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -902,7 +981,7 @@ Return the currently stored upper bound on the dressed `X`-minimum distance.
 """
 dressed_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
 dressed_X_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.u_bound_dx_dressed
+    get(S.cache, :u_bound_dx_dressed, missing)
 dressed_X_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 dressed_X_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -916,7 +995,7 @@ Return the currently stored lower bound on the bare `Z`-minimum distance.
 """
 bare_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
 bare_Z_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.l_bound_dZ_bare
+    get(S.cache, :l_bound_dz_bare, missing)
 bare_Z_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 bare_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -930,7 +1009,7 @@ Return the currently stored upper bound on the bare `Z`-minimum distance.
 """
 bare_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
 bare_Z_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.u_bound_dz_bare
+    get(S.cache, :u_bound_dz_bare, missing)
 bare_Z_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 bare_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -944,7 +1023,7 @@ Return the currently stored lower bound on the dressed `Z`-minimum distance.
 """
 dressed_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
 dressed_Z_minimum_distance_lower_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.l_bound_dz_dressed
+    get(S.cache, :l_bound_dz_dressed, missing)
 dressed_Z_minimum_distance_lower_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 dressed_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -958,7 +1037,7 @@ Return the currently stored upper bound on the dressed `Z`-minimum distance.
 """
 dressed_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
 dressed_Z_minimum_distance_upper_bound(::HasGauges, ::IsCSS, S::AbstractSubsystemCode) =
-    S.u_bound_dz_dressed
+    get(S.cache, :u_bound_dz_dressed, missing)
 dressed_Z_minimum_distance_upper_bound(::HasGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
     error("Only valid for CSS codes")
 dressed_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode) =
@@ -1001,20 +1080,29 @@ set_signs(S::AbstractSubsystemCode, char_vec::Vector{zzModRingElem}) = (S_new = 
 Set the stabilizers of `S` to `stabs`.
 """
 function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
+    is_sparse = _is_sparse_code_matrix(stabs)
+    stabs = _normalize_quantum_matrix(stabs)
     iszero(stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
-    order(S.F) == order(base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+    order(S.F) == order(_code_matrix_base_ring(stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
 
     stabs = _remove_empty(stabs, :rows)
-    stabs = change_base_ring(S.F, stabs)
-    if _has_equivalent_row_spaces(stabilizers(S), stabs)
+    _code_matrix_base_ring(stabs) == S.F ||
+        (stabs = change_base_ring(S.F, _dense_code_matrix(
+            stabs, _code_matrix_base_ring(stabs))))
+    is_sparse && (stabs = _sparse_code_matrix(stabs))
+    if _additive_row_spaces_equal(stabilizers(S), stabs, S.F)
         if is_CSS(S)
             S.cache[:stabs] = stabs
         else
             S.stabs = stabs
         end
         
-        expected_rank = GaugeTrait(typeof(S)) == HasNoGauges() ? (S.n - S.k) : (S.n - S.k - S.r)
-        nrows(stabs) != expected_rank ? (S.cache[:overcomplete] = true) : (S.cache[:overcomplete] = false)
+        expected_rank_rat = degree(S.F) * (S.n - S.k) -
+            (GaugeTrait(typeof(S)) == HasGauges() ? S.r : 0)
+        denominator(Rational{BigInt}(expected_rank_rat)) == 1 ||
+            error("The code parameters imply a nonintegral additive stabilizer rank.")
+        expected_rank = Int(expected_rank_rat)
+        S.cache[:overcomplete] = nrows(stabs) != expected_rank
     else
         error("The current stabilizers are not equivalent to the input.")
     end
@@ -1023,19 +1111,20 @@ function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     set_signs!(S, S.char_vec)
 
     if CSSTrait(typeof(S)) == IsCSS()
-        flag, X_stabs, X_signs, Z_stabs, Z_signs = _is_CSS_symplectic(stabs, signs(S), true)
+        stabs_dense = _dense_code_matrix(stabs, S.F)
+        flag, X_stabs, Z_stabs = robust_CSS_split(stabs_dense)
         flag || error("Detected equivalent stabilizers but is no longer CSS.")
-        S.X_stabs = X_stabs
-        S.Z_stabs = Z_stabs
+        css_stabs = _css_symplectic_matrix(X_stabs, Z_stabs, false)
+        _, X_signs, Z_signs = _determine_signs_CSS(
+            css_stabs, S.char_vec, nrows(X_stabs), nrows(Z_stabs))
+        S.X_stabs = is_sparse ? _sparse_code_matrix(X_stabs) : X_stabs
+        S.Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs) : Z_stabs
         S.cache[:X_signs] = X_signs
         S.cache[:Z_signs] = Z_signs
     end
     
     # Clear standard form caches
-    delete!(S.cache, :stabs_stand)
-    delete!(S.cache, :P_stand)
-    delete!(S.cache, :stand_r)
-    delete!(S.cache, :stand_k)
+    _invalidate_stabilizer_form_cache!(S)
     return nothing
 end
 set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepcopy(S); set_stabilizers!(S_new, stabs); return S_new)
@@ -1045,8 +1134,10 @@ set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepc
 """
 set_X_stabilizers!(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = set_X_stabilizers!(CSSTrait(T), S, X_stabs, trimmed)
 function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool)
+    is_sparse = _is_sparse_code_matrix(X_stabs)
+    X_stabs = _normalize_quantum_matrix(X_stabs)
     iszero(X_stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
-    order(S.F) == order(base_ring(X_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+    order(S.F) == order(_code_matrix_base_ring(X_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     
     if trimmed
         ncols(X_stabs) == S.n || throw(ArgumentError("Trimmed set and input of wrong size"))
@@ -1058,11 +1149,14 @@ function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrix
     end
 
     X_trimmed = _remove_empty(X_trimmed, :rows)
-    X_trimmed = change_base_ring(S.F, X_trimmed)
-    
-    if _has_equivalent_row_spaces(S.X_stabs, X_trimmed)
+    _code_matrix_base_ring(X_trimmed) == S.F ||
+        (X_trimmed = change_base_ring(S.F, X_trimmed))
+    is_sparse && (X_trimmed = _sparse_code_matrix(X_trimmed))
+
+    if _additive_row_spaces_equal(S.X_stabs, X_trimmed, S.F)
         S.X_stabs = X_trimmed
-        nrows(X_trimmed) != rank(X_trimmed) && (S.cache[:overcomplete] = true)
+        nrows(X_trimmed) != _additive_rank(X_trimmed, S.F) &&
+            (S.cache[:overcomplete] = true)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
@@ -1085,8 +1179,10 @@ set_X_stabilizers(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <
 """
 set_Z_stabilizers!(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = set_Z_stabilizers!(CSSTrait(T), S, Z_stabs, trimmed)
 function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool)
+    is_sparse = _is_sparse_code_matrix(Z_stabs)
+    Z_stabs = _normalize_quantum_matrix(Z_stabs)
     iszero(Z_stabs) && throw(ArgumentError("The stabilizers cannot be zero."))
-    order(S.F) == order(base_ring(Z_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
+    order(S.F) == order(_code_matrix_base_ring(Z_stabs)) || throw(ArgumentError("The stabilizers must be over the same field as the code."))
     
     if trimmed
         ncols(Z_stabs) == S.n || throw(ArgumentError("Trimmed set and input of wrong size"))
@@ -1098,10 +1194,13 @@ function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrix
     end
 
     Z_trimmed = _remove_empty(Z_trimmed, :rows)
-    Z_trimmed = change_base_ring(S.F, Z_trimmed)
-    if _has_equivalent_row_spaces(S.Z_stabs, Z_trimmed)
+    _code_matrix_base_ring(Z_trimmed) == S.F ||
+        (Z_trimmed = change_base_ring(S.F, Z_trimmed))
+    is_sparse && (Z_trimmed = _sparse_code_matrix(Z_trimmed))
+    if _additive_row_spaces_equal(S.Z_stabs, Z_trimmed, S.F)
         S.Z_stabs = Z_trimmed
-        nrows(Z_trimmed) != rank(Z_trimmed) && (S.cache[:overcomplete] = true)
+        nrows(Z_trimmed) != _additive_rank(Z_trimmed, S.F) &&
+            (S.cache[:overcomplete] = true)
     else
         error("The current stabilizers are not equivalent to the input.")
     end
@@ -1124,44 +1223,31 @@ set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <
 """
 set_logicals!(S::T, L::W) where {T <: AbstractSubsystemCode, W <: CTMatrixTypes} = set_logicals!(LogicalTrait(T), S, L)
 function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <: CTMatrixTypes}
-    size(L) == (2 * S.k, 2 * S.n) || throw(ArgumentError("Provided matrix is of incorrect size for the logical space."))
+    num_pairs = _logical_pair_count(S.F, S.k)
+    size(L) == (2 * num_pairs, 2 * S.n) ||
+        throw(ArgumentError("Provided matrix is of incorrect size for the logical space."))
     iseven(ncols(L)) || throw(ArgumentError("Expected a symplectic input but the input matrix has an odd number of columns."))
-    S.F == base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
-    
-    _has_equivalent_row_spaces(vcat(logicals_matrix(S), stabilizers(S)), vcat(L, stabilizers(S))) || error("The current logicals are not equivalent to the input.")
+    S.F == _code_matrix_base_ring(L) || throw(ArgumentError("The logicals must be over the same field as the code."))
 
-    prod = hcat(L[:, S.n + 1:end], -L[:, 1:S.n]) * transpose(L)
-    iszero(prod) && throw(ArgumentError("Provided logicals should not be symplectic self-orthogonal."))
-    nc_pr = ncols(prod)
-    prod_Jul = _Flint_matrix_to_Julia_int_matrix(prod)
-    cols = [sum(prod_Jul[:, i]) for i in 1:nc_pr]
-    sum(cols) == nc_pr || throw(ArgumentError("Incorrect commutation relationships between provided logicals."))
+    current_space =
+        _vcat_code_matrices(S.F, logicals_matrix(S), stabilizers(S))
+    proposed_space = _vcat_code_matrices(S.F, L, stabilizers(S))
+    (_additive_row_space_contains(current_space, proposed_space, S.F) &&
+     _additive_row_space_contains(proposed_space, current_space, S.F)) ||
+        error("The current logicals are not additively equivalent to the input.")
 
-    F = base_ring(L)
-    F_one = F(1)
-    logs = Vector{Tuple{W, W}}()
-    if Int(order(F)) != 2
-        while nrows(L) >= 2
-            y = findfirst(x -> x > 0, prod_Jul[:, 1])
-            y = [F(prod[y, 1]), y]
-            if y[1] != F_one
-                push!(logs, (L[1:1, :], y[1]^-1 * L[y[2]:y[2], :]))
-            else
-                push!(logs, (L[1:1, :], L[y[2]:y[2], :]))
-            end
-            L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
-        end
-    else
-        while nrows(L) >= 2
-            y = findfirst(x -> x > 0, prod_Jul[:, 1])
-            y = [F(prod[y, 1]), y]
-            push!(logs, (L[1:1, :], L[y[2]:y[2], :]))
-            L = L[setdiff(1:size(L, 1), [1, y[2]]), :]
-        end
+    is_sparse = _is_sparse_code_matrix(L)
+    L_dense = _dense_code_matrix(L, S.F)
+    dense_pairs = _make_pairs(deepcopy(L_dense))
+    logs = Vector{Tuple{CTMatrixTypes, CTMatrixTypes}}()
+    for pair in dense_pairs
+        push!(logs, is_sparse ?
+            (_sparse_code_matrix(pair[1]), _sparse_code_matrix(pair[2])) : pair)
     end
-    
     S.cache[:logicals] = logs
-    S.cache[:logs_mat] = reduce(vcat, [reduce(vcat, logs[i]) for i in 1:length(logs)])
+    S.cache[:logs_mat] = _pairs_to_matrix(logs, S.F, S.n, is_sparse)
+    S.cache[:logs_alg] = :provided
+    return nothing
 end
 set_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
 set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); set_logicals!(S_new, L); return S_new)
@@ -1415,6 +1501,206 @@ set_dressed_Z_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode
      # general functions
 #############################
 
+function _quantum_dimension(F::CTFieldTypes, n::Int, additive_rank::Int)
+    k = Rational{BigInt}(n) -
+        Rational{BigInt}(additive_rank, degree(F))
+    return denominator(k) == 1 ? Int(numerator(k)) : k
+end
+
+function _logical_pair_count(F::CTFieldTypes, k)
+    count = Rational{BigInt}(k) * degree(F)
+    denominator(count) == 1 ||
+        error("The logical dimension is incompatible with the base field.")
+    return Int(numerator(count))
+end
+
+function _lift_prime_matrix(A::CTMatrixTypes, F::CTFieldTypes)
+    K = base_ring(A)
+    K == F && return A
+    inclusion = embed(K, F)
+    return matrix(F, nrows(A), ncols(A),
+        [inclusion(A[r, c]) for r in 1:nrows(A) for c in 1:ncols(A)])
+end
+
+function _lift_prime_element(x::CTFieldElem, F::CTFieldTypes)
+    parent(x) == F && return x
+    return embed(parent(x), F)(x)
+end
+
+function _scale_code_matrix(A::SparseMatrixCSC, scalar)
+    scaled = copy(A)
+    values = SparseArrays.nonzeros(scaled)
+    map!(x -> scalar * x, values, values)
+    return scaled
+end
+_scale_code_matrix(A::CTMatrixTypes, scalar) = scalar * A
+
+function _trace_symplectic_product_matrix(
+    A::CTMatrixTypes, B::CTMatrixTypes, F::CTFieldTypes
+)
+    ncols(A) == ncols(B) && iseven(ncols(A)) ||
+        throw(ArgumentError("Symplectic matrices must have the same even length."))
+    A_dense = _dense_code_matrix(A, F)
+    B_dense = _dense_code_matrix(B, F)
+    n = div(ncols(A_dense), 2)
+    products = hcat(A_dense[:, n + 1:end], -A_dense[:, 1:n]) *
+        transpose(B_dense)
+    degree(F) == 1 && return products
+
+    prime_field = _prime_subfield(F)
+    return matrix(prime_field, nrows(products), ncols(products),
+        [_subfield_preimage(
+            prime_field, F, CodingTheory.tr(products[r, c], prime_field))
+         for r in 1:nrows(products) for c in 1:ncols(products)])
+end
+
+function _additive_row_space_contains(
+    big::CTMatrixTypes, small::CTMatrixTypes, F::CTFieldTypes
+)
+    big_expanded = _additive_expansion(big, F)
+    small_expanded = _additive_expansion(small, F)
+    return rank(vcat(big_expanded, small_expanded)) == rank(big_expanded)
+end
+
+function _additive_row_spaces_equal(
+    A::CTMatrixTypes, B::CTMatrixTypes, F::CTFieldTypes
+)
+    return _additive_row_space_contains(A, B, F) &&
+        _additive_row_space_contains(B, A, F)
+end
+
+function _additive_quotient_space(
+    small::CTMatrixTypes, big::CTMatrixTypes, F::CTFieldTypes
+)
+    _additive_row_space_contains(big, small, F) ||
+        throw(ArgumentError("The first additive row space is not contained in the second."))
+    current = _additive_expansion(small, F)
+    current_rank = rank(current)
+    selected = Int[]
+    big_expanded = _additive_expansion(big, F)
+    for r in 1:nrows(big)
+        candidate = vcat(current, big_expanded[r:r, :])
+        candidate_rank = rank(candidate)
+        if candidate_rank > current_rank
+            push!(selected, r)
+            current = candidate
+            current_rank = candidate_rank
+        end
+    end
+    source = big isa SMat ? _dense_code_matrix(big, F) : big
+    quotient = isempty(selected) ? source[1:0, :] : source[selected, :]
+    return big isa SMat ? _sparse_code_matrix(quotient) : quotient
+end
+
+function _additive_ambient_basis(F::CTFieldTypes, num_coordinates::Int)
+    m = degree(F)
+    prime_field = _prime_subfield(F)
+    basis = m == 1 ? [one(F)] : first(primitive_basis(F, prime_field))
+    ambient = zero_matrix(F, m * num_coordinates, num_coordinates)
+    for c in 1:num_coordinates, j in 1:m
+        ambient[(c - 1) * m + j, c] = basis[j]
+    end
+    return ambient
+end
+
+function _additive_centralizer(G::CTMatrixTypes, F::CTFieldTypes)
+    ambient = _additive_ambient_basis(F, ncols(G))
+    commutation = _trace_symplectic_product_matrix(G, ambient, F)
+    coefficients = _rowspace_kernel(commutation)
+    centralizer = _lift_prime_matrix(coefficients, F) * ambient
+    return _is_sparse_code_matrix(G) ?
+        _sparse_code_matrix(centralizer) : centralizer
+end
+
+function _additive_center(G::CTMatrixTypes, F::CTFieldTypes)
+    commutation = _trace_symplectic_product_matrix(G, G, F)
+    coefficients = _rowspace_kernel(transpose(commutation))
+    center = _lift_prime_matrix(coefficients, F) *
+        _dense_code_matrix(G, F)
+    center = _remove_empty(center, :rows)
+    return _is_sparse_code_matrix(G) ? _sparse_code_matrix(center) : center
+end
+
+function _rowspace_kernel(A::CTMatrixTypes)
+    K_cols = kernel(A, side = :right)
+    rnk = rank(K_cols)
+    if ncols(K_cols) == rnk
+        return transpose(K_cols)
+    end
+    F = base_ring(A)
+    nr = nrows(K_cols)
+    K = zero_matrix(F, rnk, nr)
+    for r in 1:nr, c in 1:rnk
+        !iszero(K_cols[r, c]) && (K[c, r] = K_cols[r, c])
+    end
+    return K
+end
+
+function _symplectic_orthogonal_complement(G::CTMatrixTypes)
+    return _additive_centralizer(G, _code_matrix_base_ring(G))
+end
+
+function _subsystem_dimensions(F, n::Int, rnk_stabs::Int, rnk_gauge::Int)
+    rnk_gauge >= rnk_stabs || error("Gauge group rank cannot be smaller than the stabilizer rank.")
+    iseven(rnk_gauge - rnk_stabs) || error("Gauge operators outside the stabilizer group must come in symplectic pairs.")
+    r = div(rnk_gauge - rnk_stabs, 2)
+    k = _quantum_dimension(F, n, rnk_stabs + r)
+    k >= 0 || error("The supplied generators define a negative logical dimension.")
+    return k, r
+end
+
+function _pair_operators(basis::CTMatrixTypes, prefer_css::Bool)
+    (iszero(basis) || nrows(basis) == 0) &&
+        return Vector{Tuple{typeof(basis), typeof(basis)}}()
+    is_sparse = _is_sparse_code_matrix(basis)
+    work = is_sparse ?
+        _dense_code_matrix(basis, _code_matrix_base_ring(basis)) : basis
+    pairs = nothing
+    if prefer_css
+        is_css, L_X, L_Z = robust_CSS_split(work)
+        if is_css
+            try
+                pairs = _make_CSS_pairs(L_X, L_Z)
+            catch
+            end
+        end
+    end
+    isnothing(pairs) && (pairs = _make_pairs(work))
+    is_sparse || return pairs
+    return [(_sparse_code_matrix(pair[1]), _sparse_code_matrix(pair[2]))
+            for pair in pairs]
+end
+
+function _vcat_code_matrices(F::CTFieldTypes, matrices::CTMatrixTypes...)
+    any(_is_sparse_code_matrix, matrices) || return reduce(vcat, matrices)
+    dense = [_dense_code_matrix(M, F) for M in matrices]
+    return _sparse_code_matrix(reduce(vcat, dense))
+end
+
+function _pairs_to_matrix(pairs, F, n::Int, is_sparse::Bool)
+    if isempty(pairs)
+        mat = zero_matrix(F, 0, 2 * n)
+        return is_sparse ? _sparse_code_matrix(mat) : mat
+    end
+    if is_sparse
+        dense_parts = [_dense_code_matrix(part, F)
+                       for pair in pairs for part in pair]
+        return _sparse_code_matrix(reduce(vcat, dense_parts))
+    end
+    return reduce(vcat, [reduce(vcat, pairs[i]) for i in eachindex(pairs)])
+end
+
+const _STABILIZER_FORM_CACHE_KEYS = (
+    :stabs_stand, :P_stand, :stand_r, :stand_k, :signs, :X_signs, :Z_signs
+)
+
+function _invalidate_stabilizer_form_cache!(S::AbstractSubsystemCode)
+    for key in _STABILIZER_FORM_CACHE_KEYS
+        delete!(S.cache, key)
+    end
+    return nothing
+end
+
 function _process_char_vec(char_vec::Union{Vector{zzModRingElem}, Missing}, p::Int, n::Int)
     if !ismissing(char_vec)
         n == length(char_vec) || throw(ArgumentError("The characteristic value is of incorrect length."))
@@ -1430,7 +1716,8 @@ end
 
 function _determine_signs(S::CTMatrixTypes, char_vec::Vector{zzModRingElem})
     if isempty(char_vec)
-        R, _ = residue_ring(Nemo.ZZ, Int(characteristic(base_ring(S))) == 2 ? 4 : Int(characteristic(base_ring(S))))
+        F = _code_matrix_base_ring(S)
+        R, _ = residue_ring(Nemo.ZZ, Int(characteristic(F)) == 2 ? 4 : Int(characteristic(F)))
         return [R(0) for _ in 1:nrows(S)]
     else
         return _get_signs(S, char_vec)
@@ -1439,7 +1726,8 @@ end
 
 function _determine_signs_CSS(S::CTMatrixTypes, char_vec::Vector{zzModRingElem}, X_size::Int, Z_size::Int)
     if isempty(char_vec)
-        R, _ = residue_ring(Nemo.ZZ, Int(characteristic(base_ring(S))) == 2 ? 4 : Int(characteristic(base_ring(S))))
+        F = _code_matrix_base_ring(S)
+        R, _ = residue_ring(Nemo.ZZ, Int(characteristic(F)) == 2 ? 4 : Int(characteristic(F)))
         signs = [R(0) for _ in 1:nrows(S)]
         X_signs = [R(0) for _ in 1:X_size]
         Z_signs = [R(0) for _ in 1:Z_size]
@@ -1468,6 +1756,90 @@ function _get_signs(A::CTMatrixTypes, char_vec::Vector{zzModRingElem})
     return signs
 end
 
+function _symplectic_row(S::AbstractSubsystemCode, v::CTMatrixTypes)
+    _code_matrix_base_ring(v) == S.F ||
+        throw(ArgumentError("The operator must use the same field as the code."))
+    size(v) == (1, 2S.n) && return v
+    size(v) == (2S.n, 1) && return transpose(v)
+    throw(ArgumentError(
+        "Expected a 1 × $(2S.n) row or $(2S.n) × 1 column."))
+end
+
+function _in_row_space(M::CTMatrixTypes, v::CTMatrixTypes)
+    iszero(v) && return true
+    nrows(M) == 0 && return iszero(v)
+    F = _code_matrix_base_ring(v)
+    return _additive_row_space_contains(M, v, F)
+end
+
+"""
+    symplectic_weight(v)
+
+Return the Pauli weight of a symplectic vector, counting a nonzero `X` or `Z`
+component on a coordinate once.
+"""
+function symplectic_weight(v::CTMatrixTypes)
+    (nrows(v) == 1 || ncols(v) == 1) ||
+        throw(ArgumentError("Expected a symplectic vector."))
+    iseven(length(v)) ||
+        throw(ArgumentError("A symplectic vector must have even length."))
+    row = nrows(v) == 1 ? v : transpose(v)
+    n = div(ncols(row), 2)
+    return count(
+        q -> !iszero(row[1, q]) || !iszero(row[1, n + q]), 1:n)
+end
+
+"""
+    normalizer_matrix(S)
+    stabilizer_centralizer_matrix(S)
+
+Return a row basis for the symplectic centralizer (Pauli normalizer) of the
+stabilizer group.
+"""
+normalizer_matrix(S::AbstractSubsystemCode) =
+    _additive_centralizer(stabilizers(S), S.F)
+stabilizer_centralizer_matrix(S::AbstractSubsystemCode) = normalizer_matrix(S)
+
+"""
+    gauge_centralizer_matrix(S)
+    bare_normalizer_matrix(S)
+
+Return a row basis for the symplectic centralizer of the gauge group.
+"""
+gauge_centralizer_matrix(S::AbstractSubsystemCode) =
+    gauge_centralizer_matrix(GaugeTrait(typeof(S)), S)
+gauge_centralizer_matrix(::HasGauges, S::AbstractSubsystemCode) =
+    _additive_centralizer(gauge_group(S), S.F)
+gauge_centralizer_matrix(::HasNoGauges, S::AbstractSubsystemCode) =
+    normalizer_matrix(S)
+bare_normalizer_matrix(S::AbstractSubsystemCode) = gauge_centralizer_matrix(S)
+
+"""
+    is_stabilizer(S, v)
+
+Return whether `v` belongs to the row space of the stabilizer generators.
+"""
+is_stabilizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    _in_row_space(stabilizers(S), _symplectic_row(S, v))
+
+"""
+    is_normalizer(S, v)
+
+Return whether `v` commutes with every stabilizer.
+"""
+is_normalizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    are_symplectic_orthogonal(stabilizers(S), _symplectic_row(S, v))
+
+"""
+    is_bare_normalizer(S, v)
+
+Return whether `v` commutes with the full gauge group.
+"""
+is_bare_normalizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
+    are_symplectic_orthogonal(
+        GaugeTrait(typeof(S)) == HasGauges() ? gauge_group(S) : stabilizers(S),
+        _symplectic_row(S, v))
+
 """
     robust_CSS_split(stabs::CTMatrixTypes)
 
@@ -1476,42 +1848,27 @@ Returns `(is_css, pure_X, pure_Z)`.
 """
 function robust_CSS_split(stabs::CTMatrixTypes)
     n = div(ncols(stabs), 2)
-    F = base_ring(stabs)
+    F = _code_matrix_base_ring(stabs)
+    nrows(stabs) == 0 &&
+        return true, zero_matrix(F, 0, n), zero_matrix(F, 0, n)
     S_X = stabs[:, 1:n]
     S_Z = stabs[:, n+1:end]
-    
-    # 1. Pure X stabilizers: Combinations of rows where the Z part vanishes
-    K_Z_cols = kernel(transpose(S_Z), side=:right)
-    rnk_K_Z = rank(K_Z_cols)
-    if ncols(K_Z_cols) == rnk_K_Z
-        K_Z = transpose(K_Z_cols)
-    else
-        # Flint bug workaround
-        nr = nrows(K_Z_cols)
-        K_Z = zero_matrix(F, rnk_K_Z, nr)
-        for r in 1:nr, c in 1:rnk_K_Z
-            !iszero(K_Z_cols[r, c]) && (K_Z[c, r] = K_Z_cols[r, c])
-        end
+
+    X_expanded = _additive_expansion(S_X, F)
+    Z_expanded = _additive_expansion(S_Z, F)
+    K_Z = _rowspace_kernel(transpose(Z_expanded))
+    K_X = _rowspace_kernel(transpose(X_expanded))
+    pure_X = _remove_empty(
+        _lift_prime_matrix(K_Z, F) * _dense_code_matrix(S_X, F), :rows)
+    pure_Z = _remove_empty(
+        _lift_prime_matrix(K_X, F) * _dense_code_matrix(S_Z, F), :rows)
+
+    is_css = _additive_rank(pure_X, F) + _additive_rank(pure_Z, F) ==
+        _additive_rank(stabs, F)
+    if _is_sparse_code_matrix(stabs)
+        pure_X = _sparse_code_matrix(pure_X)
+        pure_Z = _sparse_code_matrix(pure_Z)
     end
-    pure_X = _remove_empty(K_Z * S_X, :rows)
-    
-    # 2. Pure Z stabilizers: Combinations of rows where the X part vanishes
-    K_X_cols = kernel(transpose(S_X), side=:right)
-    rnk_K_X = rank(K_X_cols)
-    if ncols(K_X_cols) == rnk_K_X
-        K_X = transpose(K_X_cols)
-    else
-        nr = nrows(K_X_cols)
-        K_X = zero_matrix(F, rnk_K_X, nr)
-        for r in 1:nr, c in 1:rnk_K_X
-            !iszero(K_X_cols[r, c]) && (K_X[c, r] = K_X_cols[r, c])
-        end
-    end
-    pure_Z = _remove_empty(K_X * S_Z, :rows)
-    
-    # 3. Validation
-    is_css = (rank(pure_X) + rank(pure_Z) == rank(stabs))
-    
     return is_css, pure_X, pure_Z
 end
 
@@ -1532,19 +1889,22 @@ Creates transversal logical pairs for a CSS code.
 Forces the X and Z logical bases to satisfy `L_X * transpose(L_Z) = I`.
 """
 function _make_CSS_pairs(L_X::CTMatrixTypes, L_Z::CTMatrixTypes)
-    F = base_ring(L_X)
+    F = _code_matrix_base_ring(L_X)
     k = nrows(L_X)
     n = ncols(L_X)
     
     # Commutation matrix
-    C = L_X * transpose(L_Z)
+    X_symplectic = hcat(L_X, zero_matrix(F, nrows(L_X), n))
+    Z_symplectic = hcat(zero_matrix(F, nrows(L_Z), n), L_Z)
+    C = _trace_symplectic_product_matrix(X_symplectic, Z_symplectic, F)
     
     # For a valid CSS code, the bare X and Z logicals must form a non-degenerate pairing
     flag, C_inv = is_invertible_with_inverse(C)
     flag || error("Provided L_X and L_Z do not form a full, non-degenerate dual basis.")
     
-    # Align L_X to exactly match L_Z
-    L_X_paired = C_inv * L_X
+    # With the package convention <(x|z),(x'|z')> = zx' - xz',
+    # the minus sign makes <L_X_paired[i], L_Z[j]> = δ_ij.
+    L_X_paired = _lift_prime_matrix(C_inv, F) * L_X
     
     pairs = Vector{Tuple{typeof(L_X), typeof(L_X)}}()
     z_pad = zero_matrix(F, 1, n)
@@ -1563,40 +1923,41 @@ end
 Pairs symplectic logical operators using Symplectic Gram-Schmidt.
 """
 function _make_pairs(L::CTMatrixTypes)
-    F = base_ring(L)
-    n = div(ncols(L), 2)
+    iseven(nrows(L)) ||
+        error("Cannot make a symplectic basis from an odd-dimensional space.")
     logs = Vector{Tuple{typeof(L), typeof(L)}}()
-    
+
     while nrows(L) >= 2
-        prod = hcat(L[:, n + 1:end], -L[:, 1:n]) * transpose(L)
-        num_prod = ncols(prod)
-        first = 0
-        
-        for c in 1:num_prod
-            if !iszero(prod[1, c])
-                if iszero(first)
-                    first = c
-                    if !isone(prod[1, c])
-                        L[first:first, :] *= inv(prod[1, c])
-                    end
-                else
-                    L[c:c, :] += inv(prod[1, c]) * L[first:first, :]
-                end
-            end
+        n = div(ncols(L), 2)
+        F = _code_matrix_base_ring(L)
+        prod = _trace_symplectic_product_matrix(L, L, F)
+        partner = findfirst(c -> !iszero(prod[1, c]), 2:nrows(L))
+        isnothing(partner) &&
+            error("Cannot make symplectic basis; input space is degenerate.")
+        partner += 1
+
+        a = deepcopy(L[1:1, :])
+        scale = inv(prod[1, partner])
+        b = _scale_code_matrix(
+            L[partner:partner, :], _lift_prime_element(scale, F))
+        remaining = setdiff(1:nrows(L), [1, partner])
+        reduced = L[remaining, :]
+        for (new_row, old_row) in enumerate(remaining)
+            reduced[new_row:new_row, :] =
+                L[old_row:old_row, :] -
+                _scale_code_matrix(
+                    a,
+                    _lift_prime_element(
+                        prod[old_row, partner] * scale, F)
+                ) +
+                _scale_code_matrix(
+                    b, _lift_prime_element(prod[old_row, 1], F))
         end
-        
-        iszero(first) && error("Cannot make symplectic basis; input logicals are degenerate.")
-        
-        for c in 2:num_prod
-            if !iszero(prod[first, c])
-                L[c:c, :] += inv(prod[first, c]) * L[1:1, :]
-            end
-        end
-        
-        push!(logs, (L[1:1, :], L[first:first, :]))
-        L = L[setdiff(1:nrows(L), [1, first]), :]
+
+        push!(logs, (a, b))
+        L = reduced
     end
-    
+
     return logs
 end
 
@@ -1614,28 +1975,145 @@ _test_logicals_relationships(::HasNoLogicals, S) = error("Type $(typeof(S)) has 
 """
 is_logical(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_logical(LogicalTrait(T), S, v)
 function is_logical(::HasLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes)
-    L = logicals_matrix(S)
-    nc = ncols(L)
-    are_symplectic_orthogonal(stabilizers(S), v) || return false
-    size(v) == (1, nc) && (return !are_symplectic_orthogonal(L, v))
-    size(v) == (nc, 1) && (return !are_symplectic_orthogonal(L, transpose(v)))
-    throw(ArgumentError("Vector to be tested is of incorrect dimension."))
+    row = _symplectic_row(S, v)
+    is_normalizer(S, row) || return false
+    trivial_group = GaugeTrait(typeof(S)) == HasGauges() ?
+        gauge_group(S) : stabilizers(S)
+    return !_in_row_space(trivial_group, row)
 end
 is_logical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
+
+"""
+    is_bare_logical(S, v)
+
+Return whether `v` is a nontrivial bare logical: it centralizes the gauge
+group but is not a stabilizer.
+"""
+function is_bare_logical(S::AbstractSubsystemCode, v::CTMatrixTypes)
+    row = _symplectic_row(S, v)
+    return is_bare_normalizer(S, row) && !is_stabilizer(S, row)
+end
 
 """
     is_gauge(S::AbstractSubsystemCode, v::CTMatrixTypes)
 """
 is_gauge(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_gauge(GaugeTrait(T), S, v)
 function is_gauge(::HasGauges, S::AbstractSubsystemCode, v::CTMatrixTypes)
-    G_mat = gauges_matrix(S)
-    nc = ncols(G_mat)
-    are_symplectic_orthogonal(stabilizers(S), v) || return false
-    size(v) == (1, nc) && (return !iszero(G_mat * transpose(v)))
-    size(v) == (nc, 1) && (return !iszero(G_mat * v))
-    throw(ArgumentError("Vector to be tested is of incorrect dimension."))
+    return _in_row_space(gauge_group(S), _symplectic_row(S, v))
 end
 is_gauge(::HasNoGauges, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no gauges.")
+
+function _minimum_nonzero_symplectic_weight(M::CTMatrixTypes, n::Int)
+    F = _code_matrix_base_ring(M)
+    independent = _additive_quotient_space(M[1:0, :], M, F)
+    rnk = nrows(independent)
+    rnk == 0 && return n + 1
+    basis = _dense_code_matrix(independent, F)
+    prime_field = _prime_subfield(F)
+    p = Int(characteristic(F))
+    cardinality = BigInt(p)^rnk
+    cardinality <= typemax(Int) ||
+        error("The generator group is too large for exhaustive symplectic enumeration.")
+    field_elements = collect(prime_field)
+    best = n + 1
+    for index in 1:(Int(cardinality) - 1)
+        coefficients = digits(index, base=p, pad=rnk)
+        word = zero_matrix(F, 1, 2n)
+        for i in 1:rnk
+            coefficients[i] == 0 && continue
+            scalar = _lift_prime_element(
+                field_elements[coefficients[i] + 1], F)
+            word += scalar * basis[i:i, :]
+        end
+        best = min(best, symplectic_weight(word))
+        best == 1 && break
+    end
+    return best
+end
+
+function _minimum_CSS_group_weight(M::CTMatrixTypes, n::Int; alg::Symbol=:auto)
+    is_css, X, Z = robust_CSS_split(M)
+    is_css || return _minimum_nonzero_symplectic_weight(M, n)
+    F = _code_matrix_base_ring(M)
+    if degree(F) > 1
+        distances = Int[]
+        nrows(X) > 0 &&
+            push!(distances, _minimum_nonzero_symplectic_weight(
+                hcat(X, zero_matrix(F, nrows(X), n)), n))
+        nrows(Z) > 0 &&
+            push!(distances, _minimum_nonzero_symplectic_weight(
+                hcat(zero_matrix(F, nrows(Z), n), Z), n))
+        return isempty(distances) ? n + 1 : minimum(distances)
+    end
+    distances = Int[]
+    if rank(X) > 0
+        d_X, _ = minimum_distance(LinearCode(X); alg=alg)
+        push!(distances, d_X)
+    end
+    if rank(Z) > 0
+        d_Z, _ = minimum_distance(LinearCode(Z); alg=alg)
+        push!(distances, d_Z)
+    end
+    return isempty(distances) ? n + 1 : minimum(distances)
+end
+
+"""
+    minimum_stabilizer_weight(S; alg=:auto)
+
+Return the minimum Pauli weight of a nonidentity stabilizer. For CSS codes this
+uses the classical minimum-distance machinery on each sector. General
+symplectic groups are enumerated exactly.
+"""
+function minimum_stabilizer_weight(
+    S::AbstractSubsystemCode; alg::Symbol=:auto
+)
+    M = stabilizers(S)
+    return CSSTrait(typeof(S)) == IsCSS() ?
+        _minimum_CSS_group_weight(M, S.n; alg=alg) :
+        _minimum_nonzero_symplectic_weight(M, S.n)
+end
+
+"""
+    minimum_gauge_weight(S; alg=:auto)
+
+Return the minimum Pauli weight of a nonidentity element of the gauge group.
+"""
+function minimum_gauge_weight(S::AbstractSubsystemCode; alg::Symbol=:auto)
+    M = GaugeTrait(typeof(S)) == HasGauges() ? gauge_group(S) : stabilizers(S)
+    return CSSTrait(typeof(S)) == IsCSS() ?
+        _minimum_CSS_group_weight(M, S.n; alg=alg) :
+        _minimum_nonzero_symplectic_weight(M, S.n)
+end
+
+function _purity_distance(S::AbstractSubsystemCode, distance)
+    !ismissing(distance) && return distance
+    key = GaugeTrait(typeof(S)) == HasGauges() ? :d_dressed : :d
+    d = get(S.cache, key, missing)
+    ismissing(d) &&
+        error("Purity requires an exact minimum distance; pass `distance` or compute and cache it first.")
+    return d
+end
+
+"""
+    is_pure(S; distance=missing, alg=:auto)
+    is_degenerate(S; distance=missing, alg=:auto)
+
+Determine purity from the exact code distance and the minimum weight of the
+stabilizer group (stabilizer codes) or gauge group (subsystem codes). This does
+not require a full weight enumerator, but the minimum-group-weight computation
+can still be exponential.
+"""
+function is_pure(
+    S::AbstractSubsystemCode; distance::Union{Int, Missing}=missing,
+    alg::Symbol=:auto
+)
+    d = _purity_distance(S, distance)
+    group_distance = GaugeTrait(typeof(S)) == HasGauges() ?
+        minimum_gauge_weight(S; alg=alg) :
+        minimum_stabilizer_weight(S; alg=alg)
+    return group_distance >= d
+end
+is_degenerate(S::AbstractSubsystemCode; kwargs...) = !is_pure(S; kwargs...)
 
 """
     syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
@@ -1810,61 +2288,37 @@ fix_gauge(::HasNoGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol) = e
 """
     fix_all_gauges(S::AbstractSubsystemCode; choice::Symbol = :X)
 
-Returns a `GaugeFixedCode` by promoting a maximal independent commuting subset 
-of the gauge operators to stabilizers.
+Return the stabilizer code obtained by promoting one commuting half of every
+gauge pair to stabilizers.
 """
 function fix_all_gauges(S::AbstractSubsystemCode; choice::Symbol = :X)
     choice ∈ (:X, :Z) || throw(ArgumentError("Choice must be :X or :Z"))
-    
-    # Extract properties safely (using hasproperty for custom/lazy subsystem structs)
-    F = hasproperty(S, :cache) && haskey(S.cache, :F) ? S.cache[:F] : Oscar.Nemo.Native.GF(2)
-    
-    n_new = S.n
-    k_new = S.k
-    
-    # Distance bounds: Gauge fixing cannot decrease distance.
-    # Therefore, the subsystem l_bound directly becomes the new l_bound.
-    l_bound = hasproperty(S, :l_bound) ? S.l_bound : 1
-    u_bound = hasproperty(S, :u_bound) ? S.u_bound : S.n
-    
-    # Because gauge fixing might INCREASE the distance (depending on the choice), 
-    # the exact distance d is lost and drops back to a lower bound.
-    d_exact = missing 
-    if hasproperty(S, :d) && !ismissing(S.d)
-        l_bound = max(l_bound, S.d)
-    end
-    
-    cache = Dict{Symbol, Any}(:F => F)
-    
-    return GaugeFixedCode(
-        S, choice,
-        n_new, k_new,
-        d_exact, l_bound, u_bound,
-        cache
-    )
-end
+    GaugeTrait(typeof(S)) == HasGauges() ||
+        throw(ArgumentError("Gauge fixing requires a subsystem code."))
 
-function stabilizers(S::GaugeFixedCode)
-    haskey(S.cache, :stabilizers) && return S.cache[:stabilizers]
-    
-    sub_S = S.subsystem_code
-    pair_idx = S.choice == :X ? 1 : 2
-    
-    # 1. Get original stabilizers
-    base_stabs = stabilizers(sub_S)
-    
-    # 2. Extract the gauge pairs and select the requested commuting half
-    if hasproperty(sub_S, :r) && sub_S.r > 0
-        g_pairs = gauge_operators(sub_S)
-        fixed_gauges = reduce(vcat, [g[pair_idx] for g in g_pairs])
-        new_stabs = vcat(base_stabs, fixed_gauges)
-    else
-        # If r == 0, it was already a stabilizer code, so we do nothing
-        new_stabs = base_stabs
+    pair_index = choice == :X ? 1 : 2
+    selected = [pair[pair_index] for pair in gauges(S)]
+    fixed_gauges = isempty(selected) ? zero_matrix(S.F, 0, 2S.n) :
+        reduce(vcat, selected)
+    new_stabs = vcat(stabilizers(S), fixed_gauges)
+    are_symplectic_orthogonal(new_stabs, new_stabs) ||
+        error("The selected gauge generators do not form a commuting subgroup.")
+
+    char_vec = isempty(S.char_vec) ? missing : S.char_vec
+    fixed = StabilizerCode(new_stabs; char_vec=char_vec)
+    if S.k > 0
+        fixed.cache[:logicals] = deepcopy(logicals(S))
+        fixed.cache[:logs_mat] = deepcopy(logicals_matrix(S))
+        fixed.cache[:logs_alg] = :provided
     end
-    
-    S.cache[:stabilizers] = new_stabs
-    return new_stabs
+    fixed.cache[:gauge_fixed_from] = S
+    fixed.cache[:gauge_fixing_choice] = choice
+
+    dressed_lower = get(S.cache, :l_bound_dressed, missing)
+    !ismissing(dressed_lower) && (fixed.cache[:l_bound] = dressed_lower)
+    bare_upper = get(S.cache, :u_bound_bare, missing)
+    !ismissing(bare_upper) && (fixed.cache[:u_bound] = bare_upper)
+    return fixed
 end
 
 function show(io::IO, S::AbstractSubsystemCode)
@@ -1920,7 +2374,7 @@ function show(io::IO, S::AbstractSubsystemCode)
                     c != S.n ? print(io, "$(S.X_stabs[r, c]) ") : println(io, "$(S.X_stabs[r, c])")
                 end
             end
-            println(" ")
+            println(io, " ")
 
             num_Z = nrows(S.Z_stabs)
             Z_sgn = Z_signs(S)
@@ -1948,30 +2402,6 @@ function show(io::IO, S::AbstractSubsystemCode)
         end
     end
 end
-
-# function _all_stabilizers(S::AbstractStabilizerCode, only_print::Bool = false)
-#     E = quadraticfield(S)
-#     stabs = stabilizers(S)
-#     all = Vector{typeof(stabs)}()
-    
-#     for iter in Base.Iterators.product([0:(Int64(characteristic(S.F)) - 1) for _ in 1:nrows(stabs)]...)
-#         stab = E(iter[1]) * stabs[1, :]
-#         for r in 2:nrows(stabs)
-#             !iszero(iter[r]) && (stab += E(iter[r]) * stabs[r, :])
-#         end
-#         if only_print
-#             println(stab)
-#         else
-#             push!(all, stab)
-#         end
-#     end
-#     only_print ? return : return all
-# end
-
-# all_stabilizers(S::AbstractSubsystemCode) = _all_stabilizers(S, false)
-# elements(S::AbstractSubsystemCode) = all_stabilizers(S)
-# print_all_stabilizers(S::AbstractSubsystemCode) = _all_stabilizers(S, true)
-# print_all_elements(S::AbstractSubsystemCode) = print_all_stabilizers(S)
 
 """
     permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}})
@@ -2020,7 +2450,7 @@ permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vecto
 """
     augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true)
 """
-function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true)
+function _legacy_augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true)
     stabs = stabilizers(S)
     typeof(stabs) == typeof(row) || throw(ArgumentError("Vector of different type than stabilizers"))
     iszero(row) && return S
@@ -2040,7 +2470,7 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = t
     else
         stabs_to_keep = Vector{Int}()
         for i in 1:nrows(stabs)
-            iszero(prod[i]) && append!(stabs_to_keep, i, i + 1)
+            iszero(prod[i]) && push!(stabs_to_keep, i)
         end
         if isempty(stabs_to_keep)
             verbose && println("The vector anticommutes with all stabilizers. The new stabilizer group is just the vector.")
@@ -2126,7 +2556,7 @@ function augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = t
         temp = temp_tr
     end
     
-    temp = _quotient_space(temp, new_stabs, :sys_eqs)
+    temp = _quotient_space(new_stabs, temp, :sys_eqs)
     new_logs = _make_pairs(temp)
     return SubsystemCode(new_stabs, vcat(logs_mat_new, reduce(vcat, [reduce(vcat, new_logs[i]) for i in 1:length(new_logs)])), gauge_ops_new, char_vec = isempty(S.char_vec) ? missing : S.char_vec)
 end
@@ -2134,7 +2564,7 @@ end
 """
     expurgate(S::AbstractStabilizerCode, rows::Vector{Int}; verbose::Bool = true)
 """
-function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = true)
+function _legacy_expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = true)
     stabs = stabilizers(S)
     num_stabs = nrows(stabs)
     rows ⊆ 1:num_stabs || throw(ArgumentError("Argument `rows` not a subset of the number of stabilizers."))
@@ -2165,7 +2595,7 @@ function expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose::Bool = 
         end
     end
 
-    new_logs = _quotient_space(H_tr, new_stabs, :sys_eqs)
+    new_logs = _quotient_space(new_stabs, H_tr, :sys_eqs)
     if iszero(new_logs)
         verbose && println("No new logicals need to be added")
         S_new = deepcopy(S)

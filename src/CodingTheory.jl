@@ -15,6 +15,7 @@ using .Threads
 using LinearAlgebra
 using SparseArrays
 using Random
+using SHA
 using DataStructures
 using StatsBase
 using Distributions
@@ -22,11 +23,12 @@ using ProgressMeter
 using DocStringExtensions
 using QuadGK
 using SpecialFunctions
+using TOML
 
 import LinearAlgebra: tr, Adjoint, transpose, kron, diagm, dot, Symmetric, eigvals, diagind
 import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     lift, quo, vector_space, dimension, extend, support, complement,
-    is_regular, is_cyclic, genus, density, is_degenerate, index, generators, copy, is_subfield, ⊗,
+    is_regular, is_cyclic, genus, density, is_degenerate, is_pure, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, extension_field, ⊕,
     number_of_variables
@@ -107,8 +109,7 @@ include("utils.jl")
 export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance,
     dist, tr, expand_matrix, symplectic_inner_product, are_symplectic_orthogonal,
     Hermitian_inner_product, Hermitian_conjugate_matrix, is_triorthogonal,
-    print_string_array, print_char_array, print_symplectic_array, pseudoinverse,
-    quadratic_to_symplectic, symplectic_to_quadratic, _remove_empty, quadratic_residues,
+    print_string_array, _remove_empty, quadratic_residues,
     digits_to_int, is_basis, primitive_basis, #polynomial_basis, monomial_basis,
     normal_basis, dual_basis, complementary_basis, verify_dual_basis,
     verify_complementary_basis, are_equivalent_basis, is_self_dual_basis,
@@ -129,6 +130,9 @@ export kronecker_product, Hamming_weight, weight, wt, Hamming_distance, distance
         # iterators.jl
 #############################
 
+# Classical Gray-code iterators in `iterators.jl` were superseded by
+# `words_of_weight` and related enumerators. McEliece still references them
+# if that file is re-enabled.
 # include("iterators.jl")
 
 #############################
@@ -202,7 +206,7 @@ export Gleason_bound, is_extremal
 
 include("Classical/Goppa.jl")
 export GoppaCode, RandomGoppaCode, Goppa_polynomial, extension_field, 
-       is_irreducible, is_seperable, nonzeros, is_cumulative
+       is_irreducible, is_separable, nonzeros, is_cumulative
 
 #############################
 # Classical/GRS_alternate.jl
@@ -494,6 +498,13 @@ export SoftDecisionWorkspace, init_soft_workspace, load_soft_channel!, decode!,
        layered_schedule, serial_schedule, balance_of_layered_schedule
 
 #############################
+# Portable matrix exports
+#############################
+
+include("io.jl")
+export code_matrix_array, write_code_csv, save_code
+
+#############################
     # LDPC/simulations.jl
 #############################
 
@@ -506,6 +517,8 @@ export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, 
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS #, AbstractGeneralizedToricCode
+export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
+    IsCSS, IsNotCSS
 
 include("Quantum/GeneralizedToricCode.jl")
 export BivariateBicycleCode, CoprimeBivariateBicycleCode
@@ -515,15 +528,20 @@ export BivariateBicycleCode, CoprimeBivariateBicycleCode
 #############################
 
 include("Quantum/subsystem_code.jl")
-export SubsystemCode, field, length, num_qubits, dimension, cardinality,
-    rate, signs, X_signs, Z_signs, stabilizers, symplectic_stabilizers, X_stabilizers, Z_stabilizers,
-    num_X_stabs, num_Z_stabs, character_vector, is_over_complete, is_CSS, relative_distance, logicals,
+export SubsystemCode, SubsystemCodeCSS, CSSSubsystemCode, random_subsystem_code,
+    field, length, num_qubits, dimension, cardinality,
+    rate, signs, X_signs, Z_signs, stabilizers, X_stabilizers, Z_stabilizers,
+    num_X_stabs, num_Z_stabs, character_vector, is_overcomplete, is_CSS, relative_distance, logicals,
     logical_operators, bare_logicals, bare, logicals_matrix, gauges, gauge_operators, gauges_matrix,
     gauge_operators_matrix, dressed, dressed_operators, dressed_logicals, gauge_group, gauge_group_matrix,
     gauge_generators_matrix, gauge_group_generators_matrix, set_signs!, set_logicals!, set_minimum_distance!,
-    split_stabilizers, is_logical, syndrome, X_syndrome, Z_syndrome, promote_logicals_to_gauge!, swap_X_Z_logicals!,
-    swap_X_Z_gauge_operators!, all_stabilizers, elements, print_all_stabilizers, print_all_elements,
-    augment, expurgate, fix_gauge, set_X_stabilizers, set_Z_stabilizers, set_stabilizers,
+    is_logical, is_bare_logical, is_stabilizer, is_gauge, is_normalizer,
+    is_bare_normalizer, normalizer_matrix, stabilizer_centralizer_matrix,
+    gauge_centralizer_matrix, bare_normalizer_matrix, symplectic_weight,
+    minimum_stabilizer_weight, minimum_gauge_weight, is_pure, syndrome,
+    X_syndrome, Z_syndrome, promote_logicals_to_gauge!, swap_X_Z_logicals!,
+    swap_X_Z_gauge_operators!,
+    augment, expurgate, fix_gauge, fix_all_gauges, set_X_stabilizers, set_Z_stabilizers, set_stabilizers,
     set_Z_stabilizers!, set_distance_lower_bound!, permute_code!, permute_code, set_stabilizers!,
     set_X_stabilizers!, standard_form_A, standard_form_A1, standard_form_A2, standard_form_B, standard_form_C1,
     standard_form_C2, standard_form_D, standard_form_E, logicals_standard_form, promote_gauges_to_logical!,
@@ -542,10 +560,70 @@ export SubsystemCode, field, length, num_qubits, dimension, cardinality,
 #############################
 
 include("Quantum/stabilizer_code.jl")
-export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code, is_CSS_T_code,
+export StabilizerCodeCSS, CSSCode, StabilizerCode, random_CSS_code,
+    random_stabilizer_code, is_CSS_T_code,
     minimum_distance_lower_bound, minimum_distance_upper_bound, X_minimum_distance_lower_bound,
     X_minimum_distance_upper_bound, Z_minimum_distance_lower_bound, Z_minimum_distance_upper_bound,
     set_X_minimum_distance!, set_Z_minimum_distance!
+
+#############################
+# Quantum/QLDPC.jl
+#############################
+
+include("Quantum/QLDPC.jl")
+export qubit_degrees, generator_weights, stabilizer_weights, gauge_weights,
+    gauge_group_weights, X_qubit_degrees, Z_qubit_degrees,
+    X_stabilizer_weights, Z_stabilizer_weights, quantum_LDPC_parameters,
+    is_quantum_LDPC, qubit_degree_distribution,
+    stabilizer_weight_distribution, minimum_qubit_degree,
+    maximum_qubit_degree, maximum_stabilizer_weight, num_edges,
+    check_weights, X_variable_degree_distribution,
+    Z_variable_degree_distribution, X_check_degree_distribution,
+    Z_check_degree_distribution, X_degree_distributions,
+    Z_degree_distributions, X_column_bound, Z_column_bound, X_row_bound,
+    Z_row_bound, X_column_row_bounds, Z_column_row_bounds, X_limited,
+    Z_limited, X_density, Z_density, X_is_regular, Z_is_regular,
+    is_LDPC, is_X_LDPC, is_Z_LDPC, X_LDPC_code, Z_LDPC_code, LDPC_codes
+
+#############################
+# Quantum/weight_enumerators.jl
+#############################
+
+include("Quantum/weight_enumerators.jl")
+export ShorLaflammeWeightEnumerator, Shor_Laflamme_weight_enumerator,
+    shor_laflamme_weight_enumerator, SL_weight_enumerator
+
+#############################
+# Quantum/io.jl
+#############################
+
+include("Quantum/io.jl")
+export quantum_code_data, quantum_code_from_data, save_quantum_code,
+    load_quantum_code, pauli_strings, write_pauli_strings,
+    read_pauli_strings, quantum_generator_array, write_quantum_csv
+
+#############################
+# Quantum/new_codes_from_old.jl
+#############################
+
+include("Quantum/new_codes_from_old.jl")
+export quantum_direct_sum, local_fourier, swap_X_Z, gauge_code
+
+# Plot implementations are provided by MakieExt. Complete/signed quantum
+# enumerators remain intentionally separate from the Hamming-only SL API.
+function weight_plot_CSS_X end
+function weight_plot_CSS_Z end
+function weight_plot_CSS end
+
+#############################
+# Quantum/min_dist_bounds.jl
+#############################
+
+include("Quantum/min_dist_bounds.jl")
+export set_minimum_distance_lower_bound!, set_minimum_distance_upper_bound!,
+    set_X_minimum_distance_lower_bound!, set_X_minimum_distance_upper_bound!,
+    set_Z_minimum_distance_lower_bound!, set_Z_minimum_distance_upper_bound!,
+    distance_automorphisms, set_distance_automorphisms!
 
 #############################
 # Quantum/min_dist_exact.jl
@@ -560,6 +638,13 @@ include("Quantum/min_dist_exact.jl")
 include("Quantum/min_dist_probabilistic.jl")
 export probabilistic_minimum_distance
 
+#############################
+# Quantum/min_dist_heuristics.jl
+#############################
+
+include("Quantum/min_dist_heuristics.jl")
+export heuristic_minimum_distance
+
 # #############################
 #    # Quantum/graphstate.jl
 # #############################
@@ -571,27 +656,28 @@ export probabilistic_minimum_distance
 # # Quantum/misc_known_codes.jl
 # #############################
 
-# include("Quantum/misc_known_codes.jl")
-# # subsystem
-# export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode, GeneralizedBaconShorCode,
-#     NappPreskill3DCode, NappPreskill4DCode, SubsystemToricCode, SubsystemSurfaceCode
+include("Quantum/misc_known_codes.jl")
+function TriangularColorCode488 end
+function TriangularColorCode666 end
+export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode,
+    GeneralizedBaconShorCode, LocalBravyiBaconShorCode,
+    AugmentedBravyiBaconShorCode, NappPreskill3DCode,
+    NappPreskill4DCode, SubsystemToricCode, SubsystemSurfaceCode
 
-# # stabilizer
-# export FiveQubitCode, Q513, SteaneCode, Q713, _SteaneCodeTrellis, ShorCode, Q913,
-#     Q412, Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
-#     RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488, TriangularColorCode666,
-#     ToricCode, PlanarSurfaceCode, XYSurfaceCode, XYZ2Code, HCode, QC6, QC4, ToricCode4D,
-#     Q832, SmallestInterestingColorCode, GrossCode #, PlanarSurfaceCode3D, ToricCode3D
+export FiveQubitCode, Q513, SteaneCode, Q713, ShorCode, Q913, Q412,
+    Q422, Q511, Q823, Q15RM, Q1513, Q1573, TriangularSurfaceCode,
+    RotatedSurfaceCode, XZZXSurfaceCode, TriangularColorCode488,
+    TriangularColorCode666, ToricCode, PlanarSurfaceCode,
+    PlanarSurfaceCode3D, XYSurfaceCode, HCode, QC6, QC4, ToricCode3D,
+    ToricCode4D, Q832, SmallestInterestingColorCode, GrossCode,
+    QuantumRepetitionCode, QuantumGolayCode, XCubeModel, HaahsCubicCode,
+    ToricColorCode666, CleveGottesmanCode, TwistDefectSurfaceCode,
+    HeavyHexCode, HeavySquareCode, ColorCode4612
 
-# #############################
-#    # Quantum/weight_dist.jl
-# #############################
-
-# # include("Quantum/weight_dist.jl")
-# # # export weight_plot_CSS_X, weight_plot_CSS_Z, weight_plot_CSS, minimum_distance_X_Z,
-# # #     minimum_distance_X, minimum_distance_Z, is_pure, QDistRndCSS
-# # export minimum_distance_upper_bound!, random_information_set_minimum_distance_bound!,
-# #     QDistRnd!
+# JLD2-backed constructors with stored trellis ordering live in `ext/JLD2Ext`.
+function PlanarSurfaceCode3D_X end
+function ToricCode3D_X end
+export PlanarSurfaceCode3D_X, ToricCode3D_X
 
 # #############################
 # #  Quantum/product_codes.jl

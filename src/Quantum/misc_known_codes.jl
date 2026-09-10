@@ -197,7 +197,7 @@ function BravyiBaconShorCode(A::CTMatrixTypes)
     set_dressed_Z_minimum_distance!(S, minimum(col_wts))
     return S
 end
-GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiSubsystemCode(A)
+GeneralizedBaconShorCode(A::CTMatrixTypes) = BravyiBaconShorCode(A)
 
 function LocalBravyiBaconShorCode(A::CTMatrixTypes)
     iszero(A) && throw(ArgumentError("The input matrix cannot be zero."))
@@ -751,6 +751,8 @@ Return the `[[5, 1, 3]]` perfect qubit stabilizer code.
 """
 function FiveQubitCode()
     S = StabilizerCode(["XZZXI", "IXZZX", "XIXZZ", "ZXIXZ"])
+    _set_SL_weight_enumerator!(
+        S, Dict(0 => BigInt(1), 4 => BigInt(15)))
     set_minimum_distance!(S, 3)
     return S
 end
@@ -766,6 +768,8 @@ Return the `[[7, 1, 3]]` Steane code.
 """
 function SteaneCode()
     S = CSSCode(["XXXXIII", "XXIIXXI", "XIXIXIX", "ZZZZIII", "ZZIIZZI", "ZIZIZIZ"])
+    _set_SL_weight_enumerator!(
+        S, Dict(0 => BigInt(1), 4 => BigInt(21), 6 => BigInt(42)))
     set_minimum_distance!(S, 3)
     return S
 end
@@ -1353,7 +1357,7 @@ end
 Return the 6.6.6 triangular color code of distance `d`.
 Generates the lattice programmatically via 2D coordinate mapping.
 """
-function TriangularColorCode666(d::Int)
+function _TriangularColorCode666_generated(d::Int)
     (d >= 3 && isodd(d)) || throw(DomainError("Distance must be an odd integer >= 3."))
     
     # 1. Generate Qubit Coordinates
@@ -1427,7 +1431,7 @@ end
 Return the 4.8.8 triangular color code of distance `d`.
 Generates the lattice programmatically via 2D coordinate mapping.
 """
-function TriangularColorCode488(d::Int)
+function _TriangularColorCode488_generated(d::Int)
     (d >= 3 && isodd(d)) || throw(DomainError("Distance must be an odd integer >= 3."))
     
     # 4.8.8 maps to an inflated square grid. 
