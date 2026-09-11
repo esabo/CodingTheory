@@ -170,9 +170,10 @@ coefficients larger than `10^23`.
 Raw stabilizer and subsystem constructors seed their Singleton upper bound.
 CSS-from-classical constructors propagate certified parent lower bounds.
 User-supplied exact distances that exceed Singleton are rejected.
-Product-family hooks await restoration of the disabled product-code API;
-exact rational LP certification remains a selective follow-up for boundary
-cases.
+Finite BB, generalized 3D toric, and product-family constructors now use the
+same cache-backed distance metadata and accessors as core quantum codes.
+Hypergraph-product bounds include the transposed parent codes. Exact rational
+LP certification remains a selective follow-up for boundary cases.
 
 ## Deferred recommendations
 

@@ -838,7 +838,7 @@ gauge_group_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 Return the number of `X` stabilizers of the CSS code.
 """
 num_X_stabs(S::T) where {T <: AbstractSubsystemCode} = num_X_stabs(CSSTrait(T), S)
-num_X_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(S.X_stabs)
+num_X_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(X_stabilizers(S))
 num_X_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
@@ -847,7 +847,7 @@ num_X_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS co
 Return the number of `Z` stabilizers of the CSS code.
 """
 num_Z_stabs(S::T) where {T <: AbstractSubsystemCode} = num_Z_stabs(CSSTrait(T), S)
-num_Z_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(S.Z_stabs)
+num_Z_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(Z_stabilizers(S))
 num_Z_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
@@ -855,7 +855,10 @@ num_Z_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS co
 
 Return the character vector of the code.
 """
-character_vector(S::AbstractSubsystemCode) = S.char_vec
+function character_vector(S::AbstractSubsystemCode)
+    hasfield(typeof(S), :char_vec) && return getfield(S, :char_vec)
+    return get(S.cache, :char_vec, zzModRingElem[])
+end
 
 # TODO: quantum Singletonbound k <= n - 2d + 2
 # MDS/optimal for subsystem codes: k + r <= n - 2d + 2

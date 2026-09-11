@@ -516,12 +516,15 @@ include("Quantum/types.jl")
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
-    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS #, AbstractGeneralizedToricCode
+    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS
 export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
     IsCSS, IsNotCSS
 
-include("Quantum/GeneralizedToricCode.jl")
-export BivariateBicycleCode, CoprimeBivariateBicycleCode
+include("Quantum/BB_codes.jl")
+include("Quantum/generalized_3d_toric_codes.jl")
+export InfiniteBBCode, BBCode, Generalized3DToricCode,
+    FiniteGeneralized3DToricCode, BBCode3D, defining_polynomials,
+    twist_vectors, Laurent_polynomial_ring, maximum_dimension
 
 #############################
  # Quantum/subsystem_code.jl
@@ -702,18 +705,24 @@ function PlanarSurfaceCode3D_X end
 function ToricCode3D_X end
 export PlanarSurfaceCode3D_X, ToricCode3D_X
 
-# #############################
-# #  Quantum/product_codes.jl
-# #############################
+#############################
+# Quantum code constructions
+#############################
 
-# include("Quantum/product_codes.jl")
-# export HypergraphProductCode, GeneralizedShorCode, BaconCasaccinoConstruction,
-#     HyperBicycleCodeCSS, HyperBicycleCode, GeneralizedBicycleCode,
-#     generalized_hypergraph_product_matrices, GHGP_matrices, lifted_product_matrices,
-#     GeneralizedHypergraphProductCode, LiftedProductCode, bias_tailored_lifted_product_matrices,
-#     BiasTailoredLiftedProductCode, SPCDFoldProductCode, SingleParityCheckDFoldProductCode,
-#     Quintavalle_basis, asymmetric_product, symmetric_product, random_homological_product_code,
-#     homological_product, ⊠, BivariateBicycleCode, CoprimeBivariateBicycleCode
+include("Quantum/concatenated_codes.jl")
+include("Quantum/hypergraph_product_codes.jl")
+include("Quantum/generalized_shor_codes.jl")
+include("Quantum/bicycle_codes.jl")
+include("Quantum/hyperbicycle_codes.jl")
+include("Quantum/lifted_product_codes.jl")
+include("Quantum/fold_product_codes.jl")
+include("Quantum/homological_product_codes.jl")
+export QuantumConcatenatedCode, HypergraphProductCode, GeneralizedShorCode,
+    BaconCasaccinoConstruction, HyperBicycleCodeCSS, HyperBicycleCode,
+    GeneralizedBicycleCode, BicycleCode, GeneralizedHypergraphProductCode,
+    LiftedProductCode, BiasTailoredLiftedProductCode, SPCDFoldProductCode,
+    SingleParityCheckDFoldProductCode, Quintavalle_basis, asymmetric_product,
+    symmetric_product, random_homological_product_code, homological_product, ⊠
 
 # #############################
 # #   Quantum/simulation.jl

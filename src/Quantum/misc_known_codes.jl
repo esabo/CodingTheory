@@ -876,9 +876,9 @@ function GrossCode()
     R, _ = quo(S, ideal(S, [x^l - 1, y^m - 1]))
     a = R(x^3 + y + y^2)
     b = R(y^3 + x + x^2)
-    S = BivariateBicycleCode(a, b)
-    # set_minimum_distance!(S, 12)
-    return S
+    code = BBCode(a, b)
+    set_minimum_distance!(code, 12)
+    return code
 end
 
 """

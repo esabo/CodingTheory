@@ -40,9 +40,9 @@ bound is a parameter benchmark and never modifies a concrete code's certified
 distance cache.
 
 CSS constructors inherit proven lower bounds from their classical parent
-codes. Product-family distance hooks remain deferred until the currently
-disabled `Quantum/product_codes.jl` API is restored and its transposed-code
-distance conventions are represented explicitly.
+codes. The restored product families use cache-backed distance metadata.
+Hypergraph products retain both transposed classical codes and seed their
+X/Z bounds from the corresponding primal/transposed distance pairs.
 
 `QuantumBoundsExt` provides arbitrary-precision Shor--Laflamme/Rains,
 low-generator-weight, general check-weight, and CSS split-enumerator LPs

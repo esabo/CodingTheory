@@ -22,8 +22,6 @@ abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
-abstract type AbstractGeneralized3DToricCode <: AbstractStabilizerCodeCSS end
-
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
 abstract type AbstractQuantumNoiseChannel <: AbstractChannel end
@@ -150,289 +148,194 @@ mutable struct GraphStateStabilizerCSS <: AbstractGraphStateStabilizerCSS
 end
 
 #############################
-# Quantum/product_codes.jl
+# Quantum code-family implementations
 #############################
 
 
 #############################
-# Quantum/GeneralizedToricCode.jl
+# Quantum/BB_codes.jl
 #############################
 
-mutable struct BivariateBicycleCode{T} <: AbstractStabilizerCodeCSS
-    LR::T # LaurentMPolyWrapRing
+"""
+An algebraic bivariate-bicycle datum before a finite lattice is chosen.
+
+This is deliberately not an `AbstractSubsystemCode`: it has no finite block
+length or stabilizer matrix.
+"""
+struct InfiniteBBCode{T, U, V}
+    LR::T
     F::CTFieldTypes
-    a::Any # CTLRPolyElem
-    b::Any # CTLRPolyElem
-    a1::Tuple{Int, Int}
-    a2::Tuple{Int, Int}
+    a::U
+    b::V
+end
+
+"""
+A finite bivariate-bicycle CSS stabilizer code.
+
+Representation-specific information (a standard quotient, a twisted Laurent
+lattice, or a coprime univariate quotient) is retained in `R`, `a1`, `a2`, and
+`N`. Derived matrices and code metadata live in `cache`.
+"""
+mutable struct BBCode{T, U, V} <: AbstractStabilizerCodeCSS
+    R::T
+    F::CTFieldTypes
+    a::U
+    b::V
+    a1::Union{Nothing, Tuple{Int, Int}}
+    a2::Union{Nothing, Tuple{Int, Int}}
+    N::Union{Nothing, Int}
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    twisted::Bool
+    representation::Symbol
     cache::Dict{Symbol, Any}
 end
 
-mutable struct Generalized3DToricCode{T} <: AbstractGeneralized3DToricCode
-    LR::T # LaurentMPolyWrapRing
+#############################
+# Quantum/generalized_3d_toric_codes.jl
+#############################
+
+"""
+An algebraic three-dimensional generalized toric-code datum.
+"""
+struct Generalized3DToricCode{T, U, V}
+    LR::T
     F::CTFieldTypes
-    a::Any # CTLRPolyElem
-    b::Any # CTLRPolyElem
+    a::U
+    b::V
+end
+
+"""
+A finite three-dimensional generalized toric CSS stabilizer code.
+"""
+mutable struct FiniteGeneralized3DToricCode{T, U, V} <: AbstractStabilizerCodeCSS
+    LR::T
+    F::CTFieldTypes
+    a::U
+    b::V
     a1::Tuple{Int, Int}
     a2::Tuple{Int, Int}
     l_z::Int
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    twisted::Bool
     cache::Dict{Symbol, Any}
 end
 
 mutable struct QuantumConcatenatedCode <: AbstractStabilizerCode
+    F::CTFieldTypes
     outer_code::AbstractStabilizerCode
     inner_code::AbstractStabilizerCode
     n::Int
     k::Int
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
-mutable struct HypergraphProductCode <: AbstractStabilizerCodeCSS
+mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
+    F::CTFieldTypes
     C1::AbstractLinearCode
     C2::AbstractLinearCode
+    C1T::AbstractLinearCode
+    C2T::AbstractLinearCode
     n::Int
     k::Int
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
 mutable struct GeneralizedShorCode <: AbstractSubsystemCode
+    F::CTFieldTypes
     C1::AbstractLinearCode
     C2::AbstractLinearCode
     n::Int
     k::Int
-    r::Union{Int, Missing} # Gauge qubits, computed lazily
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    r::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
 mutable struct HyperBicycleCodeCSS{T <: CTMatrixTypes} <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     a::Vector{T}
     b::Vector{T}
     χ::Int
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
 mutable struct HyperBicycleCode{T <: CTMatrixTypes} <: AbstractStabilizerCode
+    F::CTFieldTypes
     a::Vector{T}
     b::Vector{T}
     χ::Int
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
-end
-
-# Intercept property access to compute 'k' lazily when requested
-for T in (:HyperBicycleCodeCSS, :HyperBicycleCode)
-    @eval begin
-        function Base.getproperty(S::$T, prop::Symbol)
-            if prop == :k
-                k_val = getfield(S, :k)
-                if ismissing(k_val)
-                    # For CSS, k = n - rank(H_X) - rank(H_Z)
-                    # For non-CSS Stabilizer, k = n - rank(stabs)
-                    if $T == HyperBicycleCodeCSS
-                        H_X = X_stabilizers(S)
-                        H_Z = Z_stabilizers(S)
-                        k_val = S.n - rank(H_X) - rank(H_Z)
-                    else
-                        stabs = stabilizers(S)
-                        k_val = S.n - rank(stabs)
-                    end
-                    setfield!(S, :k, k_val)
-                    return k_val
-                end
-                return k_val
-            else
-                return getfield(S, prop)
-            end
-        end
-    end
 end
 
 mutable struct GeneralizedBicycleCode{T <: CTMatrixTypes} <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     A::T
     B::T
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
-# Intercept property access to compute 'k' lazily when requested
-function Base.getproperty(S::GeneralizedBicycleCode, prop::Symbol)
-    if prop == :k
-        k_val = getfield(S, :k)
-        if ismissing(k_val)
-            H_X = X_stabilizers(S)
-            H_Z = Z_stabilizers(S)
-            k_val = S.n - rank(H_X) - rank(H_Z)
-            setfield!(S, :k, k_val)
-            return k_val
-        end
-        return k_val
-    else
-        return getfield(S, prop)
-    end
-end
-
 mutable struct LiftedProductCode{T} <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     A::T
     B::T
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
 mutable struct BiasTailoredLiftedProductCode{T} <: AbstractStabilizerCode
+    F::CTFieldTypes
     A::T
     B::T
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
-for T in (:LiftedProductCode, :BiasTailoredLiftedProductCode)
-    @eval begin
-        function Base.getproperty(S::$T, prop::Symbol)
-            if prop == :k
-                k_val = getfield(S, :k)
-                if ismissing(k_val)
-                    if $T == LiftedProductCode
-                        H_X = X_stabilizers(S)
-                        H_Z = Z_stabilizers(S)
-                        k_val = S.n - rank(H_X) - rank(H_Z)
-                    else
-                        stabs = stabilizers(S)
-                        k_val = S.n - rank(stabs)
-                    end
-                    setfield!(S, :k, k_val)
-                    return k_val
-                end
-                return k_val
-            else
-                return getfield(S, prop)
-            end
-        end
-    end
-end
-
 mutable struct AsymmetricProductCode <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     S1::AbstractSubsystemCode
     S2::AbstractSubsystemCode
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
 mutable struct SymmetricProductCode <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     vec_S::Vector{<:AbstractSubsystemCode}
     D::Int
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 
-for T in (:AsymmetricProductCode, :SymmetricProductCode)
-    @eval begin
-        function Base.getproperty(S::$T, prop::Symbol)
-            if prop == :k
-                k_val = getfield(S, :k)
-                if ismissing(k_val)
-                    H_X = X_stabilizers(S)
-                    H_Z = Z_stabilizers(S)
-                    k_val = S.n - rank(H_X) - rank(H_Z)
-                    setfield!(S, :k, k_val)
-                    return k_val
-                end
-                return k_val
-            else
-                return getfield(S, prop)
-            end
-        end
-    end
-end
-
 mutable struct HomologicalProductCode <: AbstractStabilizerCodeCSS
+    F::CTFieldTypes
     S1::AbstractStabilizerCode
     S2::AbstractStabilizerCode
     U::CTMatrixTypes
     V::CTMatrixTypes
     n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
-    cache::Dict{Symbol, Any}
-end
-
-# Intercept property access to compute 'k' lazily when requested
-function Base.getproperty(S::HomologicalProductCode, prop::Symbol)
-    if prop == :k
-        k_val = getfield(S, :k)
-        if ismissing(k_val)
-            H_X = X_stabilizers(S)
-            H_Z = Z_stabilizers(S)
-            k_val = S.n - rank(H_X) - rank(H_Z)
-            setfield!(S, :k, k_val)
-            return k_val
-        end
-        return k_val
-    else
-        return getfield(S, prop)
-    end
-end
-
-mutable struct CoprimeBivariateBicycleCode <: AbstractStabilizerCodeCSS
-    R::CTPolyRing
-    F::CTFieldTypes
-    a::CTPolyRingElem
-    b::CTPolyRingElem
-    N::Int
-    n::Int
-    k::Union{Int, Missing}
-    d::Union{Int, Missing}
-    l_bound::Int
-    u_bound::Int
+    k::Int
+    char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
 end
 

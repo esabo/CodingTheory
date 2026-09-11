@@ -696,8 +696,6 @@ julia> A = matrix(R, 7, 7,
 julia> b = R(1 + x + x^6);
 
 julia> code = LiftedProductCode(A, b);
-┌ Warning: Commutativity of A and b required but not yet enforced.
-└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:340
 
 julia> length(code), dimension(code)
 (882, 48)
