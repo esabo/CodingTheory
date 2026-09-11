@@ -80,9 +80,13 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
     if is_css_S && is_css_G
         X_stabs = is_sparse ? _sparse_code_matrix(X_stabs_dense) : X_stabs_dense
         Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs_dense) : Z_stabs_dense
-        return SubsystemCodeCSS(F, n, k, r, X_stabs, Z_stabs, gauge_ops, clean_char_vec, cache)
+        result = SubsystemCodeCSS(
+            F, n, k, r, X_stabs, Z_stabs, gauge_ops, clean_char_vec, cache)
+        return _seed_quantum_singleton_bound!(result)
     else
-        return SubsystemCode(F, n, k, r, stabs, gauge_ops, clean_char_vec, cache)
+        result = SubsystemCode(
+            F, n, k, r, stabs, gauge_ops, clean_char_vec, cache)
+        return _seed_quantum_singleton_bound!(result)
     end
 end
 
@@ -1403,6 +1407,12 @@ set_bare_Z_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d
 set_dressed_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_minimum_distance!(GaugeTrait(T), S, d)
 function set_dressed_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d::Int)
     0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    if dimension(S) > 0 && _subsystem_singleton_is_proven(S)
+        singleton = quantum_Singleton_bound(S)
+        d <= singleton ||
+            throw(DomainError(d,
+                "The dressed distance exceeds the subsystem Singleton bound $singleton."))
+    end
     
     u_bound_dressed = get(S.cache, :u_bound_dressed, S.n)
     l_bound_dressed = get(S.cache, :l_bound_dressed, 1)

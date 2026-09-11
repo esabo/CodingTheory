@@ -76,7 +76,9 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
         :logs_alg => degree(F) == 1 ? logs_alg : :sys_eqs
     )
 
-    return StabilizerCodeCSS(F, n, dim_code, X_final, Z_final, clean_char_vec, cache)
+    result = StabilizerCodeCSS(
+        F, n, dim_code, X_final, Z_final, clean_char_vec, cache)
+    return _seed_quantum_singleton_bound!(result)
 end
 CSSCode(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes = StabilizerCodeCSS(X_matrix, Z_matrix,
@@ -124,9 +126,13 @@ function StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingEl
     if is_css_S
         X_stabs = is_sparse ? _sparse_code_matrix(X_stabs_dense) : X_stabs_dense
         Z_stabs = is_sparse ? _sparse_code_matrix(Z_stabs_dense) : Z_stabs_dense
-        return StabilizerCodeCSS(F, n, dim_code, X_stabs, Z_stabs, clean_char_vec, cache)
+        result = StabilizerCodeCSS(
+            F, n, dim_code, X_stabs, Z_stabs, clean_char_vec, cache)
+        return _seed_quantum_singleton_bound!(result)
     else
-        return StabilizerCode(F, n, dim_code, stabs_final, clean_char_vec, cache)
+        result = StabilizerCode(
+            F, n, dim_code, stabs_final, clean_char_vec, cache)
+        return _seed_quantum_singleton_bound!(result)
     end
 end
 
@@ -145,12 +151,9 @@ function StabilizerCodeCSS(C1::AbstractLinearCode, C2::AbstractLinearCode;
     S.cache[:X_orig_code] = D2
     S.cache[:Z_orig_code] = C1
     
-    if !ismissing(C1.d) && !ismissing(D2.d)
-        d = min(C1.d, D2.d)
-        S.cache[:l_bound_dx] = D2.d
-        S.cache[:l_bound_dz] = C1.d
-        S.cache[:l_bound] = d
-    end
+    S.cache[:l_bound_dx] = D2.l_bound
+    S.cache[:l_bound_dz] = C1.l_bound
+    S.cache[:l_bound] = min(C1.l_bound, D2.l_bound)
     return S
 end
 CSSCode(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) = StabilizerCodeCSS(C1, C2, char_vec = char_vec, logs_alg = logs_alg)
@@ -169,11 +172,9 @@ function StabilizerCodeCSS(C::LinearCode; char_vec::Union{Vector{zzModRingElem},
     S.cache[:X_orig_code] = D
     S.cache[:Z_orig_code] = D
     
-    if !ismissing(D.d)
-        S.cache[:l_bound_dx] = D.d
-        S.cache[:l_bound_dz] = D.d
-        S.cache[:l_bound] = D.d
-    end
+    S.cache[:l_bound_dx] = D.l_bound
+    S.cache[:l_bound_dz] = D.l_bound
+    S.cache[:l_bound] = D.l_bound
     return S
 end
 CSSCode(C::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) = StabilizerCodeCSS(C, char_vec = char_vec, logs_alg = logs_alg)
@@ -344,6 +345,12 @@ Set the minimum distance of the code to `d`.
 """
 function set_minimum_distance!(S::AbstractStabilizerCode, d::Int)
     0 < d <= S.n || throw(DomainError("The minimum distance of a code must be ≥ 1; received: d = $d."))
+    if dimension(S) > 0
+        singleton = quantum_Singleton_bound(S)
+        d <= singleton ||
+            throw(DomainError(d,
+                "The distance exceeds the quantum Singleton bound $singleton."))
+    end
     
     curr_u_bound = get(S.cache, :u_bound, S.n)
     curr_l_bound = get(S.cache, :l_bound, 1)

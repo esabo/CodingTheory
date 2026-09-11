@@ -133,12 +133,53 @@ distance properties. Stored triangular color-code matrices remain in the JLD2
 extension; the incomplete procedural color-code generators are retained only
 as internal experimental routines.
 
+## Analytic bounds
+
+`Quantum/bounds.jl` implements non-LP parameter bounds without conflating them
+with solver certificates. `quantum_Singleton_bound` supports stabilizer and
+subsystem parameters (including additive rational dimensions). Subsystem code
+objects apply it automatically only for prime-field, Fq-linear, or certified
+pure codes because the arbitrary additive impure case is not a general
+theorem. Library `r` counts prime-field gauge pairs, so the subsystem formula
+uses `k + r/degree(F)`. `is_quantum_MDS` compares it with a stored exact
+dressed distance.
+`quantum_Hamming_bound` implements sphere packing for pure stabilizer and
+subsystem codes; its code method refuses to assume purity silently.
+`quantum_Gilbert_Varshamov_bound` implements additive, Fq²-linear, and pure
+Feng--Ma finite existence bounds and deliberately leaves concrete-code caches
+unchanged.
+
+The arbitrary-precision LP layer implements the binary Shor--Laflamme/Rains
+system and the coarse and refined low-generator-weight constraints of
+[Wei et al., *Theory of Low-Weight Quantum Codes*](https://arxiv.org/abs/2601.19848),
+plus the CSS split-enumerator and general stabilizer constraints of
+[Wang et al., *Check-Weight-Constrained Quantum Codes: Bounds and Examples*](https://arxiv.org/abs/2601.15446).
+Combinatorial coefficients are built as `BigInt`, each row is scaled exactly,
+and conversion to `BigFloat` occurs only inside a Tulip precision context.
+Numerical infeasibility is reported explicitly as
+`:infeasible_numerical`, never as an exact certificate. `model_hook` permits
+scripts to lift these relaxations with family-specific variables and
+constraints.
+
+The implementation corrects three apparent errors in Wang et al. v1: the
+Krawtchouk exponent is the polynomial degree minus the summation index, the
+MacWilliams sum includes its weight-zero term, and the cumulative
+check-weight inequality includes both weight-zero terms. Regression tests use
+coefficients larger than `10^23`.
+
+Raw stabilizer and subsystem constructors seed their Singleton upper bound.
+CSS-from-classical constructors propagate certified parent lower bounds.
+User-supplied exact distances that exceed Singleton are rejected.
+Product-family hooks await restoration of the disabled product-code API;
+exact rational LP certification remains a selective follow-up for boundary
+cases.
+
 ## Deferred recommendations
 
 1. Add complete or signed phase-sensitive enumerators only when a concrete
    research use requires them; do not cache operator collections.
-2. Add computable quantum bounds only after documenting applicability to
-   additive, degenerate, and subsystem codes.
+2. Add exact rational/Farkas certification for LP boundary cases without
+   replacing scalable arbitrary-precision solves.
 3. Remove the quarantined legacy augmentation/expurgation implementations
    after downstream callers have migrated to the new semantics.
 4. Add phase transport for puncturing, shortening, and local Clifford gates.

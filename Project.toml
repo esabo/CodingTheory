@@ -37,6 +37,7 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 NetworkLayout = "46757867-2c16-5918-afeb-47bfcb05e46a"
 NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
+Tulip = "6dd1b50a-3aae-11e9-10b5-ef983d2400fa"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [extensions]
@@ -44,6 +45,7 @@ JLD2Ext = "JLD2"
 JuMPExt = ["JuMP", "HiGHS"]
 MakieExt = ["Makie"]
 NPZExt = "NPZ"
+QuantumBoundsExt = ["JuMP", "Tulip"]
 
 [compat]
 AutoHashEquals = "2.2.0"
@@ -67,6 +69,7 @@ ProgressMeter = "1.11.0"
 QuadGK = "2.11.3"
 SpecialFunctions = "2.8.0"
 StatsBase = "0.34.4"
+Tulip = "0.9"
 WGLMakie = "0.8.15"
 julia = "≥ 1.10"
 
@@ -74,6 +77,7 @@ julia = "≥ 1.10"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Tulip = "6dd1b50a-3aae-11e9-10b5-ef983d2400fa"
 
 [targets]
-test = ["Test", "JuMP", "HiGHS"]
+test = ["Test", "JuMP", "HiGHS", "Tulip"]

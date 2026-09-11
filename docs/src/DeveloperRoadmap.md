@@ -27,11 +27,31 @@ lists. Complete, signed, and phase-sensitive enumerators remain deferred.
 
 ## Quantum bounds
 
-Add a dedicated quantum-bounds file after deciding which bounds are both
-mathematically applicable and computationally useful. Candidates to evaluate
-include Singleton, Hamming (pure and impure qualifications), quantum
-Gilbert--Varshamov, linear-programming/Rains bounds, and subsystem variants.
-Keep theorem bounds separate from exact and heuristic distance routines.
+`src/Quantum/bounds.jl` keeps parameter theorems separate from the witnessed
+solver bounds in `min_dist_bounds.jl`. It implements the stabilizer and
+subsystem Singleton bounds, quantum MDS detection, the pure quantum Hamming
+bound, and additive, Fq²-linear, and pure Feng--Ma
+Gilbert--Varshamov existence bounds.
+Subsystem Singleton is seeded automatically only when prime-field linearity,
+Fq-linearity, or purity makes its applicability rigorous.
+The Hamming code-level API requires cached purity or an explicit
+`assume_pure=true`; impure subsystem codes can violate sphere packing. The GV
+bound is a parameter benchmark and never modifies a concrete code's certified
+distance cache.
+
+CSS constructors inherit proven lower bounds from their classical parent
+codes. Product-family distance hooks remain deferred until the currently
+disabled `Quantum/product_codes.jl` API is restored and its transposed-code
+distance conventions are represented explicitly.
+
+`QuantumBoundsExt` provides arbitrary-precision Shor--Laflamme/Rains,
+low-generator-weight, general check-weight, and CSS split-enumerator LPs
+through JuMP and Tulip. Exact `BigInt` construction and row scaling precede
+the optimizer conversion. Numerical infeasibility remains explicitly
+distinguished from exact certification. A `model_hook` supports experimental
+family-specific lifts, including translation-orbit variables for BB-code
+scripts; univariate weight enumerators alone cannot express BB invariance.
+Selective exact rational/Farkas certification remains deferred.
 
 ## Interchange and persistence
 

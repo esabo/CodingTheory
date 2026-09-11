@@ -626,6 +626,29 @@ export set_minimum_distance_lower_bound!, set_minimum_distance_upper_bound!,
     distance_automorphisms, set_distance_automorphisms!
 
 #############################
+# Quantum/bounds.jl
+#############################
+
+include("Quantum/bounds.jl")
+export quantum_Singleton_bound, is_quantum_MDS, quantum_Hamming_volume,
+    quantum_Hamming_bound, satisfies_quantum_Hamming_bound,
+    quantum_Gilbert_Varshamov_exists, quantum_Gilbert_Varshamov_bound,
+    quantum_stabilizer_generator_weight_lower_bound,
+    quantum_check_weight_dimension_bound,
+    quantum_low_weight_stabilizer_distance_bound,
+    quantum_CSS_subsystem_weight_two_distance_bound,
+    satisfies_quantum_CSS_subsystem_weight_two_bounds,
+    quantum_stabilizer_check_weight_existence_bound,
+    quantum_stabilizer_group_average_weight,
+    quantum_stabilizer_group_total_weight,
+    quantum_Krawtchouk_matrix, QuantumLPResult,
+    quantum_weight_enumerator_LP, quantum_CSS_weight_enumerator_LP,
+    quantum_stabilizer_dimension_LP_bound,
+    quantum_CSS_dimension_LP_bound,
+    quantum_check_weight_LP_postprocess,
+    quantum_stabilizer_generator_weight_LP_bound
+
+#############################
 # Quantum/min_dist_exact.jl
 #############################
 
