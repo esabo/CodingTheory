@@ -7,7 +7,7 @@
 function _find_lambda_given_rho(ρ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
     ε::Float64, l_max::Int; Δ = 0.001)
 
-    model = Model(GLPK.Optimizer)
+    model = Model(HiGHS.Optimizer)
     @variable(model, λ[1:l_max - 1] >= 0)
     @constraint(model, sum(λ) == 1)
     for x in 0:Δ:1
@@ -25,7 +25,7 @@ end
 function _find_rho_given_lambda(λ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
     ε::Float64, r_max::Int; Δ = 0.001)
 
-    model = Model(GLPK.Optimizer)
+    model = Model(HiGHS.Optimizer)
     @variable(model, ρ[1:r_max - 1] >= 0)
     @constraint(model, sum(ρ) == 1)
     for x in 0:Δ:1

@@ -83,8 +83,6 @@
     @test CodingTheory._concat(locations, M1) == matrix(GF2, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
     @test CodingTheory._concat(locations, M2) == matrix(GF4, [0 0 1 1; 0 0 1 1; 0 0 1 1; 1 1 1 1; 1 1 1 1; 1 1 1 1])
 
-    # TODO: pseudoinverse test
-
     # Tri-orthogonal matrix from Bravyi and Haah 2012, equation 3
     M_tri_orth = [1 1 1 1 1 1 1 0 0 0 0 0 0 0
                 0 0 0 0 0 0 0 1 1 1 1 1 1 1

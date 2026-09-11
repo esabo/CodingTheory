@@ -1018,6 +1018,42 @@ function _precompute_weight2_table_nonbinary(A_idx::Matrix{Int}, add_t::Matrix{I
 end
 
 function _make_systematic_gf!(
+    M::AbstractMatrix{<:Integer}, perm::Vector{Int}, k::Int
+)
+    n = size(M, 2)
+    M .= mod.(M, 2)
+
+    for i in 1:k
+        pivot_row = findfirst(r -> !iszero(M[r, i]), i:k)
+        pivot_row = isnothing(pivot_row) ? 0 : pivot_row + i - 1
+        if iszero(pivot_row)
+            pivot_col = findfirst(c -> any(!iszero(M[r, c]) for r in i:k), k + 1:n)
+            isnothing(pivot_col) &&
+                throw(ArgumentError("Matrix does not have full row rank."))
+            pivot_col += k
+            for row in 1:k
+                M[row, i], M[row, pivot_col] = M[row, pivot_col], M[row, i]
+            end
+            perm[i], perm[pivot_col] = perm[pivot_col], perm[i]
+            pivot_row = findfirst(r -> !iszero(M[r, i]), i:k) + i - 1
+        end
+        if pivot_row != i
+            for c in 1:n
+                M[i, c], M[pivot_row, c] = M[pivot_row, c], M[i, c]
+            end
+        end
+        for r in 1:k
+            if r != i && !iszero(M[r, i])
+                @inbounds for c in i:n
+                    M[r, c] = xor(M[r, c], M[i, c])
+                end
+            end
+        end
+    end
+    return nothing
+end
+
+function _make_systematic_gf!(
     M::Union{CTMatrixTypes, AbstractMatrix}, perm::Vector{Int}, k::Int
 )
     n = size(M, 2)
@@ -2431,7 +2467,8 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
         found = Canteaut_Chabaud_attack(C, C.d; p=2, l=eff_l, max_iters=5000)
         if !isempty(found)
             global_min_codeword = [c == 1 ? one(C.F) : zero(C.F) for c in only(found)]
-            println("Weight of y: ", sum(Int.(global_min_codeword)))
+            verbose && println(
+                "Weight of y: ", count(!iszero, global_min_codeword))
             found_witness = true
              verbose && println("Targeted ISD attack successfully recovered a minimum-weight codeword!")
         end
@@ -3149,7 +3186,7 @@ end
 Return the minimum distance of the linear code using an integer linear programming approach.
 
 # Note
-- Run `using JuMP, GLPK` to activate this extension.
+- Run `using JuMP, HiGHS` to activate this extension.
 """
 function _minimum_distance_ILP end
 

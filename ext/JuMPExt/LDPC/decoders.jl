@@ -33,7 +33,7 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
         push!(subsets, inner_subsets)
     end
 
-    model = Model(GLPK.Optimizer)
+    model = Model(HiGHS.Optimizer)
     @variable(model, 0 <= f[1:nc] <= 1)
     @variable(model, 0 <= w[1:curr - 1] <= 1)
     for i in 1:nr

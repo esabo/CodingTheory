@@ -20,6 +20,6 @@
 Return
 
 # Note
-- Run `using JuMP, GLPK` to activate this extension.
+- Run `using JuMP, HiGHS` to activate this extension.
 """
 function LP_decoder_LDPC end

@@ -36,13 +36,24 @@ directly for a vector with zero stabilizer syndrome and a nonzero logical label:
 - `:Gray` exhausts the normalizer with bit-packed, threaded Gray-code ranges.
 - `:Wagner` performs a bit-packed, quotient-aware meet-in-the-middle search in
   increasing physical weight.
-- `:ILP` uses JuMP and GLPK. It solves one logical minimization problem and
-  strengthens low-degree parity checks with odd-set inequalities.
+- `:ILP` uses JuMP with the free HiGHS optimizer. It solves one logical
+  minimization problem and strengthens low-degree parity checks with odd-set
+  inequalities.
 - `:auto` uses Gray for small normalizer dimension, an available ILP extension
   for large or sparse problems, and Wagner otherwise.
 
 Exact ILP solves have no time limit by default. Set `time_limit_sec` explicitly
 only when an inconclusive timeout is acceptable.
+
+All CSS solvers share cached sector bounds. Exact searches begin at the
+certified lower bound and search below a witnessed incumbent; proving that
+range empty closes the distance without rediscovering the incumbent.
+`set_minimum_distance_lower_bound!(S, lower; which=:X|:Z|:full)` tightens a
+certified lower bound. Upper bounds must carry a validated logical witness:
+
+```julia
+set_minimum_distance_upper_bound!(S, weight, logical; which=:X)
+```
 
 Probabilistic ISD computes an upper bound rather than certifying the distance:
 
@@ -62,3 +73,21 @@ systematic forms. Supplied coordinate automorphisms are composed with those
 preprocessed forms before the remaining random trials. They seed equivalent
 information sets only; the solver does not restrict the search to an
 automorphism-fixed subcode, which could miss an asymmetric minimum logical.
+
+Register reusable physical-qubit permutation generators with
+`set_distance_automorphisms!(S, permutations)`. The setter verifies that each
+permutation preserves both CSS stabilizer row spaces. Family-specific
+automatic generation is intentionally deferred.
+
+Quotient-aware heuristics provide additional upper-bound searches:
+
+```julia
+d, logical = heuristic_minimum_distance(
+    S; which=:full, alg=:GGAOrder, max_iters=500, pop_size=50, seed=1)
+```
+
+The available variants are `:GGAOrder`, `:NNCS`, `:GA`, and `:ACO`.
+GGA-Order and NNCS search systematic generator representations; GA and ACO
+search packed normalizer-generator combinations. All reject stabilizers during
+fitness evaluation, update the shared witnessed upper bound, and stop when
+they attain a certified lower bound. They do not certify new lower bounds.

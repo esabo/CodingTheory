@@ -1,5 +1,11 @@
 @testitem "LDPC/decoders.jl" begin
-    using Oscar, CodingTheory, JuMP, GLPK
+    using Oscar, CodingTheory
+    try
+        using JuMP, HiGHS
+    catch
+        @info "Skipping LP decoder tests; JuMP/HiGHS are not available."
+        return
+    end
 
     @testset "LP Decoder Initialization" begin
         # Standard Hamming(7,4) parity-check matrix

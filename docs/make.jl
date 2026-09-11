@@ -45,7 +45,8 @@ Documenter.makedocs(;
         	"Quantum/quantum_code.md",
 			"Quantum/product_codes.md",
         	"Quantum/misc_known_codes.md",
-			"Quantum/weight_reduction.md"
+			"Quantum/weight_reduction.md",
+			"Quantum API audit" => "QuantumAudit.md"
     	],
     	"Misc" => [
         	"tilings.md",
