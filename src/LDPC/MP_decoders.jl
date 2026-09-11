@@ -31,9 +31,9 @@ const _FB_MIN_DEGREE = 6
 const _NO_INDICES = Int[]
 
 """
-    SoftDecisionWorkspace{T}
+$(TYPEDSIGNATURES)
 
-Every buffer the soft-decision decoder needs, allocated once for one fixed
+Store every buffer the soft-decision decoder needs, allocated once for one fixed
 parity-check matrix and reused for every syndrome.
 
 The Tanner graph is stored as a flat edge list in check-major order. Edge `e`
@@ -80,9 +80,9 @@ struct SoftDecisionWorkspace{T <: AbstractFloat}
 end
 
 """
-    csr_of(H) -> (row_ptr, col_ind)
+$(TYPEDSIGNATURES)
 
-Compressed sparse row description of `H`, 1-based, with column indices ascending
+Return a compressed sparse row description of `H`, 1-based, with column indices ascending
 within each row. A convenience for Julia-side callers and tests; FlamingPy passes
 scipy's CSR arrays straight to [`init_soft_workspace`](@ref) instead, and this
 function is the only thing in the file that is quadratic in the matrix size.
@@ -102,9 +102,9 @@ function csr_of(H::AbstractMatrix)
 end
 
 """
-    csr_of(H::Union{fpMatrix, FqMatrix}) -> (row_ptr, col_ind)
+$(TYPEDSIGNATURES)
 
-Flint-native form, for CodingTheory callers holding an Oscar matrix. The plain
+Return the Flint-native form for CodingTheory callers holding an Oscar matrix. The plain
 array and compressed-sparse-row entry points throughout this file are reserved
 for the Python caller, which never sees a Flint matrix, so the conversion to a
 dense Julia matrix is confined to this thin layer -- and, since every use of it
@@ -113,9 +113,9 @@ is a workspace constructor, is paid once per matrix rather than once per decode.
 csr_of(H::Union{fpMatrix, FqMatrix}) = csr_of(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
-    layered_schedule(row_ptr, col_ind, num_check, num_var; base = 1)
+$(TYPEDSIGNATURES)
 
-Partition the checks into layers such that no two checks in a layer share a
+Return a partition of the checks into layers such that no two checks in a layer share a
 variable, so that the checks of one layer can be updated in any order -- or all
 at once -- without changing the result.
 
@@ -205,9 +205,9 @@ function layered_schedule(row_ptr::AbstractVector{<:Integer}, col_ind::AbstractV
 end
 
 """
-    layered_schedule(H) -> Vector{Vector{Int}}
+$(TYPEDSIGNATURES)
 
-Nested-vector form, for interactive use and for comparison against upstream.
+Return the nested-vector schedule form for interactive use.
 """
 function layered_schedule(H::AbstractMatrix)
     row_ptr, col_ind = csr_of(H)
@@ -216,26 +216,26 @@ function layered_schedule(H::AbstractMatrix)
 end
 
 """
-    layered_schedule(H::Union{fpMatrix, FqMatrix}) -> Vector{Vector{Int}}
+$(TYPEDSIGNATURES)
 
-Flint-native form, as in [`csr_of`](@ref).
+Return the nested-vector schedule for a Flint matrix, as in [`csr_of`](@ref).
 """
 layered_schedule(H::Union{fpMatrix, FqMatrix}) =
     layered_schedule(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
-    serial_schedule(num_check) -> (layer_ptr, layer_checks)
+$(TYPEDSIGNATURES)
 
-One check per layer: the fully serial schedule.
+Return the fully serial schedule with one check per layer.
 """
 function serial_schedule(num_check::Integer)
     return collect(1:(Int(num_check) + 1)), collect(1:Int(num_check))
 end
 
 """
-    balance_of_layered_schedule(layer_ptr)
+$(TYPEDSIGNATURES)
 
-Ratio of the largest layer to the smallest. 1 means every layer is the same size,
+Return the ratio of the largest layer to the smallest. 1 means every layer is the same size,
 which is the best case for a parallel implementation of a layered schedule.
 
 Reference: Layered decoding of quantum LDPC codes.
@@ -260,9 +260,9 @@ function balance_of_layered_schedule(sch::AbstractVector{<:AbstractVector{<:Inte
 end
 
 """
-    init_soft_workspace(row_ptr, col_ind, num_check, num_var; schedule, layer_ptr, layer_checks, base)
+$(TYPEDSIGNATURES)
 
-Allocate the decoder workspace for the parity-check matrix given in compressed
+Return a newly allocated decoder workspace for the parity-check matrix given in compressed
 sparse row form. Linear in the number of edges (FIX-9).
 
 `row_ptr` and `col_ind` are exactly scipy's `H.indptr` and `H.indices` for a
@@ -350,9 +350,9 @@ function init_soft_workspace(row_ptr::AbstractVector{<:Integer},
 end
 
 """
-    init_soft_workspace(H; schedule, layer_ptr, layer_checks)
+$(TYPEDSIGNATURES)
 
-Convenience constructor from any `AbstractMatrix`. Densely scans `H`, so prefer
+Return a decoder workspace from any `AbstractMatrix`. This method densely scans `H`, so prefer
 the compressed-sparse-row form for anything large.
 """
 function init_soft_workspace(H::AbstractMatrix; schedule::Symbol = :flooding,
@@ -365,9 +365,9 @@ function init_soft_workspace(H::AbstractMatrix; schedule::Symbol = :flooding,
 end
 
 """
-    init_soft_workspace(H::Union{fpMatrix, FqMatrix}; schedule, layer_ptr, layer_checks)
+$(TYPEDSIGNATURES)
 
-Flint-native form, as in [`csr_of`](@ref).
+Return a decoder workspace from a Flint matrix, as in [`csr_of`](@ref).
 """
 init_soft_workspace(H::Union{fpMatrix, FqMatrix}; schedule::Symbol = :flooding,
                     layer_ptr::AbstractVector{<:Integer} = _NO_INDICES,
@@ -406,9 +406,9 @@ function _validated_layers(layer_ptr::AbstractVector{<:Integer},
 end
 
 """
-    load_soft_channel!(W, LLR_in; syndrome, erasures, decimated_bits, decimated_values)
+$(TYPEDSIGNATURES)
 
-Load one channel realization into the workspace: channel LLRs, target syndrome,
+Return `W` after loading one channel realization: channel LLRs, target syndrome,
 erasures (neutral belief) and manually decimated bits (pinned belief). Resets the
 messages, so a workspace can be reused for an unrelated syndrome.
 
@@ -464,7 +464,9 @@ end
 # ==============================================================================
 
 """
-The exact box-plus operator (Jacobian logarithm) for sum-product. Mathematically
+$(TYPEDSIGNATURES)
+
+Return the exact box-plus operator (Jacobian logarithm) for sum-product. Mathematically
 the tanh rule, but numerically bulletproof against NaNs.
 """
 @inline function boxplus_exact(x::Float64, y::Float64)
@@ -473,10 +475,18 @@ the tanh rule, but numerically bulletproof against NaNs.
     return base + corr
 end
 
-"""The min-sum box-plus operator."""
+"""
+$(TYPEDSIGNATURES)
+
+Return the min-sum box-plus operator.
+"""
 @inline boxplus_minsum(x::Float64, y::Float64) = sign(x) * sign(y) * min(abs(x), abs(y))
 
-"""The min-sum box-plus operator with a low-complexity correction term."""
+"""
+$(TYPEDSIGNATURES)
+
+Return the min-sum box-plus operator with a low-complexity correction term.
+"""
 @inline function boxplus_minsum_correction(x::Float64, y::Float64)
     base = sign(x) * sign(y) * min(abs(x), abs(y))
     sum_abs = abs(x + y)
@@ -1069,9 +1079,9 @@ end
 # ==============================================================================
 
 """
-    decode!(W, LLR_in; kwargs...) -> (converged, iterations)
+$(TYPEDSIGNATURES)
 
-Decode one channel realization into `W`, and optionally copy the hard decisions
+Return `(converged, iterations)` after decoding one channel realization into `W`, and optionally copy the hard decisions
 into `out`.
 
 Only `(converged, iterations)` is returned, so that a decode moves no array

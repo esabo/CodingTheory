@@ -704,6 +704,11 @@ function _Canteaut_Chabaud_attack_binary(G::Matrix{Int}, target_w::Int; w_recv::
                     end
                 end
             end
+
+            # Entries are tied to the current systematic matrix. Retaining hashes
+            # across column swaps combines rows from unrelated information sets and
+            # can report vectors that are not codewords.
+            empty!(hash_X)
             
             # Helper 1: Build the hash map for the binary case (64-bit bitsliced)
             function _build_X_binary!(depth::Int, picked::Int, p::Int, 

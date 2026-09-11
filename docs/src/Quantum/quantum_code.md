@@ -1,43 +1,62 @@
-* `char_vec`: a length `2n` vector with elements in the `Z/(2p)` if
-  `characteristic(field(C1))` is 2 and `Z/(p)` otherwise. The first `n` elements
-  specify the exponents of the `X` phases and second `n` the exponents of the
-  `Z` phases; a missing argument will be set to the all-zero vector
+# Quantum-code API
 
-# Notes
-* A `+1` phase should be entered as `0` since the character vector stores the
-  exponents.
-* Stabilizer signs are automatically computed given the character vector.
-* The orthogonality of the stabilizers are automatically checked and will error
-  upon failure.
+Quantum code constructors accept symplectic matrices, CSS check pairs, or
+binary Pauli strings. Constructors validate commutation and return the most
+specific supported code type. Use the common accessors documented below
+instead of relying on struct fields.
 
-assumed to be in
-symplectic form over the base field.
+For a guided introduction, see [Quantum Codes](@ref quantum-codes-tutorial).
 
-* This is intended to be a simple function wrapper for `typeof(S)` since the
- constructor for `SubsystemCode` automatically returns a `SubsystemCodeCSS` if possible.
- Manually changing the elements of the struct `S` without using the helper
- functions provided here is therefore not recommended.
-
-# Stabilizer Codes
+## Types and core operations
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["stabilizercode.jl"]
+Pages = [
+    "Quantum/types.jl",
+    "Quantum/stabilizer_code.jl",
+    "Quantum/subsystem_code.jl",
+]
 Private = false
 ```
 
-# Subsystem Codes
+## New codes from old
+
+These operations include quantum direct sums, puncturing, shortening,
+augmentation and expurgation, local Fourier transformations, and conversions
+between stabilizer and subsystem presentations.
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["subsystemcode.jl"]
+Pages = ["Quantum/new_codes_from_old.jl"]
 Private = false
 ```
 
-# Graph States
+## Distance and bounds
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = ["graphstate.jl"]
+Pages = [
+    "Quantum/min_dist_bounds.jl",
+    "Quantum/min_dist_exact.jl",
+    "Quantum/min_dist_probabilistic.jl",
+    "Quantum/min_dist_heuristics.jl",
+    "Quantum/bounds.jl",
+]
+Private = false
+```
+
+## Weight enumerators
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Quantum/weight_enumerators.jl"]
+Private = false
+```
+
+## Input and output
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Quantum/io.jl"]
 Private = false
 ```

@@ -38,13 +38,11 @@ multiplicative_gap_lower_bound
 density_lower_bound
 ```
 
-See also: `plot_EXIT_chart`, `multiplicative_gap`
+See also: `EXIT_chart_plot` and `multiplicative_gap`.
 
-## Comments
+## Optimizing degree distributions
 
-(these are just temporary notes)
-
-We have functions for the following:
+The optimization helpers support the following workflows:
 
 * `optimal_lambda` (`optimal_rho`): Given $\lambda$ (or $\rho$) and a threshold $\epsilon^{BP}$ (or target rate), find the distribution $\rho$ (or $\lambda$) with at least that threshold maximizing design rate (with at least that target rate maximizing threshold).
 * `optimal_lambda_and_rho`: Given a target rate (threshold), find distributions $\lambda$ and $\rho$ that maximize threshold (rate).

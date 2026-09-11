@@ -172,7 +172,7 @@ Computes the Hamming weight distribution of a linear code.
 Uses the primal generator Trellis Product for low-rate codes, and the dual generator 
 Trellis Product (followed by the MacWilliams Identity) for high-rate codes.
 """
-function _weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
+function weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
     k = C.k
     n = C.n
     q = Int(order(C.F))
@@ -202,10 +202,14 @@ function _weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50,
         return HWE_dict
     else
         verbose && println("Applying Krawtchouk-MacWilliams Transform to dual distribution...")
-        primal_hwe = Macwilliams_HWE_transform(HWE_dict, n, k, q)
+        primal_hwe = MacWilliams_HWE_transform(HWE_dict, n, n - k, q)
         return primal_hwe
     end
 end
+
+# Internal compatibility for callers written before this routine became public.
+_weight_distribution_trellis(C::AbstractLinearCode; kwargs...) =
+    weight_distribution_trellis(C; kwargs...)
 
 """
     _distance_from_CWE_dict(CWE_dict::Dict{NTuple{Q, Int}, BigInt}) where Q
@@ -963,23 +967,12 @@ _get_LR_indices(M::CTMatrixTypes) = _get_LR_indices(Array(M))
 Computes the minimum distance by building the optimally permuted and sectionalized Trellis.
 """
 function _minimum_distance_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
-    k, n, q = C.k, C.n, Int(order(C.F))
-    
-    is_generator = k <= n / 2
-    mat = is_generator ? Array(generator_matrix(C)) : Array(parity_check_matrix(C))
-    
-    verbose && println("Optimizing trellis via column permutations...")
-    best_M, best_perm, best_peak_E = optimize_trellis_permutation(mat, num_trials)
-    
-    verbose && println("Computing optimal Lafourcade-Vardy sectionalization boundaries...")
-    boundaries = optimal_sectionalization(best_M, q)
-    
-    # DYNAMICALLY ROUTE TO MIN-WEIGHT (VITERBI) INSTEAD OF CWE
-    if is_generator
-        return _min_weight_TP_Viterbi_sectionalized(best_M, boundaries, verbose)
-    else
-        return _min_weight_syndrome_sectionalized(best_M, boundaries, verbose)
-    end
+    distribution = weight_distribution_trellis(
+        C; num_trials=num_trials, verbose=verbose)
+    nonzero_weights = filter(!iszero, keys(distribution))
+    isempty(nonzero_weights) &&
+        throw(DomainError(C, "The zero code has no positive minimum distance."))
+    return minimum(nonzero_weights)
 end
 
 """

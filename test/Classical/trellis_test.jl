@@ -165,7 +165,7 @@ end
             C.d = missing # clear cache
             
             # Test the explicit trellis router (Pure Viterbi)
-            d_trellis = minimum_distance(C, alg=:trellis, verbose=false)
+            d_trellis, _ = minimum_distance(C, alg=:trellis, verbose=false)
             @test d_trellis == 3
             
             C.d = missing
@@ -187,7 +187,8 @@ end
             @test sum(values(hwe_dual)) == 8
             
             # Test the MacWilliams HWE transform back to primal
-            primal_reconstructed = Macwilliams_HWE_transform(hwe_dual, C.n, C.k, 2)
+            primal_reconstructed = MacWilliams_HWE_transform(
+                hwe_dual, C.n, dimension(C_dual), 2)
             
             # It should perfectly reconstruct the Hamming(7,4) weights
             @test primal_reconstructed[3] == 7
@@ -256,7 +257,7 @@ end
             C_15 = LinearCode(H_15, true)
             
             # Pure Trellis
-            d_pure = minimum_distance(C_15, alg=:trellis, verbose=false)
+            d_pure, _ = minimum_distance(C_15, alg=:trellis, verbose=false)
             @test d_pure == 3
             
             # Force the DFS to handle a large death zone (max_span = 3)

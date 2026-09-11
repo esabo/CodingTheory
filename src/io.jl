@@ -25,7 +25,7 @@ function _classical_export_matrix(
 end
 
 """
-    code_matrix_array(C; representation=:generator)
+$(TYPEDSIGNATURES)
 
 Return a classical code matrix as a plain `Matrix{Int}` over the prime field.
 Extension-field symbols are expanded into adjacent coordinate columns.
@@ -57,9 +57,9 @@ function _write_integer_csv(path::AbstractString, values::Matrix{Int})
 end
 
 """
-    write_code_csv(path, C; representation=:generator)
+$(TYPEDSIGNATURES)
 
-Write `code_matrix_array(C)` as a header-free numeric CSV suitable for
+Return `path` after writing `code_matrix_array(C)` as a header-free numeric CSV suitable for
 `numpy.loadtxt(path, delimiter=",", dtype=int)`. For LDPC codes the default
 is `representation=:parity_check`.
 
@@ -96,9 +96,9 @@ function _code_export_type(path::AbstractString, type::Symbol)
 end
 
 """
-    save_code(path, C; type=:auto, kwargs...)
+$(TYPEDSIGNATURES)
 
-Export a classical, LDPC, stabilizer, or subsystem code through a unified
+Return `path` after exporting a classical, LDPC, stabilizer, or subsystem code through a unified
 interface. The backend is selected by `Val(type)`; `type=:auto` infers it from
 the file extension. `:nz` is accepted as an alias for `:npz`.
 

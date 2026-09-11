@@ -1,22 +1,14 @@
 # Product Codes
 
-## Constructors
+`MatrixProductCode` combines constituent codes using a defining matrix. The
+usual direct product and tensor-product constructions are also available.
 
 ```@docs
 MatrixProductCode
+RandomMatrixProductCode
+constituent_codes
+defining_matrix
 ```
 
-```@docs
-
-```
-
-product_code
-tensor_product_code
-
-
-## Attributes
-
-MPC.C
-MPC.A
-
-## Methods
+Use `product_code` for the ordinary product construction and
+`tensor_product` for the corresponding tensor-product operation.

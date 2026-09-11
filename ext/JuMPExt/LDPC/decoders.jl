@@ -21,7 +21,7 @@ function _init_LP_decoder_LDPC(H::Union{CodingTheory.CTMatrixTypes, AbstractMatr
         end
         wmap[j] = curr
         inner_subsets = Vector{Vector{Int}}()
-        for S in powerset(cn)
+        for S in CodingTheory.powerset(cn)
             if iseven(length(S)) # && !isempty(S)
                 push!(inner_subsets, S)
                 for i in S

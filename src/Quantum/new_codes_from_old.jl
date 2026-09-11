@@ -92,7 +92,7 @@ function _direct_sum_character_vector(
 end
 
 """
-    quantum_direct_sum(A, B)
+$(TYPEDSIGNATURES)
     A ⊕ B
 
 Return the independent direct sum of two stabilizer/subsystem codes. Additive
@@ -158,9 +158,9 @@ function _construct_projected_quantum_code(
 end
 
 """
-    puncture(S, qudits)
+$(TYPEDSIGNATURES)
 
-Delete physical coordinates from every generator. A punctured stabilizer code
+Return the code obtained by deleting physical coordinates from every generator. A punctured stabilizer code
 may become a subsystem code when the projected generators no longer commute.
 Character-vector phases are intentionally rejected until phase transport is
 implemented.
@@ -195,9 +195,9 @@ function _additively_shorten_generators(
 end
 
 """
-    shorten(S, qudits)
+$(TYPEDSIGNATURES)
 
-Restrict to additive generator combinations acting trivially on `qudits`,
+Return the code obtained by restricting to additive generator combinations acting trivially on `qudits`,
 then delete those coordinates. Unlike `puncture`, shortening a stabilizer code
 always remains a stabilizer code.
 """
@@ -230,7 +230,7 @@ function _copy_local_clifford_distance_cache!(
 end
 
 """
-    local_fourier(S, qudits)
+$(TYPEDSIGNATURES)
     swap_X_Z(S, qudits)
 
 Apply the single-qudit Fourier Clifford `(x,z) -> (-z,x)` on the selected
@@ -276,9 +276,9 @@ function _centralizing_additive_subgroup(
 end
 
 """
-    augment(S, row; verbose=true)
+$(TYPEDSIGNATURES)
 
-Impose a Pauli generator as a new stabilizer constraint. Existing generator
+Return the code obtained by imposing a Pauli generator as a new stabilizer constraint. Existing generator
 combinations that anticommute with `row` are removed by an additive kernel
 calculation before `row` is added. This implements stabilizer measurement and
 subsystem gauge fixing without assuming adjacent row pairs.
@@ -310,9 +310,9 @@ function augment(
 end
 
 """
-    expurgate(S, rows; verbose=true)
+$(TYPEDSIGNATURES)
 
-Remove the selected stabilizer presentation rows and reconstruct the code from
+Return the code obtained by removing the selected stabilizer presentation rows and reconstructing it from
 the remaining stabilizers and existing gauge pairs. Additive dimensions,
 logicals, and caches are recomputed.
 """
@@ -355,9 +355,9 @@ expurgate(
 ) = expurgate(S, [row]; kwargs...)
 
 """
-    gauge_code(S, additional_generators)
+$(TYPEDSIGNATURES)
 
-Promote additional Pauli generators into the gauge group of `S`. The
+Return the subsystem code obtained by promoting additional Pauli generators into the gauge group of `S`. The
 subsystem constructor recomputes the center and all protected/gauge
 dimensions additively.
 """

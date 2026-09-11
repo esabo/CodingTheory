@@ -140,10 +140,10 @@ function _expand_and_find_optimal_check!(W::PEGWorkspace, root_v::Int)
             c_deg = W.c_degrees[c]
             c_ace = W.ace_path[c]
             
-            # The PEG+ACE Selection Logic:
-            # 1. Prefer higher ACE recovery (if creating a cycle, make sure it has high extrinsic connections)
-            # 2. Break ties with lower check node degree (standard PEG)
-            if c_ace > best_ace || (c_ace == best_ace && c_deg < best_degree)
+            # Standard PEG first balances check-node degree among equally distant
+            # candidates. ACE is a secondary tie-breaker; prioritizing it first can
+            # produce unnecessarily unbalanced parity-check matrices.
+            if c_deg < best_degree || (c_deg == best_degree && c_ace > best_ace)
                 best_ace = c_ace
                 best_degree = c_deg
                 candidate_check = c

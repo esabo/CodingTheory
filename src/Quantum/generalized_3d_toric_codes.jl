@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem)
+$(TYPEDSIGNATURES)
 
 Return the algebraic three-dimensional generalized toric-code datum defined by
 `a` and `b`. This object is not a finite stabilizer code.
@@ -19,9 +19,9 @@ function Generalized3DToricCode(a::CTLRPolyElem, b::CTLRPolyElem)
 end
 
 """
-    FiniteGeneralized3DToricCode(a, b, a1, a2, l_z)
+$(TYPEDSIGNATURES)
 
-Construct a finite, twisted three-dimensional generalized toric code.
+Return a finite, twisted three-dimensional generalized toric code.
 """
 function FiniteGeneralized3DToricCode(
     a::CTLRPolyElem, b::CTLRPolyElem,
@@ -56,9 +56,9 @@ function FiniteGeneralized3DToricCode(
 end
 
 """
-    FiniteGeneralized3DToricCode(a, b, l_x, l_y, l_z)
+$(TYPEDSIGNATURES)
 
-Construct a finite, untwisted three-dimensional generalized toric code.
+Return a finite, untwisted three-dimensional generalized toric code.
 """
 function FiniteGeneralized3DToricCode(
     a::CTLRPolyElem, b::CTLRPolyElem, l_x::Int, l_y::Int, l_z::Int
@@ -72,9 +72,10 @@ function FiniteGeneralized3DToricCode(
 end
 
 """
-    BBCode3D(args...)
+$(TYPEDSIGNATURES)
 
-Constructor alias for the generalized three-dimensional toric-code family.
+Return the corresponding member of the generalized three-dimensional
+toric-code family.
 Two polynomial arguments construct the algebraic object; lattice arguments
 construct a `FiniteGeneralized3DToricCode`.
 """

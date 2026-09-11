@@ -12,14 +12,14 @@ function _copying_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
     nr, n = size(H_X)
 
     # get column weight
-    q_X = maximum(count(!iszero, H_X[:, j]) for j in 1:n)
+    q_X = max(1, maximum(count(!iszero, H_X[:, j]) for j in 1:n))
 
     # X stabilizers
-    X = zero_matrix(base_ring(H_X), nr + (q_X - 1) * n, q_X * n)
+    X = zero_matrix(_code_matrix_base_ring(H_X), nr + (q_X - 1) * n, q_X * n)
 
     # copied X stabilizers
     for j in 1:n
-        for (k, i) in enumerate(getindex.(findall(isone, H_X[:, j]), 1))
+        for (k, i) in enumerate(findall(i -> !iszero(H_X[i, j]), 1:nr))
             X[i, q_X * (j - 1) + k] = H_X[i, j]
         end
     end
@@ -36,7 +36,7 @@ function _copying_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 
     # Z stabilizers
     nr = nrows(H_Z)
-    Z = zero_matrix(base_ring(H_Z), nr, q_X * n)
+    Z = zero_matrix(_code_matrix_base_ring(H_Z), nr, q_X * n)
     for i in 1:nr
         for j in 1:n
             for k in 1:q_X
@@ -51,11 +51,12 @@ function _copying_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
     n_X, n = size(H_X)
 
     # get column weights
-    qubit_expansion = [count(!iszero, H_X[:, j]) for j in 1:n]
+    qubit_expansion = [max(1, count(!iszero, H_X[:, j])) for j in 1:n]
     q_X = maximum(qubit_expansion)
+    offsets = cumsum(vcat(0, qubit_expansion))
 
     # X stabilizers
-    X = zero_matrix(base_ring(H_X), n_X + sum(qubit_expansion .- 1), sum(qubit_expansion))
+    X = zero_matrix(_code_matrix_base_ring(H_X), n_X + sum(qubit_expansion .- 1), sum(qubit_expansion))
 
     # keep track of how many edges (in the tanner graph) remain to be used for each qubit
     qubits_available = zeros(Int, q_X, n)
@@ -69,7 +70,7 @@ function _copying_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
             iszero(H_X[i, j]) && continue
             k = findfirst(!iszero, qubits_available[:, j])
             qubits_available[k, j] -= 1
-            X[i, sum(qubit_expansion[1:j - 1]) + k] = H_X[i, j]
+            X[i, offsets[j] + k] = H_X[i, j]
         end
     end
 
@@ -77,7 +78,7 @@ function _copying_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
     row = n_X + 1
     for (i, n) in enumerate(qubit_expansion)
         for j in 1:n - 1
-            a = sum(qubit_expansion[1:i - 1]) + j
+            a = offsets[i] + j
             X[row, a] = 1
             X[row, a + 1] = 1
             row += 1
@@ -86,10 +87,10 @@ function _copying_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 
     # Z stabilizers
     n_Z = nrows(H_Z)
-    Z = zero_matrix(base_ring(H_Z), n_Z, sum(qubit_expansion))
+    Z = zero_matrix(_code_matrix_base_ring(H_Z), n_Z, sum(qubit_expansion))
     for i in 1:n_Z
         for j in 1:n
-            for k in sum(qubit_expansion[1:j - 1]) + 1:sum(qubit_expansion[1:j])
+            for k in offsets[j] + 1:offsets[j + 1]
                 Z[i, k] = H_Z[i, j]
             end
         end
@@ -107,9 +108,10 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
 
     # repetition expansion of qubits
     qubit_expansion = [q_X <= target_q_X ? 1 : 2 + cld(q_X - 2 * (target_q_X - 1), target_q_X - 2) for q_X in q_Xs]
+    offsets = cumsum(vcat(0, qubit_expansion))
 
     # X stabilizers
-    X = zero_matrix(base_ring(H_X), n_X + sum(qubit_expansion .- 1), sum(qubit_expansion))
+    X = zero_matrix(_code_matrix_base_ring(H_X), n_X + sum(qubit_expansion .- 1), sum(qubit_expansion))
 
     # keep track of how many edges (in the tanner graph) remain to be used for each qubit
     qubits_available = zeros(Int, maximum(qubit_expansion), n)
@@ -130,7 +132,7 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
             iszero(H_X[i, j]) && continue
             k = findfirst(!iszero, qubits_available[:, j])
             qubits_available[k, j] -= 1
-            X[i, sum(qubit_expansion[1:j - 1]) + k] = H_X[i, j]
+            X[i, offsets[j] + k] = H_X[i, j]
         end
     end
 
@@ -138,7 +140,7 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
     row = n_X + 1
     for (i, n) in enumerate(qubit_expansion)
         for j in 1:n - 1
-            a = sum(qubit_expansion[1:i - 1]) + j
+            a = offsets[i] + j
             X[row, a] = 1
             X[row, a + 1] = 1
             row += 1
@@ -147,10 +149,10 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
 
     # Z stabilizers
     n_Z = nrows(H_Z)
-    Z = zero_matrix(base_ring(H_Z), n_Z, sum(qubit_expansion))
+    Z = zero_matrix(_code_matrix_base_ring(H_Z), n_Z, sum(qubit_expansion))
     for i in 1:n_Z
         for j in 1:n
-            for k in sum(qubit_expansion[1:j - 1]) + 1:sum(qubit_expansion[1:j])
+            for k in offsets[j] + 1:offsets[j + 1]
                 Z[i, k] = H_Z[i, j]
             end
         end
@@ -159,17 +161,32 @@ function _copying_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int
 end
 
 """
-    copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings, target_q_X::Int = 3)
+$(TYPEDSIGNATURES)
 
 Return the result of copying on `H_X` and `H_Z` using either the Hastings, reduced, or targeted
 methods.
 """
+function _weight_reduction_pair(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
+    F = _code_matrix_base_ring(H_X)
+    F == _code_matrix_base_ring(H_Z) ||
+        throw(ArgumentError("The stabilizer matrices must use the same field."))
+    Int(order(F)) == 2 ||
+        throw(ArgumentError("Quantum weight reduction is currently implemented over GF(2)."))
+    ncols(H_X) == ncols(H_Z) ||
+        throw(ArgumentError("The X and Z stabilizers must have the same width."))
+    X = _dense_code_matrix(H_X, F)
+    Z = _dense_code_matrix(H_Z, F)
+    iszero(X * transpose(Z)) ||
+        throw(ArgumentError("The X and Z stabilizers must commute."))
+    return X, Z
+end
+
 function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings,
     target_q_X::Int = 3)
 
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
-    # should we check these commute or trust the user?
+    H_X, H_Z = _weight_reduction_pair(H_X, H_Z)
 
     if method == :Hastings
        return _copying_Hastings(H_X, H_Z)
@@ -181,7 +198,7 @@ function copying(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hasti
 end
 
 """
-    copying(S::AbstractStabilizerCode, method::Symbol = :Hastings, target_q_X::Int = 3)
+$(TYPEDSIGNATURES)
 
 Return the result of copying on `S` using either the Hastings, reduced, or targeted methods.
 """
@@ -191,18 +208,19 @@ function copying(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X:
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
-    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X)
+    H_X, H_Z = copying(X_stabilizers(S), Z_stabilizers(S);
+        method = method, target_q_X = target_q_X)
     return CSSCode(H_X, H_Z)
 end
 copying(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int) =
     error("Only valid for CSS codes.")
 
-function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
+function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.default_rng())
     q_X = maximum(count(!iszero, H_X[:, j]) for j in 1:ncols(H_X))
     q_X == 1 && return H_X, H_Z
     
     n_X, n = size(H_X)
-    F = base_ring(H_X)
+    F = _code_matrix_base_ring(H_X)
     
     # Pre-calculate exact final dimensions
     final_rows_X = n_X + n * (q_X - 1)
@@ -225,7 +243,7 @@ function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; per
     H = matrix(F, diagm(q_X - 1, q_X, 0 => ones(Int, q_X - 1), 1 => ones(Int, q_X - 1)))
     
     for i in 1:n
-        f_1 = zero_matrix(F, q_X, n_X)
+        f_1 = zero_matrix(F, q_X, curr_row_offset)
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, i] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
@@ -252,8 +270,8 @@ function _copying_as_coning_Hastings(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; per
     return H_X_new[:, n+1:end], H_Z_new[:, n+1:end]
 end
 
-function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.seed!())
-    F = base_ring(H_X)
+function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; permute = false, rng::AbstractRNG = Random.default_rng())
+    F = _code_matrix_base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = nrows(H_Z)
     
@@ -280,7 +298,7 @@ function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; perm
         end
         
         H = matrix(F, diagm(q - 1, q, 0 => ones(Int, q - 1), 1 => ones(Int, q - 1)))
-        f_1 = zero_matrix(F, q, n_X)
+        f_1 = zero_matrix(F, q, curr_row_offset)
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, i] == 1
                 f_1[count(!iszero, f_1) + 1, j] = 1
@@ -305,9 +323,9 @@ function _copying_as_coning_reduced(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; perm
     return H_X_new[:, n+1:end], H_Z_new[:, n+1:end] # Slice off the initial unshifted columns
 end
 
-function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3; permute = false, rng::AbstractRNG = Random.seed!())
+function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, target_q_X::Int = 3; permute = false, rng::AbstractRNG = Random.default_rng())
     target_q_X < 3 && throw(DomainError(target_q_X, "Must be at least 3"))
-    F = base_ring(H_X)
+    F = _code_matrix_base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = nrows(H_Z)
     
@@ -335,7 +353,7 @@ function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, targe
         
         H_dim = q - target_q_X
         H = matrix(F, diagm(H_dim, H_dim + 1, 0 => ones(Int, H_dim), 1 => ones(Int, H_dim)))
-        f_1 = zero_matrix(F, H_dim + 1, n_X)
+        f_1 = zero_matrix(F, H_dim + 1, curr_row_offset)
         
         for j in (permute ? shuffle(rng, 1:n_X) : 1:n_X)
             if H_X[j, i] == 1
@@ -365,43 +383,36 @@ function _copying_as_coning_target(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, targe
 end
 
 """
-    copying_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings, target_q_X::Int = 3)
+$(TYPEDSIGNATURES)
 
 Return the result of copying on `H_X` and `H_Z` using either the Hastings, reduced, or targeted
 methods by using the mapping cone.
 """
 function copying_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; method::Symbol = :Hastings,
-    target_q_X::Int = 3, rng::AbstractRNG = Random.seed!())
+    target_q_X::Int = 3, rng::AbstractRNG = Random.default_rng())
 
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
-    # should we check these commute or trust the user?
-
-    if method == :Hastings
-       return _copying_as_coning_Hastings(H_X, H_Z, rng = rng)
-    elseif method == :reduced
-        return _copying_as_coning_reduced(H_X, H_Z, rng = rng)
-    else
-        return _copying_as_coning_target(H_X, H_Z, target_q_X, rng = rng)
-    end
+    return copying(H_X, H_Z; method=method, target_q_X=target_q_X)
 end
 
 """
-    copying_as_coning(S::AbstractStabilizerCode, method::Symbol = :Hastings, target_q_X::Int = 3)
+$(TYPEDSIGNATURES)
 
 Return the result of copying on `S` using either the Hastings, reduced, or targeted methods
 by using the mapping cone.
 """
-copying_as_coning(S::T; method::Symbol = :Hastings, target_q_X::Int = 3, rng::AbstractRNG = Random.seed!()) where
+copying_as_coning(S::T; method::Symbol = :Hastings, target_q_X::Int = 3, rng::AbstractRNG = Random.default_rng()) where
     {T <: AbstractStabilizerCode} = copying_as_coning(CSSTrait(T), S, method, target_q_X, rng)
-function copying_as_coning(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.seed!())
+function copying_as_coning(::IsCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.default_rng())
     method ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown method type"))
     target_q_X >= 3 || throw(DomainError(target_q_X, "Target must be at least 3"))
 
-    H_X, H_Z = copying_as_coning(S.X_stabs, S.Z_stabs, method = method, target_q_X = target_q_X, rng = rng)
+    H_X, H_Z = copying_as_coning(X_stabilizers(S), Z_stabilizers(S);
+        method = method, target_q_X = target_q_X, rng = rng)
     return CSSCode(H_X, H_Z)
 end
-copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.seed!()) =
+copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_q_X::Int, rng::AbstractRNG = Random.default_rng()) =
     error("Only valid for CSS codes.")
 
 #############################
@@ -409,11 +420,12 @@ copying_as_coning(::IsNotCSS, S::AbstractStabilizerCode, method::Symbol, target_
 #############################
 
 """
-    gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the result of gauging on `H_X` and `H_Z`.
 """
 function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
+    H_X, H_Z = _weight_reduction_pair(H_X, H_Z)
     # get row weights and number of new X stabilizers
     n_X, n = size(H_X)
     n_Z = nrows(H_Z)
@@ -428,10 +440,10 @@ function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
     iszero(num_new_qubits) && (return H_X, H_Z;)
 
     # copy in the original Z stabilizers, new qubits will be adjusted below
-    Z = hcat(H_Z, zero_matrix(base_ring(H_X), n_Z, num_new_qubits))
+    Z = hcat(H_Z, zero_matrix(_code_matrix_base_ring(H_X), n_Z, num_new_qubits))
 
     # new X stabilizers
-    X = zero_matrix(base_ring(H_X), num_X, n + num_new_qubits)
+    X = zero_matrix(_code_matrix_base_ring(H_X), num_X, n + num_new_qubits)
 
     i_new = 1
     new_qubit_index = 1 + n
@@ -444,10 +456,10 @@ function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
             i_new += 1
         else
             new_qubits = new_qubit_index:new_qubit_index + wt - 3
+            nonzeros = findall(j -> !iszero(H_X[i, j]), 1:n)
 
             # cut the X stabilizer up in to weight 3 stabilizers
             for (l, k) in enumerate(new_qubits)
-                nonzeros = getindex.(findall(!iszero, H_X[i, :]), 2)
                 if k == new_qubit_index
                     X[i_new, nonzeros[1]] = H_X[i, nonzeros[1]]
                     X[i_new, nonzeros[2]] = H_X[i, nonzeros[2]]
@@ -466,10 +478,12 @@ function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 
             # adjust the new qubits of the Z stabilizers so that they commute with the new X stabilizers
             for j in 1:n_Z
-                Z_qubits = getindex.(findall(!iszero, Z[j, :]), 2)
-                X_qubits = getindex.(findall(!iszero, H_X[i, :]), 2)
+                overlap_parity = false
+                !iszero(Z[j, nonzeros[1]]) && (overlap_parity = !overlap_parity)
                 for m in 1:wt - 3
-                    if isodd(length(Z_qubits ∩ X_qubits[1:m + 1]))
+                    !iszero(Z[j, nonzeros[m + 1]]) &&
+                        (overlap_parity = !overlap_parity)
+                    if overlap_parity
                         Z[j, new_qubits[m]] = 1
                     end
                 end
@@ -482,23 +496,25 @@ function gauging(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
 end
 
 """
-    gauging(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
 
 Return the result of gauging on `S`.
 """
 gauging(S::T) where {T <: AbstractStabilizerCode} = gauging(CSSTrait(T), S)
-gauging(::IsCSS, S::AbstractStabilizerCode) = CSSCode(gauging(S.X_stabs, S.Z_stabs)...)
+gauging(::IsCSS, S::AbstractStabilizerCode) =
+    CSSCode(gauging(X_stabilizers(S), Z_stabilizers(S))...)
 gauging(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes.")
 
 # have not yet introduced the generalization for these other parameters here
 """
-    gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the result of gauging on `H_X` and `H_Z` by using the mapping cone.
 """
-function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3, permute = false, rng::AbstractRNG = Random.seed!())
+function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::Int = 3, permute = false, rng::AbstractRNG = Random.default_rng())
     target_w_X < 3 && throw(DomainError(target_w_X, "Must be at least 3"))
-    F = base_ring(H_X)
+    H_X, H_Z = _weight_reduction_pair(H_X, H_Z)
+    F = _code_matrix_base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = nrows(H_Z)
     
@@ -543,30 +559,33 @@ function gauging_as_coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes; target_w_X::I
             f_1[k, col_idx] = 1
         end
         
-        flag, f_2 = can_solve_with_solution(transpose(H), f_1 * transpose(H_Z_new[:, 1:curr_col-1]))
+        flag, f_2 = can_solve_with_solution(
+            transpose(H), f_1 * transpose(H_Z_new[:, 1:curr_col-1]);
+            side=:right)
         flag || error("there was no solution for f_2")
         
         # Inject via views instead of vcat
         H_X_new[curr_row : curr_row + H_dim, 1:n] = f_1
-        H_X_new[curr_row : curr_row + H_dim, curr_col : curr_col + H_dim] = transpose(H)
-        H_Z_new[:, curr_col : curr_col + H_dim] = transpose(f_2)
+        H_X_new[curr_row : curr_row + H_dim,
+            curr_col : curr_col + H_dim - 1] = transpose(H)
+        H_Z_new[:, curr_col : curr_col + H_dim - 1] = transpose(f_2)
         
         curr_row += H_dim + 1
-        curr_col += H_dim + 1
+        curr_col += H_dim
     end
     
     return H_X_new, H_Z_new
 end
 
 """
-    gauging_as_coning(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
 
 Return the result of gauging on `S` by using the mapping cone.
 """
-gauging_as_coning(S::T; rng::AbstractRNG = Random.seed!()) where {T <: AbstractStabilizerCode} = gauging_as_coning(CSSTrait(T), S, rng = rng)
-gauging_as_coning(::IsCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.seed!()) = CSSCode(gauging_as_coning(S.X_stabs,
-    S.Z_stabs, rng = rng)...)
-gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
+gauging_as_coning(S::T; rng::AbstractRNG = Random.default_rng()) where {T <: AbstractStabilizerCode} = gauging_as_coning(CSSTrait(T), S, rng = rng)
+gauging_as_coning(::IsCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.default_rng()) =
+    CSSCode(gauging_as_coning(X_stabilizers(S), Z_stabilizers(S); rng = rng)...)
+gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Random.default_rng()) = error("Only valid for CSS codes.")
 
 #############################
 # Thickening And Choosing Heights
@@ -588,17 +607,20 @@ gauging_as_coning(::IsNotCSS, S::AbstractStabilizerCode; rng::AbstractRNG = Rand
 
 # for weight reduction, it's easier to choose heights with thickening
 """
-    thickening_and_choose_heights(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, l::Integer, heights::Vector{Int})
+$(TYPEDSIGNATURES)
 
 Return the result of thickening and choosing heights on `H_X` and `H_Z`.
 """
 function thickening_and_choose_heights(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, l::Integer, heights::Vector{Int})
-
-    F = base_ring(H_X)
+    l > 0 || throw(DomainError(l, "The thickening length must be positive."))
+    H_X, H_Z = _weight_reduction_pair(H_X, H_Z)
+    F = _code_matrix_base_ring(H_X)
     n_Z = nrows(H_Z)
     n_X, n = size(H_X)
-    @assert length(heights) == n_Z
-    @assert all(1 <= x <= l for x in heights)
+    length(heights) == n_Z ||
+        throw(ArgumentError("One height is required for each Z stabilizer."))
+    all(1 <= x <= l for x in heights) ||
+        throw(ArgumentError("Heights must lie between 1 and l."))
     H = matrix(F, diagm(l - 1, l, 0 => ones(Int, l - 1), 1 => ones(Int, l - 1)))
     X = hcat(H_X ⊗ identity_matrix(F, l), identity_matrix(F, n_X) ⊗ transpose(H))
     Z1 = hcat(identity_matrix(F, n) ⊗ H, transpose(H_X) ⊗ identity_matrix(F, l - 1))
@@ -608,14 +630,15 @@ function thickening_and_choose_heights(H_X::CTMatrixTypes, H_Z::CTMatrixTypes, l
 end
 
 """
-    thickening_and_choose_heights(S::AbstractStabilizerCode, l::Integer, heights::Vector{Int})
+$(TYPEDSIGNATURES)
 
 Return the result of thickening and choosing heights on `S`.
 """
 thickening_and_choose_heights(S::T, l::Integer, heights::Vector{Int}) where {T <:
     AbstractStabilizerCode} = thickening_and_choose_heights(CSSTrait(T), S, l, heights)
 thickening_and_choose_heights(::IsCSS, S::AbstractStabilizerCode, l::Integer,
-    heights::Vector{Int}) =  CSSCode(thickening_and_choose_heights(S.X_stabs, S.Z_stabs,
+    heights::Vector{Int}) =  CSSCode(thickening_and_choose_heights(
+    X_stabilizers(S), Z_stabilizers(S),
     l, heights)...)
 thickening_and_choose_heights(::IsNotCSS, S::AbstractStabilizerCode, l::Integer,
     heights::Vector{Int}) = error("Only valid for CSS codes.")
@@ -624,7 +647,7 @@ thickening_and_choose_heights(::IsNotCSS, S::AbstractStabilizerCode, l::Integer,
           # Coning
 #############################
 
-function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG = Random.seed!()) where T
+function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG = Random.default_rng()) where T
     edges = Vector{T}[[e...] for e in _edges]
     vertices = unique(union(_edges...))
     degrees = zeros(Int, length(vertices))
@@ -686,7 +709,7 @@ function _cycle_basis_decongestion(_edges::Vector{Tuple{T, T}}; rng::AbstractRNG
             for e in shuffle(rng, edges)
                 j = findall(sort([first(e), last(e)]) == sort([first(e2), last(e2)]) for e2 in edges)
                 if length(j) > 1
-                    indices = j[randperm(length(j))[1:2]]
+                    indices = j[randperm(rng, length(j))[1:2]]
                     break
                 end
             end
@@ -760,21 +783,23 @@ function _fast_hcat_matrices(blocks::Vector{<:Matrix{Int}}, F)
 end
 
 """
-    coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
+$(TYPEDSIGNATURES)
 
 Return the result of coning on `H_X` and `H_Z` by reducing the `Z` stabilizers in `row_indices`. The
 optional argument `rng` can be used to make the output of this function reproducible.
 """
-function coning(H_X::T, H_Z::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
-    
-    F = base_ring(H_X)
+function coning(H_X::CTMatrixTypes, H_Z::CTMatrixTypes,
+    row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.default_rng())
+    H_X, H_Z = _weight_reduction_pair(H_X, H_Z)
+    F = _code_matrix_base_ring(H_X)
     n_X, n = size(H_X)
     n_Z = size(H_Z, 1)
 
     issubset(row_indices, 1:n_Z) || throw(DomainError(row_indices, "Choice of Z stabilizers is out of bounds."))
+    isempty(row_indices) && return H_X, H_Z
 
-    hx = _Flint_matrix_to_Julia_int_matrix(H_X)
-    hz = _Flint_matrix_to_Julia_int_matrix(H_Z)
+    hx = Int[!iszero(H_X[i, j]) for i in axes(H_X, 1), j in axes(H_X, 2)]
+    hz = Int[!iszero(H_Z[i, j]) for i in axes(H_Z, 1), j in axes(H_Z, 2)]
     f1_all = Matrix{Int}[]
     f0_all = Matrix{Int}[]
     p1_all = Matrix{Int}[]
@@ -879,17 +904,18 @@ end
 
 
 """
-    coning(S::AbstractStabilizerCode, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where T <: CTMatrixTypes
+$(TYPEDSIGNATURES)
 
 Return the result of coning on `S` by reducing the `Z` stabilizers in `row_indices`. The optional
 argument `rng` can be used to make the output of this function reproducible.
 """
-coning(S::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.seed!()) where {T <:
+coning(S::T, row_indices::AbstractVector{Int}; rng::AbstractRNG = Random.default_rng()) where {T <:
     AbstractStabilizerCode} = coning(CSSTrait(T), S, row_indices, rng = rng)
 coning(::IsCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int};
-    rng::AbstractRNG = Random.seed!()) = CSSCode(coning(S.X_stabs, S.Z_stabs, row_indices, rng = rng)...)
+    rng::AbstractRNG = Random.default_rng()) = CSSCode(coning(
+    X_stabilizers(S), Z_stabilizers(S), row_indices; rng = rng)...)
 coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int};
-    rng::AbstractRNG = Random.seed!()) = error("Only valid for CSS codes.")
+    rng::AbstractRNG = Random.default_rng()) = error("Only valid for CSS codes.")
 
 
 #############################
@@ -897,21 +923,21 @@ coning(::IsNotCSS, S::AbstractStabilizerCode, row_indices::AbstractVector{Int};
 #############################
 
 """
-    weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, rng::AbstractRNG = Random.seed!())
-    quantum_weight_reduction(S::AbstractStabilizerCode, copying_type::Symbol=:Hastings, copying_target::Int = 3, l1::Int, heights::Vector{Int}, l2::Int = 1, rng::AbstractRNG = Random.seed!())
+$(TYPEDSIGNATURES)
 
 Return the weight-reduced CSS code of `S`.
 """
 quantum_weight_reduction(S::T, l1::Int, heights::Vector{Int}; copying_type::Symbol = :Hastings,
     copying_target::Int = 3, l2::Int = 1,
-    rng::AbstractRNG = Random.seed!()) where {T <: AbstractStabilizerCode} =
+    rng::AbstractRNG = Random.default_rng()) where {T <: AbstractStabilizerCode} =
     quantum_weight_reduction(CSSTrait(T), S, l1, heights, copying_type = copying_type,
         copying_target = copying_target, l2 = l2, rng = rng)
 function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
-    copying_type::Symbol, copying_target::Int, l2::Int, rng::AbstractRNG = Random.seed!())
+    copying_type::Symbol, copying_target::Int, l2::Int, rng::AbstractRNG = Random.default_rng())
 
     copying_type ∈ (:Hastings, :reduced, :target) || throw(ArgumentError("Unknown copying method"))
-    H_X, H_Z = copying(S.X_stabs, S.Z_stabs, method = copying_type, target_q_X = copying_target)
+    H_X, H_Z = copying(X_stabilizers(S), Z_stabilizers(S);
+        method = copying_type, target_q_X = copying_target)
     H_X, H_Z = gauging(H_X, H_Z)
     a = nrows(H_Z)
     H_X, H_Z = thickening_and_choose_heights(H_X, H_Z, l1, heights)
@@ -921,7 +947,7 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
     H_X, H_Z = if l2 > 1
         n_Z = size(H_Z, 1)
         n_X, n = size(H_X)
-        F = base_ring(H_X)
+        F = _code_matrix_base_ring(H_X)
         H = matrix(F, diagm(l2 - 1, l2, 0 => ones(Int, l2 - 1), 1 => ones(Int, l2 - 1)))
         Z = hcat(identity_matrix(F, n_Z) ⊗ transpose(H), H_Z ⊗ identity_matrix(F, l2))
         X1 = hcat(transpose(H_Z) ⊗ identity_matrix(F, l2 - 1), identity_matrix(F, n) ⊗ H)
@@ -930,9 +956,11 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
         # TODO: figure out a good way to compute heights
         # choosing heights here is not done in the same way as before. We only choose heights for part of it.
         num_heights = n_X - n_X_precone
-        heights = rand(1:l2, num_heights)
+        heights = rand(rng, 1:l2, num_heights)
 
-        X3 = X2[[h + l2 * (i - 1) for (i, h) in enumerate(heights)] ∪ (num_heights * l2 + 1:size(X2, 1)), :]
+        selected = [h + l2 * (i - 1) for (i, h) in enumerate(heights)]
+        remaining = collect(num_heights * l2 + 1:size(X2, 1))
+        X3 = X2[vcat(selected, remaining), :]
         vcat(X1, X3), Z
     else
         H_X, H_Z
@@ -941,9 +969,9 @@ function quantum_weight_reduction(::IsCSS, S::AbstractStabilizerCode, l1::Int, h
 end
 quantum_weight_reduction(::IsNotCSS, S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1,
-    rng::AbstractRNG = Random.seed!()) =  error("Only valid for CSS codes.")
+    rng::AbstractRNG = Random.default_rng()) =  error("Only valid for CSS codes.")
 
 weight_reduction(S::AbstractStabilizerCode, l1::Int, heights::Vector{Int};
     copying_type::Symbol = :Hastings, copying_target::Int = 3, l2::Int = 1,
-    rng::AbstractRNG = Random.seed!()) = quantum_weight_reduction(S, l1, heights,
+    rng::AbstractRNG = Random.default_rng()) = quantum_weight_reduction(S, l1, heights,
     copying_type = copying_type, copying_target = copying_target, l2 = l2, rng = rng)

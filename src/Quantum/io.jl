@@ -110,7 +110,7 @@ function _quantum_data_fingerprint(payload::AbstractDict)
 end
 
 """
-    quantum_code_data(S)
+$(TYPEDSIGNATURES)
 
 Return a language-neutral dictionary describing `S`. Matrices are flattened in
 row-major order after expanding each `GF(q)` entry over its prime field. This
@@ -148,6 +148,13 @@ function _field_from_quantum_data(payload::AbstractDict)
     return m == 1 ? Oscar.Nemo.Native.GF(p) : GF(q)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a stabilizer or subsystem code reconstructed from a portable
+`quantum_code_data` dictionary. Validate the integrity fingerprint before
+restoring generators or certified cache entries.
+"""
 function quantum_code_from_data(
     payload::AbstractDict; restore_cache::Bool=true
 )
@@ -238,10 +245,9 @@ function _load_quantum_code(::Val{F}, path) where F
 end
 
 """
-    save_quantum_code(path, S; format=:auto, allow_lossy=false)
-    load_quantum_code(path; format=:auto, restore_cache=true)
+$(TYPEDSIGNATURES)
 
-Persist a stabilizer or subsystem code. TOML is the portable, dependency-free
+Return `path` after persisting a stabilizer or subsystem code. TOML is the portable, dependency-free
 format. JLD2 is available when JLD2 is loaded. Certified cache data is bound
 to the generator payload by a SHA-256 integrity fingerprint. Files ending in
 `.pauli` or `.stab` omit phase/cache metadata and therefore require
@@ -268,6 +274,12 @@ function save_quantum_code(
     return path
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a stabilizer or subsystem code loaded from TOML, JLD2, or a phase-free
+Pauli-string file. Set `restore_cache=false` to ignore stored cache entries.
+"""
 function load_quantum_code(
     path::AbstractString;
     format::Symbol=:auto, restore_cache::Bool=true,
@@ -327,7 +339,7 @@ function _pauli_generator_matrix(
 end
 
 """
-    quantum_generator_array(S; generators=:presentation)
+$(TYPEDSIGNATURES)
 
 Return the selected quantum generators as a plain `Matrix{Int}` over the
 prime field. Extension-field entries are expanded into adjacent coordinate
@@ -350,9 +362,9 @@ function quantum_generator_array(
 end
 
 """
-    write_quantum_csv(path, S; generators=:presentation)
+$(TYPEDSIGNATURES)
 
-Write a header-free numeric CSV containing `quantum_generator_array(S)`.
+Return `path` after writing a header-free numeric CSV containing `quantum_generator_array(S)`.
 It is directly readable with `numpy.loadtxt(path, delimiter=",",
 dtype=int)`.
 
@@ -369,7 +381,7 @@ function write_quantum_csv(
 end
 
 """
-    pauli_strings(S; generators=:stabilizers)
+$(TYPEDSIGNATURES)
 
 Return binary symplectic generators as strings over `I`, `X`, `Y`, and `Z`.
 Phase information is not included; use `save_quantum_code` for a lossless
@@ -394,6 +406,13 @@ function pauli_strings(
     return strings
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `path` after writing one phase-free binary Pauli generator per line.
+Throw an error when the code has a nonempty character vector because this
+format cannot preserve explicit phases.
+"""
 function write_pauli_strings(
     path::AbstractString, S::AbstractSubsystemCode;
     generators::Symbol=:stabilizers
@@ -410,6 +429,12 @@ function write_pauli_strings(
     return path
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a stabilizer code, or a subsystem code when `subsystem=true`, parsed
+from a file containing one phase-free binary Pauli generator per line.
+"""
 function read_pauli_strings(
     path::AbstractString; subsystem::Bool=false
 )

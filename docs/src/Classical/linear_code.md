@@ -2,7 +2,11 @@
 
 ## Constructors
 
-Generic linear codes may be constructed in two ways: via a matrix or via a vector space object. If a vector space is used, the basis of the vector space is used as a generator matrix for the code. If the optional parameter `parity` is set to true, the input is considered a parity-check matrix instead of a generator matrix. At the moment, no convention is used for the zero code and an error is thrown for such imputs. Zero rows are automatically removed from the input but zero columns are not. See the [Linear Codes Over Finite Fields](@ref) for usage examples.
+Generic linear codes may be constructed from a matrix or a vector-space object.
+If the optional parameter `parity` is true, a matrix input is interpreted as a
+parity-check matrix. Zero rows are removed automatically, while zero columns
+are retained. See the [Linear Codes tutorial](@ref linear-codes-tutorial) for
+usage examples.
 ```@docs
 LinearCode
 ```
@@ -170,10 +174,6 @@ is_triply_even
 
 ```@docs
 characteristic_polynomial
-```
-
-```@docs
-VectorSpace
 ```
 
 ```@docs

@@ -31,7 +31,7 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
     is_regular, is_cyclic, genus, density, is_degenerate, is_pure, index, generators, copy, is_subfield, ⊗,
     girth, generator_matrix, polynomial_ring, is_primitive, normal_subgroups, vector_space,
     tensor_product, gens, dim, is_isomorphic, field, is_irreducible, SMat, extension_field, ⊕,
-    number_of_variables
+    number_of_variables, encode
 import Oscar.Hecke: is_separable, ⊗, ⊕
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
@@ -40,15 +40,6 @@ import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, 
 import Combinatorics: powerset
 import DataStructures: capacity
 import SpecialFunctions: erfc
-
-# tilings.jl
-LINS_flag_install = Packages.install("LINS")
-if LINS_flag_install
-    LINS_flag = Packages.load("LINS")
-    LINS_flag || @warn "Unable to load the GAP packages LINS."
-else
-    @warn "Unable to install the GAP packages LINS."
-end
 
 #############################
          # types.jl
@@ -66,7 +57,6 @@ const CTLRPolyElem = AbstractAlgebra.Generic.LaurentMPolyWrap{fpFieldElem, fpMPo
        AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}}
 
 include("Classical/types.jl")
-# Export Abstract Types
 export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdditiveCode, 
        AbstractLinearCode, AbstractMatrixProductCode, AbstractReedMullerCode, AbstractCyclicCode, 
        AbstractBCHCode, AbstractReedSolomonCode, AbstractCyclicCode2D, AbstractQuasiCyclicCode, 
@@ -74,32 +64,13 @@ export AbstractCode, AbstractNonadditiveCode, AbstractNonlinearCode, AbstractAdd
        AbstractAlternateCode, AbstractGoppaCode, AbstractGeneralizedSrivastavaCode, 
        AbstractTwistedReedSolomonCode, AbstractTannerCode
 
-# # Export Concrete Types & Structs
-# export HammingWeightEnumerator, CompleteWeightEnumerator, ExtendedQRCode, ProductCode, 
-#        LinearCode, CyclicCode, BCHCode, ReedSolomonCode, QuasiCyclicCode, 
-#        GeneralizedReedSolomonCode, AlternateCode, GeneralizedSrivastavaCode, ConcatenatedCode, 
-#        TwistedReedSolomonCode, HammingCode, SimplexCode, MacDonaldCode, PlotkinCode, 
-#        DirectSumCode, TensorProductCode, MultilevelConcatenatedCode, GabidulinCode, 
-#        GoppaCode, MatrixProductCode, ReedMullerCode, TannerCode
-
 include("LDPC/types.jl")
-# Abstract Types
 export AbstractLDPCCode, AbstractChannel, AbstractDiscreteChannel, 
        AbstractContinuousChannel
 
-# Concrete Types & Aliases
 export LDPCCode, BinaryErasureChannel, BEC, BinarySymmetricChannel, BSC, 
        BAWGNChannel, BAWGNC, ZChannel, RayleighFadingChannel, LDPCEnsemble, 
        METEnsemble, AbstractLDPCFamily
-
-# include("Quantum/types.jl")
-# export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
-#     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
-#     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
-#     AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS 
-# # misc
-# export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
-#     IsCSS, IsNotCSS, copy, ChainComplex
 
 #############################
          # utils.jl
@@ -368,7 +339,7 @@ export Tanner_graph_plot, Tanner_graph, TannerCode, graph_eigenvalues,
 include("Classical/trellis.jl")
 export past_future_profiles, vertex_counts, edge_counts, 
        optimize_trellis_permutation, optimal_sectionalization, Krawtchouk, 
-       MacWilliams_HWE_transform
+       MacWilliams_HWE_transform, weight_distribution_trellis
 
 #############################
 # Classical/TwistedReedSolomon.jl
@@ -589,6 +560,29 @@ export qubit_degrees, generator_weights, stabilizer_weights, gauge_weights,
     is_LDPC, is_X_LDPC, is_Z_LDPC, X_LDPC_code, Z_LDPC_code, LDPC_codes
 
 #############################
+# Quantum/Tanner.jl
+#############################
+
+include("Quantum/Tanner.jl")
+
+#############################
+# Quantum/code_expansion.jl
+#############################
+
+include("Quantum/code_expansion.jl")
+export laplacian_matrix, normalized_laplacian_matrix, algebraic_connectivity,
+    normalized_spectral_gap, nontrivial_adjacency_spectral_radius,
+    fiedler_vector, is_topologically_connected, estimated_edge_expansion,
+    estimated_vertex_expansion, edge_expansion_bounds,
+    expansion_witness, is_expander, bipartite_expansion_profile,
+    is_bipartite_expander, is_left_right_expander,
+    estimated_bipartite_vertex_expansion, confinement_profile,
+    deterministic_QLTC_soundness, verify_QLTC_soundness,
+    verify_confinement, evaluate_single_shot_soundness,
+    evaluate_confinement, sipser_spielman_guarantees,
+    cosystolic_expansion
+
+#############################
 # Quantum/weight_enumerators.jl
 #############################
 
@@ -678,9 +672,9 @@ export heuristic_minimum_distance
 # include("Quantum/graph_state.jl")
 # export ClusterState, GraphState
 
-# #############################
-# # Quantum/misc_known_codes.jl
-# #############################
+#############################
+# Quantum/misc_known_codes.jl
+#############################
 
 include("Quantum/misc_known_codes.jl")
 function TriangularColorCode488 end
@@ -738,14 +732,15 @@ export QuantumConcatenatedCode, HypergraphProductCode, GeneralizedShorCode,
 # include("Quantum/decoders/OTF.jl")
 # export ordered_Tanner_forest
 
-# #############################
-#         # tilings.jl
-# #############################
+#############################
+# tilings.jl
+#############################
 
-# include("tilings.jl")
-# export ReflectionGroup, triangle_group, r_s_group, tetrahedron_group, q_r_s_group,
-#     star_tetrahedron_group, cycle_tetrahedron_group, normal_subgroups, is_fixed_point_free,
-#     is_orientable, is_k_colorable, coset_intersection
+include("tilings.jl")
+export CoxeterMatrix, ReflectionGroup, simplex_group, triangle_group, r_s_group,
+    tetrahedron_group, q_r_s_group, star_tetrahedron_group,
+    cycle_tetrahedron_group, normal_subgroups, is_fixed_point_free,
+    is_orientable, is_k_colorable, coset_intersection
 
 
 
@@ -763,20 +758,19 @@ export QuantumConcatenatedCode, HypergraphProductCode, GeneralizedShorCode,
 # # include("chaincomplex.jl")
 # # export boundaries, cochain, distance_balancing
 
-# #############################
-# # Quantum/weight_reduction.jl
-# #############################
+#############################
+# Quantum/weight_reduction.jl
+#############################
 
-# include("Quantum/weight_reduction.jl")
-# export copying, gauging, thickening_and_choose_heights, coning, quantum_weight_reduction,
-#     copying_as_coning, gauging_as_coning
+include("Quantum/weight_reduction.jl")
+export copying, gauging, thickening_and_choose_heights, coning,
+    quantum_weight_reduction, copying_as_coning, gauging_as_coning
 
+#############################
+# Quantum/homological_measurements.jl
+#############################
 
-# #############################
-# # Quantum/homological_measurements.jl
-# #############################
-
-# include("Quantum/homological_measurements.jl")
-# export homological_measurement, Cheeger_constant
+include("Quantum/homological_measurements.jl")
+export homological_measurement, Cheeger_constant
 
 end

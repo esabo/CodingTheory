@@ -68,7 +68,7 @@ function _protected_space_size(
 end
 
 """
-    quantum_Singleton_bound(n, k; r=0)
+$(TYPEDSIGNATURES)
     quantum_Singleton_bound(S)
     Singleton_bound(S)
 
@@ -112,7 +112,7 @@ end
 Singleton_bound(S::AbstractSubsystemCode) = quantum_Singleton_bound(S)
 
 """
-    is_quantum_MDS(S)
+$(TYPEDSIGNATURES)
     is_MDS(S)
 
 Return whether the known exact (dressed, for subsystem codes) distance meets
@@ -136,7 +136,7 @@ end
 is_MDS(S::AbstractSubsystemCode) = is_quantum_MDS(S)
 
 """
-    quantum_Hamming_volume(n, t, q)
+$(TYPEDSIGNATURES)
 
 Return the number of q-ary Pauli errors of weight at most `t`.
 """
@@ -165,9 +165,9 @@ function _quantum_hamming_capacity(
 end
 
 """
-    satisfies_quantum_Hamming_bound(n, k, d, q; r=0)
+$(TYPEDSIGNATURES)
 
-Test the sphere-packing inequality for a pure q-ary `[[n,k,d]]` stabilizer
+Return whether the sphere-packing inequality holds for a pure q-ary `[[n,k,d]]` stabilizer
 code or pure `[[n,k,r,d]]` subsystem code. This is not valid for an impure
 code.
 """
@@ -183,7 +183,7 @@ function satisfies_quantum_Hamming_bound(
 end
 
 """
-    quantum_Hamming_bound(n, k, q; r=0)
+$(TYPEDSIGNATURES)
     quantum_Hamming_bound(S; assume_pure=false)
 
 Return the largest distance not excluded by the pure quantum Hamming
@@ -222,7 +222,7 @@ function quantum_Hamming_bound(
 end
 
 """
-    quantum_Gilbert_Varshamov_exists(n, k, d, q; r=0, variant=:additive)
+$(TYPEDSIGNATURES)
     quantum_Gilbert_Varshamov_bound(n, k, q; r=0, variant=:additive)
     quantum_Gilbert_Varshamov_bound(S)
 
@@ -308,7 +308,7 @@ function quantum_Gilbert_Varshamov_bound(S::AbstractSubsystemCode)
 end
 
 """
-    quantum_stabilizer_generator_weight_lower_bound(n, k; min_distance=2)
+$(TYPEDSIGNATURES)
     quantum_stabilizer_generator_weight_lower_bound(S; min_distance=2)
 
 Return `ceil(2n/(n-k))`, the finite lower bound of Wei et al. on
@@ -340,7 +340,7 @@ function quantum_stabilizer_generator_weight_lower_bound(
 end
 
 """
-    quantum_check_weight_dimension_bound(n, check_weight; min_distance=2)
+$(TYPEDSIGNATURES)
 
 Return the corresponding upper bound
 `k ≤ n - ceil(2n/check_weight)` for a binary stabilizer code of distance at
@@ -358,7 +358,7 @@ function quantum_check_weight_dimension_bound(
 end
 
 """
-    quantum_low_weight_stabilizer_distance_bound(n, k, check_weight)
+$(TYPEDSIGNATURES)
     quantum_low_weight_stabilizer_distance_bound(S)
 
 Return the finite distance upper bound for a binary stabilizer presentation
@@ -391,7 +391,7 @@ function quantum_low_weight_stabilizer_distance_bound(
 end
 
 """
-    quantum_CSS_subsystem_weight_two_distance_bound(n, k)
+$(TYPEDSIGNATURES)
     satisfies_quantum_CSS_subsystem_weight_two_bounds(n, k, d_X, d_Z)
 
 Return `min(floor(sqrt(n)), floor(n/k))`, the dressed-distance upper bound
@@ -424,7 +424,7 @@ function satisfies_quantum_CSS_subsystem_weight_two_bounds(
 end
 
 """
-    quantum_stabilizer_check_weight_existence_bound(n, k, d)
+$(TYPEDSIGNATURES)
 
 Return a constructive upper bound on the optimal maximum generator weight:
 three when `d=2` and `n ≥ 4k`, or four when `d≥3` and `n ≥ k*d^2`.
@@ -442,7 +442,7 @@ function quantum_stabilizer_check_weight_existence_bound(
 end
 
 """
-    quantum_stabilizer_group_average_weight(n, A₁=0)
+$(TYPEDSIGNATURES)
     quantum_stabilizer_group_total_weight(n, k, A₁=0)
 
 Evaluate Wei et al.'s exact stabilizer-group identity for distance at least
@@ -468,7 +468,7 @@ function quantum_stabilizer_group_total_weight(
 end
 
 """
-    quantum_Krawtchouk_matrix(n; alphabet_size=4, signed_columns=false)
+$(TYPEDSIGNATURES)
 
 Return an exact Krawtchouk matrix
 `M[i + 1, j + 1] = P_i(j; n)` as `Matrix{BigInt}`. With
@@ -522,9 +522,9 @@ function _quantum_CSS_weight_enumerator_LP(
 end
 
 """
-    quantum_CSS_weight_enumerator_LP(n, k_X, k_Z, d; kwargs...)
+$(TYPEDSIGNATURES)
 
-Solve the exact-coefficient CSS split-enumerator LP of Wang et al. Here
+Return the result of the exact-coefficient CSS split-enumerator LP of Wang et al. Here
 `C_X` and `C_Z` have dimensions `k_X` and `k_Z`, so the quantum dimension is
 `k_X + k_Z - n`. Pass `check_weight=w` to add the paper's cumulative
 low-check-weight constraints, and `exclude_weight_one=true` for its second
@@ -553,9 +553,9 @@ function _quantum_stabilizer_dimension_LP_bound(
 end
 
 """
-    quantum_stabilizer_dimension_LP_bound(n, d, check_weight; kwargs...)
+$(TYPEDSIGNATURES)
 
-Search the Wang et al. general-stabilizer LP for the largest feasible quantum
+Return the largest feasible quantum dimension found by the Wang et al. general-stabilizer LP
 dimension `k`. The result retains every trial and distinguishes numerical
 infeasibility from an exact certificate.
 """
@@ -578,9 +578,10 @@ function _quantum_CSS_dimension_LP_bound(
 end
 
 """
-    quantum_CSS_dimension_LP_bound(n, d, check_weight; kwargs...)
+$(TYPEDSIGNATURES)
 
-Search all CSS constituent-dimension splits in the Wang et al. LP and return
+Return the best result after searching all CSS constituent-dimension splits in
+the Wang et al. LP, including
 the largest feasible quantum dimension. `exclude_weight_one` selects the
 second branch used in the paper's monotonic post-processing.
 """
@@ -596,9 +597,9 @@ function quantum_CSS_dimension_LP_bound(
 end
 
 """
-    quantum_check_weight_LP_postprocess(with_weight_one, without_weight_one)
+$(TYPEDSIGNATURES)
 
-Apply Wang et al. Equation (18) to finite raw LP tables. Dictionary keys are
+Return Wang et al. Equation (18) applied to finite raw LP tables. Dictionary keys are
 `(n,d,w)` and values are maximum feasible `k`. The first table permits
 weight-one checks; the second imposes `A₁=0` (on both CSS enumerators when
 applicable). The available keys define the finite `n′` and `w′` horizons.
@@ -665,9 +666,9 @@ function _quantum_weight_enumerator_LP(
 end
 
 """
-    quantum_weight_enumerator_LP(n, k, d; formulation=:standard, kwargs...)
+$(TYPEDSIGNATURES)
 
-Solve the binary Shor--Laflamme/Rains weight-enumerator feasibility LP.
+Return the result of the binary Shor--Laflamme/Rains weight-enumerator feasibility LP.
 `formulation=:standard` uses the MacWilliams and shadow constraints.
 `:coarse` additionally imposes the cumulative check-growth inequalities for
 `check_weight`. `:refined` adds the low-weight-generator constraints of Wei
@@ -704,9 +705,9 @@ function _quantum_stabilizer_generator_weight_LP_bound(
 end
 
 """
-    quantum_stabilizer_generator_weight_LP_bound(n, k, d; kwargs...)
+$(TYPEDSIGNATURES)
 
-Search the refined Wei et al. LPs for a lower bound on the maximum generator
+Return a lower bound on the maximum generator weight found by searching the refined Wei et al. LPs
 weight of a binary `[[n,k,d]]` stabilizer code. The returned named tuple
 records whether excluded weights are numerical LP conclusions or exact
 certificates. `connected=true` adds the paper's connected-overlap inequality;

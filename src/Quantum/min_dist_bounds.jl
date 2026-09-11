@@ -94,9 +94,9 @@ function _close_css_sector_if_proven!(
 end
 
 """
-    set_minimum_distance_lower_bound!(S, lower; which=:full)
+$(TYPEDSIGNATURES)
 
-Tighten a certified lower bound. A full-distance lower bound also applies to
+Return `nothing` after tightening a certified lower bound. A full-distance lower bound also applies to
 both CSS sectors because `d = min(d_X, d_Z)`.
 """
 function set_minimum_distance_lower_bound!(
@@ -119,9 +119,9 @@ function set_minimum_distance_lower_bound!(
 end
 
 """
-    set_minimum_distance_upper_bound!(S, upper, witness; which=:full)
+$(TYPEDSIGNATURES)
 
-Tighten a CSS distance upper bound using a validated logical witness.
+Return `nothing` after tightening a CSS distance upper bound using a validated logical witness.
 """
 function set_minimum_distance_upper_bound!(
     S::AbstractStabilizerCodeCSS, upper::Int, witness::CTMatrixTypes;
@@ -169,7 +169,7 @@ set_Z_minimum_distance_upper_bound!(
 ) = set_minimum_distance_upper_bound!(S, upper, witness; which=:Z)
 
 """
-    distance_automorphisms(S)
+$(TYPEDSIGNATURES)
 
 Return user-supplied physical-qubit permutation generators available to
 distance preprocessors. Quantum code families do not generate these
@@ -179,9 +179,9 @@ distance_automorphisms(S::AbstractStabilizerCodeCSS) =
     get(S.cache, :distance_automorphisms, Vector{Vector{Int}}())
 
 """
-    set_distance_automorphisms!(S, permutations; validate=true)
+$(TYPEDSIGNATURES)
 
-Register physical-qubit permutations for distance searches. Validation checks
+Return `nothing` after registering physical-qubit permutations for distance searches. Validation checks
 that each permutation preserves both CSS stabilizer row spaces.
 """
 function set_distance_automorphisms!(

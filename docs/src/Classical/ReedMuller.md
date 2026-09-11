@@ -15,8 +15,4 @@ ReedMullerCode
 order
 ```
 
-```@docs
-number_of_variables
-```
-
 ## Methods

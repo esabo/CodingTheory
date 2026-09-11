@@ -11,15 +11,23 @@
 struct CoxeterMatrix <: AbstractMatrix{Int}
     n::Int
     vec::Vector{Int}
+    function CoxeterMatrix(n::Int, vec::Vector{Int})
+        n > 0 || throw(DomainError(n, "The matrix dimension must be positive."))
+        length(vec) == div(n * (n + 1), 2) ||
+            throw(ArgumentError("Expected $(div(n * (n + 1), 2)) upper-triangular entries."))
+        new(n, vec)
+    end
 end
 Base.size(m::CoxeterMatrix) = (m.n, m.n)
 
 function Base.getindex(cox_mat::CoxeterMatrix, i::Int, j::Int)
+    checkbounds(cox_mat, i, j)
     small_idx = min(i, j)
     big_idx = max(i, j)
-    n = size(cox_mat)[1]
-    linear_idx = (n * (n - 1) - (n - small_idx) * (n - small_idx + 1)) / 2 + big_idx
-    cox_mat.vec[convert(Int, linear_idx)]
+    n = cox_mat.n
+    linear_idx = div((small_idx - 1) * (2n - small_idx + 2), 2) +
+        big_idx - small_idx + 1
+    return cox_mat.vec[linear_idx]
 end
 
 struct ReflectionGroup
@@ -40,9 +48,13 @@ Return the reflection group with fundamental simplex specified by `cox_mat`.
 """
 function simplex_group(cox_mat::CoxeterMatrix)
     n = size(cox_mat)[1]
+    all(i -> cox_mat[i, i] == 1, 1:n) ||
+        throw(ArgumentError("Coxeter-matrix diagonal entries must equal one."))
+    all(cox_mat[i, j] >= 2 for i in 1:n for j in i + 1:n) ||
+        throw(ArgumentError("Off-diagonal Coxeter orders must be at least two."))
     f = Globals.FreeGroup(n)
     gen = Globals.GeneratorsOfGroup(f)
-    relations = []
+    relations = GapObj[]
     # doing it the Oscar way causes severe type problems passing into LINS
     # significantly nicer code just ignoring their wrapper
     # f = free_group(n)
@@ -86,14 +98,14 @@ r_s_group(r::Int, s::Int) = triangle_group(r, 2, s)
 Return the tetrahedron group with relations given by `orders`.
 """
 function tetrahedron_group(orders::Vector{Int})
-    all(>=(0), orders) || throw(ArgumentError("Arguments must be non-negative."))
-    f = Globals.FreeGroup(GapObj(["a", "b", "c", "d"]; recursive=true))
-    g = f / GapObj([f.:1^2, f.:2^2, f.:3^2, f.:4^2,
-        (f.:1 * f.:2)^orders[1], (f.:1 * f.:3)^orders[2], (f.:1 * f.:4)^orders[3],
-        (f.:2 * f.:3)^orders[4], (f.:2 * f.:4)^orders[5], (f.:3 * f.:4)^orders[6]])
-    # BUG: call here is off, the dimension need not be saved but orders is not a CoxeterMatrix
-    # return ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], orders, 4)
-    return ReflectionGroup(g, [g.:1, g.:2, g.:3, g.:4], CoxeterMatrix(4, orders))
+    length(orders) == 6 || throw(ArgumentError("Exactly six edge orders are required."))
+    all(>=(2), orders) || throw(ArgumentError("Edge orders must be at least two."))
+    return simplex_group(CoxeterMatrix(4, [
+        1, orders[1], orders[2], orders[3],
+        1, orders[4], orders[5],
+        1, orders[6],
+        1,
+    ]))
 end
 
 """
@@ -141,15 +153,25 @@ t|   |r
 """
 cycle_tetrahedron_group(q::Int, r::Int, s::Int, t::Int) = simplex_group(CoxeterMatrix(4, [1, q, 2, t, 1, r, 2, 1, s, 1]))
 
+const _LINS_loaded = Ref(false)
+
+function _ensure_LINS_loaded()
+    _LINS_loaded[] && return nothing
+    Packages.load("LINS") ||
+        error("The GAP package LINS is required. Load or install it explicitly with Oscar.GAP.Packages before calling `normal_subgroups`.")
+    _LINS_loaded[] = true
+    return nothing
+end
+
 """
     normal_subgroups(g::ReflectionGroup, max_index::Int)
 
 Return all normal subgroups of `g` with index up to `max_index`.
 """
 function normal_subgroups(G::ReflectionGroup, max_index::Integer)
-    # lins_search = Globals.LowIndexNormalSubgroupsSearchForAll(group(G), max_index)
+    max_index > 0 || throw(DomainError(max_index, "The maximum index must be positive."))
+    _ensure_LINS_loaded()
     lins_search = Oscar.GAP.Globals.LowIndexNormalSubs(group(G), max_index)
-    # sbgrps = GapObj[Globals.Grp(H) for H in Globals.List(lins_search)]
     return GapObj[H for H in Globals.List(lins_search)]
 end
 
@@ -182,7 +204,8 @@ end
 Return `true` if the `subgroup` of `F` is is_orientable; otherwise `false`.
 """
 function is_orientable(subgroup::GapObj, G::ReflectionGroup)
-    S = GapObj[a * b for (a, b) in combinations(gens(G), 2)]
+    S = GapObj[a * b for (a, b) in Combinatorics.combinations(
+        Vector{GapObj}(gens(G)), 2)]
     G⁺ = Globals.Subgroup(group(G), GapObj(S))
     return Globals.IsSubgroup(G⁺, subgroup)
 end
@@ -196,7 +219,10 @@ Return `true` if the group elements corresponding to `gen_idx` in `g/subgroup` a
 function is_k_colorable(k::Int, gen_idx::AbstractVector{<: Int},
     translations::AbstractVector{<:GapObj}, subgroup::GapObj, G::ReflectionGroup)   
 
-    T_gens = Globals.List(Globals.GeneratorsOfGroup(subgroup))
+    k > 0 || throw(DomainError(k, "The number of colors must be positive."))
+    all(i -> 1 <= i <= length(gens(G)), gen_idx) ||
+        throw(BoundsError(gens(G), gen_idx))
+    T_gens = Globals.ShallowCopy(Globals.GeneratorsOfGroup(subgroup))
     Globals.Append(T_gens, gens(G)[gen_idx])
     Globals.Append(T_gens, GapObj(translations))
     subgroup_T = Globals.GroupByGenerators(T_gens)
@@ -215,7 +241,7 @@ function coset_intersection(gen_idx_A::Vector{Int}, gen_idx_B::Vector{Int}, subg
 
     A, B = let S = Globals.List(Globals.GeneratorsOfGroup(subgroup))
         map((gen_idx_A, gen_idx_B)) do idx
-            S_copy = deepcopy(S)
+            S_copy = Globals.ShallowCopy(S)
             Globals.Append(S_copy, gens(G)[idx])
             Globals.Subgroup(group(G), S_copy)
         end

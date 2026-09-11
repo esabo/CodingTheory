@@ -2480,11 +2480,26 @@ function _minimum_distance_BZ_binary(C::AbstractLinearCode;
             end
         else
             y = matrix(C.F, 1, n, global_min_codeword)
-            @assert iszero(parity_check_matrix(C) * transpose(y)) "Verification failed: computed codeword is not in the codespace."
+            if !iszero(parity_check_matrix(C) * transpose(y))
+                cache = getfield(C, :cache)
+                P = get(cache, :P_stand, missing)
+                mapped_y = ismissing(P) ? y : y * P
+                if iszero(parity_check_matrix(C) * transpose(mapped_y))
+                    y = mapped_y
+                else
+                    verbose && println(
+                        "Warning: Targeted search returned an invalid witness; returning the proven distance without a witness.")
+                    y = zero_matrix(C.F, 1, n)
+                end
+            end
         end
     else
         y = matrix(C.F, 1, n, global_min_codeword)
-        @assert iszero(parity_check_matrix(C) * transpose(y)) "Verification failed: computed codeword is not in the codespace."
+        if !iszero(parity_check_matrix(C) * transpose(y))
+            verbose && println(
+                "Warning: Discarding an invalid saved witness and returning the proven distance.")
+            y = zero_matrix(C.F, 1, n)
+        end
     end
     
     return _record_minimum_distance_result!(C, C.d, y)

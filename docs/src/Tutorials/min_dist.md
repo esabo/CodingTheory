@@ -1,93 +1,112 @@
-# Minimum Distance Solvers
+# [Minimum-distance Computation](@id minimum-distance-tutorial)
 
-There are numerous 
-most work by repeatedly generating codewords, some randomly, some deterministically and systematically
+Minimum distance is expensive: exact computation is exponential in the worst
+case. `CodingTheory.jl` therefore distinguishes exact solvers, witnessed upper
+bounds, certified lower bounds, and heuristic searches.
 
-# Background
-## Classical
-Recall that for linear codes the minimum distance is equal to the minimum weight. It is therefore always valid to compute every element of the code one-by-one by constructing all possible combinations of the generators of the generator matrix, computing their weights, and then returning the minimum. This takes exponential time. Vardy showed that the computation of the minimum distance is NP-Hard and the corresponding decision problem is NP-Complete \cite{vardy1997intractability}, so we can't expect a polynomial-time algorithm but we can do better than brute force. There are two main minimum-weight algorithms in the literature: the Brouwer-Zimmermann (BZ) algorithm and Leon's algorithm \cite{leon1988probabilistic}. The latter is probabilistic and returns the minimum weight with high confidence for a binary linear code.
+## Classical codes
 
-Consider an $[n, k, d]$ code. The BZ algorithm (roughly) works by enumerating every length-$k$ vector of weight $w$ for $1 \leq w \leq k$. After all vectors of a given weight are processed, a lower bound on the distance is increased. The algorithm also keeps an upper bound equal to the smallest weight codeword it has found so far. The algorithm terminates when the lower bound meets the upper bound. Usually this implies that a codeword of weight equal to the upper bound has been found. However, this library maintains an internal system of bounds on the distance for each code. Hence, it is possible that an upper bound has been previously computed by another method which had not yet been attained by a codeword during the BZ algorithm. Codewords acheiving the distance (or bound) are always returned with the weight whenever possible; otherwise they return the weight and `missing`.
-
-In contrast to BZ's deterministic and systematic approach, some algorithms repeatedly generate random codewords. The lowest-weight codeword generated provides an upper bound on the distance. If the sampling is done well, a large number of iterations can provide a close bound on the distance with high probabiliity. This technique cannot provide a lower bound, so there is no way to terminate early or guarantee the answer is correct without obtaining a bound by other means. In particular, this approach can be combined with the BZ aglorithm to try to generate a codeword or lower an upper bound given BZ's lower bound. Bounds are automatically updated internally, although this may not be possible if a method is terminated prematurely by the user. Bounds from a previous run will be used in any subesquent runs.
-
-## Quantum
-The situation is much different in the quantum case. Recall that the minimum distance is given by the minimum weight of a non-trivial logical operator \eqref{dQECC}. This generally has nothing to do with the minimum distance of the corresponding stabilizer code considered as a classical, additive code. Note that $\mathcal{C}_{\mathcal{P}_n}(\mathcal{S}) \backslash \mathcal{S}$ is a set-difference of size $p^{n + k} - p^{n - k}$ and not a quotient module of size $p^{2k}$. Constructing a basis for the centralizer is an easy row reduction but enumerating its elements are not as easy as before. The brute-force method always works but the concept of an information set is now more complicated since one cannot row reduce down to the identity. White and Grassl tackled this in \cite{white2006enumeration, white2006new} where they map the additive code onto a linear code in a way that the minimum of distance of the additive code may be implied from that of the linear code. This mapping increases the parameters from $n$ to $3n$ and $d$ to $2d$, dramatically increasing the overall runtime of the BZ algorithm. Further complicating the quantum case, once a minimal weight vector is detected, one must check to see if it is an element of $S$.
-
-To see how classical intuition can be harmful here, recall that the rotated surface code of distance $d$ has many weight-two elements. The Steane code also has minimum distance three despite having all elements of weight four. These apparent inconsistencies go back to the fact that stabilizer codes are specified by their parity-check matrices but the distances are determined by the dual. In general, low-weight elements are necessary for quantum codes to perform well against certain types of errors \cite{hu2021mitigating}.
-
-often faster to bound dx/dz and then take min
-
-# Methods
-## Classical
-
-
-Note that it is sometimes cheaper to compute the weight enumerator of the dual code then use the MacWilliams identities to compute the desired distance. The method `minimum_distance(C)` attempts to automatically determine which algorithm...
-
-
-use subfield subcode to bound
-
-## Quantum
-
-For a binary CSS stabilizer code, use
-`minimum_distance(S; which=:X|:Z|:full, alg=:auto)`. The exact solvers search
-directly for a vector with zero stabilizer syndrome and a nonzero logical label:
-
-- `:Gray` exhausts the normalizer with bit-packed, threaded Gray-code ranges.
-- `:Wagner` performs a bit-packed, quotient-aware meet-in-the-middle search in
-  increasing physical weight.
-- `:ILP` uses JuMP with the free HiGHS optimizer. It solves one logical
-  minimization problem and strengthens low-degree parity checks with odd-set
-  inequalities.
-- `:auto` uses Gray for small normalizer dimension, an available ILP extension
-  for large or sparse problems, and Wagner otherwise.
-
-Exact ILP solves have no time limit by default. Set `time_limit_sec` explicitly
-only when an inconclusive timeout is acceptable.
-
-All CSS solvers share cached sector bounds. Exact searches begin at the
-certified lower bound and search below a witnessed incumbent; proving that
-range empty closes the distance without rediscovering the incumbent.
-`set_minimum_distance_lower_bound!(S, lower; which=:X|:Z|:full)` tightens a
-certified lower bound. Upper bounds must carry a validated logical witness:
+`minimum_distance` returns the distance and a minimum-weight codeword when a
+witness is available:
 
 ```julia
-set_minimum_distance_upper_bound!(S, weight, logical; which=:X)
+using Oscar
+using CodingTheory
+
+C = HammingCode(2, 3)
+d, word = minimum_distance(C)
 ```
 
-Probabilistic ISD computes an upper bound rather than certifying the distance:
+For small codes, exhaustive enumeration or a weight distribution is often
+adequate. For larger codes, information-set and probabilistic algorithms can
+find low-weight codewords and tighten the upper bound without certifying the
+distance.
+
+The code object caches successful results. Query the current interval with
+`minimum_distance_lower_bound(C)` and `minimum_distance_upper_bound(C)`.
+
+## Quantum CSS codes
+
+For a binary CSS stabilizer code, use:
+
+```julia
+F = GF(2)
+H = matrix(F, [
+    0 0 0 1 1 1 1
+    0 1 1 0 0 1 1
+    1 0 1 0 1 0 1
+])
+S = CSSCode(H, H)
+
+dX, logical_X = minimum_distance(S; which=:X, alg=:Gray)
+dZ, logical_Z = minimum_distance(S; which=:Z, alg=:Gray)
+```
+
+The available exact binary CSS methods are:
+
+- `:Gray`: threaded, bit-packed enumeration of normalizer combinations.
+- `:Wagner`: a quotient-aware meet-in-the-middle search in physical weight.
+- `:ILP`: a JuMP extension using the free HiGHS optimizer.
+- `:auto`: selects among the available exact implementations.
+
+Solving the ``X`` and ``Z`` sectors separately exposes useful intermediate
+results and is commonly faster than a full search. The quantum distance is
+`min(dX, dZ)`.
+
+## Bounds and witnesses
+
+An upper bound is only accepted with a validated nontrivial logical witness:
+
+```julia
+set_minimum_distance_upper_bound!(
+    S,
+    dX,
+    logical_X;
+    which=:X,
+)
+```
+
+A mathematically certified lower bound can be recorded separately:
+
+```julia
+set_minimum_distance_lower_bound!(S, 2; which=:X)
+```
+
+Exact solvers begin at the cached lower bound and search below the witnessed
+incumbent. This allows results from different methods and sessions to
+cooperate without treating a heuristic result as a proof.
+
+## Probabilistic and heuristic searches
+
+Information-set decoding finds quantum logical witnesses and updates the shared
+upper bound:
 
 ```julia
 d, logical = probabilistic_minimum_distance(
-    S; which=:X, alg=:Stern, p=2, l=12,
-    max_iters=100_000, info_set_alg=:Brouwer,
-    automorphisms=coordinate_permutations, seed=1)
+    S;
+    which=:X,
+    alg=:Stern,
+    p=2,
+    l=4,
+    max_iters=10_000,
+    seed=1,
+)
 ```
 
-The available binary CSS variants are `:Prange`, `:LeeBrickell`, and `:Stern`.
-They are threaded and bit-pack parity tails and logical labels. Candidate
-logicality is incorporated in each ISD collision or combination test; the
-implementation does not repeatedly invoke a classical solver and discard
-stabilizer results. Classical information-set preprocessors can seed the
-systematic forms. Supplied coordinate automorphisms are composed with those
-preprocessed forms before the remaining random trials. They seed equivalent
-information sets only; the solver does not restrict the search to an
-automorphism-fixed subcode, which could miss an asymmetric minimum logical.
+The binary CSS variants are `:Prange`, `:LeeBrickell`, and `:Stern`.
+`heuristic_minimum_distance` additionally provides `:GGAOrder`, `:NNCS`,
+`:GA`, and `:ACO`. These searches can improve upper bounds but cannot certify
+new lower bounds.
 
-Register reusable physical-qubit permutation generators with
-`set_distance_automorphisms!(S, permutations)`. The setter verifies that each
-permutation preserves both CSS stabilizer row spaces. Family-specific
-automatic generation is intentionally deferred.
+Reusable physical-qubit symmetries can be registered with
+`set_distance_automorphisms!`. The setter verifies that every permutation
+preserves both CSS stabilizer row spaces.
 
-Quotient-aware heuristics provide additional upper-bound searches:
+## Practical guidance
 
-```julia
-d, logical = heuristic_minimum_distance(
-    S; which=:full, alg=:GGAOrder, max_iters=500, pop_size=50, seed=1)
-```
-
-The available variants are `:GGAOrder`, `:NNCS`, `:GA`, and `:ACO`.
-GGA-Order and NNCS search systematic generator representations; GA and ACO
-search packed normalizer-generator combinations. All reject stabilizers during
-fitness evaluation, update the shared witnessed upper bound, and stop when
-they attain a certified lower bound. They do not certify new lower bounds.
+1. Inspect cached bounds before starting a solver.
+2. Search ``X`` and ``Z`` separately for CSS codes.
+3. Use heuristics to obtain a good witnessed incumbent.
+4. Run an exact method only when certification is required.
+5. Do not set a solver time limit if an exact answer is required: a timeout is
+   inconclusive.

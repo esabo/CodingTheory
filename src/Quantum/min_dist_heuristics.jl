@@ -309,10 +309,9 @@ function _minimum_distance_css_heuristic_binary(
 end
 
 """
-    heuristic_minimum_distance(S::AbstractStabilizerCodeCSS; which=:full,
-                               alg=:GGAOrder, ...)
+$(TYPEDSIGNATURES)
 
-Search for a CSS distance upper bound using a quotient-aware metaheuristic.
+Return a CSS distance upper bound found using a quotient-aware metaheuristic.
 These algorithms never certify a lower bound.
 """
 function heuristic_minimum_distance(

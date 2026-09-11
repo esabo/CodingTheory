@@ -8,9 +8,9 @@
         # LP Decoders
 #############################
 
-# function _init_LP_decoder_LDPC end
+function _init_LP_decoder_LDPC end
 
-# function _LP_decoder_LDPC end
+function _LP_decoder_LDPC end
 
 # TODO: docstring and in extension
 """

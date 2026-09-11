@@ -194,7 +194,7 @@ function _css_isd_stern_candidates!(
 end
 
 """
-    _minimum_distance_css_isd_binary(H, logical_checks; alg=:Prange, ...)
+$(TYPEDSIGNATURES)
 
 Run a threaded, quotient-aware ISD search for a low-weight vector in `ker(H)`
 with a nonzero logical label. This is a probabilistic upper-bound algorithm;
@@ -300,10 +300,9 @@ function _record_css_isd_upper_bound!(
 end
 
 """
-    probabilistic_minimum_distance(S::AbstractStabilizerCodeCSS; which=:full,
-                                   alg=:Prange, ...)
+$(TYPEDSIGNATURES)
 
-Search for an `X`, `Z`, or full-distance upper bound using quotient-aware
+Return an `X`, `Z`, or full-distance upper bound found using quotient-aware
 binary ISD. Returned witnesses are symplectic `[X | Z]` rows.
 """
 function probabilistic_minimum_distance(

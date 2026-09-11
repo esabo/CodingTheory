@@ -2,26 +2,20 @@
 
 ## Message Passing
 ```@docs
-Gallager_A
+SoftDecisionWorkspace
+init_soft_workspace
+load_soft_channel!
+decode!
+boxplus_exact
+boxplus_minsum
+boxplus_minsum_correction
+csr_of
 ```
 
-```@docs
-Gallager_B
-```
-
-```@docs
-sum_product
-```
-
-```@docs
-sum_product_box_plus
-```
-
-```@docs
-min_sum
-```
-
-See also: `find_MP_schedule`
+The soft-decision decoder selects sum-product and min-sum variants through
+the `algorithm` keyword to `decode!`. Construct one reusable workspace per
+thread; see [Message-passing Decoding](@ref message-passing-tutorial) for a
+complete workflow.
 
 ## Linear Programming
 
@@ -29,6 +23,14 @@ See also: `find_MP_schedule`
 LP_decoder_LDPC
 ```
 
-## Simulations
+## Post-processing decoders
 
-See: `decoder_simulation`
+```@docs
+OSDWorkspace
+init_osd_workspace
+osd_decode!
+init_grand_workspace
+grand_decode!
+init_wbf_workspace
+wbf_decode!
+```

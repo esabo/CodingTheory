@@ -96,7 +96,7 @@ function _unpack_binary_vector(v::Vector{UInt64}, n::Int)
 end
 
 """
-    _minimum_distance_css_gray_binary(H, logical_checks)
+$(TYPEDSIGNATURES)
 
 Exactly compute the minimum weight of a binary vector `v` satisfying
 `H * v' == 0` and `logical_checks * v' != 0` by Gray-code enumeration of
@@ -178,7 +178,7 @@ function _minimum_distance_css_gray_binary(
 end
 
 """
-    _minimum_distance_css_wagner_binary(H, logical_checks; max_d=ncols(H), verbose=false)
+$(TYPEDSIGNATURES)
 
 Search in increasing physical weight for a vector with zero syndrome under `H`
 and nonzero logical label under `logical_checks`. The meet-in-the-middle table
@@ -311,7 +311,7 @@ function _minimum_distance_css_wagner_binary(
 end
 
 """
-    _minimum_distance(H, logical_checks; alg=:auto, max_d=ncols(H), verbose=false)
+$(TYPEDSIGNATURES)
 
 Compute the minimum weight in `ker(H)` having a nonzero logical label. Both
 matrices are binary; `H` may be a sparse parity-check matrix.
@@ -466,10 +466,9 @@ function _compute_css_distance(
 end
 
 """
-    minimum_distance(S::AbstractStabilizerCodeCSS; which=:full, alg=:auto,
-                     max_d=S.n, verbose=false)
+$(TYPEDSIGNATURES)
 
-Compute the `X`, `Z`, or full minimum distance of a binary CSS stabilizer code.
+Return the `X`, `Z`, or full minimum distance of a binary CSS stabilizer code.
 The witness is returned in symplectic `[X | Z]` form.
 """
 function minimum_distance(

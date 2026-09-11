@@ -36,7 +36,6 @@ function _solve_css_minimum_distance_ilp(
     isnothing(time_limit_sec) || set_time_limit_sec(model, time_limit_sec)
     if threads > 0
         set_attribute(model, "threads", threads)
-        set_attribute(model, "parallel", "on")
     end
     try
         set_attribute(model, "mip_detect_symmetry", true)
@@ -104,6 +103,20 @@ function _solve_css_minimum_distance_ilp(
             return sum(witness), witness, :time_limit
         end
         return -1, zeros(Int, n), :time_limit
+    elseif status == JuMP.MOI.OTHER_ERROR && threads > 0
+        # HiGHS fixes its global scheduler width on the first solve in a
+        # process and rejects a later per-model width change. Retry using the
+        # established scheduler rather than turning that library-global state
+        # into a spurious optimization failure.
+        verbose && @warn(
+            "The optimizer rejected the requested thread count; retrying with its established scheduler.")
+        return _solve_css_minimum_distance_ilp(
+            optimizer_factory, H, logical_checks;
+            min_d=min_d, max_d=max_d, verbose=verbose,
+            time_limit_sec=time_limit_sec,
+            parity_cut_max_degree=parity_cut_max_degree,
+            verbose_attributes=verbose_attributes,
+            threads=0, cyclic_period=cyclic_period)
     elseif status != JuMP.MOI.OPTIMAL
         incumbent = has_values(model) ? objective_value(model) : missing
         bound = objective_bound(model)

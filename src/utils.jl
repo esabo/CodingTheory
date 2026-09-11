@@ -1251,11 +1251,12 @@ function row_supports_symplectic(M::CTMatrixTypes)
     collect(zip(X, Z))
 end
 
-function _node_adjacencies(H::CTMatrixTypes)
-    check_adj_list = [Int[] for _ in 1:nrows(H)]
-    var_adj_list = [Int[] for _ in 1:ncols(H)]
-    for r in 1:nrows(H)
-        for c in 1:ncols(H)
+function _node_adjacencies(H::Union{CTMatrixTypes, AbstractMatrix})
+    nr, nc = size(H)
+    check_adj_list = [Int[] for _ in 1:nr]
+    var_adj_list = [Int[] for _ in 1:nc]
+    for r in 1:nr
+        for c in 1:nc
             if !iszero(H[r, c])
                 push!(check_adj_list[r], c)
                 push!(var_adj_list[c], r)

@@ -1,4 +1,4 @@
-# Utilies
+# Utilities
 
 ```@autodocs
 Modules = [CodingTheory]

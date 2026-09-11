@@ -504,7 +504,9 @@ Generator matrix: 3 × 6
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
 
-julia> quantum_weight_reduction(S, num_Z_stabs(S), collect(1:l), seed = 5849772946347113199, copying_type = :target, copying_target = 3)
+julia> using Random
+
+julia> quantum_weight_reduction(S, num_Z_stabs(S), collect(1:l), rng = Xoshiro(5849772946347113199), copying_type = :target, copying_target = 3)
 [[2892, 9]]_2 CSS stabilizer code
 ```
 

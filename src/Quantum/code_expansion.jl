@@ -1,1876 +1,773 @@
+# Copyright (c) 2026 Eric Sabo
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 
+# This file contains finite, verifiable expansion computations.  All
+# matrix-based routines below are binary: replacing nonzero field elements by
+# bits is not valid over a larger field.
 
-"""
-    laplacian_matrix(G::Grphs.SimpleGraph)
+# Re-export the Graphs implementation rather than creating a competing generic
+# with the same name.
+const laplacian_matrix = Grphs.laplacian_matrix
 
-Return the Laplacian matrix of the graph `G` (Degree - Adjacency).
-"""
-function laplacian_matrix(G::Grphs.SimpleGraph)
-    A = Grphs.adjacency_matrix(G)
-    D = spdiagm(0 => Grphs.degree(G))
-    return D - A
-end
-
-"""
-    spectral_gap(G::Grphs.SimpleGraph)
-
-Return the second-largest eigenvalue (in absolute value) of the graph `G`.
-"""
-function spectral_gap(G::Grphs.SimpleGraph)
-    A = Grphs.adjacency_matrix(G)
-    evals = eigvals(Symmetric(Matrix(A)))
-    
-    max_eval = maximum(abs.(evals))
-    non_trivial_evals = filter(x -> abs(x) < max_eval - 1e-7, evals)
-    
-    isempty(non_trivial_evals) && return 0.0
-    return maximum(abs.(non_trivial_evals))
-end
-
-"""
-    spectral_gap(S::AbstractSubsystemCode, check_type::Symbol=:both)
-
-Return the spectral gap of the code's Tanner graph.
-For CSS codes, `check_type` can be `:X`, `:Z`, or `:both` to analyze the respective sub-graphs.
-Results are cached.
-"""
-function spectral_gap(S::AbstractSubsystemCode, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        check_type == :both || @warn "check_type ignored for non-CSS codes. Using full graph."
-        haskey(S.cache, :spectral_gap) && return S.cache[:spectral_gap]
-        
-        # Extract the graph from the cached tuple
-        G = Tanner_graph(S)[1]
-        gap = spectral_gap(G)
-        S.cache[:spectral_gap] = gap
-        return gap
+function _binary_support_matrix(H)
+    nr, nc = size(H)
+    B = falses(nr, nc)
+    if eltype(H) <: Integer || eltype(H) <: Bool
+        for c in 1:nc, r in 1:nr
+            value = H[r, c]
+            (iszero(value) || isone(value)) ||
+                throw(ArgumentError("A binary matrix may contain only zeros and ones."))
+            B[r, c] = isone(value)
+        end
+        return B
     end
 
-    check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-    
-    cache_key = Symbol("spectral_gap_", check_type)
-    haskey(S.cache, cache_key) && return S.cache[cache_key]
-    
-    if check_type == :X
-        G = Tanner_graph_X(S)[1]
-    elseif check_type == :Z
-        G = Tanner_graph_Z(S)[1]
+    F = _code_matrix_base_ring(H)
+    Int(order(F)) == 2 ||
+        throw(ArgumentError("Expansion computations currently require a matrix over GF(2)."))
+    for c in 1:nc, r in 1:nr
+        B[r, c] = !iszero(H[r, c])
+    end
+    return B
+end
+
+function _binary_support_matrix(H::SparseMatrixCSC)
+    nr, nc = size(H)
+    values = SparseArrays.nonzeros(H)
+    if eltype(H) <: Integer || eltype(H) <: Bool
+        all(value -> iszero(value) || isone(value), values) ||
+            throw(ArgumentError("A binary matrix may contain only zeros and ones."))
     else
-        G = Tanner_graph(S)[1]
+        F = _code_matrix_base_ring(H)
+        Int(order(F)) == 2 ||
+            throw(ArgumentError(
+                "Expansion computations currently require a matrix over GF(2)."))
     end
-    
-    gap = spectral_gap(G)
-    S.cache[cache_key] = gap
-    return gap
+    B = falses(nr, nc)
+    rows = SparseArrays.rowvals(H)
+    for column in 1:nc
+        for index in SparseArrays.nzrange(H, column)
+            iszero(values[index]) || (B[rows[index], column] = true)
+        end
+    end
+    return B
 end
 
-"""
-    girth(S::AbstractSubsystemCode, check_type::Symbol=:both)
-
-Return the girth (shortest cycle) of the code's Tanner graph.
-For CSS codes, `check_type` can be `:X`, `:Z`, or `:both` to analyze the respective sub-graphs.
-Results are cached.
-"""
-function girth(S::AbstractSubsystemCode, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        check_type == :both || @warn "check_type ignored for non-CSS codes. Using full graph."
-        haskey(S.cache, :girth) && return S.cache[:girth]
-        
-        G = Tanner_graph(S)[1]
-        g = Grphs.girth(G)
-        S.cache[:girth] = g
-        return g
+function _quantum_check_support(S::AbstractSubsystemCode, check_type::Symbol)
+    if CSSTrait(typeof(S)) == IsCSS()
+        check_type in (:X, :Z, :both) ||
+            throw(ArgumentError("check_type must be :X, :Z, or :both."))
+        if check_type == :X
+            return _binary_support_matrix(X_stabilizers(S))
+        elseif check_type == :Z
+            return _binary_support_matrix(Z_stabilizers(S))
+        end
+        return vcat(
+            _binary_support_matrix(X_stabilizers(S)),
+            _binary_support_matrix(Z_stabilizers(S)),
+        )
     end
-    
-    check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-    
-    cache_key = Symbol("girth_", check_type)
-    haskey(S.cache, cache_key) && return S.cache[cache_key]
-    
-    if check_type == :X
-        G = Tanner_graph_X(S)[1]
-    elseif check_type == :Z
-        G = Tanner_graph_Z(S)[1]
-    else
-        G = Tanner_graph(S)[1]
-    end
-    
-    g = Grphs.girth(G)
-    S.cache[cache_key] = g
-    return g
-end
 
-"""
-    estimated_QLTC_soundness(S::AbstractCSSCode, check_type::Symbol=:X; max_wt::Int=3, samples::Int=1000)
-
-Estimates the quantum soundness (coboundary expansion) of the code by sampling random errors 
-up to `max_wt` and calculating the minimum ratio of syndrome weight to error weight.
-Since exact soundness is NP-hard, this provides a heuristic upper bound.
-"""
-function estimated_QLTC_soundness(S::AbstractCSSCode, check_type::Symbol=:X; max_wt::Int=3, samples::Int=1000)
-    check_type ∈ (:X, :Z) || throw(ArgumentError("check_type must be :X or :Z"))
-    
-    H = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
+    check_type == :both ||
+        throw(ArgumentError("A non-CSS code supports only check_type=:both."))
+    stabs = _binary_support_matrix(stabilizers(S))
     n = length(S)
-    F = field(S)
-    
-    min_soundness = Inf
-    
-    for wt in 1:max_wt
-        for _ in 1:samples
-            # Generate a random error of specific weight
-            E = zero_matrix(F, n, 1)
-            indices = randperm(n)[1:wt]
-            for idx in indices
-                E[idx, 1] = F(1)
-            end
-            
-            # Calculate syndrome weight
-            syndrome = H * E
-            syn_wt = count(!iszero, syndrome)
-            
-            ratio = syn_wt / wt
-            if ratio < min_soundness
-                min_soundness = ratio
-            end
-        end
-    end
-    
-    return min_soundness
+    return stabs[:, 1:n] .| stabs[:, n + 1:2n]
 end
 
 """
-    spectral_soundness_bound(S::AbstractCSSCode, check_type::Symbol=:X)
+$(TYPEDSIGNATURES)
 
-Returns a theoretical lower bound on the soundness of the code based on the spectral gap 
-of its Tanner graph. 
+Return the symmetric normalized Laplacian. Isolated vertices have zero
+diagonal, following the convention used by `Graphs.jl`.
 """
-function spectral_soundness_bound(S::AbstractCSSCode, check_type::Symbol=:X)
-    gap = spectral_gap(S, check_type)
-    
-    # Extract max check degree
-    H = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    d_c = maximum(count(!iszero, H[i, :]) for i in 1:size(H, 1))
-    
-    # A standard spectral bound for expansion (Alon-Boppana / Cheeger variants)
-    # The exact formula depends on the regularity of the graph.
-    # For a d-regular graph, expansion is bounded by (d - λ) / 2
-    return (d_c - gap) / 2
-end
-
-using Base.Threads: @threads, nthreads, threadid, Atomic, atomic_xchg!
-
-# -----------------------------------------------------------------------------
-# Bit-Packing Helper
-# -----------------------------------------------------------------------------
-function _bitpack_matrix(H::CTMatrixTypes)
-    nr, nc = size(H)
-    num_words = cld(nr, 64)
-    H_packed = zeros(UInt64, nc, num_words)
-    
-    for c in 1:nc
-        for r in 1:nr
-            if !iszero(H[r, c])
-                word_idx = (r - 1) ÷ 64 + 1
-                bit_idx = (r - 1) % 64
-                H_packed[c, word_idx] |= (UInt64(1) << bit_idx)
-            end
-        end
-    end
-    return H_packed, num_words, nr, nc
-end
-
-# -----------------------------------------------------------------------------
-# 1. Deterministic Soundness
-# -----------------------------------------------------------------------------
-function _QLTC_soundness_dfs!(start_col::Int, depth::Int, max_wt::Int, nc::Int, num_words::Int, 
-                         Δ::Int, syndromes::Matrix{UInt64}, H_packed::Matrix{UInt64}, 
-                         min_ratios::Vector{Float64}, tid::Int)
-    if depth == max_wt
-        return
-    end
-
-    syn_wt = 0
-    @inbounds for w in 1:num_words
-        syn_wt += count_ones(syndromes[depth + 1, w])
-    end
-
-    best_future_ratio = Inf
-    for k in (depth + 1):max_wt
-        best_possible_syn_wt = max(0, syn_wt - (k - depth) * Δ)
-        ratio_bound = best_possible_syn_wt / k
-        if ratio_bound < best_future_ratio
-            best_future_ratio = ratio_bound
-        end
-    end
-
-    @inbounds if best_future_ratio >= min_ratios[tid]
-        return
-    end
-
-    for c in start_col:nc
-        next_syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = syndromes[depth + 1, w] ⊻ H_packed[c, w]
-            syndromes[depth + 2, w] = val
-            next_syn_wt += count_ones(val)
-        end
-
-        if next_syn_wt > 0
-            ratio = next_syn_wt / (depth + 1)
-            @inbounds if ratio < min_ratios[tid]
-                min_ratios[tid] = ratio
-            end
-        end
-
-        _QLTC_soundness_dfs!(c + 1, depth + 1, max_wt, nc, num_words, Δ, syndromes, H_packed, min_ratios, tid)
-    end
-end
-
-"""
-    deterministic_QLTC_soundness(S::AbstractSubsystemCode, check_type::Symbol=:X; max_wt::Int=4, upper_bound::Float64=Inf)
-
-Returns the exact worst-case soundness ratio (syndrome weight / error weight) for 
-all errors up to `max_wt`. You can supply an `upper_bound` to instantly trigger deep Branch and Bound pruning.
-"""
-function deterministic_QLTC_soundness(S::AbstractSubsystemCode, check_type::Symbol=:X; max_wt::Int=4, upper_bound::Float64=Inf)
-    check_type ∈ (:X, :Z) || throw(ArgumentError("check_type must be :X or :Z"))
-    H_orig = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    
-    col_wts = [count(!iszero, H_orig[:, c]) for c in 1:size(H_orig, 2)]
-    p = sortperm(col_wts)
-    H = H_orig[:, p]
-    Δ = maximum(col_wts)
-    
-    H_packed, num_words, nr, nc = _bitpack_matrix(H)
-    
-    n_threads = nthreads()
-    min_ratios = fill(upper_bound, n_threads)
-    thread_syndromes = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
-
-    @threads for c1 in 1:nc
-        tid = threadid()
-        syndromes = thread_syndromes[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            syndromes[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt > 0
-            ratio = syn_wt / 1.0
-            @inbounds if ratio < min_ratios[tid]
-                min_ratios[tid] = ratio
-            end
-        end
-        
-        _QLTC_soundness_dfs!(c1 + 1, 1, max_wt, nc, num_words, Δ, syndromes, H_packed, min_ratios, tid)
-    end
-    
-    return minimum(min_ratios)
-end
-
-# -----------------------------------------------------------------------------
-# 2. Confinement Profile
-# -----------------------------------------------------------------------------
-function _confinement_dfs!(start_col::Int, depth::Int, max_wt::Int, nc::Int, num_words::Int, 
-                           Δ::Int, syndromes::Matrix{UInt64}, H_packed::Matrix{UInt64}, 
-                           profile::Vector{Int}, max_syndrome_wt::Int)
-    if depth == max_wt
-        return
-    end
-
-    syn_wt = 0
-    @inbounds for w in 1:num_words
-        syn_wt += count_ones(syndromes[depth + 1, w])
-    end
-
-    best_possible_future_syn_wt = max(0, syn_wt - (max_wt - depth) * Δ)
-    if best_possible_future_syn_wt > max_syndrome_wt
-        return
-    end
-
-    for c in start_col:nc
-        next_syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = syndromes[depth + 1, w] ⊻ H_packed[c, w]
-            syndromes[depth + 2, w] = val
-            next_syn_wt += count_ones(val)
-        end
-
-        if next_syn_wt <= max_syndrome_wt
-            @inbounds if depth + 1 < profile[next_syn_wt + 1]
-                profile[next_syn_wt + 1] = depth + 1
-            end
-        end
-
-        _confinement_dfs!(c + 1, depth + 1, max_wt, nc, num_words, Δ, syndromes, H_packed, profile, max_syndrome_wt)
-    end
-end
-
-"""
-    confinement_profile(S::AbstractSubsystemCode, check_type::Symbol=:X; max_wt::Int=4, max_syndrome_wt::Int=typemax(Int))
-
-Returns a deterministic dictionary mapping each observed syndrome weight to the 
-minimum error weight (up to `max_wt`) that can trigger it. Supplying `max_syndrome_wt` heavily prunes the search space.
-"""
-function confinement_profile(S::AbstractSubsystemCode, check_type::Symbol=:X; max_wt::Int=4, max_syndrome_wt::Int=typemax(Int))
-    check_type ∈ (:X, :Z) || throw(ArgumentError("check_type must be :X or :Z"))
-    H_orig = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    
-    col_wts = [count(!iszero, H_orig[:, c]) for c in 1:size(H_orig, 2)]
-    p = sortperm(col_wts)
-    H = H_orig[:, p]
-    Δ = maximum(col_wts)
-    
-    H_packed, num_words, nr, nc = _bitpack_matrix(H)
-    
-    n_threads = nthreads()
-    profiles = [fill(typemax(Int), nr + 1) for _ in 1:n_threads]
-    thread_syndromes = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
-
-    @threads for c1 in 1:nc
-        tid = threadid()
-        syndromes = thread_syndromes[tid]
-        profile = profiles[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            syndromes[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt <= max_syndrome_wt
-            @inbounds if 1 < profile[syn_wt + 1]
-                profile[syn_wt + 1] = 1
-            end
-        end
-        
-        _confinement_dfs!(c1 + 1, 1, max_wt, nc, num_words, Δ, syndromes, H_packed, profile, max_syndrome_wt)
-    end
-    
-    global_profile = fill(typemax(Int), nr + 1)
-    for tid in 1:n_threads
-        @inbounds for i in 1:nr+1
-            if profiles[tid][i] < global_profile[i]
-                global_profile[i] = profiles[tid][i]
-            end
-        end
-    end
-    
-    conf_dict = Dict{Int, Int}()
-    for (syn_wt_plus_1, min_e_wt) in enumerate(global_profile)
-        if min_e_wt != typemax(Int) && syn_wt_plus_1 - 1 > 0
-            conf_dict[syn_wt_plus_1 - 1] = min_e_wt
-        end
-    end
-    
-    return conf_dict
-end
-
-# -----------------------------------------------------------------------------
-# 3. Verify Soundness
-# -----------------------------------------------------------------------------
-function _verify_QLTC_soundness_dfs!(start_col::Int, depth::Int, max_wt::Int, nc::Int, num_words::Int, 
-                                Δ::Int, syndromes::Matrix{UInt64}, H_packed::Matrix{UInt64}, 
-                                threshold::Float64, is_valid::Atomic{Int})
-    if is_valid[] == 0 || depth == max_wt
-        return
-    end
-
-    syn_wt = 0
-    @inbounds for w in 1:num_words
-        syn_wt += count_ones(syndromes[depth + 1, w])
-    end
-
-    best_future_ratio = Inf
-    for k in (depth + 1):max_wt
-        best_possible_syn_wt = max(0, syn_wt - (k - depth) * Δ)
-        ratio_bound = best_possible_syn_wt / k
-        if ratio_bound < best_future_ratio
-            best_future_ratio = ratio_bound
-        end
-    end
-
-    @inbounds if best_future_ratio >= threshold
-        return
-    end
-
-    for c in start_col:nc
-        next_syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = syndromes[depth + 1, w] ⊻ H_packed[c, w]
-            syndromes[depth + 2, w] = val
-            next_syn_wt += count_ones(val)
-        end
-
-        if next_syn_wt > 0
-            ratio = next_syn_wt / (depth + 1)
-            @inbounds if ratio < threshold
-                atomic_xchg!(is_valid, 0)
-                return
-            end
-        end
-
-        _verify_QLTC_soundness_dfs!(c + 1, depth + 1, max_wt, nc, num_words, Δ, syndromes, H_packed, threshold, is_valid)
-        
-        if is_valid[] == 0
-            return
-        end
-    end
-end
-
-"""
-    verify_QLTC_soundness(S::AbstractSubsystemCode, threshold::Float64, check_type::Symbol=:X; max_wt::Int=4)
-
-Returns `true` if the code's soundness is strictly `>= threshold` for all errors up to `max_wt`.
-Returns `false` and instantly aborts all threads the moment a violation is found.
-"""
-function verify_QLTC_soundness(S::AbstractSubsystemCode, threshold::Float64, check_type::Symbol=:X; max_wt::Int=4)
-    check_type ∈ (:X, :Z) || throw(ArgumentError("check_type must be :X or :Z"))
-    H_orig = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    
-    col_wts = [count(!iszero, H_orig[:, c]) for c in 1:size(H_orig, 2)]
-    p = sortperm(col_wts)
-    H = H_orig[:, p]
-    Δ = maximum(col_wts)
-    
-    H_packed, num_words, nr, nc = _bitpack_matrix(H)
-    
-    n_threads = nthreads()
-    is_valid = Atomic{Int}(1)
-    thread_syndromes = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
-
-    @threads for c1 in 1:nc
-        if is_valid[] == 0
-            continue
-        end
-        
-        tid = threadid()
-        syndromes = thread_syndromes[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            syndromes[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt > 0
-            ratio = syn_wt / 1.0
-            if ratio < threshold
-                atomic_xchg!(is_valid, 0)
-                continue
-            end
-        end
-        
-        _verify_QLTC_soundness_dfs!(c1 + 1, 1, max_wt, nc, num_words, Δ, syndromes, H_packed, threshold, is_valid)
-    end
-    
-    return is_valid[] == 1
-end
-
-# -----------------------------------------------------------------------------
-# 4. Verify Confinement
-# -----------------------------------------------------------------------------
-function _verify_confinement_dfs!(start_col::Int, depth::Int, max_wt::Int, nc::Int, num_words::Int, 
-                                  Δ::Int, syndromes::Matrix{UInt64}, H_packed::Matrix{UInt64}, 
-                                  target_syndrome_wt::Int, is_confined::Atomic{Int})
-    if is_confined[] == 0 || depth == max_wt
-        return
-    end
-
-    syn_wt = 0
-    @inbounds for w in 1:num_words
-        syn_wt += count_ones(syndromes[depth + 1, w])
-    end
-
-    best_possible_future_syn_wt = max(0, syn_wt - (max_wt - depth) * Δ)
-    if best_possible_future_syn_wt > target_syndrome_wt
-        return
-    end
-
-    for c in start_col:nc
-        next_syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = syndromes[depth + 1, w] ⊻ H_packed[c, w]
-            syndromes[depth + 2, w] = val
-            next_syn_wt += count_ones(val)
-        end
-
-        if next_syn_wt <= target_syndrome_wt
-            atomic_xchg!(is_confined, 0)
-            return
-        end
-
-        _verify_confinement_dfs!(c + 1, depth + 1, max_wt, nc, num_words, Δ, syndromes, H_packed, target_syndrome_wt, is_confined)
-        
-        if is_confined[] == 0
-            return
-        end
-    end
-end
-
-"""
-    verify_confinement(S::AbstractSubsystemCode, target_syndrome_wt::Int, check_type::Symbol=:X; max_wt::Int=4)
-
-Returns `true` if every error up to `max_wt` produces a syndrome weight strictly `> target_syndrome_wt`.
-Returns `false` and instantly aborts if an error is found that fails to trigger the required syndrome weight.
-"""
-function verify_confinement(S::AbstractSubsystemCode, target_syndrome_wt::Int, check_type::Symbol=:X; max_wt::Int=4)
-    check_type ∈ (:X, :Z) || throw(ArgumentError("check_type must be :X or :Z"))
-    H_orig = check_type == :X ? X_stabilizers(S) : Z_stabilizers(S)
-    
-    col_wts = [count(!iszero, H_orig[:, c]) for c in 1:size(H_orig, 2)]
-    p = sortperm(col_wts)
-    H = H_orig[:, p]
-    Δ = maximum(col_wts)
-    
-    H_packed, num_words, nr, nc = _bitpack_matrix(H)
-    
-    n_threads = nthreads()
-    is_confined = Atomic{Int}(1)
-    thread_syndromes = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
-
-    @threads for c1 in 1:nc
-        if is_confined[] == 0
-            continue
-        end
-        
-        tid = threadid()
-        syndromes = thread_syndromes[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            syndromes[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt <= target_syndrome_wt
-            atomic_xchg!(is_confined, 0)
-            continue
-        end
-        
-        _verify_confinement_dfs!(c1 + 1, 1, max_wt, nc, num_words, Δ, syndromes, H_packed, target_syndrome_wt, is_confined)
-    end
-    
-    return is_confined[] == 1
-end
-
-"""
-    normalized_laplacian_matrix(G::Grphs.SimpleGraph)
-
-Return the normalized Laplacian matrix of the graph.
-Essential for evaluating the expansion of irregular Tanner graphs.
-"""
-function normalized_laplacian_matrix(G::Grphs.SimpleGraph)
+function normalized_laplacian_matrix(G::Grphs.AbstractGraph)
     A = Grphs.adjacency_matrix(G)
-    d = Grphs.degree(G)
-    
-    # Safely handle isolated vertices to avoid division by zero
-    inv_sqrt_d = [v > 0 ? 1.0 / sqrt(v) : 0.0 for v in d]
-    D_inv_sqrt = spdiagm(0 => inv_sqrt_d)
-    I_mat = spdiagm(0 => ones(Grphs.nv(G)))
-    
-    return I_mat - D_inv_sqrt * A * D_inv_sqrt
+    degrees = Grphs.degree(G)
+    inv_sqrt = [iszero(d) ? 0.0 : inv(sqrt(Float64(d))) for d in degrees]
+    diagonal = Float64[iszero(d) ? 0.0 : 1.0 for d in degrees]
+    D_inv_sqrt = spdiagm(0 => inv_sqrt)
+    return spdiagm(0 => diagonal) - D_inv_sqrt * A * D_inv_sqrt
 end
 
 """
-    normalized_spectral_gap(G::Grphs.SimpleGraph)
+$(TYPEDSIGNATURES)
 
-Return the algebraic connectivity (second smallest eigenvalue) of the 
-normalized Laplacian matrix. Bounded between 0 and 2.
+Return the second-smallest eigenvalue of the combinatorial (or normalized)
+Laplacian. It is zero for a disconnected graph and for graphs with fewer than
+two vertices.
 """
-function normalized_spectral_gap(G::Grphs.SimpleGraph)
-    L_norm = normalized_laplacian_matrix(G)
-    evals = eigvals(Symmetric(Matrix(L_norm)))
-    return length(evals) > 1 ? evals[2] : 0.0
+function algebraic_connectivity(
+    G::Grphs.AbstractGraph; normalized::Bool=false,
+)
+    Grphs.nv(G) >= 2 || return 0.0
+    L = normalized ? normalized_laplacian_matrix(G) : Grphs.laplacian_matrix(G)
+    values = eigvals(Symmetric(Matrix{Float64}(L)))
+    return max(0.0, Float64(values[2]))
 end
 
 """
-    fiedler_vector(S::AbstractSubsystemCode, check_type::Symbol=:both)
+$(TYPEDSIGNATURES)
 
-Returns the Fiedler vector (the eigenvector corresponding to the second smallest 
-Laplacian eigenvalue). Useful for spectral graph partitioning and hardware layout.
-Results are cached.
+Return the second-smallest eigenvalue of the normalized graph Laplacian.
 """
-function fiedler_vector(S::AbstractSubsystemCode, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        check_type == :both || @warn "check_type ignored for non-CSS codes. Using full graph."
-        haskey(S.cache, :fiedler_vector) && return S.cache[:fiedler_vector]
-        G = Tanner_graph(S)[1]
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        cache_key = Symbol("fiedler_vector_", check_type)
-        haskey(S.cache, cache_key) && return S.cache[cache_key]
-        
-        G = check_type == :X ? Tanner_graph_X(S)[1] : (check_type == :Z ? Tanner_graph_Z(S)[1] : Tanner_graph(S)[1])
-    end
-    
-    L = laplacian_matrix(G)
-    evals, evecs = eigen(Symmetric(Matrix(L)))
-    
-    # Eigen returns sorted eigenvalues. Index 2 is the algebraic connectivity.
-    vec = size(evecs, 2) > 1 ? evecs[:, 2] : zeros(Grphs.nv(G))
-    
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        S.cache[:fiedler_vector] = vec
-    else
-        S.cache[cache_key] = vec
-    end
-    return vec
+normalized_spectral_gap(G::Grphs.AbstractGraph) =
+    algebraic_connectivity(G; normalized=true)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the largest absolute adjacency eigenvalue after removing the trivial
+spectral-radius eigenvalues. For a connected `d`-regular bipartite graph this
+removes both `d` and `-d`.
+"""
+function nontrivial_adjacency_spectral_radius(G::Grphs.AbstractGraph)
+    Grphs.nv(G) >= 2 || return 0.0
+    values = eigvals(Symmetric(Matrix{Float64}(Grphs.adjacency_matrix(G))))
+    radius = maximum(abs, values)
+    tolerance = 100 * eps(Float64) * max(1.0, radius)
+    nontrivial = filter(value -> abs(abs(value) - radius) > tolerance, values)
+    return isempty(nontrivial) ? 0.0 : maximum(abs, nontrivial)
 end
 
 """
-    is_topologically_connected(S::AbstractSubsystemCode, check_type::Symbol=:both)
+$(TYPEDSIGNATURES)
 
-Returns `true` if the underlying Tanner graph consists of a single connected component.
+Return a unit Fiedler vector of the combinatorial Laplacian. For a graph with
+fewer than two vertices, return a zero vector.
 """
-function is_topologically_connected(S::AbstractSubsystemCode, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        G = Tanner_graph(S)[1]
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        G = check_type == :X ? Tanner_graph_X(S)[1] : (check_type == :Z ? Tanner_graph_Z(S)[1] : Tanner_graph(S)[1])
-    end
-    
-    # We can use the native Graphs.jl function for maximum speed
-    return Grphs.is_connected(G)
-end
-
-"""
-    tanner_distance_bound(S::AbstractSubsystemCode, check_type::Symbol=:both)
-
-Returns the spectral lower bound on the minimum distance of the code based on the 
-second-largest adjacency eigenvalue of its Tanner graph.
-Throws an error if the specified graph is not strictly regular.
-"""
-function tanner_distance_bound(S::AbstractSubsystemCode, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        G = Tanner_graph(S)[1]
-        n_qubits = length(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        G = check_type == :X ? Tanner_graph_X(S)[1] : (check_type == :Z ? Tanner_graph_Z(S)[1] : Tanner_graph(S)[1])
-        n_qubits = length(S)
-    end
-    
-    Grphs.is_regular(G) || throw(ArgumentError("The Tanner distance bound is only mathematically valid for regular graphs."))
-    
-    Δ = Grphs.degree(G)[1]
-    
-    A = Grphs.adjacency_matrix(G)
-    evals = eigvals(Symmetric(Matrix(A)))
-    
-    # Get the second largest eigenvalue (λ)
-    max_eval = maximum(abs.(evals))
-    non_trivial_evals = filter(x -> abs(x) < max_eval - 1e-7, evals)
-    λ = isempty(non_trivial_evals) ? 0.0 : maximum(abs.(non_trivial_evals))
-    
-    # Tanner bound equation
-    bound = n_qubits * (Δ - λ) / (Δ^2 - 2λ + Δ)
-    return max(1, floor(Int, bound))
-end
-
-"""
-    estimated_edge_expansion(G::Grphs.SimpleGraph)
-
-Estimates the edge expansion (isoperimetric number) of the graph using a Fiedler vector sweep.
-Returns an upper bound on the true edge expansion.
-"""
-function estimated_edge_expansion(G::Grphs.SimpleGraph)
-    L = laplacian_matrix(G)
-    evals, evecs = eigen(Symmetric(Matrix(L)))
-    v = size(evecs, 2) > 1 ? evecs[:, 2] : zeros(Grphs.nv(G))
-    p = sortperm(v)
-    
-    min_exp = Inf
+function fiedler_vector(G::Grphs.AbstractGraph)
     n = Grphs.nv(G)
-    
-    S_set = falses(n)
-    cut_size = 0
-    
-    for i in 1:(n ÷ 2)
-        node = p[i]
-        S_set[node] = true
-        
-        # Fast update of the cut size
-        for neighbor in Grphs.neighbors(G, node)
-            if S_set[neighbor]
-                cut_size -= 1
-            else
-                cut_size += 1
-            end
-        end
-        
-        exp = cut_size / i
-        if exp < min_exp
-            min_exp = exp
-        end
+    n >= 2 || return zeros(Float64, n)
+    decomposition =
+        eigen(Symmetric(Matrix{Float64}(Grphs.laplacian_matrix(G))))
+    return decomposition.vectors[:, 2]
+end
+
+function _quantum_tanner_graph(S::AbstractSubsystemCode, check_type::Symbol)
+    if CSSTrait(typeof(S)) == IsCSS()
+        check_type in (:X, :Z, :both) ||
+            throw(ArgumentError("check_type must be :X, :Z, or :both."))
+        return check_type == :X ? Tanner_graph_X(S)[1] :
+            check_type == :Z ? Tanner_graph_Z(S)[1] : Tanner_graph(S)[1]
     end
-    
-    return min_exp == Inf ? 0.0 : min_exp
+    check_type == :both ||
+        throw(ArgumentError("A non-CSS code supports only check_type=:both."))
+    return Tanner_graph(S)[1]
+end
+
+function fiedler_vector(
+    S::AbstractSubsystemCode, check_type::Symbol=:both,
+)
+    key = Symbol(:fiedler_vector_, check_type)
+    return get!(S.cache, key) do
+        fiedler_vector(_quantum_tanner_graph(S, check_type))
+    end
 end
 
 """
-    estimated_vertex_expansion(G::Grphs.SimpleGraph)
+$(TYPEDSIGNATURES)
 
-Estimates the vertex expansion of the graph using a Fiedler vector sweep.
-Returns an upper bound on the true vertex expansion.
+Return whether the selected Tanner graph is connected.
 """
-function estimated_vertex_expansion(G::Grphs.SimpleGraph)
-    L = laplacian_matrix(G)
-    evals, evecs = eigen(Symmetric(Matrix(L)))
-    v = size(evecs, 2) > 1 ? evecs[:, 2] : zeros(Grphs.nv(G))
-    p = sortperm(v)
-    
-    min_exp = Inf
+is_topologically_connected(
+    S::AbstractSubsystemCode, check_type::Symbol=:both,
+) = Grphs.is_connected(_quantum_tanner_graph(S, check_type))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the smallest edge-boundary ratio found by sweeping prefixes of a
+Fiedler ordering. This is an upper bound on the graph's edge expansion.
+"""
+function estimated_edge_expansion(G::Grphs.AbstractGraph)
     n = Grphs.nv(G)
-    
-    S_set = falses(n)
-    in_boundary = falses(n)
-    boundary_size = 0
-    
-    for i in 1:(n ÷ 2)
-        node = p[i]
-        S_set[node] = true
-        if in_boundary[node]
-            boundary_size -= 1 # Node moved from boundary to interior
+    n >= 2 || return 0.0
+    order = sortperm(fiedler_vector(G))
+    inside = falses(n)
+    cut = 0
+    best = Inf
+    for set_size in 1:fld(n, 2)
+        vertex = order[set_size]
+        inside[vertex] = true
+        for neighbor in Grphs.neighbors(G, vertex)
+            cut += inside[neighbor] ? -1 : 1
         end
-        
-        for neighbor in Grphs.neighbors(G, node)
-            if !S_set[neighbor] && !in_boundary[neighbor]
-                in_boundary[neighbor] = true
-                boundary_size += 1
+        best = min(best, cut / set_size)
+    end
+    return isfinite(best) ? best : 0.0
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the smallest external-vertex-boundary ratio found by a Fiedler sweep.
+This is an upper bound on vertex expansion.
+"""
+function estimated_vertex_expansion(G::Grphs.AbstractGraph)
+    n = Grphs.nv(G)
+    n >= 2 || return 0.0
+    order = sortperm(fiedler_vector(G))
+    inside = falses(n)
+    outside_neighbor_count = zeros(Int, n)
+    boundary = 0
+    best = Inf
+    for set_size in 1:fld(n, 2)
+        vertex = order[set_size]
+        if outside_neighbor_count[vertex] > 0
+            boundary -= 1
+        end
+        inside[vertex] = true
+        for neighbor in Grphs.neighbors(G, vertex)
+            inside[neighbor] && continue
+            iszero(outside_neighbor_count[neighbor]) && (boundary += 1)
+            outside_neighbor_count[neighbor] += 1
+        end
+        best = min(best, boundary / set_size)
+    end
+    return isfinite(best) ? best : 0.0
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return Cheeger lower and upper bounds for edge expansion:
+`λ₂/2 ≤ h(G) ≤ sqrt(2Δλ₂)`.
+"""
+function edge_expansion_bounds(G::Grphs.AbstractGraph)
+    Grphs.nv(G) >= 2 || return (0.0, 0.0)
+    λ₂ = algebraic_connectivity(G)
+    Δ = maximum(Grphs.degree(G); init=0)
+    return (λ₂ / 2, sqrt(2Δ * λ₂))
+end
+
+function _bitpack_columns(H)
+    B = _binary_support_matrix(H)
+    nr, nc = size(B)
+    words = cld(nr, 64)
+    packed = zeros(UInt64, nc, words)
+    for c in 1:nc, r in 1:nr
+        B[r, c] || continue
+        packed[c, (r - 1) ÷ 64 + 1] |= UInt64(1) << ((r - 1) % 64)
+    end
+    return packed, words, nr, nc
+end
+
+_packed_weight(words) = sum(count_ones, words; init=0)
+
+function _validate_expansion_parameters(n::Int, γ::Real, A::Real)
+    0 <= γ <= 1 || throw(DomainError(γ, "γ must lie in [0, 1]."))
+    A >= 0 || throw(DomainError(A, "A must be nonnegative."))
+    return min(n, floor(Int, γ * n))
+end
+
+function _first_expansion_violation(H, max_size::Int, A::Real)
+    packed, words, _, nc = _bitpack_columns(H)
+    0 <= max_size <= nc ||
+        throw(DomainError(max_size, "max_size must lie between zero and the number of columns."))
+    max_size == 0 && return nothing
+    neighborhood = zeros(UInt64, max_size + 1, words)
+    support = Vector{Int}(undef, max_size)
+
+    function visit(start::Int, depth::Int)
+        depth == max_size && return nothing
+        for column in start:nc
+            next_depth = depth + 1
+            for word in 1:words
+                neighborhood[next_depth + 1, word] =
+                    neighborhood[depth + 1, word] | packed[column, word]
             end
+            support[next_depth] = column
+            neighbor_count = _packed_weight(@view neighborhood[next_depth + 1, :])
+            neighbor_count < A * next_depth &&
+                return copy(@view support[1:next_depth])
+
+            # Neighborhoods only grow. Once the largest requested right-hand
+            # side is met, every descendant is certified.
+            neighbor_count >= A * max_size && continue
+            witness = visit(column + 1, next_depth)
+            isnothing(witness) || return witness
         end
-        
-        exp = boundary_size / i
-        if exp < min_exp
-            min_exp = exp
-        end
+        return nothing
     end
-    
-    return min_exp == Inf ? 0.0 : min_exp
+    return visit(1, 0)
 end
 
 """
-    edge_expansion_bounds(G::Grphs.SimpleGraph)
+$(TYPEDSIGNATURES)
 
-Returns a tuple `(lower_bound, upper_bound)` for the edge expansion of the graph, 
-computed strictly using the Cheeger inequalities on the Laplacian eigenvalues.
+Return a subset of columns violating `|N(S)| ≥ A|S|` for
+`1 ≤ |S| ≤ floor(γ*ncols(H))`, or `nothing` if every subset passes.
+This is an exact, exponential-time computation over the support graph.
 """
-function edge_expansion_bounds(G::Grphs.SimpleGraph)
-    L = laplacian_matrix(G)
-    evals = eigvals(Symmetric(Matrix(L)))
-    
-    # Algebraic connectivity (second smallest Laplacian eigenvalue)
-    μ_2 = length(evals) > 1 ? evals[2] : 0.0
-    
-    # Max degree
-    Δ = maximum(Grphs.degree(G))
-    
-    lower_bound = μ_2 / 2.0
-    upper_bound = sqrt(2 * Δ * μ_2)
-    
-    return (lower_bound, upper_bound)
+function expansion_witness(H, γ::Real, A::Real)
+    max_size = _validate_expansion_parameters(size(H, 2), γ, A)
+    return _first_expansion_violation(H, max_size, A)
 end
 
 """
-    estimated_bipartite_vertex_expansion(S::AbstractSubsystemCode, check_type::Symbol=:both; max_subset_fraction::Float64=0.5)
+$(TYPEDSIGNATURES)
 
-Estimates the bipartite vertex expansion (qubits to checks) of the specified sub-graph 
-(`:X`, `:Z`, or `:both` for non-CSS) of the code `S`.
-`max_subset_fraction` controls the maximum size of the qubit subset `S` as a fraction of total qubits.
-Results are cached dynamically based on the fraction provided.
+Return whether one-sided vertex expansion from columns to rows holds exactly.
 """
-function estimated_bipartite_vertex_expansion(S::AbstractSubsystemCode, check_type::Symbol=:both; max_subset_fraction::Float64=0.5)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        check_type == :both || @warn "check_type ignored for non-CSS codes. Using full graph."
-        
-        # Dynamic cache key combining function name and fraction
-        cache_key = Symbol("estimated_bipartite_vertex_expansion_", max_subset_fraction)
-        haskey(S.cache, cache_key) && return S.cache[cache_key]
-        
-        G_tuple = Tanner_graph(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        
-        cache_key = Symbol("estimated_bipartite_vertex_expansion_", check_type, "_", max_subset_fraction)
-        haskey(S.cache, cache_key) && return S.cache[cache_key]
-        
-        G_tuple = check_type == :X ? Tanner_graph_X(S) : (check_type == :Z ? Tanner_graph_Z(S) : Tanner_graph(S))
-    end
-    
-    G = G_tuple[1]
-    n_qubits = length(G_tuple[2]) 
-    max_subset_size = floor(Int, n_qubits * max_subset_fraction)
-    
-    val = estimated_bipartite_vertex_expansion(G, n_qubits, max_subset_size=max_subset_size)
-    S.cache[cache_key] = val
-    return val
+is_expander(H, γ::Real, A::Real) = isnothing(expansion_witness(H, γ, A))
+
+function is_expander(
+    S::AbstractSubsystemCode, γ::Real, A::Real,
+    check_type::Symbol=:both,
+)
+    return is_expander(_quantum_check_support(S, check_type), γ, A)
 end
 
-for func in (:estimated_edge_expansion, :estimated_vertex_expansion, :edge_expansion_bounds)
-    @eval begin
-        """
-            $($func)(S::AbstractSubsystemCode, check_type::Symbol=:both)
-        
-        Computes the $($func) of the specified sub-graph (`:X`, `:Z`, or `:both` for non-CSS) of the code `S`.
-        Results are cached.
-        """
-        function $func(S::AbstractSubsystemCode, check_type::Symbol=:both)
-            if CSSTrait(typeof(S)) == IsNotCSS()
-                check_type == :both || @warn "check_type ignored for non-CSS codes. Using full graph."
-                
-                cache_key = Symbol($func)
-                haskey(S.cache, cache_key) && return S.cache[cache_key]
-                
-                G = Tanner_graph(S)[1]
-            else
-                check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-                
-                cache_key = Symbol($func, "_", check_type)
-                haskey(S.cache, cache_key) && return S.cache[cache_key]
-                
-                G = check_type == :X ? Tanner_graph_X(S)[1] : (check_type == :Z ? Tanner_graph_Z(S)[1] : Tanner_graph(S)[1])
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact minimum value of `|N(S)|/|S|` separately for every nonempty
+subset size through `max_subset_size`.
+"""
+function bipartite_expansion_profile(
+    H; max_subset_size::Integer=fld(size(H, 2), 2),
+)
+    packed, words, _, nc = _bitpack_columns(H)
+    max_size = Int(max_subset_size)
+    0 <= max_size <= nc ||
+        throw(DomainError(max_subset_size,
+            "max_subset_size must lie between zero and the number of columns."))
+    minima = fill(Inf, max_size)
+    neighborhood = zeros(UInt64, max_size + 1, words)
+    function visit(start::Int, depth::Int)
+        depth == max_size && return
+        for column in start:nc
+            next_depth = depth + 1
+            for word in 1:words
+                neighborhood[next_depth + 1, word] =
+                    neighborhood[depth + 1, word] | packed[column, word]
             end
-            
-            val = $func(G) # Dispatch to the base Graph function
-            S.cache[cache_key] = val
-            return val
+            minima[next_depth] = min(
+                minima[next_depth],
+                _packed_weight(@view neighborhood[next_depth + 1, :]) / next_depth,
+            )
+            visit(column + 1, next_depth)
+        end
+    end
+    visit(1, 0)
+    return minima
+end
+
+function _matrix_from_bipartition(
+    G::Grphs.AbstractGraph, left::AbstractVector{<:Integer},
+    right::AbstractVector{<:Integer},
+)
+    isempty(intersect(left, right)) ||
+        throw(ArgumentError("The left and right vertex sets must be disjoint."))
+    right_index = Dict(vertex => row for (row, vertex) in enumerate(right))
+    H = falses(length(right), length(left))
+    for (column, vertex) in enumerate(left)
+        for neighbor in Grphs.neighbors(G, vertex)
+            row = get(right_index, neighbor, 0)
+            iszero(row) || (H[row, column] = true)
+        end
+    end
+    return H
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return whether the selected left-to-right bipartite adjacency satisfies the
+specified one-sided expansion inequality.
+"""
+function is_bipartite_expander(
+    G::Grphs.AbstractGraph, left::AbstractVector{<:Integer},
+    right::AbstractVector{<:Integer}, γ::Real, A::Real,
+)
+    return is_expander(_matrix_from_bipartition(G, left, right), γ, A)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return whether both orientations of a binary bipartite adjacency matrix
+satisfy their respective one-sided expansion inequalities.
+"""
+function is_left_right_expander(
+    H, γ_left::Real, A_left::Real, γ_right::Real, A_right::Real,
+)
+    is_expander(H, γ_left, A_left) || return false
+    return is_expander(transpose(_binary_support_matrix(H)), γ_right, A_right)
+end
+
+function is_left_right_expander(
+    G::Grphs.AbstractGraph, left::AbstractVector{<:Integer},
+    right::AbstractVector{<:Integer},
+    γ_left::Real, A_left::Real, γ_right::Real, A_right::Real,
+)
+    H = _matrix_from_bipartition(G, left, right)
+    return is_left_right_expander(H, γ_left, A_left, γ_right, A_right)
+end
+
+is_left_right_expander(
+    C::AbstractLinearCode, γ_left::Real, A_left::Real,
+    γ_right::Real, A_right::Real,
+) = is_left_right_expander(
+    parity_check_matrix(C), γ_left, A_left, γ_right, A_right)
+
+function _sweep_bipartite_expansion(H, max_size::Int)
+    B = _binary_support_matrix(H)
+    nr, nc = size(B)
+    max_size == 0 && return 0.0
+    G = Grphs.SimpleGraph(nr + nc)
+    for c in 1:nc, r in 1:nr
+        B[r, c] && Grphs.add_edge!(G, c, nc + r)
+    end
+    vector = fiedler_vector(G)
+    orders = (sortperm(@view vector[1:nc]), sortperm(@view vector[1:nc]; rev=true))
+    best = Inf
+    for order in orders
+        neighborhood = falses(nr)
+        for set_size in 1:max_size
+            neighborhood .|= @view B[:, order[set_size]]
+            best = min(best, count(neighborhood) / set_size)
+        end
+    end
+    return best
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a one-sided column-to-row vertex-expansion estimate from forward and reverse
+Fiedler sweeps. The result is an upper bound on the exact minimum.
+"""
+function estimated_bipartite_vertex_expansion(
+    H; max_subset_size::Integer=fld(size(H, 2), 2),
+)
+    max_size = Int(max_subset_size)
+    0 <= max_size <= size(H, 2) ||
+        throw(DomainError(max_subset_size,
+            "max_subset_size must lie between zero and the number of columns."))
+    return _sweep_bipartite_expansion(H, max_size)
+end
+
+function estimated_bipartite_vertex_expansion(
+    S::AbstractSubsystemCode, check_type::Symbol=:both;
+    max_subset_fraction::Real=0.5,
+)
+    0 <= max_subset_fraction <= 1 ||
+        throw(DomainError(max_subset_fraction,
+            "max_subset_fraction must lie in [0, 1]."))
+    H = _quantum_check_support(S, check_type)
+    max_size = floor(Int, max_subset_fraction * size(H, 2))
+    return estimated_bipartite_vertex_expansion(H; max_subset_size=max_size)
+end
+
+for function_name in (:estimated_edge_expansion, :estimated_vertex_expansion,
+                      :edge_expansion_bounds)
+    @eval function $function_name(
+        S::AbstractSubsystemCode, check_type::Symbol=:both,
+    )
+        key = Symbol($(QuoteNode(function_name)), :_, check_type)
+        return get!(S.cache, key) do
+            $function_name(_quantum_tanner_graph(S, check_type))
         end
     end
 end
 
-using Base.Threads: @threads, nthreads, threadid, Atomic, atomic_xchg!
-
-function _verify_expander_dfs!(start_col::Int, depth::Int, max_wt::Int, nc::Int, num_words::Int, 
-                               neighborhoods::Matrix{UInt64}, H_packed::Matrix{UInt64}, 
-                               A::Float64, is_valid::Atomic{Int})
-    if is_valid[] == 0 || depth == max_wt
-        return
+function _syndrome_coset_distances(H, max_error_weight::Int)
+    packed, words, _, nc = _bitpack_columns(H)
+    0 <= max_error_weight <= nc ||
+        throw(DomainError(max_error_weight,
+            "max_error_weight must lie between zero and the number of columns."))
+    zero_syndrome = ntuple(_ -> UInt64(0), words)
+    distances = Dict{Tuple, Int}(zero_syndrome => 0)
+    frontier = Tuple[zero_syndrome]
+    for distance in 1:max_error_weight
+        next_frontier = Tuple[]
+        for syndrome in frontier, column in 1:nc
+            next_syndrome =
+                ntuple(word -> syndrome[word] ⊻ packed[column, word], words)
+            haskey(distances, next_syndrome) && continue
+            distances[next_syndrome] = distance
+            push!(next_frontier, next_syndrome)
+        end
+        frontier = next_frontier
+        isempty(frontier) && break
     end
-
-    for c in start_col:nc
-        next_syn_wt = 0
-        @inbounds for w in 1:num_words
-            # Boolean OR (|) instead of XOR (⊻) to get true topological neighborhood
-            val = neighborhoods[depth + 1, w] | H_packed[c, w]
-            neighborhoods[depth + 2, w] = val
-            next_syn_wt += count_ones(val)
-        end
-
-        # If it fails the expansion threshold, abort all threads
-        if next_syn_wt < A * (depth + 1)
-            atomic_xchg!(is_valid, 0)
-            return
-        end
-
-        # TOPOLOGICAL PRUNING:
-        # Since weight monotonically increases, if we have already amassed enough 
-        # neighbors to satisfy the maximum possible future threshold (A * max_wt), 
-        # no superset down this branch can possibly fail. Prune it!
-        if next_syn_wt >= A * max_wt
-            continue
-        end
-
-        _verify_expander_dfs!(c + 1, depth + 1, max_wt, nc, num_words, neighborhoods, H_packed, A, is_valid)
-        
-        if is_valid[] == 0
-            return
-        end
-    end
+    return distances
 end
 
 """
-    is_expander(H::CTMatrixTypes, γ::Float64, A::Float64)
+$(TYPEDSIGNATURES)
 
-Returns `true` if the bipartite graph represented by parity-check matrix `H` 
-is a `(γ, A)`-expander. This strictly verifies that every subset of columns `S` 
-with size up to `γ * nc` has a topological neighborhood of at least `A * |S|`.
-Uses a highly optimized, multithreaded DFS with Bitwise-OR logic.
+Return, for every observed syndrome weight, the largest minimum error weight
+among syndrome cosets reached through `max_error_weight`. This computes
+reduced error weight, not the weight of an arbitrary representative.
 """
-function is_expander(H::CTMatrixTypes, γ::Float64, A::Float64)
-    nr, nc = size(H)
-    max_wt = floor(Int, γ * nc)
-    if max_wt < 1
-        return true
+function confinement_profile(H; max_error_weight::Integer=4)
+    distances = _syndrome_coset_distances(H, Int(max_error_weight))
+    profile = Dict{Int, Int}()
+    for (syndrome, distance) in distances
+        syndrome_weight = _packed_weight(syndrome)
+        profile[syndrome_weight] =
+            max(get(profile, syndrome_weight, 0), distance)
     end
-    
-    # SORTING HEURISTIC: Sort columns descending by weight so the topological 
-    # neighborhood grows as fast as possible, triggering the B&B cutoff early.
-    col_wts = [count(!iszero, H[:, c]) for c in 1:nc]
-    p = sortperm(col_wts, rev=true)
-    H_sorted = H[:, p]
-    
-    H_packed, num_words, _, _ = _bitpack_matrix(H_sorted)
-    
-    n_threads = nthreads()
-    is_valid = Atomic{Int}(1)
-    thread_neighborhoods = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
+    return profile
+end
 
-    @threads for c1 in 1:nc
-        if is_valid[] == 0
-            continue
-        end
-        
-        tid = threadid()
-        neighborhoods = thread_neighborhoods[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            neighborhoods[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt < A * 1.0
-            atomic_xchg!(is_valid, 0)
-            continue
-        end
-        
-        if syn_wt >= A * max_wt
-            continue # Prune instantly!
-        end
-        
-        _verify_expander_dfs!(c1 + 1, 1, max_wt, nc, num_words, neighborhoods, H_packed, A, is_valid)
-    end
-    
-    return is_valid[] == 1
+function confinement_profile(
+    S::AbstractSubsystemCode, check_type::Symbol=:X;
+    max_error_weight::Integer=4,
+)
+    return confinement_profile(_quantum_check_support(S, check_type);
+        max_error_weight=max_error_weight)
 end
 
 """
-    is_expander(S::AbstractSubsystemCode, γ::Float64, A::Float64, check_type::Symbol=:both)
+$(TYPEDSIGNATURES)
 
-Returns `true` if the specified sub-graph (`:X`, `:Z`, or `:both` for non-CSS) 
-of the code `S` acts as a `(γ, A)`-expander from qubits to checks.
+Return the exact minimum of `|syndrome(e)|/dist(e, ker(H))` over nontrivial
+syndrome cosets whose leader has weight at most `max_error_weight`.
 """
-function is_expander(S::AbstractSubsystemCode, γ::Float64, A::Float64, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        check_type == :both || @warn "check_type ignored for non-CSS codes. Using full matrix."
-        H = stabilizers(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        if check_type == :X
-            H = X_stabilizers(S)
-        elseif check_type == :Z
-            H = Z_stabilizers(S)
-        else
-            # For the full tripartite graph, the neighborhood is all X and Z checks combined
-            H = vcat(X_stabilizers(S), Z_stabilizers(S))
-        end
+function deterministic_QLTC_soundness(H; max_error_weight::Integer=4)
+    distances = _syndrome_coset_distances(H, Int(max_error_weight))
+    best = Inf
+    for (syndrome, distance) in distances
+        iszero(distance) && continue
+        best = min(best, _packed_weight(syndrome) / distance)
     end
-    
-    return is_expander(H, γ, A)
+    return best
+end
+
+function deterministic_QLTC_soundness(
+    S::AbstractSubsystemCode, check_type::Symbol=:X;
+    max_error_weight::Integer=4,
+)
+    return deterministic_QLTC_soundness(_quantum_check_support(S, check_type);
+        max_error_weight=max_error_weight)
 end
 
 """
-    is_left_right_expander(H::CTMatrixTypes, γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
+$(TYPEDSIGNATURES)
 
-Verifies if the bipartite graph represented by biadjacency matrix `H` is a two-sided left-right expander.
-Checks if columns (Left) expand into rows (Right) with parameters `(γ_L, A_L)`, AND 
-if rows (Right) expand into columns (Left) with parameters `(γ_R, A_R)`.
+Return whether the exact restricted deterministic QLTC soundness is at least
+`threshold`.
 """
-function is_left_right_expander(H::CTMatrixTypes, γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
-    # 1. Check Left-to-Right expansion
-    is_expander(H, γ_L, A_L) || return false
-    
-    # 2. Extract transposed matrix for Right-to-Left check.
-    # We materialize a dense Int matrix to guarantee our bit-packer 
-    # runs at maximum speed regardless of the underlying CTMatrixTypes format.
-    nr, nc = size(H)
-    H_T = zeros(Int, nc, nr)
-    for r in 1:nr
-        for c in 1:nc
-            if !iszero(H[r, c])
-                H_T[c, r] = 1
-            end
-        end
-    end
-    
-    # Check Right-to-Left expansion
-    return is_expander(H_T, γ_R, A_R)
+function verify_QLTC_soundness(
+    H, threshold::Real; max_error_weight::Integer=4,
+)
+    threshold >= 0 ||
+        throw(DomainError(threshold, "The threshold must be nonnegative."))
+    return deterministic_QLTC_soundness(
+        H; max_error_weight=max_error_weight) >= threshold
+end
+
+function verify_QLTC_soundness(
+    S::AbstractSubsystemCode, threshold::Real,
+    check_type::Symbol=:X; max_error_weight::Integer=4,
+)
+    return verify_QLTC_soundness(
+        _quantum_check_support(S, check_type), threshold;
+        max_error_weight=max_error_weight)
 end
 
 """
-    is_bipartite_expander(G::Grphs.SimpleGraph, left::Vector{Int}, right::Vector{Int}, γ::Float64, A::Float64)
+$(TYPEDSIGNATURES)
 
-Returns `true` if the bipartition defined by `left` and `right` nodes in `G` forms a one-sided 
-`(γ, A)`-expander strictly from the `left` set to the `right` set.
+Return whether every nontrivial syndrome coset with leader weight at most
+`max_error_weight` has syndrome weight strictly above the target.
 """
-function is_bipartite_expander(G::Grphs.SimpleGraph, left::Vector{Int}, right::Vector{Int}, γ::Float64, A::Float64)
-    nr = length(right)
-    nc = length(left)
-    H = zeros(Int, nr, nc)
-    
-    # Map right nodes to row indices for O(1) lookup
-    right_map = Dict(v => i for (i, v) in enumerate(right))
-    
-    for (c, u) in enumerate(left)
-        for v in Grphs.neighbors(G, u)
-            if haskey(right_map, v)
-                H[right_map[v], c] = 1
-            end
-        end
-    end
-    
-    return is_expander(H, γ, A)
+function verify_confinement(
+    H, target_syndrome_weight::Integer; max_error_weight::Integer=4,
+)
+    target_syndrome_weight >= 0 ||
+        throw(DomainError(target_syndrome_weight,
+            "The target syndrome weight must be nonnegative."))
+    distances = _syndrome_coset_distances(H, Int(max_error_weight))
+    return all(iszero(distance) ||
+        _packed_weight(syndrome) > target_syndrome_weight
+        for (syndrome, distance) in distances)
+end
+
+function verify_confinement(
+    S::AbstractSubsystemCode, target_syndrome_weight::Integer,
+    check_type::Symbol=:X; max_error_weight::Integer=4,
+)
+    return verify_confinement(
+        _quantum_check_support(S, check_type), target_syndrome_weight;
+        max_error_weight=max_error_weight)
 end
 
 """
-    is_left_right_expander(G::Grphs.SimpleGraph, left::Vector{Int}, right::Vector{Int}, 
-                           γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
+$(TYPEDSIGNATURES)
 
-Verifies if the bipartition in `G` forms a two-sided left-right expander.
+Return the confinement profile restricted to syndrome weights below `cutoff`.
+The profile is exact for syndrome cosets with leaders through
+`max_error_weight`.
 """
-function is_left_right_expander(G::Grphs.SimpleGraph, left::Vector{Int}, right::Vector{Int}, 
-                                γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
-    # Check Left -> Right
-    is_bipartite_expander(G, left, right, γ_L, A_L) || return false
-    
-    # Check Right -> Left
-    return is_bipartite_expander(G, right, left, γ_R, A_R)
+function evaluate_single_shot_soundness(
+    H, cutoff::Integer; max_error_weight::Integer=5,
+)
+    cutoff >= 1 || throw(DomainError(cutoff, "The cutoff must be positive."))
+    profile = confinement_profile(H; max_error_weight=max_error_weight)
+    return Dict(weight => distance for (weight, distance) in profile
+        if weight < cutoff)
+end
+
+function evaluate_single_shot_soundness(
+    S::AbstractSubsystemCode, cutoff::Integer,
+    check_type::Symbol=:both; max_error_weight::Integer=5,
+)
+    return evaluate_single_shot_soundness(
+        _quantum_check_support(S, check_type), cutoff;
+        max_error_weight=max_error_weight)
 end
 
 """
-    is_left_right_expander(C::AbstractLinearCode, γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
+$(TYPEDSIGNATURES)
 
-Verifies if the classical Tanner graph of code `C` is a two-sided left-right expander, 
-where bits (Left) expand to checks (Right), and checks (Right) expand to bits (Left).
+Return the confinement profile through `max_error_weight`.
 """
-function is_left_right_expander(C::AbstractLinearCode, γ_L::Float64, A_L::Float64, γ_R::Float64, A_R::Float64)
-    H = parity_check_matrix(C)
-    return is_left_right_expander(H, γ_L, A_L, γ_R, A_R)
+evaluate_confinement(H, max_error_weight::Integer) =
+    confinement_profile(H; max_error_weight=max_error_weight)
+
+function evaluate_confinement(
+    S::AbstractSubsystemCode, max_error_weight::Integer,
+    check_type::Symbol=:both,
+)
+    return confinement_profile(S, check_type;
+        max_error_weight=max_error_weight)
 end
 
 """
-    verify_quantum_tanner_structure(S::AbstractSubsystemCode, 
-                                    G_A::Grphs.SimpleGraph, G_B::Grphs.SimpleGraph, 
-                                    C_A::AbstractLinearCode, C_B::AbstractLinearCode)
+$(TYPEDSIGNATURES)
 
-Verifies the mathematical requirements for a valid Quantum Tanner Code construction.
-Returns `true` if all structural, topological, and spectral conditions are met.
-
-# Checks:
-1. The global code is a valid CSS code.
-2. The base graphs `G_A` and `G_B` are regular.
-3. The degrees of the base graphs exactly match the block lengths of the local classical codes.
-4. The Sipser-Spielman spectral condition: The classical minimum distances `d_A` and `d_B` 
-   strictly exceed the second-largest adjacency eigenvalues `λ_A` and `λ_B` of their respective graphs.
+Return the standard consequences of a *certified* `(γ,A)` one-sided
+expansion bound for a binary left-regular parity-check matrix. By default the
+claim is checked exactly; use `verify=false` only when it was certified
+elsewhere.
 """
-function verify_quantum_tanner_structure(S::AbstractSubsystemCode, 
-                                         G_A::Grphs.SimpleGraph, G_B::Grphs.SimpleGraph, 
-                                         C_A::AbstractLinearCode, C_B::AbstractLinearCode)
-    
-    is_valid = true
-
-    # 1. CSS Verification
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        @warn "Quantum Tanner codes must be CSS codes."
-        is_valid = false
-    end
-
-    # 2. Graph Regularity Check
-    if !Grphs.is_regular(G_A) || !Grphs.is_regular(G_B)
-        @warn "Base graphs G_A and G_B must be regular."
-        is_valid = false
-    end
-
-    # Fast abort if non-regular, because degree and eigenvalue metrics will fail or be meaningless
-    if !is_valid
-        return false
-    end
-
-    Δ_A = Grphs.degree(G_A)[1]
-    Δ_B = Grphs.degree(G_B)[1]
-
-    # 3. Block Length Matching
-    if Δ_A != length(C_A)
-        @warn "Degree of G_A ($Δ_A) does not match the block length of local code C_A ($(length(C_A)))."
-        is_valid = false
-    end
-    if Δ_B != length(C_B)
-        @warn "Degree of G_B ($Δ_B) does not match the block length of local code C_B ($(length(C_B)))."
-        is_valid = false
-    end
-
-    # 4. The Spectral/Distance Bound (d_0 > λ)
-    # Note: Our spectral_gap function returns the second-largest adjacency eigenvalue (λ).
-    λ_A = spectral_gap(G_A)
-    λ_B = spectral_gap(G_B)
-    
-    d_A = minimum_distance(C_A)
-    d_B = minimum_distance(C_B)
-
-    if d_A <= λ_A
-        @warn "Spectral bound failed for A-complex: Local distance d_A ($d_A) must be strictly greater than λ_A ($λ_A)."
-        is_valid = false
-    else
-        @info "A-complex spectral bound passed: d_A ($d_A) > λ_A ($λ_A)"
-    end
-
-    if d_B <= λ_B
-        @warn "Spectral bound failed for B-complex: Local distance d_B ($d_B) must be strictly greater than λ_B ($λ_B)."
-        is_valid = false
-    else
-        @info "B-complex spectral bound passed: d_B ($d_B) > λ_B ($λ_B)"
-    end
-
-    if is_valid
-        @info "Quantum Tanner structure verified successfully."
-    end
-
-    return is_valid
-end
-
-"""
-    verify_quantum_tanner_structure(S::AbstractSubsystemCode, G_base::Grphs.SimpleGraph, C_local::AbstractLinearCode)
-
-Symmetric convenience wrapper for Quantum Tanner Codes constructed from a single base graph and a single local classical code.
-"""
-function verify_quantum_tanner_structure(S::AbstractSubsystemCode, G_base::Grphs.SimpleGraph, C_local::AbstractLinearCode)
-    return verify_quantum_tanner_structure(S, G_base, G_base, C_local, C_local)
-end
-
-"""
-    sipser_spielman_guarantees(H::CTMatrixTypes, γ::Float64, A::Float64)
-
-Evaluates the Sipser-Spielman guarantees for a given parity-check matrix `H` 
-that is known to be a `(γ, A)`-expander. 
-
-Returns a NamedTuple containing the expansion factor `ϵ`, a boolean indicating 
-if linear distance is guaranteed, the guaranteed minimum distance bound, and the 
-guaranteed parallel bit-flip decoding radius.
-"""
-function sipser_spielman_guarantees(H::CTMatrixTypes, γ::Float64, A::Float64)
-    nr, nc = size(H)
-    
-    # Check if the matrix is left-regular (all columns have the same weight)
-    col_wts = [count(!iszero, H[:, c]) for c in 1:nc]
-    Δ = col_wts[1]
-    
-    if any(w != Δ for w in col_wts)
-        @warn "Sipser-Spielman bounds technically assume a strictly left-regular bipartite graph. Using average degree."
-        Δ = sum(col_wts) / nc
-    end
-    
-    # ϵ is the fraction of the maximum possible neighborhood
-    ϵ = A / Δ
-    
-    # Maximum size of sets S that achieve this expansion
-    max_S = floor(Int, γ * nc)
-    
-    # Guarantee 1: Unique Neighbors & Distance (ϵ > 1/2)
-    has_linear_distance = ϵ > 0.5
-    guaranteed_d = has_linear_distance ? max_S + 1 : 0
-    
-    # Guarantee 2: Parallel Bit-Flip Decoding (ϵ > 3/4)
-    has_guaranteed_decoding = ϵ > 0.75
-    bit_flip_radius = has_guaranteed_decoding ? floor(Int, max_S / 2) : 0
-    
+function sipser_spielman_guarantees(
+    H, γ::Real, A::Real; verify::Bool=true,
+)
+    max_set_size = _validate_expansion_parameters(size(H, 2), γ, A)
+    B = _binary_support_matrix(H)
+    column_weights = vec(sum(B; dims=1))
+    isempty(column_weights) &&
+        throw(ArgumentError("The parity-check matrix must have at least one column."))
+    all(==(column_weights[1]), column_weights) ||
+        throw(ArgumentError("Sipser--Spielman guarantees require left regularity."))
+    degree = column_weights[1]
+    degree > 0 ||
+        throw(ArgumentError("The left degree must be positive."))
+    verify && !is_expander(B, γ, A) &&
+        throw(ArgumentError("The matrix is not a ($γ, $A)-expander."))
+    relative_expansion = A / degree
+    linear_distance = relative_expansion > 1 // 2
+    guaranteed_decoding = relative_expansion > 3 // 4
     return (
-        epsilon = ϵ,
-        delta = Δ,
-        has_linear_distance = has_linear_distance,
-        guaranteed_distance = guaranteed_d,
-        has_guaranteed_decoding = has_guaranteed_decoding,
-        bit_flip_radius = bit_flip_radius
+        epsilon=relative_expansion,
+        degree=degree,
+        has_linear_distance=linear_distance,
+        guaranteed_distance=linear_distance ? max_set_size + 1 : 0,
+        has_guaranteed_decoding=guaranteed_decoding,
+        bit_flip_radius=guaranteed_decoding ? fld(max_set_size, 2) : 0,
     )
 end
 
-"""
-    sipser_spielman_guarantees(S::AbstractSubsystemCode, γ::Float64, A::Float64, check_type::Symbol=:both)
-
-Evaluates the Sipser-Spielman guarantees for the specified sub-graph of a quantum code.
-"""
-function sipser_spielman_guarantees(S::AbstractSubsystemCode, γ::Float64, A::Float64, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        H = stabilizers(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        if check_type == :X
-            H = X_stabilizers(S)
-        elseif check_type == :Z
-            H = Z_stabilizers(S)
-        else
-            H = vcat(X_stabilizers(S), Z_stabilizers(S))
-        end
-    end
-    
-    return sipser_spielman_guarantees(H, γ, A)
+function sipser_spielman_guarantees(
+    S::AbstractSubsystemCode, γ::Real, A::Real,
+    check_type::Symbol=:both; verify::Bool=true,
+)
+    return sipser_spielman_guarantees(
+        _quantum_check_support(S, check_type), γ, A; verify=verify)
 end
 
-# # Example workflow the user would run:
-# # 1. Verify the code expands at 0.05 (5% of qubits) with an expansion multiplier of 3.8
-# if is_expander(H, 0.05, 3.8)
-    
-#     # 2. Extract the physical bounds
-#     bounds = sipser_spielman_guarantees(H, 0.05, 3.8)
-#     println("Expansion Factor ϵ: ", bounds.epsilon)
-#     println("Guaranteed Distance: ", bounds.guaranteed_distance)
-# end
+function _packed_column_tuple(H)
+    packed, words, _, nc = _bitpack_columns(H)
+    return [ntuple(word -> packed[column, word], words) for column in 1:nc]
+end
 
-"""
-    evaluate_single_shot_soundness(H::CTMatrixTypes, t::Int; max_error_wt::Int=5)
-
-Evaluates the Campbell (QEC) single-shot soundness of the parity-check matrix `H`.
-Returns a dictionary mapping syndrome weight `w` (for `w < t`) to the maximum minimum-weight 
-error `E^{red}` required to produce it. This directly defines the bounding function `f(w)`.
-
-Uses a highly optimized Breadth-First Search (BFS) over bit-packed matrices.
-"""
-function evaluate_single_shot_soundness(H::CTMatrixTypes, t::Int; max_error_wt::Int=5)
-    nc = size(H, 2)
-    H_packed, num_words, _, _ = _bitpack_matrix(H)
-    
-    # Track visited syndromes. In BFS, first visit == absolute minimum error weight.
-    visited = Set{Vector{UInt64}}()
-    
-    # Initialize the BFS queue. We use double-buffering (current and next level arrays) 
-    # which is significantly faster in Julia than pushing/popping from a standard Queue.
-    # State tuple: (syndrome_array, last_column_flipped)
-    current_level = [(zeros(UInt64, num_words), 0)]
-    push!(visited, current_level[1][1])
-    
-    # f_vals maps syndrome weight -> max E^{red} weight
-    f_vals = Dict{Int, Int}(0 => 0) # Strictly enforced: f(0) = 0
-    
-    for err_wt in 1:max_error_wt
-        next_level = Tuple{Vector{UInt64}, Int}[]
-        
-        for (syn, last_col) in current_level
-            # Only flip columns > last_col to perfectly avoid permutation redundancies 
-            # (e.g., flipping col 1 then 2 is identical to 2 then 1)
-            for c in (last_col + 1):nc
-                new_syn = copy(syn)
-                syn_wt = 0
-                
-                # Bitwise XOR to apply the error
-                @inbounds for w in 1:num_words
-                    new_syn[w] ⊻= H_packed[c, w]
-                    syn_wt += count_ones(new_syn[w])
-                end
-                
-                # If we haven't seen this syndrome yet, this err_wt is its absolute E^{red}
-                if !(new_syn in visited)
-                    push!(visited, new_syn)
-                    push!(next_level, (new_syn, c))
-                    
-                    # If it's within our single-shot evaluation boundary, update the bounding function
-                    if syn_wt < t
-                        f_vals[syn_wt] = max(get(f_vals, syn_wt, 0), err_wt)
-                    end
-                end
-            end
-        end
-        
-        current_level = next_level
-        # Early exit if we've exhausted the reachable syndrome space
-        if isempty(current_level)
-            break
+function _binary_image(incidence; max_rank::Int)
+    columns = _packed_column_tuple(incidence)
+    words = isempty(columns) ? cld(size(incidence, 1), 64) : length(columns[1])
+    zero_vector = ntuple(_ -> UInt64(0), words)
+    image = Tuple[zero_vector]
+    seen = Set{Tuple}((zero_vector,))
+    rank = 0
+    for column in columns
+        candidates = Tuple[
+            ntuple(word -> vector[word] ⊻ column[word], words)
+            for vector in image
+        ]
+        all(candidate -> candidate in seen, candidates) && continue
+        rank += 1
+        rank <= max_rank ||
+            throw(ArgumentError(
+                "The incoming boundary rank exceeds max_boundary_rank=$max_rank."))
+        for candidate in candidates
+            candidate in seen && continue
+            push!(seen, candidate)
+            push!(image, candidate)
         end
     end
-    
-    return f_vals
+    return image
 end
 
 """
-    evaluate_single_shot_soundness(S::AbstractSubsystemCode, t::Int, check_type::Symbol=:both; max_error_wt::Int=5)
+$(TYPEDSIGNATURES)
 
-Evaluates the Campbell (QEC) single-shot soundness for the specified stabilizers of a quantum code.
-Returns the bounding function `f(w)` as a dictionary mapping syndrome weights (up to `t-1`) 
-to their worst-case minimum error weight.
+Return the exact restricted ratio
+`|boundary*x| / dist(x, image(incoming_boundary))` over binary vectors `x`
+of Hamming weight at most `max_weight`. The matrices represent
+`Cₖ → Cₖ₋₁` and `Cₖ₊₁ → Cₖ`, respectively. A nontrivial cocycle therefore
+correctly gives ratio zero.
 """
-function evaluate_single_shot_soundness(S::AbstractSubsystemCode, t::Int, check_type::Symbol=:both; max_error_wt::Int=5)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        H = stabilizers(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        if check_type == :X
-            H = X_stabilizers(S)
-        elseif check_type == :Z
-            H = Z_stabilizers(S)
-        else
-            H = vcat(X_stabilizers(S), Z_stabilizers(S))
-        end
-    end
-    
-    return evaluate_single_shot_soundness(H, t, max_error_wt=max_error_wt)
-end
+function cosystolic_expansion(
+    boundary, incoming_boundary;
+    max_weight::Integer=4, max_boundary_rank::Integer=20,
+)
+    B = _binary_support_matrix(boundary)
+    incoming = _binary_support_matrix(incoming_boundary)
+    size(B, 2) == size(incoming, 1) ||
+        throw(ArgumentError("The two boundary maps have incompatible dimensions."))
+    iszero(mod.(Int.(B) * Int.(incoming), 2)) ||
+        throw(ArgumentError("The supplied maps do not form a chain complex."))
+    n = size(B, 2)
+    max_wt = Int(max_weight)
+    0 <= max_wt <= n ||
+        throw(DomainError(max_weight, "max_weight must lie in 0:n."))
+    max_rank = Int(max_boundary_rank)
+    max_rank >= 0 ||
+        throw(DomainError(max_boundary_rank,
+            "max_boundary_rank must be nonnegative."))
 
-"""
-    evaluate_confinement(H::CTMatrixTypes, t::Int)
-
-Evaluates the (t, f)-confinement of the parity-check matrix `H`.
-Returns a dictionary representing the function `f(s)`, which maps a syndrome weight `s` 
-to the maximum error weight `w` (where `w <= t`) that produced it.
-
-A code with good confinement partitions low-energy states into well-separated clusters, 
-keeping residual errors from minimum-weight decoders bounded.
-"""
-function evaluate_confinement(H::CTMatrixTypes, t::Int)
-    nc = size(H, 2)
-    H_packed, num_words, _, _ = _bitpack_matrix(H)
-    
-    # f_vals maps syndrome weight -> maximum error weight that caused it
-    f_vals = Dict{Int, Int}(0 => 0) # f(0) = 0 is strictly required
-    
-    # BFS Queue state: (syndrome_array, last_col_flipped)
-    current_level = [(zeros(UInt64, num_words), 0)]
-    
-    for err_wt in 1:t
-        next_level = Tuple{Vector{UInt64}, Int}[]
-        
-        for (syn, last_col) in current_level
-            # Only flip columns strictly greater than last_col to avoid permutations
-            for c in (last_col + 1):nc
-                new_syn = copy(syn)
-                syn_wt = 0
-                
-                @inbounds for w in 1:num_words
-                    new_syn[w] ⊻= H_packed[c, w]
-                    syn_wt += count_ones(new_syn[w])
-                end
-                
-                # Update the bounding function: f(syn_wt) >= err_wt
-                if !haskey(f_vals, syn_wt)
-                    f_vals[syn_wt] = err_wt
-                else
-                    f_vals[syn_wt] = max(f_vals[syn_wt], err_wt)
-                end
-                
-                push!(next_level, (new_syn, c))
-            end
-        end
-        
-        current_level = next_level
-        if isempty(current_level)
-            break
-        end
-    end
-    
-    return f_vals
-end
-
-"""
-    evaluate_confinement(S::AbstractSubsystemCode, t::Int, check_type::Symbol=:both)
-
-Evaluates the (t, f)-confinement bounds for the specified stabilizers of a quantum code `S`.
-"""
-function evaluate_confinement(S::AbstractSubsystemCode, t::Int, check_type::Symbol=:both)
-    if CSSTrait(typeof(S)) == IsNotCSS()
-        H = stabilizers(S)
-    else
-        check_type ∈ (:X, :Z, :both) || throw(ArgumentError("check_type must be :X, :Z, or :both"))
-        if check_type == :X
-            H = X_stabilizers(S)
-        elseif check_type == :Z
-            H = Z_stabilizers(S)
-        else
-            H = vcat(X_stabilizers(S), Z_stabilizers(S))
-        end
-    end
-    
-    return evaluate_confinement(H, t)
-end
-
-"""
-    cosystolic_expansion(C::ChainComplex, k::Int; max_wt::Int=4, upper_bound::Float64=Inf)
-
-Computes the exact cosystolic expansion ratio h_k for chains in degree `k` up to weight `max_wt`.
-This relies on extracting the Oscar boundary maps and routing them to the optimized 
-multithreaded Branch and Bound soundness engine.
-
-Note: Currently strictly evaluates complexes over F_2.
-"""
-function cosystolic_expansion(C::ChainComplex, k::Int; max_wt::Int=4, upper_bound::Float64=Inf)
-    # Check if the degree exists in our complex
-    idx = findfirst(==(k), C.degrees)
-    if idx === nothing
-        throw(KeyError("Degree $k not found in the chain complex grading."))
-    end
-    
-    ∂_k = C[k]
-    
-    # We also need ∂_{k+1} to establish the stabilizer/boundary equivalence class.
-    # If k is the highest degree, the incoming map is 0, so the distance is just the Hamming weight.
-    if idx == 1
-        ∂_k_plus_1 = zero_matrix(base_ring(∂_k), ncols(∂_k), ncols(∂_k)) # Dummy empty matrix
-    else
-        deg_in = C.degrees[idx - 1]
-        ∂_k_plus_1 = C[deg_in]
-    end
-    
-    # 1. Convert Oscar matrices to standard dense Julia Int matrices for the bit-packer
-    # (Assuming the base ring is F_2; if not, cosystolic expansion uses generalized Hamming weights)
-    H_k = _oscar_to_dense_int(∂_k)
-    
-    # In our QEC soundness engine, the parity-check matrix (H) is the boundary map.
-    # The solver intrinsically handles the topological expansion.
-    # We bypass the `AbstractSubsystemCode` wrapper and call our DFS engine directly.
-    
-    nc = size(H_k, 2)
-    
-    # Sort columns descending by weight to trigger early Branch and Bound pruning
-    col_wts = [count(!iszero, H_k[:, c]) for c in 1:nc]
-    p = sortperm(col_wts, rev=true)
-    H_sorted = H_k[:, p]
-    Δ = maximum(col_wts)
-    
-    H_packed, num_words, nr, _ = _bitpack_matrix(H_sorted)
-    
-    # Launch the DFS soundness solver we wrote earlier
-    n_threads = Base.Threads.nthreads()
-    min_ratios = fill(upper_bound, n_threads)
-    thread_syndromes = [zeros(UInt64, max_wt + 1, num_words) for _ in 1:n_threads]
-
-    Base.Threads.@threads for c1 in 1:nc
-        tid = Base.Threads.threadid()
-        syndromes = thread_syndromes[tid]
-        
-        syn_wt = 0
-        @inbounds for w in 1:num_words
-            val = H_packed[c1, w]
-            syndromes[2, w] = val
-            syn_wt += count_ones(val)
-        end
-        
-        if syn_wt > 0
-            ratio = syn_wt / 1.0
-            @inbounds if ratio < min_ratios[tid]
-                min_ratios[tid] = ratio
-            end
-        end
-        
-        _soundness_dfs!(c1 + 1, 1, max_wt, nc, num_words, Δ, syndromes, H_packed, min_ratios, tid)
-    end
-    
-    return minimum(min_ratios)
-end
-
-# Helper to bridge Oscar and our native bit-packer
-function _oscar_to_dense_int(M)
-    nr, nc = nrows(M), ncols(M)
-    dense = zeros(Int, nr, nc)
-    for r in 1:nr
-        for c in 1:nc
-            if !iszero(M[r, c])
-                dense[r, c] = 1
-            end
-        end
-    end
-    return dense
-end
-
-"""
-    verify_modular_expansion(H::Generic.MatSpaceElem, threshold::Float64; max_module_wt::Int=2)
-
-Verifies the modular expansion of a parity-check matrix `H` defined over a group ring F_2[G].
-Iterates directly through the module elements (vectors of group algebra elements) up to 
-a block weight of `max_module_wt`.
-
-Returns `true` if the ratio (syndrome block weight / error block weight) is >= `threshold`.
-"""
-function verify_modular_expansion(H::Generic.MatSpaceElem, threshold::Float64; max_module_wt::Int=2)
-    R = base_ring(H) # This is the GroupAlgebra object in Oscar
-    nr, nc = nrows(H), ncols(H)
-    
-    # We want to explore all non-zero module vectors of weight <= max_module_wt.
-    # To do this natively, we need the underlying group elements to construct 
-    # non-zero ring elements.
-    G = group(R)
-    group_elements = collect(G)
-    
-    # A module vector is an array of ring elements of length `nc`
-    current_error = [zero(R) for _ in 1:nc]
-    
-    # Helper recursive worker for the algebraic search
-    return _modular_expansion_dfs!(1, 0, max_module_wt, current_error, H, R, group_elements, nc, threshold)
-end
-
-function _modular_expansion_dfs!(start_idx::Int, current_wt::Int, max_wt::Int, 
-                                 current_error::Vector{T}, H, R, group_elements, 
-                                 nc::Int, threshold::Float64) where T
-    
-    # Evaluate the expansion ratio of the current non-zero module state
-    if current_wt > 0
-        # Compute the syndrome natively using Oscar's matrix-vector multiplication
-        # We temporarily promote our vector to an Oscar column matrix
-        err_matrix = matrix(R, nc, 1, current_error)
-        syndrome = H * err_matrix
-        
-        # Calculate block weights (number of non-zero coordinates in the module vector)
-        err_block_wt = current_wt
-        syn_block_wt = 0
-        for r in 1:nrows(syndrome)
-            if !iszero(syndrome[r, 1])
-                syn_block_wt += 1
-            end
-        end
-        
-        ratio = syn_block_wt / err_block_wt
-        if ratio < threshold
-            return false # Short-circuit immediately on failure
-        end
-    end
-    
-    if current_wt == max_wt
-        return true
-    end
-    
-    # Loop over module coordinates to inject errors
-    for i in start_idx:nc
-        # For a given coordinate, loop over non-zero group ring elements.
-        # To keep it bounded, we look at single group element injections (monomials).
-        for g in group_elements
-            # Create the monomial element g in the group ring R
-            g_elem = R(g)
-            
-            # Inject error into coordinate i
-            current_error[i] = g_elem
-            
-            # Recurse to next weight level
-            if !_modular_expansion_dfs!(i + 1, current_wt + 1, max_wt, current_error, H, R, group_elements, nc, threshold)
-                return false
-            end
-            
-            # Backtrack
-            current_error[i] = zero(R)
-        end
-    end
-    
-    return true
-end
-
-import Oscar: base_ring, matrix, nrows, ncols, zero
-
-"""
-    verify_relative_modular_expansion(C::ChainComplex, threshold::Float64; max_module_wt::Int=2)
-
-Evaluates the relative modular expansion of a quantum ChainComplex over F_2[G].
-D1 (C.d[1]) maps errors to syndromes (H_X).
-D2 (C.d[2]) maps stabilizer generators to errors (H_Z^T).
-
-Returns `true` if min( syn_block_wt / dist_block(e, im(D2)) ) >= threshold.
-"""
-function verify_relative_modular_expansion(C::ChainComplex, threshold::Float64; max_module_wt::Int=2)
-    D1 = C.d[1] # H_X: C_1 -> C_0
-    D2 = C.d[2] # H_Z^T: C_2 -> C_1
-    
-    R = base_ring(D1)
-    G = group(R)
-    group_elements = collect(G)
-    
-    n_errors = ncols(D1) # Dimension of C_1
-    
-    # Pre-lift D2 to a flat binary matrix ONCE for fast distance calculations
-    # (Assuming you have your `lift_matrix` utility available)
-    D2_flat = lift_matrix(D2)
-    
-    current_error = [zero(R) for _ in 1:n_errors]
-    
-    return _relative_expansion_dfs!(
-        1, 0, max_module_wt, current_error, 
-        D1, D2_flat, R, group_elements, n_errors, threshold
-    )
-end
-
-function _relative_expansion_dfs!(start_idx::Int, current_wt::Int, max_wt::Int, 
-                                  current_error::Vector{T}, D1, D2_flat, R, group_elements, 
-                                  nc::Int, threshold::Float64) where T
-    
-    if current_wt > 0
-        err_matrix = matrix(R, nc, 1, current_error)
-        syndrome = D1 * err_matrix
-        
-        # 1. Calculate Syndrome Block Weight
-        syn_block_wt = 0
-        for r in 1:nrows(syndrome)
-            if !iszero(syndrome[r, 1])
-                syn_block_wt += 1
-            end
-        end
-        
-        # 2. Calculate Relative Distance to Stabilizer Image
-        # We only compute distance if the syndrome weight threatens our threshold.
-        # If syn_block_wt is already large enough relative to absolute weight, 
-        # it will definitely satisfy the threshold relative to the (smaller) distance.
-        if (syn_block_wt / current_wt) < threshold
-            
-            # Map the group ring vector to a flat F_2 vector
-            flat_error = _lift_vector(current_error, R)
-            
-            # Use classical min-dist solver on the coset: min wt(e + s) for s in im(D2_flat)
-            # We then map the returned flat F_2 vector BACK to block weight.
-            min_flat_err = find_minimum_coset_representative(flat_error, D2_flat)
-            rel_dist = _calculate_block_weight(min_flat_err, length(group(R)))
-            
-            # Logical errors (rel_dist > 0, syn_wt == 0) will safely fail here
-            if rel_dist > 0 && (syn_block_wt / rel_dist) < threshold
-                return false
-            end
-        end
-    end
-    
-    if current_wt == max_wt
-        return true
-    end
-    
-    for i in start_idx:nc
-        for g in group_elements
-            current_error[i] = R(g)
-            
-            if !_relative_expansion_dfs!(i + 1, current_wt + 1, max_wt, current_error, 
-                                         D1, D2_flat, R, group_elements, nc, threshold)
-                return false
-            end
-            
-            current_error[i] = zero(R)
-        end
-    end
-    
-    return true
-end
-
-# --- Helpers to bridge Algebra and Geometry ---
-
-"""
-Converts a module vector over F_2[G] to a flat binary vector.
-"""
-function _lift_vector(e_vec::Vector{T}, R) where T
-    G = group(R)
-    N = length(G)
-    flat_len = length(e_vec) * N
-    flat = zeros(Int, flat_len)
-    
-    # Assuming group elements have a deterministic indexed order 1:N
-    group_idx = Dict(g => i for (i, g) in enumerate(collect(G)))
-    
-    for (block_idx, poly) in enumerate(e_vec)
-        if !iszero(poly)
-            # Iterate through terms in the group ring polynomial
-            for (coeff, g) in terms(poly) 
-                if coeff == 1
-                    flat[(block_idx - 1) * N + group_idx[g]] = 1
+    syndrome_columns = _packed_column_tuple(B)
+    vector_words = cld(n, 64)
+    image = _binary_image(incoming; max_rank=max_rank)
+    best = Inf
+    for weight in 1:max_wt
+        for support in Combinatorics.combinations(1:n, weight)
+            vector = zeros(UInt64, vector_words)
+            syndrome = zeros(UInt64, isempty(syndrome_columns) ?
+                cld(size(B, 1), 64) : length(syndrome_columns[1]))
+            for coordinate in support
+                vector[(coordinate - 1) ÷ 64 + 1] |=
+                    UInt64(1) << ((coordinate - 1) % 64)
+                for word in eachindex(syndrome)
+                    syndrome[word] ⊻= syndrome_columns[coordinate][word]
                 end
             end
+            distance = minimum(
+                sum(count_ones(vector[word] ⊻ representative[word])
+                    for word in eachindex(vector); init=0)
+                for representative in image
+            )
+            iszero(distance) && continue
+            best = min(best, _packed_weight(syndrome) / distance)
         end
     end
-    return flat
-end
-
-"""
-Calculates block weight directly from a flat binary vector.
-"""
-function _calculate_block_weight(flat_vec::Vector{Int}, lift_factor::Int)
-    block_wt = 0
-    num_blocks = length(flat_vec) ÷ lift_factor
-    for b in 1:num_blocks
-        start_idx = (b - 1) * lift_factor + 1
-        end_idx = b * lift_factor
-        if any(!iszero, @view flat_vec[start_idx:end_idx])
-            block_wt += 1
-        end
-    end
-    return block_wt
-end
-
-# import Oscar: base_ring, matrix, nrows, ncols, zero, group, terms
-
-"""
-    verify_relative_modular_expansion(C::ChainComplex, threshold::Float64; 
-                                      max_module_wt::Int=2, exact::Bool=true, confidence::Float64=0.99)
-
-Evaluates the relative modular expansion of a quantum ChainComplex over F_2[G].
-D1 (C.d[1]) maps errors to syndromes (H_X).
-D2 (C.d[2]) maps stabilizer generators to errors (H_Z^T).
-
-Returns `true` if min( syn_block_wt / dist_block(e, im(D2)) ) >= threshold.
-"""
-function verify_relative_modular_expansion(C::ChainComplex, threshold::Float64; 
-                                           max_module_wt::Int=2, exact::Bool=true, confidence::Float64=0.99)
-    D1 = C.d[1] # H_X: C_1 -> C_0
-    D2 = C.d[2] # H_Z^T: C_2 -> C_1
-    
-    R = base_ring(D1)
-    G_grp = group(R)
-    group_elements = collect(G_grp)
-    lift_factor = length(G_grp)
-    
-    n_errors = ncols(D1) 
-    
-    # Lift D2 to a flat binary matrix ONCE for fast classical distance calculations
-    D2_flat = _lift_matrix(D2)
-    # We wrap the stabilizer generator matrix into a classical LinearCode struct 
-    # so we can pass it natively into the existing distance solvers.
-    StabilizerCode = LinearCode(D2_flat)
-    
-    current_error = [zero(R) for _ in 1:n_errors]
-    
-    return _relative_expansion_dfs!(
-        1, 0, max_module_wt, current_error, 
-        D1, StabilizerCode, R, group_elements, n_errors, threshold, lift_factor, exact, confidence
-    )
-end
-
-function _relative_expansion_dfs!(start_idx::Int, current_wt::Int, max_wt::Int, 
-                                  current_error::Vector{T}, D1, StabilizerCode, 
-                                  R, group_elements, nc::Int, threshold::Float64, 
-                                  lift_factor::Int, exact::Bool, confidence::Float64) where T
-    
-    if current_wt > 0
-        err_matrix = matrix(R, nc, 1, current_error)
-        syndrome = D1 * err_matrix
-        
-        # 1. Calculate Syndrome Block Weight
-        syn_block_wt = 0
-        for r in 1:nrows(syndrome)
-            if !iszero(syndrome[r, 1])
-                syn_block_wt += 1
-            end
-        end
-        
-        # 2. Short-Circuit Check: 
-        # If absolute expansion is safe, relative expansion is guaranteed to be safe.
-        if (syn_block_wt / current_wt) < threshold
-            
-            # Map the group ring vector to a flat F_2 vector
-            flat_error = _lift_vector(current_error, R)
-            
-            # 3. Route to the Coset Solver
-            # We use physical Hamming distance minimization as a proxy to find the best coset representative
-            _, min_flat_err = coset_distance(StabilizerCode, flat_error; exact=exact, confidence=confidence)
-            
-            # Map the physical F_2 vector BACK to block weight
-            rel_dist = _calculate_block_weight(min_flat_err, lift_factor)
-            
-            # Logical errors (rel_dist > 0, syn_wt == 0) safely fail here
-            if rel_dist > 0 && (syn_block_wt / rel_dist) < threshold
-                return false
-            end
-        end
-    end
-    
-    if current_wt == max_wt
-        return true
-    end
-    
-    for i in start_idx:nc
-        for g in group_elements
-            current_error[i] = R(g)
-            
-            if !_relative_expansion_dfs!(i + 1, current_wt + 1, max_wt, current_error, 
-                                         D1, StabilizerCode, R, group_elements, nc, threshold, 
-                                         lift_factor, exact, confidence)
-                return false
-            end
-            
-            current_error[i] = zero(R)
-        end
-    end
-    
-    return true
-end
-
-"""
-    coset_distance(C::AbstractLinearCode, e::Vector{Int}; 
-                   exact::Bool=true, confidence::Float64=0.99, max_span::Int=15, verbose::Bool=false)
-
-Finds the minimum weight representative of the affine coset `e + c` for `c` in `C`.
-Acts as the central router, evaluating the code's geometry to dispatch to the optimal engine.
-"""
-function coset_distance(C::AbstractLinearCode, e::Vector{Int}; 
-                        exact::Bool=true, confidence::Float64=0.99, max_span::Int=15, verbose::Bool=false)
-    
-    # FAST PATH: Is the error already a valid codeword? (Distance 0)
-    # The parity check matrix H is the nullspace of the generator matrix.
-    H = parity_check_matrix(C)
-    syn = (Array(H) * e) .% Int(characteristic(C.F))
-    if all(iszero, syn)
-        return 0, e
-    end
-
-    if !exact
-        verbose && println("Routing to Probabilistic Coset Solver (ISD)...")
-        # We will modify probabilistic_minimum_distance_stern to accept target_syn
-        return probabilistic_minimum_distance_stern(C; confidence=confidence, target_syn=syn, verbose=verbose)
-    end
-    
-    # ---------------------------------------------------------
-    # EXACT ROUTING: Evaluate Trellis Profile
-    # ---------------------------------------------------------
-    H_mat = Array(H)
-    verbose && println("Evaluating exact coset router...")
-    
-    # Profile the trellis complexity of the parity-check matrix
-    best_H, best_perm, peak_E = optimize_trellis_permutation(H_mat, 10)
-    
-    if peak_E <= max_span
-        verbose && println("Peak E ($peak_E) <= $max_span. Routing to Exact Syndrome Trellis.")
-        
-        # Calculate target syndrome for the permuted parity-check matrix
-        e_perm = e[best_perm]
-        target_syn_perm = (best_H * e_perm) .% Int(characteristic(C.F))
-        
-        boundaries = optimal_sectionalization(best_H, Int(order(C.F)))
-        
-        # We will modify _min_weight_syndrome_sectionalized to accept target_syn
-        dist, min_err_perm = _min_weight_syndrome_sectionalized(best_H, boundaries, target_syn=target_syn_perm, verbose=verbose)
-        
-        # Invert permutation to return physical vector to original basis
-        min_err_orig = zeros(Int, C.n)
-        min_err_orig[invperm(best_perm)] = min_err_perm
-        
-        return dist, min_err_orig
-    else
-        verbose && println("Peak E ($peak_E) > $max_span. Trellis intractable. Routing to Affine Brouwer-Zimmermann.")
-        
-        # We will modify minimum_distance to accept affine_shift_row
-        return minimum_distance(C, alg=:BZ, affine_shift_row=e, verbose=verbose)
-    end
-end
-
-# --- Helpers to bridge Algebra and Geometry ---
-
-# function _lift_matrix(M)
-#     # Placeholder for your existing module-to-binary lifting utility
-#     # (Extracts F_2[G] blocks into classical companion blocks)
-# end
-
-# function _lift_vector(e_vec::Vector{T}, R) where T
-#     G_grp = group(R)
-#     N = length(G_grp)
-#     flat_len = length(e_vec) * N
-#     flat = zeros(Int, flat_len)
-    
-#     group_idx = Dict(g => i for (i, g) in enumerate(collect(G_grp)))
-    
-#     for (block_idx, poly) in enumerate(e_vec)
-#         if !iszero(poly)
-#             for (coeff, g) in terms(poly) 
-#                 if coeff == 1
-#                     flat[(block_idx - 1) * N + group_idx[g]] = 1
-#                 end
-#             end
-#         end
-#     end
-#     return flat
-# end
-
-function _calculate_block_weight(flat_vec::Vector{Int}, lift_factor::Int)
-    block_wt = 0
-    num_blocks = length(flat_vec) ÷ lift_factor
-    for b in 1:num_blocks
-        start_idx = (b - 1) * lift_factor + 1
-        end_idx = b * lift_factor
-        if any(!iszero, @view flat_vec[start_idx:end_idx])
-            block_wt += 1
-        end
-    end
-    return block_wt
+    return best
 end
