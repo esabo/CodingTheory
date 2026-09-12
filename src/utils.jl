@@ -455,8 +455,8 @@ function _has_empty_vec(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Ma
     return !isempty(del) 
 end
 
-function _remove_empty(A::Union{CTMatrixTypes, Matrix{<: Number}, BitMatrix, Matrix{Bool}},
-    type::Symbol)
+function _remove_empty(A::Union{CTMatrixTypes, CTPolyMatrix, Matrix{<: Number}, BitMatrix,
+    Matrix{Bool}}, type::Symbol)
     
     type ∈ (:rows, :cols) || throw(ArgumentError("Unknown type in _remove_empty"))
     

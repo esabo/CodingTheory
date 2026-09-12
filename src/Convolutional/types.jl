@@ -31,10 +31,10 @@ mutable struct ConvolutionalCode <: AbstractConvolutionalCode
     d::Union{Int, Missing} # free distance
     # l_bound::Int # lower bound on d
     # u_bound::Int # upper bound on d
-    D::CTFieldElem # delay operator
+    D::CTPolyRingElem # delay operator
     m::Int # memory
     vi::Vector{Int} # constraint lengths
-    mnrs::Union{Vector{fqPolyRingElem}, Vector{FqPolyRingElem}}
+    mnrs::Union{Vector{fpPolyRingElem}, Vector{FqPolyRingElem}}
     int_deg::Int # interal degree
     ext_deg::Int # external degree
     G::CTPolyMatrix
