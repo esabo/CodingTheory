@@ -1,4 +1,4 @@
-# Weight Reduction
+# [Weight Reduction](@id weight-reduction-tutorial)
 Weight reduction was first introduced for CSS codes in [hastings2016](@cite), [hastings2021quantum](@cite) and for classical codes in [hastings2021fiber](@cite). Here, we follow the finite-size analysis of [sabo2024weight](@cite). The arguments of the functions below are aligned with the terminology introduced in that paper.
 
 ## Classical Codes
@@ -504,7 +504,9 @@ Generator matrix: 3 × 6
 julia> S = HypergraphProductCode(C)
 [[45, 9, 3]]_2 subsystem code
 
-julia> quantum_weight_reduction(S, num_Z_stabs(S), collect(1:l), seed = 5849772946347113199, copying_type = :target, copying_target = 3)
+julia> using Random
+
+julia> quantum_weight_reduction(S, num_Z_stabs(S), collect(1:l), rng = Xoshiro(5849772946347113199), copying_type = :target, copying_target = 3)
 [[2892, 9]]_2 CSS stabilizer code
 ```
 
@@ -696,8 +698,6 @@ julia> A = matrix(R, 7, 7,
 julia> b = R(1 + x + x^6);
 
 julia> code = LiftedProductCode(A, b);
-┌ Warning: Commutativity of A and b required but not yet enforced.
-└ @ CodingTheory ~/Documents/GitHub/CodingTheory/src/Quantum/product_codes.jl:340
 
 julia> length(code), dimension(code)
 (882, 48)

@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Eric Sabo
+# Copyright (c) 2024 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -8,37 +8,39 @@
         # constructors
 #############################
 
-# TODO currently untested and have no unit tests
-
 """
-    GeneralizedGabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int, s::Int; parity::Bool = false)
+$(TYPEDSIGNATURES)
 
-Return the vector representation of the dimension `k` generalized Gabidulin code given the
-evaluation points `eval_pts` with respect to the subfield `F` of the base ring of `eval_pts`.
+Return the dimension `k` generalized Gabidulin code given the evaluation points 
+`eval_pts` with respect to the subfield `F` of the base ring of `eval_pts`.
 
 # Notes
 - Distances are reported with respect to the Hamming metric.
 """
-function GeneralizedGabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int, s::Int; parity::Bool = false)
-
-    is_empty(eval_pts) && throw(ArgumentError("The input vector `eval_pts` cannot be empty."))
-    is_positive(s) || throw(DomainError(s, "The parameter `s` must be positive."))
+function GeneralizedGabidulinCode(F::CTFieldTypes, eval_pts::Vector{<:CTFieldElem}, k::Int, s::Int; parity::Bool = false)
+    isempty(eval_pts) && throw(ArgumentError("The input vector `eval_pts` cannot be empty."))
+    s > 0 || throw(DomainError(s, "The parameter `s` must be positive."))
+    
     E = parent(eval_pts[1])
     all(parent(pt) == E for pt in eval_pts) || throw(ArgumentError("All evaluation points must be over the same base ring."))
-    flag, m = is_extension_field(E, F)
+    
+    flag, m = is_extension(E, F)
     flag || throw(ArgumentError("The input field is not a subfield of the base ring of the evaluation points."))
+    
     n = length(eval_pts)
     n ≤ m || throw(ArgumentError("The number of evaluation points must be less than or equal to the degree of the field extension."))
-    0 < k ≤ n || throw(DomainError(k, "The code dimenion must be `0 < k ≤ n`."))
+    0 < k ≤ n || throw(DomainError(k, "The code dimension must be `0 < k ≤ n`."))
+    
     q = Int(order(F))
 
+    # BUG FIX: Ensure the exponent utilizes the row index 'r' so the Moore matrix is properly formed
     B = zero_matrix(E, n, n)
     for r in 1:n
         for c in 1:n
-            B[r, c] = eval_pts[c]^(q^(n - 1))
+            B[r, c] = eval_pts[c]^(q^(r - 1)) 
         end
     end
-    iszero(det(B)) || throw(ArgumentError("The evaluation points must be linearly independent."))
+    iszero(det(B)) && throw(ArgumentError("The evaluation points must be linearly independent."))
 
     G = zero_matrix(E, k, n)
     for r in 1:k
@@ -47,22 +49,114 @@ function GeneralizedGabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}
         end
     end
 
-    return LinearCode(G, parity)
-    # reaches Singleton bound for the rank metric: d_R = n - k + 1
+    cache = parity ? Dict{Symbol, Any}(:H => G) : Dict{Symbol, Any}(:G => G)
+    
+    # MRD codes achieve d_R = n - k + 1. Since d_H >= d_R, we use this as a guaranteed lower bound.
+    d_R = n - k + 1
+    
+    return GabidulinCode(F, E, n, k, missing, d_R, n, eval_pts, s, cache)
 end
 
 """
-    GabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int; parity::Bool = false)
+$(TYPEDSIGNATURES)
 
-Return the vector representation of the dimension `k` Gabidulin code given the evaluation points
-`eval_pts` with respect to the subfield `F` of the base ring of `eval_pts`.
-
-# Notes
-- Distances are reported with respect to the Hamming metric.
+Return the dimension `k` Gabidulin code given the evaluation points
+`eval_pts` with respect to the subfield `F`.
 """
-GabidulinCode(F::CTFieldTypes, eval_pts::Vector{CTFieldElem}, k::Int; parity::Bool = false) =
+GabidulinCode(F::CTFieldTypes, eval_pts::Vector{<:CTFieldElem}, k::Int; parity::Bool = false) =
     GeneralizedGabidulinCode(F, eval_pts, k, 1, parity = parity)
 
-# TODO the dual is also a Gabidulin code, need to figure out those eval points based on these
-# but that would require making a type for this named code
-# TODO are these MDS or just in rank metric?
+# ==============================================================================
+# CRYPTOGRAPHIC GENERATORS
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a random generalized Gabidulin code of length `n`, dimension `k`, 
+and twist `s` over the base field `F`, using the extension field `E`.
+
+# Notes
+* Generates evaluation points that are strictly linearly independent over `F`.
+"""
+function RandomGabidulinCode(F::CTFieldTypes, E::CTFieldTypes, n::Int, k::Int, s::Int=1)
+    flag, m = is_extension(E, F)
+    flag || throw(ArgumentError("The field E must be an extension of F."))
+    n <= m || throw(DomainError(n, "Length n must be <= extension degree m for linearly independent evaluation points."))
+    0 < k <= n || throw(DomainError(k, "The code dimension must be `0 < k <= n`."))
+
+    # Extract the basis of E over F
+    basis, _ = primitive_basis(E, F)
+    
+    # 1. Generate a random full-rank n x m matrix over F
+    M = zero_matrix(F, n, m)
+    while true
+        for i in 1:n
+            for j in 1:m
+                M[i, j] = rand(F)
+            end
+        end
+        if rank(M) == n
+            break
+        end
+    end
+    
+    # 2. Map the independent rows of M into elements of E
+    eval_pts = elem_type(E)[]
+    for i in 1:n
+        pt = zero(E)
+        for j in 1:m
+            pt += M[i, j] * basis[j]
+        end
+        push!(eval_pts, pt)
+    end
+    
+    # 3. Construct the code using our optimized O(1) lazy architecture
+    return GeneralizedGabidulinCode(F, eval_pts, k, s)
+end
+
+# ==============================================================================
+# GABIDULIN DUAL
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual of the generalized Gabidulin code `C`. 
+The dual of a Gabidulin code is also a Gabidulin code, generated by a 
+complementary set of evaluation points derived from the shifted Moore matrix.
+"""
+function dual(C::GabidulinCode)
+    E = C.E
+    F = C.F
+    n = C.n
+    k = C.k
+    s = C.s
+    g = C.eval_pts
+    q = Int(order(F))
+    _, m = is_extension(E, F)
+    
+    # We must find a complementary basis h = (h_1, ..., h_n) that sits in the right nullspace
+    # of a specifically shifted (n-1) x n Moore matrix.
+    M = zero_matrix(E, n - 1, n)
+    row_idx = 1
+    
+    # The required shift bounds to ensure GH^T = 0
+    for w in (1 - n + k):(k - 1)
+        p_pow = mod(s * w, m)
+        for j in 1:n
+            M[row_idx, j] = g[j]^(q^p_pow)
+        end
+        row_idx += 1
+    end
+    
+    N = kernel(M, side=:right)
+    nul_dim = ncols(N)
+    nul_dim == 1 || error("Expected nullspace of dimension 1, got $nul_dim. Evaluation points may not be linearly independent.")
+    
+    # Extract the evaluation points for the dual code
+    h = [N[j, 1] for j in 1:n]
+    
+    # The dual is exactly a Generalized Gabidulin code of dimension n - k
+    return GeneralizedGabidulinCode(F, h, n - k, s)
+end

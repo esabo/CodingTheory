@@ -9,9 +9,9 @@
 #############################
 
 """
-    copy(C::T) where T <: AbstractCode
+$(TYPEDSIGNATURES)
 
-Returns a copy of the code `C`.
+Return a copy of the code `C`.
 """
 function copy(C::T) where T <: AbstractCode
     C2 = deepcopy(C)
@@ -115,15 +115,19 @@ tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAl
 # I think we should avoid length checking here and return it for entire matrix if given
 # Hamming_weight(v::T) where T <: Union{CTMatrixTypes, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
 """
-    Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    weight(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    wt(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
+$(TYPEDSIGNATURES)
 
 Return the Hamming weight of `v`.
 """
 function Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer
     count(x -> !iszero(x), v)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming weight of the finite-field or integer vector or matrix `v`.
+This is an alias for `Hamming_weight` and counts all nonzero entries.
+"""
 weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
@@ -140,7 +144,7 @@ end
 # wt(v::Matrix{Int}) = count(x -> !iszero(x), v)
 
 """
-    wt(f::CTPolyRingElem)
+$(TYPEDSIGNATURES)
 
 Return the number of nonzero coefficients of the polynomial `f`.
 """
@@ -178,18 +182,29 @@ function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S,
 end
 
 """
-    Hamming_distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
+$(TYPEDSIGNATURES)
 
 Return the Hamming distance between `u` and `v`.
 """
 Hamming_distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming distance between same-typed Oscar finite-field matrices or
+integer vectors `u` and `v`. This is an alias for `Hamming_distance`.
+"""
 distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming distance between same-typed Oscar finite-field matrices or
+integer vectors `u` and `v`. This is an alias for `distance`.
+"""
 dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
 
 """
-    symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the symplectic inner product of `u` and `v`.
 """
@@ -205,14 +220,19 @@ function symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
 end
 
 """
-    are_symplectic_orthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
 """
 function are_symplectic_orthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
-    base_ring(A) == base_ring(B) || throw(ArgumentError("Matrices in product must both be over the same base ring."))
-    
-    return iszero(hcat(A[:, div(ncols(A), 2) + 1:end], -A[:, 1:div(ncols(A), 2)]) * transpose(B))
+    ncols(A) == ncols(B) && iseven(ncols(A)) ||
+        throw(ArgumentError("Symplectic matrices must have the same even length."))
+    (nrows(A) == 0 || nrows(B) == 0) && return true
+    F_A = _code_matrix_base_ring(A)
+    F_B = _code_matrix_base_ring(B)
+    F_A == F_B ||
+        throw(ArgumentError("Matrices in product must both be over the same base ring."))
+    return iszero(_trace_symplectic_product_matrix(A, B, F_A))
 end
 
 # function traceinnerproduct(u::CTMatrixTypes, v::CTMatrixTypes)
@@ -220,7 +240,7 @@ end
 # end
 
 """
-    Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the Hermitian inner product of `u` and `v`.
 """
@@ -237,7 +257,7 @@ function Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
 end
 
 """
-    Hermitian_conjugate_matrix(A::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the Hermitian conjugate of the matrix `A`.
 """
@@ -288,6 +308,20 @@ function _Flint_matrix_to_Julia_T_matrix(A::CTMatrixTypes, ::Type{T}) where T <:
 end
 
 """
+The 0/1 support pattern of `A` as a dense `Matrix{UInt8}`. Reads entries through
+`iszero` rather than Flint's `nmod_mat` accessor, so unlike the converters above
+it accepts `FqMatrix` as well as `fpMatrix`.
+"""
+function _Flint_matrix_to_Julia_support_matrix(A::Union{fpMatrix, FqMatrix})
+    nr, nc = size(A)
+    S = zeros(UInt8, nr, nc)
+    for i in 1:nr, j in 1:nc
+        iszero(A[i, j]) || (S[i, j] = 0x01)
+    end
+    return S
+end
+
+"""
 Assumes the input is in rref form and returns the indexs of the columns that do not contain a pivot entry.
 Note that rref form here requires pivot entries have been normalized to 1.
 """
@@ -315,43 +349,60 @@ function _rref_non_pivot_cols(A::CTMatrixTypes, type::Symbol = :nsp)
     end
 end
 
-function _quotient_space(big::T, small::T, alg::Symbol = :sys_eqs) where T <: CTMatrixTypes
-    alg ∈ [:VS, :sys_eqs] || throw(ArgumentError("Unknown algorithm type"))
+"""
+Internal function to compute a row basis for the quotient space `span(G2) / span(G1)`.
+Assumes `span(G1) ⊆ span(G2)`.
+"""
+function _quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes)
+    base_ring(G1) == base_ring(G2) ||
+        throw(ArgumentError("Quotient spaces must use the same field."))
+    ncols(G1) == ncols(G2) ||
+        throw(ArgumentError("Quotient spaces must have the same ambient dimension."))
+    contained, _ = can_solve_with_solution(G2, G1, side=:left)
+    contained ||
+        throw(ArgumentError("The first row space is not contained in the second."))
 
-    if alg == :VS
-        F = base_ring(big)
-        V = vector_space(F, ncols(big))
-        U, U_to_V = sub(V, [V(small[i, :]) for i in 1:nrows(small)])
-        W, W_to_V = sub(V, [V(big[i, :]) for i in 1:nrows(big)])
-        gens_of_U_in_W = Vector{typeof(gens(U)[1])}(undef, length(gens(U)))
-        # gens_of_U_in_W = [preimage(W_to_V, U_to_V(g)) for g in gens(U)]
-        Threads.@threads for i in 1:length(gens(U))
-            gens_of_U_in_W[i] = preimage(W_to_V, U_to_V(gens(U)[i]))
-        end
-        U_in_W, _ = sub(W, gens_of_U_in_W)
-        Q, W_to_Q = quo(W, U_in_W)
-        iszero(dim(Q)) && (return zero_matrix(F, 1, ncols(big));)
-        C2_mod_C1_basis = [W_to_V(x) for x in [preimage(W_to_Q, g) for g in gens(Q)]]
-        F_basis = [[F(C2_mod_C1_basis[j][i]) for i in 1:AbstractAlgebra.dim(parent(C2_mod_C1_basis[1]))] for j in 1:length(C2_mod_C1_basis)]
-        return matrix(F, length(F_basis), length(F_basis[1]), reduce(vcat, F_basis))
-    else
-        # solve the system x big = small
-        # sol contains the way to write the rows of small in terms of the rows of big
-        # if big is of the form (big = small ∪ (big / small)), then this will have zeros for the rows
-        # corresponding to the basis of the quotient
-        # in the general case, anything without a pivot in the row reduction is not required to make
-        # the elements of small and therefore lie in the quotient space
-        flag, sol = can_solve_with_solution(big, small, side=:left)
-        !flag && error("Cannot solve system for quotient")
-        _, rref_sol = rref(sol)
-        if typeof(rref_sol) <: SMat{W, Vector{W}} where W <: CTFieldElem
-            nonpivots = _rref_non_pivot_cols(rref_sol, :sp)
-            return reduce(vcat, [big[r, :] for r in nonpivots])
-        else
-            return big[_rref_non_pivot_cols(rref_sol, :nsp), :]
+    F = base_ring(G1)
+    nr1, nc = nrows(G1), ncols(G1)
+    nr2 = nrows(G2)
+    
+    # 1. RREF G1 to isolate its basis and pivots
+    rnk1, R1 = rref(G1)
+    
+    pivots = Int[]
+    for i in 1:rnk1
+        for j in 1:nc
+            if !iszero(R1[i, j])
+                push!(pivots, j)
+                break
+            end
         end
     end
+    
+    # 2. Reduce G2 modulo R1
+    # By eliminating the pivot columns of G1 from G2, we project G2 perfectly 
+    # onto the complementary subspace, guaranteeing zero intersection with C1.
+    G2_red = deepcopy(G2)
+    for i in 1:rnk1
+        p = pivots[i]
+        for j in 1:nr2
+            factor = G2_red[j, p]
+            if !iszero(factor)
+                for c in p:nc # Only subtract from the pivot column onwards
+                    G2_red[j, c] -= factor * R1[i, c]
+                end
+            end
+        end
+    end
+    
+    # 3. RREF the reduced G2 to push zero rows to the bottom and get a clean basis
+    rnk2, Q_full = rref(G2_red)
+    
+    # Extract only the linearly independent quotient basis vectors
+    return rnk2 == 0 ? zero_matrix(F, 0, nc) : Q_full[1:rnk2, 1:nc]
 end
+
+_quotient_space(G1::CTMatrixTypes, G2::CTMatrixTypes, ::Symbol) = _quotient_space(G1, G2)
 
 # NOTE: This code works for sorted vectors with unique elements, but can be improved a bit in that case. It does not work otherwise, e.g.:
 #   largestconsecrun([1,1,1,4]) == 4
@@ -590,11 +641,10 @@ end
 function _rref_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
-    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
-
     nc_A = ncols(A)
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     rnk = 0
     i = first(row_range)
@@ -719,11 +769,10 @@ end
 function _rref_col_swap_perm!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
-    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
-
     nc_A = ncols(A)
+    # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     rnk = 0
     i = first(row_range)
@@ -847,12 +896,13 @@ end
 function _rref_symp_col_swap!(A::CTMatrixTypes, row_range::AbstractUnitRange{Int} = axes(A, 1),
     col_range::AbstractUnitRange{Int} = axes(A, 2))
 
+    nc_A = ncols(A)
     # don't do anything to A if the range is empty, return rank 0 and missing permutation matrix
-    isempty(row_range) && return 0, missing
-    isempty(col_range) && return 0, missing
+    isempty(row_range) && return 0, identity_matrix(base_ring(A), nc_A)
+    isempty(col_range) && return 0, identity_matrix(base_ring(A), nc_A)
 
     # permutation matrix required to return to rowspace if column swap done
-    P = missing
+    P = identity_matrix(base_ring(A), nc_A)
     nc_A = ncols(A)
 
     rnk = 0
@@ -1002,6 +1052,12 @@ function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{In
     return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the integer represented in base `base` by the digits in `x`, ordered
+from most significant to least significant.
+"""
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
     for digit in x
@@ -1040,7 +1096,7 @@ function _CT_adjoint(A::MatElem{T}) where T <: CTGroupAlgebra
 end
 
 """
-    residue_polynomial_to_circulant_matrix(f::ResElem)
+$(TYPEDSIGNATURES)
 
     Return the circulant matrix whose first row or column is the coefficients of `f` if `type` is `:row` or `:col`, respectively.
 """
@@ -1080,7 +1136,7 @@ function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol=:col)
 end
 
 """
-    group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra; type::Symbol=:col)
+$(TYPEDSIGNATURES)
 
 Return the circulant matrix whose first row or column is the coefficients of `x` if `type` is `:row` or `:col`, respectively.
 """
@@ -1110,7 +1166,7 @@ function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symb
 end
 
 """
-    lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
+$(TYPEDSIGNATURES)
 
 Return the matrix whose residue polynomial elements are converted to circulant matrices
 over the base field.
@@ -1140,7 +1196,7 @@ function lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
 end
 
 """
-    lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
+$(TYPEDSIGNATURES)
 
 Return the matrix whose group algebra elements are converted to circulant matrices
 over the base field.
@@ -1184,11 +1240,11 @@ function _concat(locations::Union{CTMatrixTypes, Matrix}, M::CTMatrixTypes)
     return output
 end
 
-""""
-    row_supports(M::CTMatrixTypes)
+"""
+$(TYPEDSIGNATURES)
 
-Returns a vector where the ith entry lists the indices of the nonzero
-entries of `M[i, :]`
+Return a vector whose ``i``th entry lists the indices of the nonzero entries of
+`M[i, :]`.
 """
 function row_supports(M::Union{CTMatrixTypes,
     MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
@@ -1202,11 +1258,11 @@ function row_supports(M::Union{CTMatrixTypes,
     return output
 end
 
-""""
-    row_supports_symplectic(M::CTMatrixTypes)
+"""
+$(TYPEDSIGNATURES)
 
-Returns a vector where the ith entry is a 2-tuple of lists with the
-indices of the nonzero X and Z entries of `M[i, :]`
+Return a vector whose ``i``th entry is a two-tuple of lists giving the indices
+of the nonzero ``X`` and ``Z`` entries of `M[i, :]`.
 """
 function row_supports_symplectic(M::CTMatrixTypes)
     iseven(ncols(M)) || throw(ArgumentError("Matrix should have an even number of cols"))
@@ -1216,11 +1272,12 @@ function row_supports_symplectic(M::CTMatrixTypes)
     collect(zip(X, Z))
 end
 
-function _node_adjacencies(H::CTMatrixTypes)
-    check_adj_list = [Int[] for _ in 1:nrows(H)]
-    var_adj_list = [Int[] for _ in 1:ncols(H)]
-    for r in 1:nrows(H)
-        for c in 1:ncols(H)
+function _node_adjacencies(H::Union{CTMatrixTypes, AbstractMatrix})
+    nr, nc = size(H)
+    check_adj_list = [Int[] for _ in 1:nr]
+    var_adj_list = [Int[] for _ in 1:nc]
+    for r in 1:nr
+        for c in 1:nc
             if !iszero(H[r, c])
                 push!(check_adj_list[r], c)
                 push!(var_adj_list[c], r)
@@ -1231,7 +1288,7 @@ function _node_adjacencies(H::CTMatrixTypes)
 end
 
 """
-    strongly_lower_triangular_reduction(A::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return a strongly lower triangular basis for the kernel of `A` and
 a unit vector basis for the complement of the image of `transpose(A)`.
@@ -1276,7 +1333,7 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
 end
 
 """
-    load_alist(file::String)
+$(TYPEDSIGNATURES)
 
 Return a `Matrix{Int}` object from the matrix stored in the alist file format in `file`.
 """
@@ -1340,10 +1397,10 @@ end
     is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
     is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
 
-Return `true` if the binary matrix `G` is triorthogonal.
+Return whether the binary matrix `G` is triorthogonal.
 
 # Notes
-* If the optional parameter `verbos` is set to `true`, the first pair or triple of
+- If the optional parameter `verbose` is set to `true`, the first pair or triple of
   non-orthogonal rows will be identified on the console.
 """
 function is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
@@ -1385,9 +1442,15 @@ function is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
     return true
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after printing each string in `A` on its own line.
+When `without_Is` is `true`, print spaces in place of every `I`.
+"""
 function print_string_array(A::Vector{String}, without_Is=false)
     for a in A
-        if !withoutIs
+        if !without_Is
             println(a)
         else
             for i in a
@@ -1401,90 +1464,6 @@ function print_string_array(A::Vector{String}, without_Is=false)
         end
     end
 end
-# BUG: do these set functions exist anymore?
-print_char_array(A::Vector{Vector{Char}}, without_Is=false) = print_string_array(set_char_to_string_array(A), without_Is)
-printsymplecticarray(A::Vector{Vector{T}}, without_Is=false) where T <: Int = print_string_array(set_symplectic_to_string_array(A), without_Is)
-
-"""
-    pseudoinverse(M::CTMatrixTypes)
-
-Return the pseudoinverse of a stabilizer matrix `M` over a quadratic extension.
-
-# Notes
-* This is not the Penrose-Moore pseudoinverse.
-"""
-function pseudoinverse(M::CTMatrixTypes)
-    # let this fail elsewhere if not actually over a quadratic extension
-    if degree(base_ring(M)) != 1
-        # TODO: quadratic_to_symplectic is no longer defined, this will need changed
-        M = transpose(quadratic_to_symplectic(M))
-    else
-        M = transpose(M)
-    end
-
-    nr, nc = size(M)
-    _, E = rref(hcat(M, identity_matrix(base_ring(M), nr)))
-    E = E[:, (nc + 1):end]
-    p_inv = E[1:nc, :]
-    dual = E[nc + 1:nr, :]
-
-    # verify
-    _, M_rref = rref(M)
-    E * M == M_rref || error("Pseudoinverse calculation failed (transformation incorrect).")
-    M_rref[1:nc, 1:nc] == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (failed to get I).")
-    iszero(M_rref[nc + 1:nr, :]) || error("Pseudoinverse calculation failed (failed to get zero).")
-    p_inv * M == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 1).")
-    transpose(M) * transpose(p_inv) == identity_matrix(base_ring(M), nc) || error("Pseudoinverse calculation failed (eq 2).")
-    iszero(transpose(M) * transpose(dual)) || error("Failed to correctly compute dual (rhs).")
-    iszero(dual * M) || error("Failed to correctly compute dual (lhs).")
-    return p_inv
-end
-
-# """
-#     quadratic_to_symplectic(M::CTMatrixTypes)
-
-# Return the matrix `M` converted from the quadratic to the symplectic form.
-# """
-# function quadratic_to_symplectic(M::CTMatrixTypes)
-#     E = base_ring(M)
-#     iseven(degree(E)) || error("The base ring of the given matrix is not a quadratic extension.")
-#     F = GF(Int(characteristic(E)), div(degree(E), 2), :ω)
-#     nr = nrows(M)
-#     nc = ncols(M)
-#     Msym = zero_matrix(F, nr, 2 * nc)
-#     for c in 1:nc
-#         for r in 1:nr
-#             # TODO: benchmark this without the branching
-#             if !iszero(M[r, c])
-#                 Msym[r, c] = F(coeff(M[r, c], 0))
-#                 Msym[r, c + nc] = F(coeff(M[r, c], 1))
-#             end
-#         end
-#     end
-#     return Msym
-# end
-
-# """
-#     symplectictoquadratic(M::CTMatrixTypes)
-
-# Return the matrix `M` converted from the symplectic to the quadratic form.
-# """
-# function symplectictoquadratic(M::CTMatrixTypes)
-#     iseven(ncols(M)) || error("Input to symplectictoquadratic is not of even length.")
-#     nr = nrows(M)
-#     nc = div(ncols(M), 2)
-#     F = base_ring(M)
-#     E = GF(Int(characteristic(F)), 2 * degree(F), :ω)
-#     ω = gen(E)
-#     ϕ = embed(F, E)
-#     Mquad = zero_matrix(E, nr, nc)
-#     for c in 1:nc
-#         for r in 1:nr
-#             Mquad[r, c] = ϕ(M[r, c]) + ϕ(M[r, c + nc]) * ω
-#         end
-#     end
-#     return Mquad
-# end
 
 function _Pauli_string_to_symplectic(str::T) where T <: Union{String, Vector{Char}}
     n = length(str)
@@ -1553,7 +1532,7 @@ end
 #############################
 
 """
-    tr(x::fqPolyRepFieldElem, K::fqPolyRepField, verify::Bool=false)
+$(TYPEDSIGNATURES)
 
 Return the relative trace of `x` from its base field to the field `K`.
 
@@ -1575,6 +1554,13 @@ function tr(x::CTFieldElem, K::CTFieldTypes; verify::Bool = false)
     return sum([x^(q^i) for i in 0:(n - 1)])
 end
 
+function _subfield_preimage(
+    K::CTFieldTypes, L::CTFieldTypes, x::CTFieldElem
+)
+    degree(K) == 1 && return K(lift(Nemo.ZZ, x))
+    return preimage(embed(K, L), x)
+end
+
 # function _expandelement(x::CTFieldElem, K::CTFieldTypes, basis::Vector{<:CTFieldElem}, verify::Bool=false)
 #     return [tr(x * i) for i in basis] #, K, verify
 # end
@@ -1592,18 +1578,20 @@ end
 function _expansion_dict(L::CTFieldTypes, K::CTFieldTypes, λ::Vector{<:CTFieldElem})
     m = div(degree(L), degree(K))
     L_elms = collect(L)
-    D = Dict{FqFieldElem, FqMatrix}()
+    D = Dict{CTFieldElem, CTMatrixTypes}()
     for x in L_elms
-        D[x] = matrix(L, 1, m, [CodingTheory.tr(x * λi, K) for λi in λ])
+        D[x] = matrix(K, 1, m,
+            [_subfield_preimage(K, L, CodingTheory.tr(x * λi, K))
+             for λi in λ])
     end
     return D
 end
 
-# BUG this is building the expanded matrix in the wrong ring, added change_base_ring below
-function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int)
+function _expand_matrix(M::CTMatrixTypes, D::AbstractDict, m::Int)
     m > 0 || throw(DomainError("Expansion factor must be positive"))
 
-    M_exp = zero_matrix(base_ring(M), nrows(M), ncols(M) * m)
+    K = base_ring(first(values(D)))
+    M_exp = zero_matrix(K, nrows(M), ncols(M) * m)
     for r in 1:nrows(M)
         for c in 1:ncols(M)
             M_exp[r, (c - 1) * m + 1:c * m] = D[M[r, c]]
@@ -1613,7 +1601,7 @@ function _expand_matrix(M::CTMatrixTypes, D::Dict{FqFieldElem, FqMatrix}, m::Int
 end
 
 """
-    expand_matrix(M::CTMatrixTypes, K::fqPolyRepField, β::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the basis `β` for the base ring of `M` over `K`.
@@ -1627,13 +1615,17 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
     flag, λ = _is_basis(L, β, Int(order(K)))
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
 
-    # λ = dual_basis(L, K, β)
-    D = _expansion_dict(L, K, λ)
-    return change_base_ring(K, _expand_matrix(M, D, m))
+    M_expanded = zero_matrix(K, nrows(M), ncols(M) * m)
+    for r in 1:nrows(M), c in 1:ncols(M), j in 1:m
+        M_expanded[r, (c - 1) * m + j] =
+            _subfield_preimage(
+                K, L, CodingTheory.tr(M[r, c] * λ[j], K))
+    end
+    return M_expanded
 end
 
 """
-    quadratic_residues(q::Int, n::Int)
+$(TYPEDSIGNATURES)
 
 Return the sets of quadratic resides and quadratic non-residues of `q` and `n`.
 """
@@ -1674,7 +1666,7 @@ function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
 end
 
 """
-    is_extension(E::CTFieldTypes, F::CTFieldTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
 `false, -1`.
@@ -1696,7 +1688,7 @@ function is_extension(E::CTFieldTypes, F::CTFieldTypes)
 end
 
 """
-    is_subfield(F::CTFieldTypes, E::CTFieldTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
 `false, -1`.
@@ -1704,7 +1696,7 @@ Return `true` if `E/F` is a valid field extension and the degree of the extensio
 is_subfield(F::CTFieldTypes, E::CTFieldTypes) = is_extension(E, F)
 
 """
-    is_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` and the dual (complementary) basis if `basis` is a basis for `E/F`,
 otherwise return `false, missing`.
@@ -1721,7 +1713,7 @@ function is_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}
 end
 
 """
-    primitive_basis(E::fqPolyRepField, F::fqPolyRepField)
+$(TYPEDSIGNATURES)
 
 Return a primitive basis for `E/F` and its dual (complementary) basis.
 """
@@ -1737,13 +1729,13 @@ end
 # polynomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
 # monomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
 
-"""
-    normal_basis(E::fqPolyRepField, F::fqPolyRepField)
-
-Return a normal basis for `E/F` and its dual (complementary) basis.
-"""
 # "Normal Bases over Finite Fields" by Shuhong Gao has algorithms for this but they are
 # complicated for the field sizes intended in this work
+"""
+$(TYPEDSIGNATURES)
+
+Return a normal basis for the finite-field extension `E/F` and its dual basis.
+"""
 function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
     flag, m = is_extension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
@@ -1759,23 +1751,29 @@ function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
 end
 
 """
-    dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
-    complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
-Return the dual (complentary) basis of `basis` for the extension `E/F`.
+Return the dual, or complementary, basis of `basis` for the finite-field
+extension `E/F`.
 """
 function dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, λ = is_basis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return λ
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual, or complementary, basis of `basis` for the finite-field
+extension `E/F`. This is an alias for `dual_basis`.
+"""
 complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dual_basis(E, F, basis)
 
 """
-    verify_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
-    verify_complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
-Return `true` if `basis` is the dual of `dual_basis` for `E/F`, otherwise return `false`.
+Return whether `basis` is the dual of `dual_basis` for the finite-field
+extension `E/F`.
 """
 function verify_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem})
     flag, m = is_extension(E, F)
@@ -1804,10 +1802,17 @@ function verify_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTF
     end
     return B * B_inv == identity_matrix(E, m)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if `basis` and `dual_basis` are dual bases for the finite-field
+extension `E/F`, and `false` otherwise. This is an alias for
+`verify_dual_basis`.
+"""
 verify_complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem}) = verify_dual_basis(E, F, basis, dual_basis)
 
 """
-    are_equivalent_basis(basis::Vector{fqPolyRepFieldElem}, basis2::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a scalar multiple of `basis2`.
 """
@@ -1826,7 +1831,7 @@ function are_equivalent_basis(basis::Vector{<:CTFieldElem}, basis2::Vector{<:CTF
 end
 
 """
-    is_self_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is equal to its dual.
 """
@@ -1837,7 +1842,7 @@ function is_self_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_primitive_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a primitive basis for `E/F`.
 """
@@ -1853,7 +1858,7 @@ function is_primitive_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_normal_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a normal basis for `E/F`.
 """
@@ -1879,7 +1884,7 @@ end
 #############################
 
 """
-    is_regular(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return `true` if `G` is regular.
 """
@@ -1889,7 +1894,7 @@ function is_regular(G::SimpleGraph{Int})
 end
 
 """
-    edge_vertex_incidence_matrix(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return the edge-vertex incidence matrix of `G` along with the vertex incides of the left
 and right bipartition.
@@ -1903,7 +1908,7 @@ function edge_vertex_incidence_matrix(G::SimpleGraph{Int})
 end
 
 """
-    edge_vertex_incidence_graph(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return the edge-vertex incidence graph of `G` along with the vertex incides of the left
 and right bipartition.
@@ -1914,7 +1919,7 @@ function edge_vertex_incidence_graph(G::SimpleGraph{Int})
 end
 
 """
-    is_valid_bipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int})
+$(TYPEDSIGNATURES)
 
 Return `true` if the vertices indexed by `left` and `right` form a valid bipartition for `G`.
 """
@@ -1943,18 +1948,20 @@ function is_valid_bipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vec
 end
 
 """
-    extract_bipartition(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return two vectors representing the vertex indices of each side of the bipartition.
 """
 function extract_bipartition(G::SimpleGraph{Int})
     temp = bipartite_map(G)
     # this is the definition of the function is_bipartite in Graphs.jl
-    length(temp) == nv(G) || throw(ArgumentError("Input graph is not bipartite."))
+    length(temp) == Grphs.nv(G) || throw(ArgumentError("Input graph is not bipartite."))
     left = Vector{Int}()
     right = Vector{Int}()
-    for i in temp
-        i == 1 ? (push!(i, left);) : (push!(i, right);)
+    # bipartite_map stores the color of each vertex, so the vertex index is the
+    # position within it
+    for (v, color) in enumerate(temp)
+        color == 1 ? push!(left, v) : push!(right, v)
     end
     return left, right
 end
@@ -1993,8 +2000,15 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return ``\\binom{x}{y}`` as a `UInt128` when `y <= x`, and zero otherwise.
+"""
 function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
-    return y <= x ? UInt128.(binomial(x, y)) : UInt128(0)
+    # the intermediate must be arbitrary precision, since binomial overflows
+    # Int64 well before the result exceeds UInt128
+    return y <= x ? UInt128(binomial(big(x), big(y))) : UInt128(0)
 end
 
 function _value_distribution(vals)
@@ -2056,6 +2070,44 @@ function mult_order(a::Int, prep::Tuple{Int,Int,Vector{Tuple{Int,Int}}})::Int
         end
     end
     return m
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the polynomial ring involution (Hermitian adjoint) of the matrix `A`.
+
+# Notes
+* Maps `A(x)` to `A(x^-1)^T mod (x^m - 1)`.
+* This is the fundamental operation for computing the dual of a Quasi-Cyclic code 
+  without lifting to the dense ambient space.
+"""
+function ring_involution(A::MatElem{T}) where T <: ResElem
+    R = base_ring(A)
+    S = base_ring(R)
+    m = degree(modulus(R))
+    nr, nc = size(A)
+    
+    A_star = zero_matrix(R, nc, nr) # Note the transposed dimensions
+    
+    for r in 1:nr
+        for c in 1:nc
+            poly = lift(A[r, c])
+            coeffs = collect(coefficients(poly))
+            
+            # x^i -> x^(-i mod m)
+            new_poly = zero(S)
+            for (i, coeff) in enumerate(coeffs)
+                deg = i - 1
+                new_deg = mod(-deg, m)
+                new_poly += coeff * gen(S)^new_deg
+            end
+            
+            A_star[c, r] = R(new_poly)
+        end
+    end
+    
+    return A_star
 end
 
 # #=

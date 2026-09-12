@@ -4,14 +4,30 @@
 [![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml/badge.svg?branch=master)](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml?query=branch%3Amaster)
 [![Coverage](https://codecov.io/gh/esabo/CodingTheory/branch/master/graph/badge.svg)](https://codecov.io/gh/esabo/CodingTheory)
 
-A coding theory library for Julia.
+A classical, LDPC, and quantum coding theory library for Julia.
 
-The goal of this package is to develop a classical and quantum error-correcting codes package in as much native Julia as possible. The library is built around the Oscar.jl framework, and many thanks to Tommy Hofmann of these packages for helping this repo get off the ground. Anyone is welcome to contribute, although the final form of any accepted code may be standardized to maintain intra-package consistency.
+The library uses [Oscar.jl](https://www.oscar-system.org/) for exact
+finite-field and polynomial arithmetic and native Julia data structures for
+performance-sensitive sparse and iterative algorithms.
 
-At the moment, all functions work as intended for test cases but have not been unit tested thoroughly enough to guarantee 100% accuracy and error free usage. All results from this library should be mentally checked and any bugs reported (or fixed and pushed).
+Install the development version from Julia's package prompt:
 
-Parts of the library are multi-threaded and benefit greatly from the use of multiple cores.
+```julia
+] add https://github.com/esabo/CodingTheory
+```
 
-The minimum distance functions are currently being rewritten and will reappear soon. Depending on what one is looking for, current functions may be sufficient. Feel free to reach out on the [Slack channel](https://join.slack.com/t/juliacodingtheory/shared_invite/zt-2u8n5h5wm-QqnXl2NZqRvTmGGEPumbqQ).
+Then:
 
-Improved documentation is currently a major to-do. Again, feel free to ask questions on Slack.
+```julia
+using Oscar
+using CodingTheory
+```
+
+See the [development documentation](https://esabo.github.io/CodingTheory/dev/)
+for tutorials and API references. Exact minimum-distance computations can be
+exponential; the documentation explains solver selection and the distinction
+between certified bounds and witnessed or heuristic results.
+
+Parts of the library are multi-threaded and benefit from multiple Julia
+threads. Questions and development discussion are welcome on the
+[CodingTheory Slack channel](https://join.slack.com/t/juliacodingtheory/shared_invite/zt-2u8n5h5wm-QqnXl2NZqRvTmGGEPumbqQ).

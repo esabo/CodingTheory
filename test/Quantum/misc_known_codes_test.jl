@@ -1,6 +1,13 @@
 @testitem "Quantum/misc_known_codes.jl" begin
-    using JLD2
     using CodingTheory
+    jld2_available = try
+        @eval using JLD2
+        true
+    catch
+        @info "Skipping known-code tests that require JLD2."
+        false
+    end
+    isdefined(CodingTheory, :Q9143) || return
 
     @testset "Misc known Quantum codes" begin
         # TODO maybe we want to test to make sure we can compute these distances
@@ -97,6 +104,7 @@
         @test LogicalTrait(typeof(S)) == HasLogicals()
         @test GaugeTrait(typeof(S)) == HasNoGauges()
 
+        if jld2_available
         d = 3
         S = TriangularColorCode488(d)
         # @test S.n == Int(d^2 // 2 + d - 1 // 2)
@@ -256,6 +264,7 @@
         @test S.d == d
         @test LogicalTrait(typeof(S)) == HasLogicals()
         @test GaugeTrait(typeof(S)) == HasNoGauges()
+        end
 
         S = ToricCode(2)
         @test S.n == 2 * 2^2

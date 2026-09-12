@@ -1,153 +1,28 @@
-# Cyclic Codes
+# [Cyclic Codes](@id cyclic-codes-api)
 
-Cyclic codes are a subtype of `LinearCode` and inherit its methods. For more information on how to use these functions, see the [Cyclic Codes Tutorial](@ref).
+Cyclic codes are a subtype of `LinearCode` and inherit its methods. For a
+worked introduction see the [Cyclic Codes tutorial](@ref cyclic-codes-tutorial).
 
-## Cyclotomic Cosets
+A cyclic code of length ``n`` over ``\mathbb{F}_q`` is determined by its
+defining set, a union of ``q``-cyclotomic cosets modulo ``n``. The cyclotomic
+functions below are therefore the natural way to specify and inspect these
+codes, and several of them are useful on their own when hunting for codes with
+prescribed parameters.
 
-The following set of functions are useful for defining cyclic codes.
+Reed-Solomon and BCH codes are the classical special cases. The generalized
+Reed-Solomon view of a Reed-Solomon code, along with alternant and Goppa codes,
+is documented in
+[Generalized Reed-Solomon codes](@ref generalized-reed-solomon-api).
 
-```@docs
-ord
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Classical/cyclic_code.jl", "Classical/cyclotomic.jl"]
+Private = false
 ```
 
-```@docs
-cyclotomic_coset
-```
-
-```@docs
-all_cyclotomic_cosets
-```
-
-```@docs
-complement_qcosets
-```
-
-```@docs
-qcoset_pairings
-```
-
-```@docs
-qcoset_table
-```
-
-```@docs
-dual_qcosets
-```
-
-## Constructors
-
-```@docs
-CyclicCode
-```
-
-```@docs
-BCHCode
-```
-
-```@docs
-ReedSolomonCode
-```
-
-```@docs
-QuadraticResidueCode
-```
-
-## Attributes
-
-```@docs
-splitting_field
-```
-
-```@docs
-polynomial_ring
-```
-
-```@docs
-primitive_root
-```
-
-```@docs
-offset
-```
-
-```@docs
-design_distance
-```
-
-```@docs
-qcosets
-```
-
-```@docs
-qcosets_reps
-```
-
-```@docs
-zeros
-```
-
-```@docs
-nonzeros
-```
-
-```@docs
-generator_polynomial
-```
-
-```@docs
-parity_check_polynomial
-```
-
-```@docs
-idempotent
-```
-
-```@docs
-BCH_bound
-```
-
-```@docs
-is_narrowsense
-```
-
-```@docs
-is_reversible
-```
+The following are not exported but may be useful.
 
 ```@docs
 CodingTheory.is_degenerate
-```
-
-```@docs
-is_primitive
-```
-
-```@docs
-is_antiprimitive
-```
-
-## Methods
-
-```@docs
-defining_set
-```
-
-```@docs
-dual_defining_set
-```
-
-```@docs
 CodingTheory.is_cyclic
-```
-
-```@docs
-complement
-```
-
-```@docs
-∩
-```
-
-```@docs
-+
 ```

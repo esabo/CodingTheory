@@ -8,8 +8,8 @@ on:
   push:
     branches:
       - master
-    # tags: '*'
-#   pull_request:
+    tags: '*'
+  pull_request:
 
 concurrency:
   # Skip intermediate builds: always.
@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.9'
+          - '1.11'
         os:
           - ubuntu-latest
         arch:

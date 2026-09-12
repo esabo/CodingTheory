@@ -1,76 +1,201 @@
-# Copyright (c) 2024 - 2025 Eric Sabo
+# Copyright (c) 2024 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-#############################
-        # constructors
-#############################
+"""
+$(TYPEDSIGNATURES)
 
-#############################
-      # getter functions
-#############################
-
-#############################
-      # setter functions
-#############################
-
-#############################
-     # general functions
-#############################
+Return the bipartite adjacency lists `(check_adj, var_adj)` for the LDPC code.
+Computes lazily and caches the result.
+"""
+function node_adjacencies(C::LDPCCode)
+    if !haskey(C.cache, :var_adj) || !haskey(C.cache, :check_adj)
+        nr, nc = size(C.H)
+        var_adj = [Int[] for _ in 1:nc]
+        check_adj = [Int[] for _ in 1:nr]
+        
+        # O(|E|) traversal based on whether the matrix is natively sparse
+        if typeof(C.H) <: SMat
+            for (r, row) in enumerate(C.H)
+                for (c, val) in row
+                    if !iszero(val)
+                        push!(var_adj[c], r)
+                        push!(check_adj[r], c)
+                    end
+                end
+            end
+        else
+            for c in 1:nc
+                for r in 1:nr
+                    if !iszero(C.H[r, c])
+                        push!(var_adj[c], r)
+                        push!(check_adj[r], c)
+                    end
+                end
+            end
+        end
+        
+        C.cache[:var_adj] = var_adj
+        C.cache[:check_adj] = check_adj
+    end
+    return C.cache[:check_adj], C.cache[:var_adj]
+end
 
 """
-    girth(C::AbstractLDPCCode; max_iter::Int = 100)
+$(TYPEDSIGNATURES)
 
 Return the girth of the Tanner graph of `C`.
-
-An error is thrown if the maximum number of iterations is reached and
-`-1` is returned to represent infinite girth.
 """
-function girth(C::AbstractLDPCCode; max_iter::Int = 100)
-    check_adj_list, var_adj_list = _node_adjacencies(C.H)
-    girth_arr = zeros(Int, C.n)
-    Threads.@threads for vn in 1:C.n
-        iter = 0
-        not_found = true
-        to_check = [(0, [vn])]
-        while not_found
-            iter += 1
-            to_check_next = Vector{Tuple{Int, Vector{Int}}}()
-            for i in 1:length(to_check)
-                for (prev, v_arr) in (to_check[i], )
-                    for v in v_arr
-                        for cn in var_adj_list[v]
-                            if cn != prev
-                                if iter != 1 && vn ∈ check_adj_list[cn]
-                                    not_found = false
-                                    girth_arr[vn] = iter + 1
-                                    break
-                                else
-                                    push!(to_check_next, (cn, [v2 for v2 in check_adj_list[cn] if v2 != v]))
-                                end
-                            end
-                        end
-                        !not_found && break
-                    end
-                    !not_found && break
-                end
-                !not_found && break
+function girth(C::LDPCCode)
+    haskey(C.cache, :girth) && return C.cache[:girth]
+    
+    if haskey(C.cache, :short_cycle_dist)
+        C.cache[:girth] = minimum(keys(C.cache[:short_cycle_dist]))
+        return C.cache[:girth]
+    end
+
+    check_adj, var_adj = node_adjacencies(C)
+    nr, nc = size(C.H)
+    total_nodes = nr + nc
+    
+    # Thread-safe global minimum
+    global_min_girth = Threads.Atomic{Int}(typemax(Int))
+    
+    # Pre-allocate EXACTLY one workspace per thread to avoid GC thrashing
+    n_threads = Threads.nthreads()
+    dists   = [fill(-1, total_nodes) for _ in 1:n_threads]
+    parents = [fill(-1, total_nodes) for _ in 1:n_threads]
+    queues  = [Vector{Int}(undef, total_nodes) for _ in 1:n_threads]
+    
+    Threads.@threads for root in 1:nc
+        # Bipartite graphs cannot have cycles < 4. Stop everything if we found the absolute floor.
+        global_min_girth[] == 4 && continue 
+        
+        tid = Threads.threadid()
+        dist = dists[tid]
+        parent = parents[tid]
+        queue = queues[tid]
+        
+        # Reset only the workspace for this specific thread
+        fill!(dist, -1)
+        fill!(parent, -1)
+        
+        head = 1
+        tail = 2
+        queue[1] = root
+        dist[root] = 0
+        
+        while head < tail
+            u = queue[head]
+            head += 1
+            
+            # Pruning: Stop if this tree's depth exceeds the globally found shortest cycle
+            if dist[u] * 2 >= global_min_girth[]
+                break
             end
-            !not_found && break
-            iter += 1
-            iter > max_iter && error("Hit the maximum number of iterations")
-            isempty(to_check_next) && break
-            to_check = to_check_next
+            
+            is_var = u <= nc
+            neighbors = is_var ? var_adj[u] : check_adj[u - nc]
+            
+            for n_idx in neighbors
+                v = is_var ? n_idx + nc : n_idx
+                
+                if v != parent[u]
+                    if dist[v] == -1
+                        dist[v] = dist[u] + 1
+                        parent[v] = u
+                        queue[tail] = v
+                        tail += 1
+                    else
+                        # Cycle found!
+                        cycle_len = dist[u] + dist[v] + 1
+                        if cycle_len < global_min_girth[]
+                            # Safely update the global minimum across all threads
+                            Threads.atomic_min!(global_min_girth, cycle_len)
+                        end
+                    end
+                end
+            end
         end
     end
-    # println(girth_arr)
-    min = minimum(girth_arr)
-    iseven(min) || error("Computed girth to be an odd integer")
-    min == 0 ? (C.girth = -1;) : (C.girth = min;)
-    return C.girth
+    
+    final_girth = global_min_girth[]
+    C.cache[:girth] = final_girth == typemax(Int) ? -1 : final_girth
+    return C.cache[:girth]
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the local girth (computation tree depth) for the variable node `v` in the 
+Tanner graph of `C`. 
+
+# Notes
+* This metric intrinsically captures the "lollipop graph" penalty. It returns the length 
+  of the shortest message-passing loop that originates from and returns to `v`, calculating 
+  the cycle length plus twice the length of the stem.
+* Returns `-1` if the node is part of a tree structure (no cycles reachable).
+"""
+function local_girth(C::LDPCCode, v::Int)
+    check_adj, var_adj = node_adjacencies(C)
+    nr, nc = size(C.H)
+    total_nodes = nr + nc
+    
+    1 <= v <= nc || throw(BoundsError("Variable node index must be between 1 and $nc"))
+    
+    # Pre-allocate zero-allocation BFS workspace
+    dist = fill(-1, total_nodes)
+    parent = fill(-1, total_nodes)
+    queue = Vector{Int}(undef, total_nodes)
+    
+    head = 1
+    tail = 2
+    queue[1] = v
+    dist[v] = 0
+    
+    while head < tail
+        u = queue[head]
+        head += 1
+        
+        is_var = u <= nc
+        neighbors = is_var ?  var_adj[u] : check_adj[u - nc]
+        
+        for n_idx in neighbors
+            w = is_var ? n_idx + nc : n_idx
+            
+            if w != parent[u]
+                if dist[w] == -1
+                    dist[w] = dist[u] + 1
+                    parent[w] = u
+                    queue[tail] = w
+                    tail += 1
+                else
+                    # The very first collision in a BFS guarantees the shortest 
+                    # possible topological loop back to the root vertex v.
+                    return dist[u] + dist[w] + 1
+                end
+            end
+        end
+    end
+    
+    return -1 # Node v is part of a pure tree
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the local girth for a specified list of variable nodes `vs`.
+"""
+local_girth(C::LDPCCode, vs::Vector{Int}) = [local_girth(C, v) for v in vs]
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the local girth for every variable node in the LDPC code `C`.
+"""
+local_girth(C::LDPCCode) = local_girth(C, collect(1:C.n))
 
 """
     computation_graph(C::AbstractLDPCCode, lvl::Int, v::Int, v_type::Symbol = :v)
@@ -84,91 +209,97 @@ for node `v`. If `v_type` is `:v`, `v` is interpreted as a variable node; otherw
 """
 function computation_graph end
 
-function remove_cycles(H::Union{Matrix{<: Integer}, CTMatrixTypes}, n_max::Int)
-    n_max ≥ 4 || throw(DomainError("n_max must be an even number greater than four"))
-    iseven(n_max) || (n_max -= 1;)
-    size(H, 1) ≥ 1 && size(H, 2) ≥ 1 || throw(ArgumentError("Matrix cannot have a zero dimension"))
+"""
+$(TYPEDSIGNATURES)
 
-    # also used in Tanner.jl, perhaps should make into its own function
-    # A = _adjacency_matrix_from_code(H)
-    typeof(H) <: CTMatrixTypes ? (I = _Flint_matrix_to_Julia_int_matrix(H);) : (I = H;)
-    nr_H, nc_H = size(I)
-    A = vcat(hcat(zeros(Int, nc_H, nc_H), transpose(I)), hcat(I, zeros(Int, nr_H, nr_H)))
-    # display(A)
-    matrices = [A^i for i in 0:n_max - 1]
-    # for M in matrices
-    #     display(M)
-    #     println(" ")
-    # end
-    nr, nc = size(A)
-    for n in 4:2:n_max
-        n2 = div(n, 2)
-        n2m1 = n2 - 1
-        n2m2 = n2 - 2
-        nm1 = n - 1
-        for i in 1:nr
-            for j in 1:nc
-                if i ≠ j
-                    if matrices[n2 + 1][i, j] ≥ 2 && iszero(matrices[n2m2 + 1][i, j])
-                        # println("$i, $j")
-                        # println(matrices[n2 + 1][i, j])
-                        temp = Int[]
-                        for k in 1:nc
-                            # should be exactly two of these
-                            if matrices[n2m1 + 1][i, k] > 0 && matrices[1 + 1][j, k] == 1
-                                append!(temp, k)
-                            end
-                        end
-                        
-                        if !isempty(temp)
-                            k = rand(temp)
-                            C_e = Int[]
-                            for x in 1:nc
-                                if iszero(matrices[nm1 + 1][j, x]) && iszero(matrices[nm1 + 1][k, x])
-                                    append!(C_e, x)
-                                end
-                            end
+Attempt to structurally remove cycles of length strictly less than `target_girth` 
+from the LDPC code `C` using the BFS Socket-Swapping algorithm.
 
-                            E_e = Vector{Tuple{Int, Int}}()
-                            for v1 in C_e
-                                for v2 in C_e
-                                    if matrices[1 + 1][v1, v2] > 0
-                                        push!(E_e, (v1, v2))
-                                    end
-                                end
-                            end
+# Notes
+* `target_girth` must be an even integer >= 4.
+* This algorithm exactly preserves the degree distributions (λ and ρ) of the original code.
+* Returns a strictly new `LDPCCode` object. If the target girth cannot be reached 
+  within `max_iters`, it returns the best-effort matrix achieved so far.
+"""
+function remove_cycles(C::LDPCCode, target_girth::Int; max_iters::Int=2000)
+    iseven(target_girth) && target_girth >= 4 || throw(ArgumentError("Target girth must be an even integer >= 4"))
+    
+    # If the matrix is empty or a tree, just return a copy
+    girth(C) == -1 && return LDPCCode(C.H)
+    
+    nr, nc = size(C.H)
+    F = base_ring(C.H)
+    
+    # 1. Build mutable dictionary adjacency lists to track edge field values
+    var_adj = [Dict{Int, typeof(F(1))}() for _ in 1:nc]
+    check_adj = [Dict{Int, typeof(F(1))}() for _ in 1:nr]
+    
+    if typeof(C.H) <: SMat
+        for (r, row) in enumerate(C.H)
+            for (c, val) in row
+                if !iszero(val)
+                    var_adj[c][r] = val
+                    check_adj[r][c] = val
+                end
+            end
+        end
+    else
+        for c in 1:nc
+            for r in 1:nr
+                val = C.H[r, c]
+                if !iszero(val)
+                    var_adj[c][r] = val
+                    check_adj[r][c] = val
+                end
+            end
+        end
+    end
 
-                            # this handles the case that C_e is empty
-                            if !isempty(E_e)
-                                (l, m) = rand(E_e)
-                                # println("here")
-                                # remove two old edges
-                                matrices[1 + 1][j, k] -= 1
-                                matrices[1 + 1][k, j] -= 1
-                                matrices[1 + 1][l, m] -= 1
-                                matrices[1 + 1][m, l] -= 1
-
-                                # add two new edges
-                                matrices[1 + 1][j, m] += 1
-                                matrices[1 + 1][m, j] += 1
-                                matrices[1 + 1][l, k] += 1
-                                matrices[1 + 1][k, l] += 1
-
-                                # update matrices in indices j, k, l, m
-                                for indx in 2:n_max - 1
-                                    for c in 1:nc
-                                        matrices[indx + 1][j, c] = dot(view(matrices[indx - 1 + 1], j, :), view(matrices[1 + 1], :, c))
-                                        matrices[indx + 1][k, c] = dot(view(matrices[indx - 1 + 1], k, :), view(matrices[1 + 1], :, c))
-                                        matrices[indx + 1][l, c] = dot(view(matrices[indx - 1 + 1], l, :), view(matrices[1 + 1], :, c))
-                                        matrices[indx + 1][m, c] = dot(view(matrices[indx - 1 + 1], m, :), view(matrices[1 + 1], :, c))
-                                    end
-
-                                    for r in 1:nc
-                                        matrices[indx + 1][r, j] = dot(view(matrices[indx - 1 + 1], r, :), view(matrices[1 + 1], :, j))
-                                        matrices[indx + 1][r, k] = dot(view(matrices[indx - 1 + 1], r, :), view(matrices[1 + 1], :, k))
-                                        matrices[indx + 1][r, l] = dot(view(matrices[indx - 1 + 1], r, :), view(matrices[1 + 1], :, l))
-                                        matrices[indx + 1][r, m] = dot(view(matrices[indx - 1 + 1], r, :), view(matrices[1 + 1], :, m))
-                                    end
+    total_nodes = nr + nc
+    dist = fill(-1, total_nodes)
+    parent = fill(-1, total_nodes)
+    queue = Vector{Int}(undef, total_nodes)
+    
+    # Internal fast BFS to find exactly one edge involved in a short cycle
+    function _get_bad_edge()
+        for root in 1:nc
+            fill!(dist, -1)
+            fill!(parent, -1)
+            head = 1
+            tail = 2
+            queue[1] = root
+            dist[root] = 0
+            
+            while head < tail
+                u = queue[head]
+                head += 1
+                
+                # Prune if we've searched deep enough
+                if dist[u] * 2 >= target_girth
+                    break
+                end
+                
+                is_var = u <= nc
+                neighbors = is_var ? keys(var_adj[u]) : keys(check_adj[u - nc])
+                
+                for n_idx in neighbors
+                    v = is_var ? n_idx + nc : n_idx
+                    
+                    if v != parent[u]
+                        if dist[v] == -1
+                            dist[v] = dist[u] + 1
+                            parent[v] = u
+                            queue[tail] = v
+                            tail += 1
+                        else
+                            # Collision! A cycle is found.
+                            cycle_len = dist[u] + dist[v] + 1
+                            if cycle_len < target_girth
+                                # Return the edge connecting u to its parent
+                                if is_var
+                                    return (u, parent[u] - nc)
+                                else
+                                    return (parent[u], u - nc)
                                 end
                             end
                         end
@@ -176,177 +307,238 @@ function remove_cycles(H::Union{Matrix{<: Integer}, CTMatrixTypes}, n_max::Int)
                 end
             end
         end
+        return nothing # Target girth successfully achieved!
     end
 
-    return matrices[1 + 1][nc_H + 1:end, 1:nc_H]
+    # 2. Main Socket-Swapping Loop
+    iters_used = 0
+    for iter in 1:max_iters
+        bad_edge = _get_bad_edge()
+        isnothing(bad_edge) && break
+        
+        v1, c1 = bad_edge
+        
+        # Pick a random edge (v2, c2) to swap with
+        swap_valid = false
+        attempts = 0
+        v2, c2 = 0, 0
+        
+        while !swap_valid && attempts < 50
+            v2 = rand(1:nc)
+            # Skip empty columns
+            isempty(var_adj[v2]) && continue 
+            
+            c2 = rand(collect(keys(var_adj[v2])))
+            
+            # Ensure the swap won't create multi-edges or self-loops
+            if v1 != v2 && c1 != c2 && !haskey(var_adj[v1], c2) && !haskey(var_adj[v2], c1)
+                swap_valid = true
+            end
+            attempts += 1
+        end
+        
+        if swap_valid
+            val1 = var_adj[v1][c1]
+            val2 = var_adj[v2][c2]
+            
+            # Disconnect old edges
+            delete!(var_adj[v1], c1)
+            delete!(check_adj[c1], v1)
+            delete!(var_adj[v2], c2)
+            delete!(check_adj[c2], v2)
+            
+            # Reconnect new swapped edges
+            var_adj[v1][c2] = val1
+            check_adj[c2][v1] = val1
+            var_adj[v2][c1] = val2
+            check_adj[c1][v2] = val2
+        end
+        iters_used += 1
+    end
+    
+    if iters_used == max_iters
+        @warn "remove_cycles: Reached max_iters ($max_iters) without achieving target girth $target_girth. Returning best-effort matrix."
+    end
+    
+    # 3. Reassemble the modified sparse matrix
+    I_idx = Int[]
+    J_idx = Int[]
+    V_val = typeof(F(1))[]
+    
+    for c in 1:nc
+        for (r, val) in var_adj[c]
+            push!(I_idx, r)
+            push!(J_idx, c)
+            push!(V_val, val)
+        end
+    end
+    
+    # Safely initialize a matrix over the code's specific finite field
+    H_new = zero_matrix(C.F, nr, nc)
+    
+    # Populate the matrix coordinates
+    for i in 1:length(I_idx)
+        H_new[I_idx[i], J_idx[i]] = V_val[i]
+    end
+    
+    # Re-instantiate the modified code
+    return LDPCCode(H_new)
 end
-remove_cycles(L::LDPCCode, n_max::Int) = LDPCCode(remove_cycles(parity_check_matrix(L), n_max))
-# remove_cycles(L::LDPCCode, n_max::Int) = remove_cycles(parity_check_matrix(L), n_max)
 
 #############################
        # simple cycles
 #############################
 
-# modified from implementation in Graphs.jl
-function _modified_hawick_james(g::DiGraph{Int}, num_var_nodes::Int,
-    max_len::Int = 16)
+function _circuit_recursive!(v1::Int, v2::Int, blocked::Vector{Bool}, B::Vector{Vector{Int}}, 
+                             stack::Vector{Int}, cycles::Vector{Vector{Int}}, 
+                             unique_cycles::Set{Vector{Int}}, max_len::Int, 
+                             check_adj::Vector{Vector{Int}}, var_adj::Vector{Vector{Int}}, nc::Int)
+    
+    flag = false
+    push!(stack, v2)
+    blocked[v2] = true
 
-    # since this is bipartite, the input parameter tells you which are var nodes and which are
-    # check nodes
-    nvg = Graphs.nv(g)
-    local_cycles = [Vector{Vector{Int}}() for _ in 1:num_var_nodes]
-    Threads.@threads for i in 1:num_var_nodes
-        B = [Vector{Int}() for _ in Graphs.vertices(g)]
-        blocked = zeros(Bool, nvg)
-        stack = Vector{Int}()
-        keys_Dict = Dict{Vector{Int}, Bool}()
-        _circuit_recursive!(g, Graphs.vertices(g)[i], Graphs.vertices(g)[i], blocked, B, stack,
-            local_cycles[i], keys_Dict, max_len)
-    end
-    return reduce(vcat, local_cycles)
-end
+    is_var = v2 <= nc
+    neighbors = is_var ? check_adj[v2] : var_adj[v2 - nc]
 
-function _circuit_recursive!(g::DiGraph{Int}, v1::Int, v2::Int, blocked::Vector{Bool},
-    B::Vector{Vector{Int}}, stack::Vector{Int}, cycles::Vector{Vector{Int}},
-    keys_Dict::Dict{Vector{Int}, Bool}, max_len::Int)
-
-    if length(stack) + 1 <= max_len
-        flag = false
-        push!(stack, v2)
-        blocked[v2] = true
-
-        # just put this entire thing in the if statement
-        Av = Graphs.outneighbors(g, v2)
-        for w in Av
-            (w < v1) && continue
-            if w == v1
-                if length(stack) > 2
-                    cycle = copy(stack)
-                    # println("cycle: $stack")
-                    # println("also checking: ", [cycle[1]; reverse(cycle[2:end])])
-                    if !haskey(keys_Dict, cycle) && !haskey(keys_Dict, [cycle[1]; reverse(
-                        cycle[2:end])])
-
-                        push!(cycles, cycle)
-                        keys_Dict[cycle] = true
-                        # println("is new")
-                    # else
-                    #     println("is old")
-                    end
-                end
-                flag = true
-            elseif !blocked[w]
-                # bit-wise or
-                flag |= _circuit_recursive!(g, v1, w, blocked, B, stack, cycles, keys_Dict, max_len)
-            end
-        end
-
-        if flag
-            _unblock!(v2, blocked, B)
-        else
-            for w in Av
-                (w < v1) && continue
-                if !(v2 in B[w])
-                    push!(B[w], v2)
-                end
-            end
-        end
+    for n_idx in neighbors
+        w = is_var ? n_idx + nc : n_idx
+        (w < v1) && continue
         
-        pop!(stack)
-    else
-        flag = true
+        # Don't trivially backtrack
+        length(stack) > 1 && w == stack[end-1] && continue
+
+        if w == v1
+            if length(stack) >= 4 # Bipartite graphs only have cycles >= 4
+                cycle = copy(stack)
+                sorted_cycle = sort(cycle)
+                
+                # O(1) hash lookup replaces the old O(N^2) loop
+                if !(sorted_cycle in unique_cycles)
+                    push!(unique_cycles, sorted_cycle)
+                    push!(cycles, cycle)
+                end
+            end
+            flag = true
+        elseif !blocked[w] && length(stack) < max_len
+            flag |= _circuit_recursive!(v1, w, blocked, B, stack, cycles, unique_cycles, max_len, check_adj, var_adj, nc)
+        end
     end
+
+    if flag
+        _unblock!(v2, blocked, B)
+    else
+        for n_idx in neighbors
+            w = is_var ? n_idx + nc : n_idx
+            (w < v1) && continue
+            if !(v2 in B[w])
+                push!(B[w], v2)
+            end
+        end
+    end
+    
+    pop!(stack)
     return flag
 end
 
 function _unblock!(v::Int, blocked::Vector{Bool}, B::Vector{Vector{Int}})
     blocked[v] = false
-    wPos = 1
     Bv = B[v]
-    while wPos <= length(Bv)
-        w = Bv[wPos]
-        old_length = length(Bv)
-        filter!(v -> v != w, Bv)
-        wPos += 1 - (old_length - length(Bv))
+    while !isempty(Bv)
+        w = pop!(Bv)
         if blocked[w]
             _unblock!(w, blocked, B)
         end
     end
-    return nothing
 end
 
 #############################
        # simple cycles
 #############################
 
-function _enumerate_cycles(L::AbstractLDPCCode, len::Int)
-    g, _, _ = Tanner_graph(L)
-    d = DiGraph(g)
-    cycles = _modified_hawick_james(d, L.n, len)
-
-    # no way to get around this if you want it parallel
-    unique_cycles = Set{Vector{Int}}()
-    final_cycles = Vector{Vector{Int}}()
-    for cycle in cycles
-        if length(cycle) > 2
-            temp = sort(cycle)
-            found_flag = false
-            for key in keys(unique_cycles.dict)
-                if temp == key
-                    found_flag = true
-                    break
-                end
-            end
-            if !found_flag
-                push!(unique_cycles, temp)
-                push!(final_cycles, cycle)
-            end
-        end
-    end
-    
-    if !isempty(final_cycles)
-        L.max_cyc_len = len
-        L.simple_cycles = final_cycles
-        lens = length.(final_cycles)
-        girth = minimum(lens)
-        if ismissing(L.girth)
-            L.girth = girth
-        else
-            if L.girth != girth
-                @warn "Known girth, $(L.girth), does not match just computed girth, $girth"
-            end
-        end
-    end
-    return final_cycles
-end
-
 """
-    enumerate_simple_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
-Return the unique simple cycles up to length `len` of the Tanner graph of `L`. If
-`len` is `-1`, then all simple cycles will be enumerated. An empty `Vector{Vector{Int}}`
-is returned when there is no cycles.
+Return the unique simple cycles up to length `len` of the Tanner graph of `L`.
+An empty `Vector{Vector{Int}}` is returned when there is no cycles.
 
 # Note
 - Simple cycles do not contain the same vertex twice.
 - Cycles are returned as a vector of vertex indices, where the vertices are ordered left-to-right by
   columns of `parity_check_matrix(L)` then top-to-bottom by rows.
 """
-function enumerate_simple_cycles(L::AbstractLDPCCode; len::Int = 16)
-    is_positive(len) || throw(DomainError("Cycle length parameter must be a positive integer"))
+function enumerate_simple_cycles(C::AbstractLDPCCode; len::Int = 16)
+    len > 0 || throw(DomainError("Cycle length must be positive"))
 
-    # TODO add this variable to struct
-    if len > L.max_cyc_len
-        return _enumerate_cycles(L, len)
-    elseif len == L.max_cyc_len
-        return L.simple_cycles
-    else
-        return filter(x -> length(x) ≤ len, L.simple_cycles)
+    # Check the tree edge-case using the Batch 1 girth function
+    g = girth(C)
+    g == -1 && return Vector{Vector{Int}}()
+
+    if !haskey(C.cache, :max_cyc_len)
+        C.cache[:max_cyc_len] = 0
+        C.cache[:simple_cycles] = Vector{Vector{Int}}()
     end
+
+    # Return instantly if already computed
+    if len <= C.cache[:max_cyc_len]
+        return filter(x -> length(x) <= len, C.cache[:simple_cycles])
+    end
+
+    check_adj, var_adj = node_adjacencies(C)
+    nr, nc = size(C.H)
+    total_nodes = nr + nc
+
+    # Setup base unique cycles from cache to prevent duplicates
+    base_unique = Set{Vector{Int}}()
+    if !isempty(C.cache[:simple_cycles])
+        for c in C.cache[:simple_cycles]
+            push!(base_unique, sort(c))
+        end
+    end
+
+    n_threads = Threads.nthreads()
+    
+    # 1. Preallocate private storage for each thread
+    cycles_tls = [Vector{Vector{Int}}() for _ in 1:n_threads]
+    # Seed each thread's unique set with the base set so it ignores already-cached cycles
+    unique_cycles_tls = [copy(base_unique) for _ in 1:n_threads]
+
+    Threads.@threads for i in 1:nc
+        tid = Threads.threadid()
+        
+        blocked = fill(false, total_nodes)
+        B = [Int[] for _ in 1:total_nodes]
+        stack = Int[]
+        
+        _circuit_recursive!(i, i, blocked, B, stack, cycles_tls[tid], unique_cycles_tls[tid], len, check_adj, var_adj, nc)
+    end
+
+    # 2. Safely merge all thread-local results into the final output
+    final_cycles = copy(C.cache[:simple_cycles])
+    final_unique = copy(base_unique)
+    
+    for tid in 1:n_threads
+        for c in cycles_tls[tid]
+            # Sort for the uniqueness check (handles cycle phase shifts)
+            sc = sort(c)
+            # Double-check uniqueness across different threads
+            if !(sc in final_unique)
+                push!(final_unique, sc)
+                push!(final_cycles, c)
+            end
+        end
+    end
+
+    # Update cache
+    C.cache[:max_cyc_len] = len
+    C.cache[:simple_cycles] = final_cycles
+    
+    # Return safely filtered list
+    return filter(x -> length(x) <= len, final_cycles)
 end
 
 """
-    simple_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (length, count) pairs for the unique simple cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
@@ -357,8 +549,24 @@ dictionary is returned when there are no cycles.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-simple_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16) = StatsBase.countmap(length.(
-    enumerate_simple_cycles(L, len = len)))
+function simple_cycle_length_distribution(C::LDPCCode; len::Int = 16)
+    cycles = enumerate_simple_cycles(C; len = len)
+    isempty(cycles) && return Dict{Int, Int}()
+    
+    dist = Dict{Int, Int}()
+    for c in cycles
+        l = length(c)
+        dist[l] = get(dist, l, 0) + 1
+    end
+    
+    # Mutual resolution: update girth if we found something shorter
+    min_len = minimum(keys(dist))
+    if !haskey(C.cache, :girth) || min_len < C.cache[:girth]
+        C.cache[:girth] = min_len
+    end
+    
+    return dist
+end
 
 """
     simple_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = 16)
@@ -376,7 +584,7 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
 function simple_cycle_length_distribution_plot end
 
 """
-    average_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the average cycle length of unique simple cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -386,11 +594,17 @@ Return the average cycle length of unique simple cycles up to length `len` of th
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-average_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16) = mean(length.(
-    enumerate_simple_cycles(L, len = len)))
+function average_simple_cycle_length(C::LDPCCode; len::Int = 16)
+    dist = simple_cycle_length_distribution(C; len = len)
+    isempty(dist) && return NaN
+    
+    total_length = sum(k * v for (k, v) in dist)
+    total_count = sum(values(dist))
+    return total_length / total_count
+end
 
 """
-    median_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the median cycle length of unique simple cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -400,11 +614,19 @@ Return the median cycle length of unique simple cycles up to length `len` of the
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-median_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16) = median(length.(
-    enumerate_simple_cycles(L, len = len)))
+function median_simple_cycle_length(C::LDPCCode; len::Int = 16)
+    dist = simple_cycle_length_distribution(C; len = len)
+    isempty(dist) && return NaN
+    
+    counts = Int[]
+    for k in sort(collect(keys(dist)))
+        append!(counts, fill(k, dist[k]))
+    end
+    return median(counts)
+end
 
 """
-    mode_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the most common cycle length of unique simple cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -414,12 +636,18 @@ of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-mode_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16) = StatsBase.mode(length.(
-    enumerate_simple_cycles(L, len = len)))
+function mode_simple_cycle_length(C::LDPCCode; len::Int = 16)
+    dist = simple_cycle_length_distribution(C; len = len)
+    isempty(dist) && return NaN
+    
+    max_count = maximum(values(dist))
+    for (k, v) in dist
+        v == max_count && return k
+    end
+end
 
-# TODO: there are ways to compute this without enumerating all of the cycles, but they are complicated and perhaps not worth the effort unless explicitly requested by a user
 """
-    count_simple_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the total number of unique simple cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -429,11 +657,10 @@ of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-count_simple_cycles(L::AbstractLDPCCode; len::Int = 16) = length(enumerate_simple_cycles(L,
-    len = len))
+count_simple_cycles(C::LDPCCode; len::Int=16) = sum(values(simple_cycle_length_distribution(C; len=len)), init=0)
 
 """
-    simple_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (node, count) pairs for the unique simple cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
@@ -444,10 +671,21 @@ dictionary is returned when there are no cycles.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-simple_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16) =
-    StatsBase.countmap(filter(x -> x ≤ L.n, reduce(vcat, enumerate_simple_cycles(L, len = len))))
-# this works by removing the check nodes and then counting how many times each var node appears
-# not the most efficient since it makes several lists repeatedly but fine for now
+function simple_cycle_distribution_by_variable_node(C::LDPCCode; len::Int = 16)
+    cycles = enumerate_simple_cycles(C; len = len)
+    isempty(cycles) && return Dict{Int, Int}()
+    
+    dist = Dict{Int, Int}()
+    nc = size(C.H, 2)
+    for c in cycles
+        for v in c
+            if v <= nc # Only count variable nodes
+                dist[v] = get(dist, v, 0) + 1
+            end
+        end
+    end
+    return dist
+end
 
 """
     simple_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode; len::Int = 16)
@@ -468,27 +706,19 @@ function simple_cycle_distribution_by_variable_node_plot end
         # short cycles
 #############################
 
-# TODO: time this versus calling girth and then doing the upper bound function
 """
-    enumerate_short_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
-Return the unique short cycles up to length `len` of the Tanner graph of `L`. If
-`len` is `-1`, then all short cycles will be enumerated. An empty `Vector{Vector{Int}}`
-is returned when there is no short cycles.
-
-# Note
-- Short cycles are defined to be those with lengths between ``g`` and ``2g - 2``,
-  where ``g`` is the girth.
-- Cycles are returned as a vector of vertex indices, where the vertices are ordered left-to-right by
-  columns of `parity_check_matrix(L)` then top-to-bottom by rows.
-- This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
-  already cached.
+Return the unique short cycles (length between `g` and `2g - 2`) of the Tanner graph of `C`.
 """
-enumerate_short_cycles(L::AbstractLDPCCode; len::Int = 16) = filter(x -> length(x) <=
-    2 * girth(L) - 2, _enumerate_cycles(L, len))
+function enumerate_short_cycles(C::LDPCCode)
+    g = girth(C)
+    g == -1 && return Vector{Vector{Int}}()
+    return enumerate_simple_cycles(C; len = 2*g - 2)
+end
 
 """
-    short_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (length, count) pairs for the unique short cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
@@ -500,8 +730,11 @@ dictionary is returned when there are no cycles.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-short_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16) = StatsBase.countmap(length.(
-    enumerate_short_cycles(L, len = len)))
+function short_cycle_length_distribution(C::LDPCCode)
+    g = girth(C)
+    g == -1 && return Dict{Int, Int}()
+    return simple_cycle_length_distribution(C; len = 2*g - 2)
+end
 
 """
     short_cycle_length_distribution_plot(L::AbstractLDPCCode; len::Int = 16)
@@ -520,7 +753,7 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
 function short_cycle_length_distribution_plot end
 
 """
-    average_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the average cycle length of unique short cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -531,11 +764,17 @@ Return the average cycle length of unique short cycles up to length `len` of the
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-average_short_cycle_length(L::AbstractLDPCCode; len::Int = 16) = mean(length.(
-    enumerate_short_cycles(L, len = len)))
+function average_short_cycle_length(C::LDPCCode)
+    dist = short_cycle_length_distribution(C)
+    isempty(dist) && return NaN
+    
+    total_len = sum(k * v for (k, v) in dist)
+    total_count = sum(values(dist))
+    return total_len / total_count
+end
 
 """
-    median_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the median cycle length of unique short cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -546,11 +785,20 @@ Return the median cycle length of unique short cycles up to length `len` of the 
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-median_short_cycle_length(L::AbstractLDPCCode; len::Int = 16) = median(length.(
-    enumerate_short_cycles(L, len = len)))
+function median_short_cycle_length(C::LDPCCode)
+    dist = short_cycle_length_distribution(C)
+    isempty(dist) && return NaN
+    
+    # Expand into a sorted array for median computation
+    counts = Int[]
+    for k in sort(collect(keys(dist)))
+        append!(counts, fill(k, dist[k]))
+    end
+    return median(counts)
+end
 
 """
-    mode_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the most common cycle length of unique short cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -561,11 +809,19 @@ of `L`. If `len` is `-1`, then all short cycles will be enumerated.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-mode_short_cycle_length(L::AbstractLDPCCode; len::Int = 16) = StatsBase.mode(length.(
-    enumerate_short_cycles(L, len = len)))
+function mode_short_cycle_length(C::LDPCCode)
+    dist = short_cycle_length_distribution(C)
+    isempty(dist) && return NaN
+    
+    # Mode is just the key with the maximum value
+    max_count = maximum(values(dist))
+    for (k, v) in dist
+        v == max_count && return k
+    end
+end
 
  """
-    count_short_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the total number of unique short cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -576,11 +832,10 @@ of `L`. If `len` is `-1`, then all short cycles will be enumerated.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-count_short_cycles(L::AbstractLDPCCode; len::Int = 16) = length(enumerate_short_cycles(L,
-    len = len))
+count_short_cycles(C::LDPCCode) = sum(values(short_cycle_length_distribution(C)), init=0)
 
 """
-    short_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (node, count) pairs for the unique short cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
@@ -592,8 +847,21 @@ dictionary is returned when there are no cycles.
 - This function calls `enumerate_simple_cycles(L, len = len)`, which could be expensive if not
   already cached.
 """
-short_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16) =
-    StatsBase.countmap(filter(x -> x ≤ L.n, reduce(vcat, enumerate_short_cycles(L, len = len))))
+function short_cycle_distribution_by_variable_node(C::LDPCCode)
+    cycles = enumerate_short_cycles(C)
+    isempty(cycles) && return Dict{Int, Int}()
+    
+    dist = Dict{Int, Int}()
+    nc = size(C.H, 2)
+    for c in cycles
+        for v in c
+            if v <= nc # Only count variable nodes
+                dist[v] = get(dist, v, 0) + 1
+            end
+        end
+    end
+    return dist
+end
 
 """
     short_cycle_distribution_by_variable_node_plot(L::AbstractLDPCCode; len::Int = 16)
@@ -612,430 +880,143 @@ empty figure and dictionary are returned when there are no cycles.
 function short_cycle_distribution_by_variable_node_plot end
 
 #############################
-        # lollipops
-#############################
-
-
-# one for short cycles which cuts off stems at the correct lengths
-# one for doing all of them
-
-
-
-
-
-#############################
            # ACE
 #############################
 
-mutable struct _ACEVarNode
-    id::Int
-    parent_id::Int
-    lvl::Int
-    cum_ACE::Int
-    local_ACE::Int
-end
-
-mutable struct _ACECheckNode
-    id::Int
-    parent_id::Int
-    lvl::Int
-    cum_ACE::Int
-end
-
-# TODO: degree 1 nodes
-# why did I make this note? is ACE defined for them differently?
 """
-    shortest_cycle_ACE(C::AbstractLDPCCode, v::Int)
-    shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
-    shortest_cycle_ACE(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
-Return a cycle of minimum length and minimum ACE in the Tanner graph of `C`
-for the vertex `v` or vertices `vs`, in the order (ACEs, cycles). If no vertices
-are given, all vertices are computed by default. The cycle `v1 -- c1 -- ... -- 
-cn -- vn` is returned in the format `[(v1, c1), (c1, v2), ..., (cn, vn)]`.
+Internal parallel engine to compute the shortest cycle lengths and ACE distributions 
+for every variable node in the graph simultaneously.
 """
-function shortest_cycle_ACE(C::AbstractLDPCCode, vs::Vector{Int})
-    isempty(vs) && throw(ArgumentError("Input variable node list cannot be empty"))
-    all(x -> 1 <= x <= C.n, vs) || throw(DomainError("Variable node indices must be between 1 and length(C)"))
+function _compute_ACE_distributions(C::LDPCCode)
+    if haskey(C.cache, :ACE_dists) && haskey(C.cache, :shortest_cycle_lens)
+        return C.cache[:shortest_cycle_lens], C.cache[:ACE_dists]
+    end
 
-    # might not be efficient to have the or here
-    vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x]) || isempty(C.shortest_cycles[x])]
-    processed = false
-    if !isempty(vs_to_do)
-        processed = true
-        check_adj_list, var_adj_list = _node_adjacencies(C.H)
+    check_adj, var_adj = node_adjacencies(C)
+    nr, nc = size(C.H)
+    total_nodes = nr + nc
+
+    # Output Arrays
+    shortest_lens = fill(typemax(Int), nc)
+    ace_dists = [Int[] for _ in 1:nc]
+
+    # Pre-allocate exactly one zero-allocation workspace per thread
+    n_threads = Threads.nthreads()
+    dists   = [fill(-1, total_nodes) for _ in 1:n_threads]
+    parents = [fill(-1, total_nodes) for _ in 1:n_threads]
+    ace_wts = [fill(0, total_nodes) for _ in 1:n_threads]
+    queues  = [Vector{Int}(undef, total_nodes) for _ in 1:n_threads]
+
+    Threads.@threads for root in 1:nc
+        tid = Threads.threadid()
+        dist = dists[tid]
+        parent = parents[tid]
+        ace_wt = ace_wts[tid]
+        queue = queues[tid]
+
+        fill!(dist, -1)
+        fill!(parent, -1)
+
+        head = 1
+        tail = 2
+        queue[1] = root
+        dist[root] = 0
         
-        Threads.@threads for i in 1:length(vs_to_do)
-            # moving this inside allocates more but allows for multi-threading
-            check_nodes = [_ACECheckNode(j, -1, -1, -1) for j in 1:length(check_adj_list)]
-            var_nodes = [_ACEVarNode(j, -1, -1, -1, length(var_adj_list[j]) - 2) for j in 1:C.n]
+        # Local ACE of the root node
+        root_deg = length(var_adj[root])
+        ace_wt[root] = root_deg - 2
 
-            ACEs = Vector{Int}()
-            cycle_lens = Vector{Int}()
-            cycles = Vector{Vector{Tuple{Int, Int}}}()
-            not_emptied = true
-            root = var_nodes[vs_to_do[i]]
-            root.lvl = 0
-            root.cum_ACE = root.local_ACE
-            queue = Deque{Union{_ACECheckNode, _ACEVarNode}}()
-            push!(queue, root)
-            while length(queue) > 0
-                curr = first(queue)
-                if isa(curr, _ACEVarNode)
-                    for cn in var_adj_list[curr.id]
-                        # can't pass messages back to the same node
-                        if cn != curr.parent_id
-                            cn_node = check_nodes[cn]
-                            if cn_node.lvl != -1
-                                # have seen before
-                                push!(ACEs, curr.cum_ACE + cn_node.cum_ACE - root.local_ACE)
-                                push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
+        min_len = typemax(Int)
+        local_aces = Int[]
 
-                                # trace the cycle from curr to root and cn_node to root
-                                temp = Vector{Tuple{Int, Int}}()
-                                node = cn_node
-                                while node.lvl != 0
-                                    push!(temp, (node.parent_id, node.id))
-                                    if isodd(node.lvl)
-                                        node = var_nodes[node.parent_id]
-                                    else
-                                        node = check_nodes[node.parent_id]
-                                    end
-                                end
-                                reverse!(temp)
-                                push!(temp, (cn_node.id, curr.id))
-                                node = curr
-                                while node.lvl != 0
-                                    push!(temp, (node.id, node.parent_id))
-                                    if isodd(node.lvl)
-                                        node = var_nodes[node.parent_id]
-                                    else
-                                        node = check_nodes[node.parent_id]
-                                    end
-                                end
-                                push!(cycles, temp)
+        while head < tail
+            u = queue[head]
+            head += 1
 
-                                # finish this level off but don't go deeper so remove children at lower level
-                                if not_emptied
-                                    while length(queue) > 0
-                                        back = last(queue)
-                                        if back.lvl != curr.lvl
-                                            pop!(queue)
-                                        else
-                                            break
-                                        end
-                                    end
-                                    not_emptied = false
-                                end
-                            elseif not_emptied
-                                cn_node.lvl = curr.lvl + 1
-                                cn_node.parent_id = curr.id
-                                cn_node.cum_ACE = curr.cum_ACE
-                                push!(queue, cn_node)
-                            end
+            # Prune search instantly once we exceed the shortest cycle length found for THIS node
+            if dist[u] * 2 > min_len
+                break
+            end
+
+            is_var = u <= nc
+            neighbors = is_var ? var_adj[u] : check_adj[u - nc]
+
+            for n_idx in neighbors
+                v = is_var ? n_idx + nc : n_idx
+
+                if v != parent[u]
+                    if dist[v] == -1
+                        dist[v] = dist[u] + 1
+                        parent[v] = u
+                        
+                        # Accumulate ACE mathematically
+                        if v <= nc
+                            ace_wt[v] = ace_wt[u] + length(var_adj[v]) - 2
+                        else
+                            ace_wt[v] = ace_wt[u]
                         end
-                    end
-                else
-                    for vn in check_adj_list[curr.id]
-                        # can't pass messages back to the same node
-                        if vn != curr.parent_id
-                            vn_node = var_nodes[vn]
-                            if vn_node.lvl != -1
-                                # have seen before
-                                push!(ACEs, curr.cum_ACE + vn_node.cum_ACE - root.local_ACE)
-                                push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
-
-                                # trace the cycle from curr to root and cn_node to root
-                                temp = Vector{Tuple{Int, Int}}()
-                                node = vn_node
-                                while node.lvl != 0
-                                    push!(temp, (node.parent_id, node.id))
-                                    if isodd(node.lvl)
-                                        node = var_nodes[node.parent_id]
-                                    else
-                                        node = check_nodes[node.parent_id]
-                                    end
-                                end
-                                reverse!(temp)
-                                push!(temp, (vn_node.id, curr.id))
-                                node = curr
-                                while node.lvl != 0
-                                    push!(temp, (node.id, node.parent_id))
-                                    if isodd(node.lvl)
-                                        node = var_nodes[node.parent_id]
-                                    else
-                                        node = check_nodes[node.parent_id]
-                                    end
-                                end
-                                push!(cycles, temp)
-
-                                # finish this level off but don't go deeper so remove children at lower level
-                                if not_emptied
-                                    while length(queue) > 0
-                                        back = last(queue)
-                                        if back.lvl != curr.lvl
-                                            pop!(queue)
-                                        else
-                                            break
-                                        end
-                                    end
-                                    not_emptied = false
-                                end
-                            elseif not_emptied
-                                vn_node.lvl = curr.lvl + 1
-                                vn_node.parent_id = curr.id
-                                vn_node.cum_ACE = curr.cum_ACE + vn_node.local_ACE
-                                push!(queue, vn_node)
-                            end
+                        
+                        queue[tail] = v
+                        tail += 1
+                    else
+                        # Collision! A cycle is closed.
+                        cycle_len = dist[u] + dist[v] + 1
+                        if cycle_len <= min_len
+                            min_len = cycle_len
+                            # The exact ACE of the cycle avoids double-counting the root
+                            c_ace = ace_wt[u] + ace_wt[v] - (root_deg - 2)
+                            push!(local_aces, c_ace)
                         end
                     end
                 end
-                popfirst!(queue)
-            end
-            # println("variable node $i, cycles: $cycles")
-            C.ACEs_per_var_node[vs_to_do[i]] = ACEs
-            C.cycle_lens[vs_to_do[i]] = cycle_lens
-            C.shortest_cycles[vs_to_do[i]] = cycles
-        end
-    end
-
-    vs_ACE = zeros(Int, length(vs))
-    cycles_vs = [Vector{Tuple{Int, Int}}() for _ in 1:length(vs)]
-    for i in 1:length(vs)
-        min, index = findmin(C.ACEs_per_var_node[vs[i]])
-        vs_ACE[i] = min
-        cycles_vs[i] = C.shortest_cycles[vs[i]][index]
-    end
-
-    if processed
-        if all(!isempty, C.cycle_lens)
-            girth = minimum([minimum(C.cycle_lens[i]) for i in 1:C.n])
-            if ismissing(C.girth)
-                C.girth = girth
-            else
-                if C.girth != girth
-                    @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
-                end
             end
         end
+        
+        shortest_lens[root] = min_len == typemax(Int) ? -1 : min_len
+        # The BFS explores symmetrically, so collisions are detected twice. `unique` instantly deduplicates.
+        ace_dists[root] = unique(local_aces) 
     end
 
-    return vs_ACE, cycles_vs
-end
-shortest_cycle_ACE(C::AbstractLDPCCode, v::Int) = shortest_cycle_ACE(C, [v])[1]
-shortest_cycle_ACE(C::AbstractLDPCCode) = shortest_cycle_ACE(C, collect(1:C.n))
-
-"""
-    shortest_cycles(C::AbstractLDPCCode, v::Int)
-    shortest_cycles(C::AbstractLDPCCode, vs::Vector{Int})
-    shortest_cycles(C::AbstractLDPCCode)
-
-Return all the cycles of shortest length in the Tanner graph of `C` for the vertex `v` or
-vertices `vs`. If no vertices are given, all vertices are computed by default.
-
-# Note
-- The length of the shortest cycle is not necessarily the same for each vertex.
-- To reduce computational complexity, the same cycle may appear under each vertex in the cycle.
-"""
-function shortest_cycles(C::AbstractLDPCCode, vs::Vector{Int})
-    shortest_cycle_ACE(C, vs)
-    return C.shortest_cycles[vs]
-end
-shortest_cycles(C::AbstractLDPCCode, v::Int) = shortest_cycles(C, [v])[1]
-shortest_cycles(C::AbstractLDPCCode) = shortest_cycles(C, collect(1:C.n))
-
-"""
-    ACE_distribution(C::AbstractLDPCCode, v::Int)
-    ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    ACE_distribution(C::AbstractLDPCCode)
-
-Return the ACEs and cycle lengths for vertex `v` or vertices `vs` of the Tanner graph
-of `C`. If no vertices are given, all vertices are computed by default.
-"""
-function ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    # using the original DFS approach constructs a significantly larger tree than this truncated BFS approach
-
-    isempty(vs) && throw(ArgumentError("Input node list cannot be empty"))
-    all(x -> 1 <= x <= C.n, vs) || throw(DomainError("Variable node index must be between 1 and length(C)"))
-
-    vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
-    processed = false
-    if !isempty(vs_to_do)
-        processed = true
-        check_adj_list, var_adj_list = _node_adjacencies(C.H)
+    C.cache[:shortest_cycle_lens] = shortest_lens
+    C.cache[:ACE_dists] = ace_dists
     
-        Threads.@threads for i in 1:length(vs_to_do)
-            # moving this inside allocates more but allows for multi-threading
-            check_nodes = [_ACECheckNode(i, -1, -1, -1) for i in 1:length(check_adj_list)]
-            var_nodes = [_ACEVarNode(i, -1, -1, -1, length(var_adj_list[i]) - 2) for i in 1:C.n]
-
-            ACEs = Vector{Int}()
-            cycle_lens = Vector{Int}()
-            root = var_nodes[vs[i]]
-            root.lvl = 0
-            root.cum_ACE = root.local_ACE
-            queue = Queue{Union{_ACECheckNode, _ACEVarNode}}()
-            enqueue!(queue, root)
-            while length(queue) > 0
-                curr = first(queue)
-                if isa(curr, _ACEVarNode)
-                    for cn in var_adj_list[curr.id]
-                        # can't pass messages back to the same node
-                        if cn != curr.parent_id
-                            cn_node = check_nodes[cn]
-                            if cn_node.lvl != -1
-                                # have seen before
-                                push!(ACEs, curr.cum_ACE + cn_node.cum_ACE - root.local_ACE)
-                                push!(cycle_lens, curr.lvl + cn_node.lvl + 1)
-                            else
-                                cn_node.lvl = curr.lvl + 1
-                                cn_node.parent_id = curr.id
-                                cn_node.cum_ACE = curr.cum_ACE
-                                enqueue!(queue, cn_node)
-                            end
-                        end
-                    end
-                else
-                    for vn in check_adj_list[curr.id]
-                        # can't pass messages back to the same node
-                        if vn != curr.parent_id
-                            vn_node = var_nodes[vn]
-                            if vn_node.lvl != -1
-                                # have seen before
-                                push!(ACEs, curr.cum_ACE + vn_node.cum_ACE - root.local_ACE)
-                                push!(cycle_lens, curr.lvl + vn_node.lvl + 1)
-                            else
-                                vn_node.lvl = curr.lvl + 1
-                                vn_node.parent_id = curr.id
-                                vn_node.cum_ACE = curr.cum_ACE + vn_node.local_ACE
-                                enqueue!(queue, vn_node)
-                            end
-                        end
-                    end
-                end
-                dequeue!(queue)
-            end
-            C.ACEs_per_var_node[vs_to_do[i]] = ACEs
-            # C.cycle_lens[vs_to_do[i]] = cycle_lens
-        end
-    end
-
-    vs_ACEs = [C.ACEs_per_var_node[i] for i in vs]
-    # lengths = [C.cycle_lens[i] for i in vs]
-
-    # if processed
-    #     if all(!isempty, C.cycle_lens)
-    #         girth = minimum([minimum(C.cycle_lens[i]) for i in 1:C.n])
-    #         if ismissing(C.girth)
-    #             C.girth = girth
-    #         else
-    #             if C.girth != girth
-    #                 @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
-    #             end
-    #         end
-    #     end
-    # end
-
-    return vs_ACEs #, lengths
-end
-function ACE_distribution(C::AbstractLDPCCode, v::Int)
-    vs_ACE, lengths = ACE_distribution(C, [v])
-    return vs_ACE[1], lengths[1]
+    # Mutual Resolution: Update global girth if we found a new minimum
+    true_girth = minimum(filter(x -> x != -1, shortest_lens))
+    C.cache[:girth] = true_girth == typemax(Int) ? -1 : true_girth
+    
+    return shortest_lens, ace_dists
 end
 
-# TODO: plots
-ACE_distribution(C::AbstractLDPCCode) = ACE_distribution(C, collect(1:C.n))
-
 """
-    average_ACE_distribution(C::AbstractLDPCCode, v::Int)
-    average_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    average_ACE_distribution(C::AbstractLDPCCode)
-
-Return the average ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
-vertices are given, all vertices are computed (individually) by default.
-"""
-function average_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
-    isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
-    return [mean(C.ACEs_per_var_node[v]) for v in vs]
-end
-average_ACE_distribution(C::AbstractLDPCCode, v::Int) = average_ACE_distribution(C, [v])[1]
-average_ACE_distribution(C::AbstractLDPCCode) = average_ACE_distribution(C, collect(1:C.n))
-
-"""
-    median_ACE_distribution(C::AbstractLDPCCode, v::Int)
-    median_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    median_ACE_distribution(C::AbstractLDPCCode)
-
-Return the median ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
-vertices are given, all vertices are computed (individually) by default.
-"""
-function median_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
-    isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
-    return [median(C.ACEs_per_var_node[v]) for v in vs]
-end
-median_ACE_distribution(C::AbstractLDPCCode, v::Int) = median_ACE_distribution(C, [v])[1]
-median_ACE_distribution(C::AbstractLDPCCode) = median_ACE_distribution(C, collect(1:C.n))
-
-"""
-    mode_ACE_distribution(C::AbstractLDPCCode, v::Int)
-    mode_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    mode_ACE_distribution(C::AbstractLDPCCode)
-
-Return the mode ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
-vertices are given, all vertices are computed (individually) by default.
-
-# Note
-- In case of ties, the smallest tied value is returned.
-"""
-function mode_ACE_distribution(C::AbstractLDPCCode, vs::Vector{Int})
-    vs_to_do = [x for x in vs if isempty(C.ACEs_per_var_node[x])]
-    isempty(vs_to_do) || ACE_distribution(C, vs_to_do)
-    return [StatsBase.mode(sort(C.ACEs_per_var_node[v])) for v in vs]
-end
-mode_ACE_distribution(C::AbstractLDPCCode, v::Int) = mode_ACE_distribution(C, [v])[1]
-mode_ACE_distribution(C::AbstractLDPCCode) = mode_ACE_distribution(C, collect(1:C.n))
-
-"""
-    ACE_spectrum(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the ACE spectrum of the Tanner graph of `C`.
+Return a `Dict{Int, Dict{Int, Int}}` mapping `Cycle Length -> (Minimum ACE -> Count)`.
 """
-function ACE_spectrum(C::AbstractLDPCCode)
-    # vs_ACEs, lengths = ACE_distribution(C, collect(1:C.n))
-    vs_ACEs = ACE_distribution(C, collect(1:C.n))
-    # (false) spectrum: how many nodes have that ACE for that length
-    # (true) spectrum: for a given length 4 <= l <= maximum(variabledegreedistribution(C)),
-    # how many var nodes have shortest cycle that ACE
-
-    shortest_lens = [minimum(i) for i in lengths]
-    girth = minimum(shortest_lens)
-    if ismissing(C.girth)
-        C.girth = girth
-    else
-        if C.girth != girth
-            @warn "Known girth, $(C.girth), does not match just computed girth, $girth"
+function ACE_spectrum(C::LDPCCode)
+    lens, ace_dists = _compute_ACE_distributions(C)
+    
+    # Handle the tree edge-case gracefully
+    girth(C) == -1 && return Dict{Int, Dict{Int, Int}}()
+    
+    spectrum = Dict{Int, Dict{Int, Int}}()
+    
+    for root in 1:C.n
+        l = lens[root]
+        l == -1 && continue
+        
+        if !haskey(spectrum, l)
+            spectrum[l] = Dict{Int, Int}()
         end
+        
+        # The true spectrum groups nodes by the minimum ACE among their shortest cycles
+        min_ace = minimum(ace_dists[root])
+        spectrum[l][min_ace] = get(spectrum[l], min_ace, 0) + 1
     end
-
-    counts = [Dict{Int, Int}() for _ in 1:length(girth:2:2 * girth - 2)]
-    for (k, l) in enumerate(girth:2:2 * girth - 2)
-        for i in 1:length(shortest_lens)
-            if shortest_lens[i] == l
-                for j in 1:length(lengths[i])
-                    if lengths[i][j] == l
-                        if vs_ACEs[i][j] ∈ keys(counts[k])
-                            counts[k][vs_ACEs[i][j]] += 1
-                        else
-                            counts[k][vs_ACEs[i][j]] = 1
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return counts
+    
+    return spectrum
 end
 
 """
@@ -1047,3 +1028,59 @@ Return an interactive figure and data for the ACE spectrum of the Tanner graph o
 - Run `using Makie` to activate this extension.
 """
 function ACE_spectrum_plot end
+
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact ACE arrays for the shortest cycles of the given variable node(s).
+"""
+function ACE_distribution(C::LDPCCode, vs::Vector{Int})
+    _, ace_dists = _compute_ACE_distributions(C)
+    return [ace_dists[v] for v in vs]
+end
+ACE_distribution(C::LDPCCode, v::Int) = ACE_distribution(C, [v])[1]
+ACE_distribution(C::LDPCCode) = ACE_distribution(C, collect(1:C.n))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the average ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
+vertices are given, all vertices are computed (individually) by default.
+"""
+function average_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+    _, ace_dists = _compute_ACE_distributions(C)
+    return [isempty(ace_dists[v]) ? NaN : mean(ace_dists[v]) for v in vs]
+end
+average_ACE_distribution(C::LDPCCode, v::Int) = average_ACE_distribution(C, [v])[1]
+average_ACE_distribution(C::LDPCCode) = average_ACE_distribution(C, collect(1:C.n))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the median ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
+vertices are given, all vertices are computed (individually) by default.
+"""
+function median_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+    _, ace_dists = _compute_ACE_distributions(C)
+    return [isempty(ace_dists[v]) ? NaN : median(ace_dists[v]) for v in vs]
+end
+median_ACE_distribution(C::LDPCCode, v::Int) = median_ACE_distribution(C, [v])[1]
+median_ACE_distribution(C::LDPCCode) = median_ACE_distribution(C, collect(1:C.n))
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the mode ACE of the vertex `v` or vertices `vs` of the Tanner graph of `C`. If no
+vertices are given, all vertices are computed (individually) by default.
+
+# Note
+- In case of ties, the smallest tied value is returned.
+"""
+function mode_ACE_distribution(C::LDPCCode, vs::Vector{Int})
+    _, ace_dists = _compute_ACE_distributions(C)
+    # Returns NaN if the node has no cycles, otherwise finds the most frequent ACE
+    return [isempty(ace_dists[v]) ? NaN : mode(ace_dists[v]) for v in vs]
+end
+mode_ACE_distribution(C::LDPCCode, v::Int) = mode_ACE_distribution(C, [v])[1]
+mode_ACE_distribution(C::LDPCCode) = mode_ACE_distribution(C, collect(1:C.n))

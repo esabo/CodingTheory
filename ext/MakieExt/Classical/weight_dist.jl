@@ -1,4 +1,4 @@
-# Copyright (c) 2022 - 2024 Eric Sabo
+# Copyright (c) 2022 - 2026 Eric Sabo
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -16,18 +16,31 @@ Return a bar graph of the weight distribution of `C`.
 # Note
 - Run `using Makie` to activate this extension.
 """
-function CodingTheory.weight_plot(C::AbstractLinearCode; alg::Symbol = :auto)
-    wt_dist = weight_distribution(C, alg = alg, compact = true)
-    x_ticks = findall(x -> x > 0, vec(wt_dist)) .- 1
-    y_ticks = [wt_dist[i] for i in 1:length(wt_dist) if !iszero(wt_dist[i])]
-    ismissing(C.d) ? (title = "Weight Distribution - [$(C.n), $(C.k)]";) :
+function CodingTheory.weight_plot(C::AbstractLinearCode; verbose::Bool=false)
+    # Fetch the dense n + 1 array
+    wt_dist = CodingTheory.weight_distribution_array(C; verbose=verbose)
+    
+    # Extract non-zero weights and their counts
+    x_ticks = Int[]
+    y_ticks = BigInt[]
+    
+    for (idx, count) in enumerate(wt_dist)
+        if !iszero(count)
+            push!(x_ticks, idx - 1) # Shift back to 0-based Hamming weight
+            push!(y_ticks, count)
+        end
+    end
+
+    ismissing(C.d) ?
+        (title = "Weight Distribution - [$(C.n), $(C.k)]";) :
         title = "Weight Distribution - [$(C.n), $(C.k), $(C.d)]"
 
     fig = Figure()
     ax = Axis(fig[1, 1], xlabel = "Weight", ylabel = "Number of Terms", title = title)
-    barplot!(ax, 0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks)
-    # fig = bar(0:C.n, wt_dist', bar_width = 1, xticks = x_ticks, yticks = y_ticks,
-    #     legend = false, xlabel = "Weight", ylabel = "Number of Terms", title = title)
+    
+    # Convert ticks to standard numeric types Makie expects
+    barplot!(ax, x_ticks, Float64.(y_ticks), bar_width = 1)
+    
     display(fig)
     return fig
 end

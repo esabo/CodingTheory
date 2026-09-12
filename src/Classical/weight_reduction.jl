@@ -59,12 +59,22 @@ function _reduce_rows(H::Union{CTMatrixTypes, MatElem{<: ResElem}}, rows::Abstra
 end
 
 """
-weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bool = true,
-    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
-    column_target::Int = 3, compressed::Bool = false, seed::Union{Nothing, Int} = nothing)
+$(TYPEDSIGNATURES)
 
-Return the weight-reduced parity-check matrix of `H` with the given arguments.
+Return the weight-reduced parity-check matrix of `H`.
+
+# Keyword arguments
+* `rows`: reduce row weights, `true` by default.
+* `row_indices`: the rows to reduce. When empty, every row of weight greater
+  than `row_target` is reduced.
+* `permute_rows`: randomly permute the rows introduced by each reduction,
+  `true` by default.
+* `row_target`: the target row weight, `3` by default.
+* `columns`, `column_indices`, `permute_columns`, `column_target`: the same
+  options applied to the columns of the row-reduced matrix.
+* `compressed`: use the compressed reduction, which adds fewer rows and
+  columns. Only implemented for a target weight of `3`.
+* `seed`: seed for the permutations, for reproducible output.
 """
 function weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bool = true,
     row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
@@ -97,12 +107,16 @@ function weight_reduction(H::Union{CTMatrixTypes, MatElem{<: ResElem}}; rows::Bo
 end
 
 """
-weight_reduction(C::Union{AbstractLinearCode, AbstractLDPCCode}; rows::Bool = true,
-    row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,
-    columns::Bool = true, column_indices::AbstractVector{Int} = Int[], permute_columns::Bool = true,
-    column_target::Int = 3, compressed::Bool = false, seed::Union{Nothing, Int} = nothing)
+$(TYPEDSIGNATURES)
 
-Return the code with the weight-reduced parity-check matrix of `C` with the given arguments.
+Return the code whose parity-check matrix is the weight reduction of the
+parity-check matrix of `C`. The keyword arguments are those of
+[`weight_reduction`](@ref) for a matrix.
+
+# Notes
+* A `QuasiCyclicCode` input returns a `QuasiCyclicCode`, another
+  `AbstractLinearCode` returns a `LinearCode`, and an `AbstractLDPCCode`
+  returns an `LDPCCode`.
 """
 function weight_reduction(C::Union{AbstractLinearCode, AbstractLDPCCode}; rows::Bool = true,
     row_indices::AbstractVector{Int} = Int[], permute_rows::Bool = true, row_target::Int = 3,

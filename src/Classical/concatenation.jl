@@ -1,250 +1,82 @@
-# Copyright (c) 2023 Eric Sabo, Benjamin Ide
+# Copyright (c) 2023 - 2026 Eric Sabo, Benjamin Ide
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
 #############################
         # Classical
 #############################
 
-#############################
-        # constructors
-#############################
+# ==============================================================================
+# CONCATENATED CODE LAZY GETTERS
+# ==============================================================================
 
-# TODO: give control over expansion basis
-"""
-    ∘(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
-    concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
-
-Return the concatenation of `C_out` and `C_in`.
-"""
-function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
-    F_out = C_out.F
-    F_in = C_in.F
-    β, λ = missing, missing
-    if Int(order(F_out)) != Int(order(F_in))
-        flag, deg = is_extension(F_out, F_in)
-        flag || throw(ArgumentError("Galois concatenation requires the outer code to be over an extension field of the inner code"))
-        deg % C_in.k == 0 || C_out.n % C_in.k == 0 || 
-            throw(ArgumentError("Inner dimension must divide outer length or extension degree"))
-        G_out = generator_matrix(C_out, true)
-        ismissing(C_out.P_stand) || (G_out = G_out * C_out.P_stand)
-        
-        β, λ = primitive_basis(F_out, F_in)
-        D = _expansion_dict(F_out, F_in, λ)
-        G_out = _expand_matrix(G_out, D, deg)
-        type = :expanded
-    else
-        C_out.n % C_in.k == 0 || throw(ArgumentError("Inner dimension must divide outer length"))
-
-        F_out == F_in || (C_out = change_field(C_out, F_in);)
-        G_out = generator_matrix(C_out, true)
-        ismissing(C_out.P_stand) || (G_out = G_out * C_out.P_stand)
-        type = :same
-    end
+# Internal helper to rigorously compute the nullspace basis 
+# using the native no-column-swap RREF algorithm.
+function _parity_check_from_G(G::CTMatrixTypes)
+    R = _rref_no_col_swap(G)
+    nc = ncols(R)
+    non_pivots = _rref_non_pivot_cols(R, :nsp)
+    pivots = sort!(setdiff(1:nc, non_pivots))
+    k = length(pivots)
     
-    Gin = generator_matrix(C_in, true)
-    ismissing(C_in.P_stand) || (Gin = Gin * C_in.P_stand)
-    G = _concatenated_generator_matrix(G_out, Gin)
-    G_stand, H_stand, P, k = _standard_form(G)
-    H = ismissing(P) ? H_stand : H_stand * P
-    ub1, _ = _min_wt_row(G)
-    ub2, _ = _min_wt_row(G_stand)
-    ub = min(ub1, ub2)
-
-    C = ConcatenatedCode(C_out, C_in, type, β, λ, F_in, ncols(G), k, missing, 1, ub, G, H, G_stand, H_stand, P, missing)
-    # TODO: distance check here
-    # for a lower bound on the distance, count the number of pieces of G_out in _concatenated_generator_matrix
-    # with full rank and multiply by the distance of the inner code
-
-    return C
-end
-∘(C_out::AbstractLinearCode, C_in::AbstractLinearCode) = concatenate(C_out, C_in)
-
-function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
-    isempty(outers_unexpanded) && throw(ArgumentError("List of codes cannot be empty"))
-    length(outers_unexpanded) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
-    for i in 2:length(inners)
-        inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
+    H = zero_matrix(base_ring(G), nc - k, nc)
+    for (idx, np) in enumerate(non_pivots)
+        H[idx, np] = 1
+        for i in 1:k
+            H[idx, pivots[i]] = -R[i, np]
+        end
     end
-    F = first(inners).F
-    n_in = first(inners).n
+    return H
+end
 
-    outers = copy(outers_unexpanded)
-    β = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
-    λ = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers)]
-    type = [:same for i in eachindex(outers)]
-    ord_F = Int(order(F))
-    for (i, C_out) in enumerate(outers)
-        if Int(order(C_out.F)) == ord_F
-            # it was either pre-expanded or just doesn't need expansion
-            C_out.F != F || (outers[i] = change_field(C_out, F))
-
-            # if it could have been "expanded" without changing
-            # anything, list as expanded so that the distance
-            # calculation at the end knows
-            if (i == 1 && inners[i].k == 1) || (i > 1 && inners[i].k - inners[i - 1].k == 1)
-                type[i] = :expanded
-            end
-        elseif is_subfield(F, C_out.F)[1]
-            β[i], λ[i] = primitive_basis(outers[i].F, F)
-            outers[i] = expanded_code(outers[i], F, β[i])
-            type[i] = :expanded
+function generator_matrix(C::ConcatenatedCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :G)
+        G_out = generator_matrix(C.C_out)
+        
+        # Apply standard form permutation if it exists to align the outer code
+        P_out = standard_form_permutation(C.C_out)
+        ismissing(P_out) || (G_out = G_out * P_out)
+        
+        if C.type == :expanded
+            G_out = expand_matrix(G_out, C.F, C.basis)
         else
-            throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
+            G_out = change_base_ring(C.F, G_out)
         end
+        
+        G_in = generator_matrix(C.C_in)
+        P_in = standard_form_permutation(C.C_in)
+        ismissing(P_in) || (G_in = G_in * P_in)
+        
+        cache[:G] = _concatenated_generator_matrix(G_out, G_in)
     end
-
-    # Are the outer matrices the right size?
-    n_out = divexact(outers[1].n, inners[1].k)
-    for i in 2:length(outers)
-        n_out == divexact(outers[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
-    end
-
-    B = [generator_matrix(inners[1])]
-    for i in 2:length(inners)
-        Gi = generator_matrix(inners[i])
-        Gim1 = generator_matrix(inners[i - 1])
-        push!(B, _quotient_space(Gi, Gim1, :VS))
-    end
-
-    G1 = reduce(direct_sum, generator_matrix(C) for C in outers)
-    G2 = zero_matrix(F, ncols(G1), n_in * n_out)
-    z = 1
-    for i in eachindex(inners)
-        for j in 0:n_out - 1
-            rows = range(z, z + size(B[i], 1) - 1)
-            cols = range(j * n_in + 1, (j + 1) * n_in)
-            G2[rows, cols] = B[i]
-            z += nrows(B[i])
+    if stand_form
+        if !haskey(cache, :G_stand)
+            G_stand, H_stand, P, _ = _standard_form(cache[:G])
+            cache[:G_stand] = G_stand
+            cache[:H_stand] = H_stand
+            cache[:P_stand] = P
         end
+        return cache[:G_stand]
     end
-
-    G = G1 * G2
-    G_stand, H_stand, P, k = _standard_form(G)
-    H = ismissing(P) ? H_stand : H_stand * P
-
-    d = if all(isequal(:expanded), type)
-        # if any of these distances are missing, it correctly results in missing
-        reduce(min, inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
-    else
-        missing
-    end
-    lb = ismissing(d) ? 1 : d
-    ub1, _ = _min_wt_row(G)
-    ub2, _ = _min_wt_row(G_stand)
-    ub = ismissing(d) ? min(ub1, ub2) : d
-
-    return ConcatenatedCode(outers_unexpanded, inners, type, β, λ, F, ncols(G), k, d, lb, ub, G, H, G_stand, H_stand, P, missing)
+    return cache[:G]
 end
-multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
-# cascade?
 
-# Eric had written this so it's in the way explained by the book but technically it's equivalent to the above
-# so it was never finished
-# function generalized_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
-#     isempty(outers) || isempty(inners) && throw(ArgumentError("List of codes cannot be empty"))
-#     for i in 1:length(inners) - 1
-#         inners[i + 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a decreasing nested sequence"))
-#     end
-#     F = first(inners).F
-#     n_in = first(inners).n
-#     iszero(generator_matrix(inners[end])) || push!(inners, ZeroCode(F, n_in))
+function parity_check_matrix(C::ConcatenatedCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :H)
+        G_mat = generator_matrix(C)
+        cache[:H] = _parity_check_from_G(G_mat)
+    end
+    if stand_form
+        generator_matrix(C, true)
+        return cache[:H_stand]
+    end
+    return cache[:H]
+end
 
-#     # ord_F = Int(order(F))
-#     # for (i, C_out) in enumerate(outers)
-#     #     if Int(order(C_out.F)) == ord_F
-#     #         C_out.F != F || (outers[i] = change_field(C_out, F);)
-#     #     elseif is_subfield(F, C_out.F)
-#     #         # TODO: expansion step here
-#     #     else
-#     #         throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
-#     #     end
-#     # end
-
-#     G_in_part = matrix(F, 0, n_in, [])
-#     H_in_part = matrix(F, 0, n_in, [])
-#     G_part_locs = Vector{Vector{Int}}()
-#     H_part_locs = Vector{Vector{Int}}()
-#     for i in 1:length(inners) - 1
-#         if i != length(inners) - 1
-#             Gi = generator_matrix(inners[i])
-#             Gip1 = generator_matrix(inners[i + 1])
-#             new_rows = _quotient_space(Gi, Gip1, :VS)
-#             G_in_part = vcat(G_in_part, new_rows)
-#             isempty(G_part_locs) ? (push!(G_part_locs, [1, nrows(new_rows)]);) : (push!(G_part_locs, [G_part_locs[end][2] + 1, G_part_locs[end][2] + nrows(new_rows)]);)
-#             # println("G")
-#             # display(G_in_part)
-#             # println(" ")
-#         end
-#         Hi = parity_check_matrix(inners[i])
-#         Hip1 = parity_check_matrix(inners[i + 1])
-#         new_rows = _quotient_space(Hip1, Hi, :VS)
-#         H_in_part = vcat(H_in_part, new_rows)
-#         isempty(H_part_locs) ? (push!(H_part_locs, [1, nrows(new_rows)]);) : (push!(H_part_locs, [H_part_locs[end][2] + 1, H_part_locs[end][2] + nrows(new_rows)]);)
-#         # println("H")
-#         # display(H_in_part)
-#         # println(" ")
-#     end
-
-#     # TODO: finish
-#     # now to check to make sure outer code dimensions are equal to H_part_locs length (label sizes)
-#     for C_out in outers
-
-#     end
-
-#     return G_in_part, H_in_part, G_part_locs, H_part_locs
-# end
-# Blokh_Zyablov_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = generalized_concatenation(outers, inners)
-
-#############################
-      # getter functions
-#############################
-
-"""
-    inner_code(C::AbstractConcatenatedCode)
-
-Return the inner code of the concatenation.
-"""
-inner_code(C::AbstractConcatenatedCode) = C.C_in
-
-"""
-    outer_code(C::AbstractConcatenatedCode)
-
-Return the outer code of the concatenation.
-"""
-outer_code(C::AbstractConcatenatedCode) = C.C_out
-
-"""
-    expansion_basis(C::AbstractConcatenatedCode)
-
-Return the basis used to expanded the outer code, if it exists; otherwise return `missing`.
-"""
-expansion_basis(C::AbstractConcatenatedCode) = C.basis
-
-"""
-    expansion_dual_basis(C::AbstractConcatenatedCode)
-
-Return the dual basis used to expanded the outer code, if it exists; otherwise return `missing`.
-"""
-expansion_dual_basis(C::AbstractConcatenatedCode) = C.dual_basis
-
-"""
-    concatenation_type(C::AbstractConcatenatedCode)
-
-Return `:expanded`, `:same`, or `:generalized` depending on the type of concatenation.
-"""
-concatenation_type(C::AbstractConcatenatedCode) = C.type
-
-#############################
-      # setter functions
-#############################
-
-#############################
-     # general functions
-#############################
-
+# Internal function for concatenated generator assembly
 function _concatenated_generator_matrix(A::T, B::T) where T <: CTMatrixTypes
     nr_A, nc_A = size(A)
     nr_B, nc_B = size(B)
@@ -256,76 +88,297 @@ function _concatenated_generator_matrix(A::T, B::T) where T <: CTMatrixTypes
     return M
 end
 
-# TODO: untested, little chance this works without error
+# ==============================================================================
+# CONSTRUCTORS
+# ==============================================================================
+
 """
-    encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}})
+$(TYPEDSIGNATURES)
+
+Return the single-level concatenation of `C_out` and `C_in`.
+Evaluates lazily without eagerly building the generator matrices.
+"""
+function concatenate(C_out::AbstractLinearCode, C_in::AbstractLinearCode)
+    F_out = C_out.F
+    F_in = C_in.F
+    β, λ = missing, missing
+    type = :same
+
+    if Int(order(F_out)) != Int(order(F_in))
+        flag, deg = is_extension(F_out, F_in)
+        flag || throw(ArgumentError("Galois concatenation requires the outer code to be over an extension field of the inner code"))
+        deg % C_in.k == 0 || C_out.n % C_in.k == 0 || throw(ArgumentError("Inner dimension must divide outer length or extension degree"))
+        
+        β, λ = primitive_basis(F_out, F_in)
+        type = :expanded
+    else
+        C_out.n % C_in.k == 0 || throw(ArgumentError("Inner dimension must divide outer length"))
+        type = :same
+    end
+    
+    n_new = C_in.n * div(C_out.n, C_in.k)
+    k_new = C_out.k
+    
+    # O(1) Distance bounds calculation
+    if ismissing(C_out.d) || ismissing(C_in.d)
+        d_new = missing
+        lb = C_out.l_bound * C_in.l_bound
+    else
+        d_new = C_out.d * C_in.d
+        lb = d_new
+    end
+    
+    cache = Dict{Symbol, Any}()
+    # Field order in struct is (C_in, C_out, ...)
+    return ConcatenatedCode(C_in, C_out, type, β, λ, F_in, n_new, k_new, d_new, lb, n_new, cache)
+end
+∘(C_out::AbstractLinearCode, C_in::AbstractLinearCode) = concatenate(C_out, C_in)
+
+# ==============================================================================
+# MULTILEVEL CONCATENATION LAZY GETTERS
+# ==============================================================================
+
+function generator_matrix(C::MultilevelConcatenatedCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :G)
+        F = C.F
+        n_in = C.C_ins[1].n
+        n_out = div(C.C_outs[1].n, C.C_ins[1].k)
+        
+        # 1. Expand and collect all outer generator matrices
+        G_outs_expanded = []
+        for i in 1:length(C.C_outs)
+            G_curr = generator_matrix(C.C_outs[i])
+            P_curr = standard_form_permutation(C.C_outs[i])
+            ismissing(P_curr) || (G_curr = G_curr * P_curr)
+            
+            if C.types[i] == :expanded
+                G_curr = expand_matrix(G_curr, F, C.bases[i])
+            else
+                G_curr = change_base_ring(F, G_curr)
+            end
+            push!(G_outs_expanded, G_curr)
+        end
+        G1 = reduce(direct_sum, G_outs_expanded)
+        
+        # 2. Collect inner block quotient spaces B_i = G_i / G_{i-1}
+        B = [generator_matrix(C.C_ins[1])]
+        for i in 2:length(C.C_ins)
+            Gi = generator_matrix(C.C_ins[i])
+            Gim1 = generator_matrix(C.C_ins[i - 1])
+            push!(B, _quotient_space(Gim1, Gi))
+        end
+        
+        # 3. Assemble the block matrix G2
+        G2 = zero_matrix(F, ncols(G1), n_in * n_out)
+        z = 1
+        for i in 1:length(C.C_ins)
+            rows_B = nrows(B[i])
+            for j in 0:(n_out - 1)
+                r_start = z
+                r_end = z + rows_B - 1
+                c_start = j * n_in + 1
+                c_end = (j + 1) * n_in
+                
+                # Direct assignment for speed
+                G2[r_start:r_end, c_start:c_end] = B[i]
+                z += rows_B
+            end
+        end
+        
+        # 4. The final concatenated generator matrix
+        cache[:G] = G1 * G2
+    end
+    
+    if stand_form
+        if !haskey(cache, :G_stand)
+            G_stand, H_stand, P, _ = _standard_form(cache[:G])
+            cache[:G_stand] = G_stand
+            cache[:H_stand] = H_stand
+            cache[:P_stand] = P
+        end
+        return cache[:G_stand]
+    end
+    return cache[:G]
+end
+
+function parity_check_matrix(C::MultilevelConcatenatedCode, stand_form::Bool = false)
+    cache = getfield(C, :cache)
+    if !haskey(cache, :H)
+        G_mat = generator_matrix(C)
+        cache[:H] = _parity_check_from_G(G_mat)
+    end
+    if stand_form
+        generator_matrix(C, true)
+        return cache[:H_stand]
+    end
+    return cache[:H]
+end
+
+# ==============================================================================
+# MULTILEVEL CONSTRUCTORS
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the generalized concatenation of a list of outer codes and a nested list of inner codes.
+Evaluates lazily without building the enormous generator matrices.
+"""
+function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode
+    isempty(outers_unexpanded) && throw(ArgumentError("List of codes cannot be empty"))
+    length(outers_unexpanded) == length(inners) || throw(ArgumentError("Must have the same number of inner and outer codes"))
+    
+    for i in 2:length(inners)
+        inners[i - 1] ⊆ inners[i] || throw(ArgumentError("The inner subcodes must be in a nested sequence (C_{i-1} ⊆ C_i)"))
+    end
+    
+    F = first(inners).F
+    n_in = first(inners).n
+    ord_F = Int(order(F))
+
+    # O(1) dimension and parameter validation
+    n_out = divexact(outers_unexpanded[1].n, inners[1].k)
+    for i in 2:length(outers_unexpanded)
+        n_out == divexact(outers_unexpanded[i].n, inners[i].k - inners[i - 1].k) || throw(ArgumentError("The outer matrices are not of the correct size"))
+    end
+
+    bases = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers_unexpanded)]
+    dual_bases = Union{Vector{<:CTFieldElem}, Missing}[missing for _ in eachindex(outers_unexpanded)]
+    types = Symbol[:same for _ in eachindex(outers_unexpanded)]
+    
+    for (i, C_out) in enumerate(outers_unexpanded)
+        # If the fields are the same, NO expansion is needed. Just map it natively.
+        if Int(order(C_out.F)) == ord_F
+            types[i] = :same
+        else
+            flag, _ = is_subfield(F, C_out.F)
+            flag || throw(ArgumentError("Cannot connect outer code $i field to inner code field"))
+            bases[i], dual_bases[i] = primitive_basis(C_out.F, F)
+            types[i] = :expanded
+        end
+    end
+
+    n_new = n_in * n_out
+    k_new = sum(C.k for C in outers_unexpanded)
+    
+    # Distance bounds calculation
+    d_new = missing
+    lb = 1
+    if all(isequal(:expanded), types) && all(!ismissing(inners[i].d) && !ismissing(outers_unexpanded[i].d) for i in eachindex(inners))
+        d_new = minimum(inners[i].d * outers_unexpanded[i].d for i in eachindex(inners))
+        lb = d_new
+    else
+        lb = minimum(inners[i].l_bound * outers_unexpanded[i].l_bound for i in eachindex(inners))
+    end
+    
+    cache = Dict{Symbol, Any}()
+    # FIX: Correctly maps (C_outs, C_ins) without swapping!
+    return MultilevelConcatenatedCode(outers_unexpanded, inners, types, bases, dual_bases, F, n_new, k_new, d_new, lb, n_new, cache)
+end
+"""
+$(TYPEDSIGNATURES)
+
+Return the generalized concatenation of `outers` with the nested sequence
+`inners`. This is an alias for `concatenate(outers, inners)`; the result has
+length ``n_{\\mathrm{in}} n_{\\mathrm{out}}`` and dimension equal to the sum
+of the outer-code dimensions.
+"""
+multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
+
+# ==============================================================================
+# GETTERS & UTILITIES
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the inner code(s) of the concatenation.
+"""
+inner_code(C::ConcatenatedCode) = C.C_in
+inner_code(C::MultilevelConcatenatedCode) = C.C_ins
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the outer code(s) of the concatenation.
+"""
+outer_code(C::ConcatenatedCode) = C.C_out
+outer_code(C::MultilevelConcatenatedCode) = C.C_outs
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the basis (or list of bases) used to expand the outer code(s), if applicable.
+"""
+expansion_basis(C::ConcatenatedCode) = C.basis
+expansion_basis(C::MultilevelConcatenatedCode) = C.bases
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual basis (or list of dual bases) used to expand the outer code(s), if applicable.
+"""
+expansion_dual_basis(C::ConcatenatedCode) = C.dual_basis
+expansion_dual_basis(C::MultilevelConcatenatedCode) = C.dual_bases
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the type(s) of concatenation used (`:same` or `:expanded`).
+"""
+concatenation_type(C::ConcatenatedCode) = C.type
+concatenation_type(C::MultilevelConcatenatedCode) = C.types
+
+# ==============================================================================
+# ENCODING
+# ==============================================================================
+
+"""
+$(TYPEDSIGNATURES)
 
 Return the encoding of `v` into `C`, where `v` is either a valid input for the outer code or the full code.
 """
-function encode(C::AbstractConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}})
-    if typeof(v) <: CTMatrixTypes
-        nr_v, nc_v = size(v)
-        nr_v == 1 || nc_v == 1 || throw(ArgumentError("Vector has incorrect dimension"))
-        nr_v != 1 && nc_v == 1 ? (w = transpose(v);) : (w = v;)
-        nc_w = ncols(w)
-        if nc_w == C.C_out.k
-            # TODO: should check order and then convert if they are the same but different pointers
-            base_ring(w) == C.C_out.F || throw(ArgumentError("Vector must have the same base ring as the outer code."))
-            G_out = generator_matrix(C.C_out, true)
-            ismissing(C.C_out.P_stand) || (G_out = G_out * C.C_out.P_stand)
-            temp = w * G_out
-            if C.type == :expanded
-                D = _expansion_dict(C.C_out.F, C.C_in.F, C.dual_basis)
-                temp = _expand_matrix(temp, D, div(degree(C.C_out.F), degree(C.C_in.F)))
-                # TODO: this is no longer a vector, only want 1 * temp row instead of full basis?
-                temp = temp[1, :]
-            end
-            # should automatically now be in field of inner code
-            Gin = generator_matrix(C.C_in, true)
-            ismissing(C.C_in.P_stand) || (Gin = Gin * C.C_in.P_stand)
-            return temp * Gin
-        elseif nc_w == C.k
-            base_ring(w) == C.F || throw(ArgumentError("Vector must have the same base ring as the code."))
-            return w * C.G
+function encode(C::ConcatenatedCode, v::Union{CTMatrixTypes, Vector{Int}})
+    w = isa(v, Vector{Int}) ? matrix(C.C_out.F, 1, length(v), v) : v
+    
+    nr_w, nc_w = size(w)
+    (nr_w != 1 && nc_w == 1) && (w = transpose(w))
+    nc_w = ncols(w)
+    
+    if nc_w == C.C_out.k
+        base_ring(w) == C.C_out.F || throw(ArgumentError("Vector must have the same base ring as the outer code."))
+        
+        G_out = generator_matrix(C.C_out)
+        c_out = w * G_out
+        
+        if C.type == :expanded
+            D = _expansion_dict(C.C_out.F, C.C_in.F, C.dual_basis)
+            c_out = _expand_matrix(c_out, D, div(degree(C.C_out.F), degree(C.C_in.F)))
         else
-            throw(ArgumentError("Vector has incorrect dimension"))
+            c_out = change_base_ring(C.C_in.F, c_out)
         end
+        
+        Gin = generator_matrix(C.C_in)
+        
+        k_in = C.C_in.k
+        n_in = C.C_in.n
+        t = div(ncols(c_out), k_in)
+        
+        c_final = zero_matrix(C.C_in.F, 1, t * n_in)
+        for i in 1:t
+            # Using matrix() to realize the view into a concrete fpMatrix to prevent SubMat multiplication issues
+            block = matrix(C.C_in.F, 1, k_in, [c_out[1, (i-1)*k_in + c] for c in 1:k_in])
+            c_final[1:1, (i-1)*n_in + 1 : i*n_in] = block * Gin
+        end
+        
+        return c_final
+        
+    elseif nc_w == C.k
+        base_ring(w) == C.F || throw(ArgumentError("Vector must have the same base ring as the code."))
+        G = generator_matrix(C)
+        return w * G
     else
-        len = length(v)
-        if len == C.C_out.k
-            w = matrix(C.C_out.F, 1, len, v)
-            G_out = generator_matrix(C.C_out, true)
-            ismissing(C.C_out.P_stand) || (G_out = G_out * C.C_out.P_stand)
-            temp = w * G_out
-            if C.type == :expanded
-                D = _expansion_dict(C.C_out.F, C.C_in.F, C.dual_basis)
-                temp = _expand_matrix(temp, D, div(degree(C.C_out.F), degree(C.C_in.F)))
-                # TODO: this is no longer a vector, only want 1 * temp row instead of full basis?
-                temp = temp[1, :]
-            end
-            # should automatically now be in field of inner code
-            Gin = generator_matrix(C.C_in, true)
-            ismissing(C.C_in.P_stand) || (Gin = Gin * C.C_in.P_stand)
-            return temp * Gin
-        elseif len == C.k
-            return matrix(C.F, 1, len, v) * C.G
-        else
-            throw(ArgumentError("Vector has incorrect dimension"))
-        end
+        throw(ArgumentError("Vector has incorrect dimension; expected $(C.C_out.k) or $(C.k)."))
     end
 end
-
-# permute?
-
-#############################
-         # Quantum
-#############################
-
-# something like this
-# function concatenatedcode(S1::CSSCode, S2::CSSCode)
-#     # need them to be F-linear
-#     Xstabs = vcat(Xstabilizers(S1) ⊗ I(S2), Xlogicals(S1) ⊗ Xstabilizers(S2))
-#     Zstabs = vcat(Zstabilizers(S1) ⊗ I(S2), Zlogicals(S1) ⊗ Zstabilizers(S2))
-#
-#     this should give [[n1 n2, k1, k2, (d1x d2x, d1z d2z)]]
-# end

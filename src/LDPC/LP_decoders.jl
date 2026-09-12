@@ -8,9 +8,9 @@
         # LP Decoders
 #############################
 
-# function _init_LP_decoder_LDPC end
+function _init_LP_decoder_LDPC end
 
-# function _LP_decoder_LDPC end
+function _LP_decoder_LDPC end
 
 # TODO: docstring and in extension
 """
@@ -20,6 +20,6 @@
 Return
 
 # Note
-- Run `using JuMP, GLPK` to activate this extension.
+- Run `using JuMP, HiGHS` to activate this extension.
 """
 function LP_decoder_LDPC end

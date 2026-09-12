@@ -1,4 +1,4 @@
-# Cyclic Codes Tutorial
+# [Cyclic Codes Tutorial](@id cyclic-codes-tutorial)
 
 ## Background
 The following represents the notation and conventions used for cyclic codes throughout the library.

@@ -7,7 +7,7 @@
 function _find_lambda_given_rho(ρ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
     ε::Float64, l_max::Int; Δ = 0.001)
 
-    model = Model(GLPK.Optimizer)
+    model = Model(HiGHS.Optimizer)
     @variable(model, λ[1:l_max - 1] >= 0)
     @constraint(model, sum(λ) == 1)
     for x in 0:Δ:1
@@ -25,7 +25,7 @@ end
 function _find_rho_given_lambda(λ::Union{Vector{Float64}, CodingTheory.Oscar.PolyRingElem},
     ε::Float64, r_max::Int; Δ = 0.001)
 
-    model = Model(GLPK.Optimizer)
+    model = Model(HiGHS.Optimizer)
     @variable(model, ρ[1:r_max - 1] >= 0)
     @constraint(model, sum(ρ) == 1)
     for x in 0:Δ:1
@@ -183,7 +183,7 @@ function CodingTheory.optimal_lambda_and_rho(l_max::Int, r_max::Int, param::Floa
             end
             Δ > 0 ? (low = mid;) : (high = mid;)
         end
-        0 <= Δ <= tolerance || error("Solution for $(poly_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
+        0 <= Δ <= tolerance || error("Solution for $(var_type == :ρ ? :λ : :ρ) did not converge in $max_iters iterations")
         _, x = CodingTheory.Oscar.PolynomialRing(CodingTheory.Oscar.RealField(), :x)
         λ = sum(c * x^(i - 1) for (i, c) in enumerate(λ_vec))
         ρ = sum(c * x^(i - 1) for (i, c) in enumerate(ρ_vec))
