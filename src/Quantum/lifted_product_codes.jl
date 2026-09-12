@@ -38,6 +38,12 @@ function LiftedProductCode(A::MatElem{T}, b::T; char_vec::Union{Vector{zzModRing
     
     return LiftedProductCode(A, B_mat; char_vec = char_vec, logs_alg = logs_alg)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the generalized hypergraph-product code obtained as the lifted-product
+code whose second matrix is the ``1 \\times 1`` matrix with entry `b`.
+"""
 GeneralizedHypergraphProductCode(A, b; kwargs...) = LiftedProductCode(A, b; kwargs...)
 
 function BiasTailoredLiftedProductCode(A::MatElem{T}, B::MatElem{T}; char_vec::Union{Vector{zzModRingElem},

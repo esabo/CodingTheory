@@ -1,10 +1,9 @@
 # LDPC Codes
 
-## Constructors
-An LDPC code is defined by a specific choice of a parity-check matrix for a code. Different parity-check matrices for the same linear code produce different LDPC codes. As such, the `LDPCCode` constructor does not accept a code, but rather a matrix.
-```@docs
-LDPCCode
-```
+An LDPC code is defined by a specific choice of parity-check matrix for a code.
+Different parity-check matrices for the same linear code produce different LDPC
+codes, so the `LDPCCode` constructor does not accept a code but rather a
+matrix.
 
 ```
 julia> H = matrix(GF(2), 6, 9, [
@@ -31,96 +30,39 @@ Parity-check matrix: 6 × 9
         1 1 0 0 0 0 1 1 1
 ```
 
-Random regular LDPC codes may be constructed with `regular_LDPC_code`.
+The degree polynomials ``\lambda(x)`` and ``\rho(x)``, the degrees of the
+individual variable and check nodes, and the maximum degrees are all computed
+at construction. A bar graph of the degree distributions is available through
+`degree_distributions_plot`, which requires a Makie backend to be loaded.
 
-## Attributes
-The polynomials ``\lambda(x)`` and ``\rho(x)`` as well as the degrees of each variable and check nodes are computed upon construction.
-```@docs
-variable_degree_polynomial
+The Tanner graph of the defining parity-check matrix can be produced as a
+`SimpleDiGraph` or drawn into a `Figure`, and `computation_graph` draws the
+graph unrolled to a given level, which is occasionally useful for small
+examples. Cycle structure, girth, and ACE data have their own page; see
+[Cycles and ACE](@ref ldpc-cycles-api).
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["LDPC/codes.jl"]
+Private = false
 ```
 
-```@docs
-check_degree_polynomial
-```
-
-```@docs
-variable_degree_distribution
-```
-
-```@docs
-check_degree_distribution
-```
-
-```@docs
-degree_distributions
-```
-
-A bar graph of the degree distributions is available
-```@docs
-degree_distributions_plot
-```
-
-For convenience, the maximum degrees are also stored.
-```@docs
-column_bound
-```
-
-```@docs
-row_bound
-```
-
-```@docs
-column_row_bounds
-```
-
-```@docs
-limited
-```
+The following is not exported but may be useful.
 
 ```@docs
 CodingTheory.density
 ```
 
-```@docs
-is_regular
+## Construction algorithms
+
+Beyond random regular codes, the library provides the progressive-edge-growth
+family, which greedily adds edges so as to maximize the local girth, and
+several named algebraic and pseudorandom families: Gallager's original
+construction, MacKay-Neal codes, spatially coupled codes, and codes from
+Euclidean and projective geometries.
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["LDPC/algorithms.jl"]
+Private = false
 ```
-
-The Tanner graph corresponding to the parity-matrix defining the LDPC code can be generated as a `SimpleDiGraph` and visually in a `Figure` object.
-```@docs
-Tanner_graph
-```
-
-```@docs
-Tanner_graph_plot
-```
-
-## Methods
-Occassionally useful for small examples, the following function produces a `Figure` of the Tanner graph unrolled to a given level.
-```@docs
-computation_graph
-```
-
-```@docs
-girth
-```
-
-To count or explicitly enumerate the short cycles of the Tanner graph, use
-```@docs
-count_short_cycles
-```
-
-See also: `enumerate_short_cycles` and `short_cycle_length_distribution`.
-
-Various information about the ACE value  of cycles in the Tanner graph may be computed with the following functions. See: `ACE_spectrum`, `shortest_cycle_ACE`, `ACE_distribution`, `average_ACE_distribution`, `median_ACE_distribution`, `mode_ACE_distribution`
-
-## Greedy Construction Algorithms
-
-```@docs
-regular_LDPC_code
-progressive_edge_growth
-progressive_edge_growth_QC
-progressive_edge_growth_protograph
-```
-
-Additional named constructors include `Mackay_Neal`, `SC_LDPCCode`,
-`GallagerCode`, `EuclideanGeometryCode`, and `ProjectiveGeometryCode`.

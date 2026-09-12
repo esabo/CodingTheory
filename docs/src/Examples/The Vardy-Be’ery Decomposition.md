@@ -3,7 +3,7 @@
 ## Background
 This example draws from and uses the notation from the
 [Linear Codes tutorial](@ref linear-codes-tutorial) and
-[Cyclic Codes](@ref) tutorial.
+[Cyclic Codes](@ref cyclic-codes-tutorial) tutorial.
 
 ## The Almost-Block-Diagonal Form
 Vardy and Be'ery showed that expanded (cyclic) Reed-Solomon codes may be seen as interleaved BCH codes plus some extra "glue".

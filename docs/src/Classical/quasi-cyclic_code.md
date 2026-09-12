@@ -1,60 +1,25 @@
 # Quasi-Cyclic Codes
 
-Quasi-cyclic codes are a subtype of `LinearCode` and inherit its methods. While quasi-cyclic codes may be seen as generalizations of cyclic codes, here they are treated as independent topics.
+Quasi-cyclic codes are a subtype of `LinearCode` and inherit its methods. They
+may be viewed as a generalization of cyclic codes, but here they are treated as
+an independent topic.
 
-## Constructors
+A quasi-cyclic code is presented by a matrix over a polynomial quotient ring,
+each entry standing for a circulant block. The type parameter is either `:G` or
+`:H`, recording whether that polynomial matrix represents the generator or the
+parity-check matrix. The noncirculant forms below expand the blocks back out
+over the base field; they are not stored at construction and are computed when
+first requested.
 
-```@docs
-QuasiCyclicCode
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Classical/quasi-cyclic_code.jl"]
+Private = false
 ```
 
-## Attributes
+The following are not exported but may be useful.
 
 ```@docs
 CodingTheory.index
-```
-
-```@docs
-expansion_factor
-```
-
-```@docs
-is_single_generator
-```
-
-```@docs
-polynomial_matrix
-```
-
-```@docs
-polynomial_matrix_type
-```
-
-The type parameter is either `:G` or `:H`, specifying whether the polynomial matrix represents the generator or parity-check matrix.
-```@docs
-type
-```
-
-## Methods
-
-The following are not computed and stored at the time of construction and must be computed by using these methods.
-
-```@docs
-weight_matrix
-```
-
-```@docs
-noncirculant_generator_matrix
-```
-
-```@docs
-noncirculant_parity_check_matrix
-```
-
-```@docs
 CodingTheory.generators
-```
-
-```@docs
-circulants
 ```

@@ -5,8 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    SPCDFoldProductCode(D::Int, s::Int = 1)
-    SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s)
+$(TYPEDSIGNATURES)
 
 Return the single-parity-check `D`-fold product code.
 
@@ -67,6 +66,11 @@ function SPCDFoldProductCode(D::Int, s::Int = 1)
     
     return S
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the single-parity-check ``D``-fold product code with scale `s`.
+"""
 SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s)
 
 #############################
@@ -84,7 +88,7 @@ SingleParityCheckDFoldProductCode(D::Int, s::Int = 1) = SPCDFoldProductCode(D, s
 # TODO: present the stabilizers in the docs and mention how to switch X and Z by
 # using the switch on the inputs beforehand
 """
-    asymmetric_product(S1::T, S2::T) where {T <: AbstractSubsystemCode}
+$(TYPEDSIGNATURES)
 
 Return the asymmetric 2-fold product quantum CSS code of the CSS codes `S1` and `S2`.
 
@@ -111,7 +115,7 @@ asymmetric_product(::IsNotCSS, S1::AbstractSubsystemCode, S2::AbstractSubsystemC
     error("Only valid for CSS codes.")
 
 """
-    symmetric_product(vec_S::Vector{T}) where {T <: AbstractSubsystemCode}
+$(TYPEDSIGNATURES)
 
 Return the symmetric `D`-fold product quantum CSS code, where `D` is
 the square-root of the length of the vector of CSS codes `vec_S`.

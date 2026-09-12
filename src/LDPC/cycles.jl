@@ -538,7 +538,7 @@ function enumerate_simple_cycles(C::LDPCCode; len::Int = 16)
 end
 
 """
-    simple_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (length, count) pairs for the unique simple cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
@@ -584,7 +584,7 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
 function simple_cycle_length_distribution_plot end
 
 """
-    average_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the average cycle length of unique simple cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -604,7 +604,7 @@ function average_simple_cycle_length(C::LDPCCode; len::Int = 16)
 end
 
 """
-    median_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the median cycle length of unique simple cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -626,7 +626,7 @@ function median_simple_cycle_length(C::LDPCCode; len::Int = 16)
 end
 
 """
-    mode_simple_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the most common cycle length of unique simple cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -647,7 +647,7 @@ function mode_simple_cycle_length(C::LDPCCode; len::Int = 16)
 end
 
 """
-    count_simple_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the total number of unique simple cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
@@ -660,7 +660,7 @@ of `L`. If `len` is `-1`, then all simple cycles will be enumerated.
 count_simple_cycles(C::LDPCCode; len::Int=16) = sum(values(simple_cycle_length_distribution(C; len=len)), init=0)
 
 """
-    simple_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (node, count) pairs for the unique simple cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all simple cycles will be enumerated. An empty
@@ -718,7 +718,7 @@ function enumerate_short_cycles(C::LDPCCode)
 end
 
 """
-    short_cycle_length_distribution(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (length, count) pairs for the unique short cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
@@ -753,7 +753,7 @@ enumerated. An empty figure and dictionary are returned when there are no cycles
 function short_cycle_length_distribution_plot end
 
 """
-    average_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the average cycle length of unique short cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -774,7 +774,7 @@ function average_short_cycle_length(C::LDPCCode)
 end
 
 """
-    median_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the median cycle length of unique short cycles up to length `len` of the Tanner graph of
 `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -798,7 +798,7 @@ function median_short_cycle_length(C::LDPCCode)
 end
 
 """
-    mode_short_cycle_length(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the most common cycle length of unique short cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -821,7 +821,7 @@ function mode_short_cycle_length(C::LDPCCode)
 end
 
  """
-    count_short_cycles(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return the total number of unique short cycles up to length `len` of the Tanner graph
 of `L`. If `len` is `-1`, then all short cycles will be enumerated.
@@ -835,7 +835,7 @@ of `L`. If `len` is `-1`, then all short cycles will be enumerated.
 count_short_cycles(C::LDPCCode) = sum(values(short_cycle_length_distribution(C)), init=0)
 
 """
-    short_cycle_distribution_by_variable_node(L::AbstractLDPCCode; len::Int = 16)
+$(TYPEDSIGNATURES)
 
 Return a dictionary of (node, count) pairs for the unique short cycles up to length `len` of the
 Tanner graph of `L`. If `len` is `-1`, then all short cycles will be enumerated. An empty
@@ -993,7 +993,7 @@ end
 $(TYPEDSIGNATURES)
 
 Return the ACE spectrum of the Tanner graph of `C`.
-Returns a `Dict{Int, Dict{Int, Int}}` mapping `Cycle Length -> (Minimum ACE -> Count)`.
+Return a `Dict{Int, Dict{Int, Int}}` mapping `Cycle Length -> (Minimum ACE -> Count)`.
 """
 function ACE_spectrum(C::LDPCCode)
     lens, ace_dists = _compute_ACE_distributions(C)

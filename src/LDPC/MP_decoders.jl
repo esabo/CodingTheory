@@ -31,7 +31,7 @@ const _FB_MIN_DEGREE = 6
 const _NO_INDICES = Int[]
 
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 
 Store every buffer the soft-decision decoder needs, allocated once for one fixed
 parity-check matrix and reused for every syndrome.
@@ -119,7 +119,7 @@ Return a partition of the checks into layers such that no two checks in a layer 
 variable, so that the checks of one layer can be updated in any order -- or all
 at once -- without changing the result.
 
-Returns `(layer_ptr, layer_checks)`, the flat form described in
+Return `(layer_ptr, layer_checks)`, the flat form described in
 [`SoftDecisionWorkspace`](@ref), with 1-based check indices.
 
 Greedy: each check takes the smallest admissible existing layer, and opens a new

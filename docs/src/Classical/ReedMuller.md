@@ -2,17 +2,13 @@
 
 Reed-Muller codes are a subtype of `LinearCode` and inherit its methods.
 
-## Constructors
-The (binary) Reed-Muller family is generated using the recursive, $(u \mid u + v)$-form of the generator matrices. Different sources use different conventions for the base case generator matrix. If `alt` is `true`, the identity is used for the generator matrix for $\mathcal{RM}(1, 1)$; otherwise, $\begin{pmatrix} 1 & 1\\ 0 & 1\end{pmatrix}$ is used.
+The binary family is generated from the recursive ``(u \mid u + v)`` form of the
+generator matrix. Sources differ on the base case: if `alt` is `true` the
+identity is used as the generator matrix of ``\mathcal{RM}(1, 1)``, and
+otherwise ``\begin{pmatrix} 1 & 1\\ 0 & 1\end{pmatrix}`` is used.
 
-```@docs
-ReedMullerCode
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Classical/ReedMuller.jl"]
+Private = false
 ```
-
-## Attributes
-
-```@docs
-order
-```
-
-## Methods

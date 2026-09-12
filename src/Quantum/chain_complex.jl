@@ -37,11 +37,11 @@ end
 """
     Base.getindex(C::ChainComplex, k::Int)
 
-Returns the boundary map ∂_k originating from degree `k`.
-For example, if degrees=[4, 3, 2] and maps=[M_4, M_3]:
+Return the boundary map ``\\partial_k`` originating from degree `k`.
+For example, if `degrees = [4, 3, 2]` and `maps = [M_4, M_3]`:
 - `C[4]` returns `M_4`
 - `C[3]` returns `M_3`
-- `C[2]` returns a dynamically sized zero-matrix.
+- `C[2]` returns a dynamically sized zero matrix.
 """
 function Base.getindex(C::ChainComplex, k::Int)
     idx = findfirst(==(k), C.degrees)

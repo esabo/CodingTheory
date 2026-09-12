@@ -4,12 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+using DocStringExtensions
+
 ################################
  # Triangular Color Codes 4.8.8
 ################################
 
 """
-    TriangularColorCode488(d::Int)
+$(TYPEDSIGNATURES)
 
 Return the 4.8.8 triangular color code of distance `d` with trellis numbering.
 """
@@ -49,7 +51,7 @@ end
 ################################
 
 """
-    TriangularColorCode666(d::Int)
+$(TYPEDSIGNATURES)
 
 Return the 6.6.6 triangular color code of distance `d` with trellis numbering.
 """
@@ -93,14 +95,15 @@ end
 
 # TODO missing Z matrices
 """
-    PlanarSurfaceCode3D(d::Int)
+$(TYPEDSIGNATURES)
 
-Return the 3D planar surface code of distance `d`.
+Return the ``X``-check, ``X``-logical, and ``X``-metacheck matrices for the
+3D planar surface code of distance `d`.
 
 # Note
 - Run `using JLD2` to activate this extension.
-- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
-  `3 ≤ d ≤ 9`.
+- These matrices are loaded from data files and are available for
+  ``3 \\leq d \\leq 9``.
 """
 function CodingTheory.PlanarSurfaceCode3D_X(d::Int)
     3 ≤ d ≤ 9 || throw(DomainError("Current implementation requires 3 ≤ d ≤ 9."))
@@ -146,14 +149,15 @@ end
 
 # TODO missing Z matrices
 """
-    ToricCode3D(d::Int)
+$(TYPEDSIGNATURES)
 
-Return the 3D toric code of distance `d`.
+Return the ``X``-check, ``X``-logical, and ``X``-metacheck matrices for the
+3D toric code of distance `d`.
 
 # Note
 - Run `using JLD2` to activate this extension.
-- For the moment, these are not computed but loaded from file (from MikeVasmer) and are limited to
-  `2 ≤ d ≤ 13`.
+- These matrices are loaded from data files and are available for
+  ``2 \\leq d \\leq 13``.
 """
 function CodingTheory.ToricCode3D_X(d::Int)
     2 ≤ d ≤ 13 || throw(DomainError("Current implementation requires 2 ≤ d ≤ 13."))

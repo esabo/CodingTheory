@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    ShorLaflammeWeightEnumerator
+$(TYPEDEF)
 
 Hamming-weight Shor--Laflamme enumerators. `A` is the stabilizer distribution
 and `B` is its trace-symplectic dual (the stabilizer normalizer
@@ -171,9 +171,10 @@ function _set_SL_weight_enumerator!(
 end
 
 """
-    Shor_Laflamme_weight_enumerator(S; max_terms=10_000_000)
+$(TYPEDSIGNATURES)
 
-Compute or retrieve the Hamming-weight Shor--Laflamme pair `(A,B)`. `A` is
+Return the cached or newly computed Hamming-weight Shor--Laflamme pair
+`(A, B)`. `A` is
 enumerated from the additive stabilizer group and `B` is obtained by the
 trace-symplectic MacWilliams transform. The cache stores only
 `HammingWeightEnumerator` coefficient data.
@@ -203,8 +204,22 @@ function Shor_Laflamme_weight_enumerator(
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming-weight Shor--Laflamme enumerator pair for `S`, normalized
+with ``A_0 = B_0 = 1``. The ``A`` enumerator counts stabilizer elements and
+the ``B`` enumerator counts elements of its trace-symplectic dual.
+"""
 SL_weight_enumerator(S::AbstractSubsystemCode; kwargs...) =
     Shor_Laflamme_weight_enumerator(S; kwargs...)
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming-weight Shor--Laflamme enumerator pair for `S`, normalized
+with ``A_0 = B_0 = 1``. The ``A`` enumerator counts stabilizer elements and
+the ``B`` enumerator counts elements of its trace-symplectic dual.
+"""
 shor_laflamme_weight_enumerator(S::AbstractSubsystemCode; kwargs...) =
     Shor_Laflamme_weight_enumerator(S; kwargs...)
 
@@ -221,7 +236,7 @@ function _SL_quotient_enumerator(
 end
 
 """
-    weight_enumerator(S; set=:all, max_terms=10_000_000)
+$(TYPEDSIGNATURES)
 
 Return Hamming-weight quantum enumerators. `set=:all` returns the
 `ShorLaflammeWeightEnumerator`; `:stabilizers`/`:A`, `:normalizer`/`:B`, and

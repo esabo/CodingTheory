@@ -11,7 +11,7 @@
 # TODO: in tutorial, make sure we explain why we can't pass in L, R here
 # TODO: write public conversion functions between all the polynomial types
 """
-    LDPCEnsemble(λ::PolyRingElem, ρ::PolyRingElem)
+$(TYPEDSIGNATURES)
 
 Return the LDPC ensemble determined by the variable degree distribution `λ` and the check
 degree distribution `ρ`, both from an edge perspective.
@@ -30,7 +30,7 @@ end
 
 # TODO: ERROR: MethodError: no method matching LDPCEnsemble(::QQPolyRingElem, ::QQPolyRingElem)
 """
-    LDPCEnsemble(L::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the LDPC ensemble determined by the variable degree distribution `λ` and the check
 degree distribution `ρ` of `L`, both from an edge perspective.
@@ -116,7 +116,7 @@ function _density_evolution!(E::LDPCEnsemble, Ch::AbstractChannel)
 end
 
 """
-    density_evolution(E::LDPCEnsemble, Ch::AbstractChannel)
+$(TYPEDSIGNATURES)
 
 Return the density evolution of the LDPC ensemble given the noise channel.
 """
@@ -162,14 +162,14 @@ function multiplicative_gap(E::LDPCEnsemble, Ch::AbstractChannel)
 end
 
 """
-    multiplicative_gap_lower_bound(E::LDPCEnsemble)
+$(TYPEDSIGNATURES)
 
 Return a lower bound on the multiplicative gap of the ensemble
 """
 multiplicative_gap_lower_bound(E::LDPCEnsemble) = (E.design_rate^E.r_avg * (1 - E.design_rate)) / (1 + E.design_rate^E.r_avg * (1 - E.design_rate))
 
 """
-    density_lower_bound(Ch::AbstractChannel, gap::Real)
+$(TYPEDSIGNATURES)
 
 Return a lower bound on the density of a (full rank) parity-check matrix for the channel
 given the multiplicative gap.
@@ -185,7 +185,7 @@ function density_lower_bound(Ch::AbstractChannel, gap::Real)
 end
 
 """
-    check_concentrated_degree_distribution(Ch::BinaryErasureChannel, gap::Real)
+$(TYPEDSIGNATURES)
 
 Return the check-concentrated degree distribution `(λ, ρ)` for the binary erasure channel
 given the desired multiplicative gap.
@@ -223,8 +223,8 @@ end
 """
     optimal_lambda(ρ, l_max, param, var_type; Δ = 1e-3)
 
-Find the optimal variable node distribution `λ` given the check node
-distribution `ρ`, maximum variable node degree `l_max`, and target parameter
+Return the optimal variable-node distribution `λ` for the check-node
+distribution `ρ`, maximum variable-node degree `l_max`, and target parameter
 `param` which refers to threshold if `var_type == :ε` or rate if `var_type == :r`.
 
 # Notes
@@ -235,8 +235,8 @@ function optimal_lambda end
 """
     optimal_rho(λ, r_max, param, var_type; Δ = 1e-3)
 
-Find the optimal check node distribution `ρ` given the variable node
-distribution `λ`, maximum check node degree `r_max`, and target parameter `param`
+Return the optimal check-node distribution `ρ` for the variable-node
+distribution `λ`, maximum check-node degree `r_max`, and target parameter `param`
 which refers to threshold if `var_type == :ε` or rate if `var_type == :r`.
 
 # Notes
@@ -247,7 +247,7 @@ function optimal_rho end
 """
     optimal_lambda_and_rho(l_max, r_max, param, var_type; Δρ = 1e-2, Δλ = 1e-3)
 
-Find the optimal distribution pair λ, ρ given the `param`, where `param` is
+Return the optimal distribution pair `λ`, `ρ` for `param`, where `param` is
 either a threshold if `var_type == :ε` or a target rate if `var_type == :r`.
 
 # Notes
@@ -294,7 +294,7 @@ end
     _density_evolution_GA(λ_vec, ρ_vec, σ; max_iters=500, tol=1e-6)
 
 Perform Gaussian Approximation Density Evolution for the BAWGN channel.
-Returns `true` if the DE successfully decodes (mean LLR approaches infinity), `false` otherwise.
+Return `true` if the DE successfully decodes (mean LLR approaches infinity), `false` otherwise.
 """
 function _density_evolution_GA(λ_vec::Vector{<:Real}, ρ_vec::Vector{<:Real}, σ::Float64; max_iters::Int=500, tol::Float64=1e-6)
     # Initial channel LLR mean for BPSK over AWGN: 2 / σ^2
@@ -381,8 +381,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate the `(x, y)` curve data for the EXIT chart of the ensemble over a given channel.
-Returns a tuple `(vnd_x, vnd_y, cnd_x, cnd_y)`.
+Return the tuple `(vnd_x, vnd_y, cnd_x, cnd_y)` of EXIT-chart curve data for
+the ensemble over a binary erasure channel.
 
 # Notes
 * `vnd` curves represent the Variable Node Decoder mutual information transfer.
@@ -536,8 +536,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Find the exact AWGN noise threshold (maximum standard deviation `σ_n`) for a 
-protograph base matrix using PEXIT analysis.
+Return the estimated AWGN noise threshold (maximum standard deviation `σ_n`)
+for a protograph base matrix using PEXIT analysis.
 
 # Arguments
 * `B::Matrix{Int}`: The protograph base matrix.
@@ -595,8 +595,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate the `(x, y)` curve data for the averaged EXIT chart of a Protograph base matrix `B`.
-Returns a tuple `(vnd_x, vnd_y, cnd_x, cnd_y)` which seamlessly plugs into standard plotting functions.
+Return the tuple `(vnd_x, vnd_y, cnd_x, cnd_y)` of averaged EXIT-chart curve
+data for the protograph base matrix `B`.
 
 # Arguments
 * `B::Matrix{Int}`: The protograph base matrix.
@@ -656,8 +656,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate the `(x, y)` curve data for the EXIT chart of the ensemble over a BAWGN channel
-using Gaussian Approximation.
+Return EXIT-chart curve data for the ensemble over a BAWGN channel using the
+Gaussian approximation.
 """
 function EXIT_chart_data(E::LDPCEnsemble, Ch::BAWGNChannel; pts::Int=100)
     # For AWGN, LLR variance = 4 / σ_n^2. Thus, LLR std dev = 2 / σ_n
@@ -668,8 +668,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate the `(x, y)` curve data for the EXIT chart of the ensemble over any arbitrary 
-symmetric channel using the AWGN-equivalent capacity approximation.
+Return EXIT-chart curve data for the ensemble over an arbitrary symmetric
+channel using the AWGN-equivalent capacity approximation.
 """
 function EXIT_chart_data(E::LDPCEnsemble, Ch::AbstractChannel; pts::Int=100)
     # 1. Find the exact Mutual Information (Capacity) of the channel
@@ -766,11 +766,12 @@ end
 $(TYPEDSIGNATURES)
 
 Run Multi-Edge Type (MET) Density Evolution using Gaussian Approximation for an AWGN channel.
-Returns `true` if the ensemble decodes, `false` otherwise.
+Return `true` if the ensemble decodes, `false` otherwise.
 
 # Arguments
 * `E::METEnsemble`: The Multi-Edge Type ensemble definition.
-* `sigma_ch::Float64`: The AWGN channel LLR standard deviation (2.0 / sigma_noise).
+* `sigma_ch::Float64`: The AWGN channel LLR standard deviation
+  (`2.0 / sigma_noise`).
 """
 function density_evolution_MET_GA(E::METEnsemble, sigma_ch::Float64; max_iters::Int=1000, tol::Float64=1e-5)
     ne = E.num_edge_types
@@ -924,8 +925,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Find the optimal AWGN noise threshold (maximum standard deviation `σ_n`) for a 
-Multi-Edge Type (MET) ensemble using Gaussian Approximation.
+Return the optimal AWGN noise threshold (maximum standard deviation `σ_n`) for
+a multi-edge-type (MET) ensemble using the Gaussian approximation.
 """
 function optimal_threshold(E::METEnsemble, ::Type{BAWGNChannel}; tol::Float64=1e-4)
     low_σ = 0.1   # Low noise -> Should trivially decode
@@ -1010,7 +1011,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Find the optimal crossover probability threshold (`p`) for the Binary Symmetric Channel.
+Return the optimal crossover-probability threshold `p` for the binary symmetric
+channel.
 """
 optimal_threshold(E::AbstractLDPCFamily, ::Type{BinarySymmetricChannel}; tol::Float64=1e-5) = 
     _bisection_threshold(p -> _decodes_GA(E, BinarySymmetricChannel(p)), 0.0, 0.5, tol, false)
@@ -1018,7 +1020,7 @@ optimal_threshold(E::AbstractLDPCFamily, ::Type{BinarySymmetricChannel}; tol::Fl
 """
 $(TYPEDSIGNATURES)
 
-Find the optimal crossover probability threshold (`p`) for the Z-Channel.
+Return the optimal crossover-probability threshold `p` for the Z-channel.
 """
 optimal_threshold(E::AbstractLDPCFamily, ::Type{ZChannel}; tol::Float64=1e-5) = 
     _bisection_threshold(p -> _decodes_GA(E, ZChannel(p)), 0.0, 1.0, tol, false)
@@ -1026,7 +1028,7 @@ optimal_threshold(E::AbstractLDPCFamily, ::Type{ZChannel}; tol::Float64=1e-5) =
 """
 $(TYPEDSIGNATURES)
 
-Find the optimal Ergodic noise threshold (`σ`) for the Rayleigh Fading Channel.
+Return the optimal ergodic noise threshold `σ` for the Rayleigh fading channel.
 """
 optimal_threshold(E::AbstractLDPCFamily, ::Type{RayleighFadingChannel}; tol::Float64=1e-4) = 
     _bisection_threshold(σ -> _decodes_GA(E, RayleighFadingChannel(σ)), 0.1, 3.0, tol, true)

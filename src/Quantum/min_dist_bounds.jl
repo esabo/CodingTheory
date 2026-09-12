@@ -156,14 +156,42 @@ function set_minimum_distance_upper_bound!(
     return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after tightening the certified lower bound on the
+`X`-distance. The bound records that no nontrivial `X` logical has smaller
+weight.
+"""
 set_X_minimum_distance_lower_bound!(S::AbstractStabilizerCodeCSS, lower::Int) =
     set_minimum_distance_lower_bound!(S, lower; which=:X)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after tightening the certified lower bound on the
+`Z`-distance. The bound records that no nontrivial `Z` logical has smaller
+weight.
+"""
 set_Z_minimum_distance_lower_bound!(S::AbstractStabilizerCodeCSS, lower::Int) =
     set_minimum_distance_lower_bound!(S, lower; which=:Z)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after tightening the `X`-distance upper bound using
+`witness`, which is validated as an `X` logical operator of weight `upper`.
+"""
 set_X_minimum_distance_upper_bound!(
     S::AbstractStabilizerCodeCSS, upper::Int, witness::CTMatrixTypes
 ) = set_minimum_distance_upper_bound!(S, upper, witness; which=:X)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after tightening the `Z`-distance upper bound using
+`witness`, which is validated as a `Z` logical operator of weight `upper`.
+"""
 set_Z_minimum_distance_upper_bound!(
     S::AbstractStabilizerCodeCSS, upper::Int, witness::CTMatrixTypes
 ) = set_minimum_distance_upper_bound!(S, upper, witness; which=:Z)

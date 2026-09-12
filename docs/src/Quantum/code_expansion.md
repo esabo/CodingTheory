@@ -74,28 +74,8 @@ treating physical Hamming distance as block distance would not be correct.
 
 ## API
 
-```@docs
-normalized_laplacian_matrix
-algebraic_connectivity
-normalized_spectral_gap
-nontrivial_adjacency_spectral_radius
-fiedler_vector
-is_topologically_connected
-estimated_edge_expansion
-estimated_vertex_expansion
-edge_expansion_bounds
-expansion_witness
-is_expander
-bipartite_expansion_profile
-is_bipartite_expander
-is_left_right_expander
-estimated_bipartite_vertex_expansion
-confinement_profile
-deterministic_QLTC_soundness
-verify_QLTC_soundness
-verify_confinement
-evaluate_single_shot_soundness
-evaluate_confinement
-sipser_spielman_guarantees
-cosystolic_expansion
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Quantum/code_expansion.jl"]
+Private = false
 ```

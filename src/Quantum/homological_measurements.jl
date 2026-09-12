@@ -104,8 +104,8 @@ $(TYPEDSIGNATURES)
 Return the (mapping) cone code associated with measuring the logical(s) `L` of the CSS stabilizer
 code `S`.
 
-# Optional Arguments
-All paramaters are aligned with their respective papers.
+# Keyword arguments
+All parameters are aligned with their respective papers.
 - `style` - `:Xanadu`, `:IBM`, or `:Cohen`
 - `max_iters` - used for `:Xanadu` and `:IBM`
 - `r` - used for `:Cohen`
@@ -286,7 +286,7 @@ function Cheeger_constant(M::Matrix{T}) where T <: Integer
 end
 
 """
-    Cheeger_constant(S::AbstractSubsystemCodeCSS, L::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the Cheeger constant of the incidence graph induced by the pure `X` or
 `Z` logical operator `L` and the opposite-type stabilizers of `S`.

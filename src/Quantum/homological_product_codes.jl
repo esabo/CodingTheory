@@ -6,7 +6,8 @@
 
 # has this been extended to subsystem codes?
 """
-    homological_product(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode, U::CTMatrixTypes = identity_matrix(S1.F, S1.n), V::CTMatrixTypes = identity_matrix(S2.F, S2.n))
+$(TYPEDSIGNATURES)
+
     ⊠(S1::AbstractStabilizerCode, S2::AbstractStabilizerCode) = homological_product(S1, S2)
 
 Return the single-sector homological product code of `S1` and `S2`.
@@ -129,7 +130,7 @@ function _rand_single_sector_boundary(n::Int, k::Int)
 end
 
 """
-   random_homological_product_code(n1::Int, k1::Int, n2::Int, k2::Int)
+$(TYPEDSIGNATURES)
 
 Return a random homological product code.
 

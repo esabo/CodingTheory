@@ -16,7 +16,7 @@ Return the Tanner graph of the matrix `H` as a Makie `Figure` object.
 function Tanner_graph_plot end
 
 """
-    Tanner_graph(H::Union{CTMatrixTypes, Matrix{Int}})
+$(TYPEDSIGNATURES)
 
 Return the `SimpleGraph` object repesenting the Tanner graph of the parity-check
 matrix `H` along with the indices of the left and right vertices representing
@@ -33,7 +33,7 @@ function Tanner_graph(H::Union{CTMatrixTypes, Matrix{Int}})
 end
 
 """
-    Tanner_graph(C::AbstractLinearCode)
+$(TYPEDSIGNATURES)
 
 Return the `SimpleGraph` object repesenting the Tanner graph of `C` along with
 the indices of the left and right vertices representing the bits and parity checks,

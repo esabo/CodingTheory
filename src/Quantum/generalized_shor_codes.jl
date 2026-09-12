@@ -6,10 +6,10 @@
 
 # unable to yield quantum LDPC code families with non constant minimum distance
 """
-    GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
-    BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
-Return the generalized Shor code of `C1` and `C2` with `C1⟂ ⊆ C2`.
+Return the generalized Shor code of `C1` and `C2` with
+``C1^\\perp \\subseteq C2``.
 """
 function _generalized_shor_gauge_matrix(C1::AbstractLinearCode, C2::AbstractLinearCode)
     C1.F == C2.F || throw(ArgumentError("Codes must be over the same field."))
@@ -74,6 +74,14 @@ function GeneralizedShorCode(C1::AbstractLinearCode, C2::AbstractLinearCode;
         character_vector(temp), cache)
     return _seed_quantum_singleton_bound!(result)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the Bacon--Casaccino subsystem code obtained from the classical codes
+`C1` and `C2`, requiring ``C1^\\perp \\subseteq C2``. Its ``X`` gauge
+generators replicate checks of `C1` across columns, and its ``Z`` gauge
+generators replicate checks of `C2` across rows.
+"""
 BaconCasaccinoConstruction(C1::AbstractLinearCode, C2::AbstractLinearCode; kwargs...) =
     GeneralizedShorCode(C1, C2; kwargs...)
 

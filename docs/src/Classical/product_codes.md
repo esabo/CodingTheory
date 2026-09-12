@@ -1,14 +1,13 @@
 # Product Codes
 
-`MatrixProductCode` combines constituent codes using a defining matrix. The
-usual direct product and tensor-product constructions are also available.
+A `MatrixProductCode` combines constituent codes through a defining matrix: row
+``i`` of the defining matrix says how codewords of the ``i``th constituent are
+mixed into each output block. The ordinary product and tensor-product
+constructions of two codes are in
+[New codes from old](@ref new-codes-from-old-api).
 
-```@docs
-MatrixProductCode
-RandomMatrixProductCode
-constituent_codes
-defining_matrix
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["Classical/MatrixProductCode.jl"]
+Private = false
 ```
-
-Use `product_code` for the ordinary product construction and
-`tensor_product` for the corresponding tensor-product operation.

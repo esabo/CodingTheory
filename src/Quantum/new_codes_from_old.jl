@@ -93,7 +93,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    A ⊕ B
 
 Return the independent direct sum of two stabilizer/subsystem codes. Additive
 generators and sparse storage are preserved; parameters are derived by the
@@ -126,8 +125,21 @@ function quantum_direct_sum(
     return StabilizerCode(generators; char_vec=char_vec, logs_alg=:sys_eqs)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the independent direct sum of two stabilizer or subsystem codes. This is
+an alias for `quantum_direct_sum`.
+"""
 ⊕(A::AbstractSubsystemCode, B::AbstractSubsystemCode) =
     quantum_direct_sum(A, B)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the independent direct sum of `A` and `B`, preserving additive
+generators and sparse storage. This is an alias for `quantum_direct_sum`.
+"""
 direct_sum(A::AbstractSubsystemCode, B::AbstractSubsystemCode) =
     quantum_direct_sum(A, B)
 
@@ -231,7 +243,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    swap_X_Z(S, qudits)
 
 Apply the single-qudit Fourier Clifford `(x,z) -> (-z,x)` on the selected
 coordinates. For binary codes this is the Hadamard `X`/`Z` swap. Pauli weight
@@ -256,6 +267,14 @@ function local_fourier(S::AbstractSubsystemCode, qudits)
     return _copy_local_clifford_distance_cache!(result, S)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a new code obtained by applying the single-qudit Fourier Clifford
+``(x,z) \\mapsto (-z,x)`` on `qudits`, leaving `S` unchanged. For binary codes
+this swaps `X` and `Z` by a Hadamard operation. This is an alias for
+`local_fourier`.
+"""
 swap_X_Z(S::AbstractSubsystemCode, qudits) =
     local_fourier(S, qudits)
 

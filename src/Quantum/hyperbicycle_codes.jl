@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    HyperBicycleCodeCSS(a::Vector{CTMatrixTypes}, b::Vector{CTMatrixTypes}, χ::Int; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the hyperbicycle CSS code of `a` and `b` given `χ`.
 
@@ -79,7 +79,7 @@ function HyperBicycleCodeCSS(a::Vector{T}, b::Vector{T}, χ::Int;
 end
 
 """
-    HyperBicycleCode(a::Vector{CTMatrixTypes}, b::Vector{CTMatrixTypes}, χ::Int; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the hyperbicycle non-CSS code of `a` and `b` given `χ`.
 

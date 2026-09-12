@@ -62,6 +62,23 @@
         @test check_degree_polynomial(C_irreg) == expected_c_poly
     end
 
+    @testset "Degree-Zero Nodes" begin
+        F = Oscar.Nemo.Native.GF(2)
+        R, x = polynomial_ring(Oscar.Nemo.QQ, :x)
+
+        # an unused column has degree zero and contributes nothing to λ(x)
+        C = LDPCCode(matrix(F, [1 1 0]))
+        @test variable_degree_polynomial(C) == one(R)
+        @test check_degree_polynomial(C) == x
+        @test CodingTheory.column_row_bounds(C) == (1, 2)
+        @test !is_regular(C)
+
+        # a code with no edges at all has zero degree polynomials
+        C_empty = LDPCCode(zero_matrix(F, 2, 3))
+        @test iszero(variable_degree_polynomial(C_empty))
+        @test iszero(check_degree_polynomial(C_empty))
+    end
+
     @testset "String Representations" begin
         F = Oscar.Nemo.Native.GF(2)
         H = matrix(F, [1 1 0; 0 1 1])

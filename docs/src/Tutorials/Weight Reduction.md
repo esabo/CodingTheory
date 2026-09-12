@@ -1,4 +1,4 @@
-# Weight Reduction
+# [Weight Reduction](@id weight-reduction-tutorial)
 Weight reduction was first introduced for CSS codes in [hastings2016](@cite), [hastings2021quantum](@cite) and for classical codes in [hastings2021fiber](@cite). Here, we follow the finite-size analysis of [sabo2024weight](@cite). The arguments of the functions below are aligned with the terminology introduced in that paper.
 
 ## Classical Codes

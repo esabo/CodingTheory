@@ -166,11 +166,15 @@ function _make_trellis_oriented!(G::CTMatrixTypes)
 end
 
 """
-    _weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Computes the Hamming weight distribution of a linear code.
-Uses the primal generator Trellis Product for low-rate codes, and the dual generator 
-Trellis Product (followed by the MacWilliams Identity) for high-rate codes.
+Return the Hamming weight distribution of the linear code `C` computed from a
+trellis.
+
+# Notes
+- Uses the primal generator trellis product for low-rate codes and the dual
+  generator trellis product followed by the MacWilliams identity for high-rate
+  codes.
 """
 function weight_distribution_trellis(C::AbstractLinearCode; num_trials::Int=50, verbose::Bool=false)
     k = C.k
@@ -239,7 +243,7 @@ end
 Reduces a Complete Weight Enumerator (CWE) dictionary down to a Homogeneous 
 Weight Enumerator (HWE) dictionary. 
 
-Returns a `Dict{Int, BigInt}` mapping the Hamming weight to the total number 
+Return a `Dict{Int, BigInt}` mapping the Hamming weight to the total number 
 of codewords possessing that weight.
 """
 function _CWE_to_HWE_dict(CWE_dict::Dict{NTuple{Q, Int}, BigInt}) where Q
@@ -833,6 +837,13 @@ function _optimal_sectionalization_linear(M::Matrix{T}, q::Int) where T
     return reverse(boundaries)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the past and future dimension profiles at boundaries ``0, \\ldots, n``.
+For each boundary, the past profile counts row spans ending there or earlier,
+while the future profile counts row spans starting strictly later.
+"""
 function past_future_profiles(L::Vector{Int}, R::Vector{Int}, n::Int)
     past = zeros(Int, n + 1)
     future = zeros(Int, n + 1)
@@ -846,9 +857,9 @@ function past_future_profiles(L::Vector{Int}, R::Vector{Int}, n::Int)
 end
 
 """
-    vertex_counts(k::Int, n::Int, past::Vector{Int}, future::Vector{Int}, boundaries::Vector{Int}=collect(0:n))
+$(TYPEDSIGNATURES)
 
-Returns an array representing the number of active generators (vertex exponent) 
+Return an array representing the number of active generators (vertex exponent) 
 exactly at each chosen section boundary for the Trellis Product graph. 
 Defaults to the unsectionalized step-by-step counts if `boundaries` is omitted.
 """
@@ -865,9 +876,9 @@ function vertex_counts(k::Int, n::Int, past::Vector{Int}, future::Vector{Int}, b
 end
 
 """
-    edge_counts(k::Int, n::Int, past::Vector{Int}, future::Vector{Int}, boundaries::Vector{Int}=collect(0:n))
+$(TYPEDSIGNATURES)
 
-Returns an array representing the edge complexity (number of active generators) 
+Return an array representing the edge complexity (number of active generators) 
 for each macro-section defined by the boundaries for the Trellis Product graph.
 Defaults to the unsectionalized step-by-step counts if `boundaries` is omitted.
 """
@@ -887,7 +898,7 @@ function edge_counts(k::Int, n::Int, past::Vector{Int}, future::Vector{Int}, bou
 end
 
 """
-    optimize_trellis_permutation(M::Matrix{T}, num_trials::Int=50) where T
+$(TYPEDSIGNATURES)
 
 Applies random column permutations to matrix M, transforms each into Trellis-Oriented 
 Form (TOF), and profiles the maximum active edge span. Returns the permuted TOF 
@@ -936,7 +947,7 @@ end
 """
     _get_LR_indices(M::Matrix{T}) where T
 
-Returns the left (L) and right (R) bounding indices for each row of the matrix M.
+Return the left (L) and right (R) bounding indices for each row of the matrix M.
 L[i] is the column index of the first non-zero element in row i.
 R[i] is the column index of the last non-zero element in row i.
 
@@ -1343,49 +1354,6 @@ function _CWE_classical_syndrome_quaternary(H::Matrix{T}, boundaries::Vector{Int
         verbose && next!(p)
     end
     return get(prev_layer, UInt128(0), Dict{NTuple{4, Int}, BigInt}())
-end
-
-"""
-    Krawtchouk(i::Int, j::Int, n::Int, q::Int)
-
-Evaluates the Krawtchouk polynomial P_i(j; n, q).
-"""
-function Krawtchouk(i::Int, j::Int, n::Int, q::Int)
-    val = BigInt(0)
-    for r in 0:i
-        if r <= j && (i - r) <= (n - j)
-            term = (BigInt(-1)^r) * (BigInt(q - 1)^(i - r)) * binomial(BigInt(j), BigInt(r)) * binomial(BigInt(n - j), BigInt(i - r))
-            val += term
-        end
-    end
-    return val
-end
-
-"""
-    MacWilliams_HWE_transform(input_hwe::Dict{Int, BigInt}, n::Int, k_in::Int, q::Int)
-
-Applies the MacWilliams identity to convert a Hamming weight distribution 
-into its dual Hamming weight distribution using Krawtchouk polynomials.
-"""
-function MacWilliams_HWE_transform(input_hwe::Dict{Int, BigInt}, n::Int, k_in::Int, q::Int)
-    output_hwe = Dict{Int, BigInt}()
-    scaling_factor = BigInt(q)^k_in
-    
-    for i in 0:n
-        A_i = BigInt(0)
-        for (j, A_in_j) in input_hwe
-            A_i += A_in_j * Krawtchouk(i, j, n, q)
-        end
-        
-        @assert A_i % scaling_factor == 0 "MacWilliams transform yielded non-integer. Check inputs."
-        
-        actual_A_i = A_i ÷ scaling_factor
-        if actual_A_i > 0
-            output_hwe[i] = actual_A_i
-        end
-    end
-    
-    return output_hwe
 end
 
 function _BZ_middle_search(M::Matrix{T}, L::Vector{Int}, R::Vector{Int}, B_L::Int, B_R::Int, 
@@ -2028,13 +1996,15 @@ function _optimal_sectionalization_2d_cyclic(M::Matrix{T}, q::Int, p_x::Int, p_y
 end
 
 """
-    optimal_sectionalization(M::Matrix{T}, q::Int; type::Symbol=:linear, max_width::Int=10, kwargs...) where T
+$(TYPEDSIGNATURES)
 
-Computes the optimal sectionalization bounds for the Viterbi trellis to minimize 
-peak state and branch complexity. Enforces a strict `max_width` to prevent 
+Return sectional boundaries optimized to minimize the Viterbi trellis's peak
+state and branch complexity. Enforces a strict `max_width` to prevent
 exponential branch evaluation traps in low-density or syndrome matrices.
 
-# Types
+# Notes
+The supported sectionalization types are:
+
 * `:linear` - Standard optimal sectionalization for a generic code.
 * `:QC` - Imposes periodicity for a Quasi-Cyclic code. Requires kwarg `p` (block size).
 * `:twoD` - Evaluates a 2D grid mapped to 1D. Requires kwargs `p_x`, `p_y`, `grid_x`, `grid_y`.

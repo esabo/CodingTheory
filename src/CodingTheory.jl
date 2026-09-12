@@ -35,7 +35,7 @@ import Oscar: dual, factor, transpose, order, polynomial, nrows, ncols, degree,
 import Oscar.Hecke: is_separable, ⊗, ⊕
 import Oscar.Nemo: exponent_vectors
 import Oscar.GAP: GapObj, Globals, Packages
-import Base: circshift, iseven, show, length, in, zeros, ⊆, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
+import Base: circshift, iseven, show, length, in, zeros, ⊆, ⊊, /, *, ==, ∩, +, -, copy, isequal, ∘, ∈,
     getproperty, setproperty!
 import Combinatorics: powerset
 import DataStructures: capacity
@@ -221,7 +221,7 @@ export LinearCode, random_linear_code, field, length, dimension, cardinality,
 export relative_distance, genus, minimum_distance_lower_bound, 
        minimum_distance_upper_bound, is_MDS, number_correctable_errors, 
        is_overcomplete, set_distance_lower_bound!, set_distance_upper_bound!, 
-       set_minimum_distance!, change_field!, change_field, ⊆, ⊂
+       set_minimum_distance!, change_field!, change_field, ⊆, ⊂, ⊊
 
 # Encoding & Code Space
 export encode, syndrome, information_set, random_information_set, Singleton_bound, 
@@ -338,8 +338,8 @@ export Tanner_graph_plot, Tanner_graph, TannerCode, graph_eigenvalues,
 
 include("Classical/trellis.jl")
 export past_future_profiles, vertex_counts, edge_counts, 
-       optimize_trellis_permutation, optimal_sectionalization, Krawtchouk, 
-       MacWilliams_HWE_transform, weight_distribution_trellis
+       optimize_trellis_permutation, optimal_sectionalization, 
+       weight_distribution_trellis
 
 #############################
 # Classical/TwistedReedSolomon.jl
@@ -364,7 +364,8 @@ export weight_reduction
 
 include("Classical/words_of_weight.jl")
 export words_of_minimum_weight, words_of_weight, polynomial, 
-       HammingWeightEnumerator, MacWilliams_transform, weight_distribution, 
+       HammingWeightEnumerator, Krawtchouk, MacWilliams_HWE_transform, 
+       MacWilliams_transform, weight_distribution, 
        complete_weight_distribution, weight_enumerator, complete_weight_enumerator, 
        weight_distribution_array, weight_plot
 
@@ -523,11 +524,14 @@ export SubsystemCode, SubsystemCodeCSS, CSSSubsystemCode, random_subsystem_code,
     bare_minimum_distance_upper_bound, dressed_minimum_distance_lower_bound,
     dressed_minimum_distance_upper_bound, bare_X_minimum_distance_lower_bound,
     bare_X_minimum_distance_upper_bound, dressed_X_minimum_distance_lower_bound,
+    dressed_X_minimum_distance_upper_bound,
     bare_Z_minimum_distance_lower_bound, bare_Z_minimum_distance_upper_bound,
     dressed_Z_minimum_distance_lower_bound, dressed_Z_minimum_distance_upper_bound,
     X_minimum_distance, Z_minimum_distance, XZ_minimum_distance, set_bare_minimum_distance!,
     set_bare_X_minimum_distance!, set_bare_Z_minimum_distance!, set_dressed_minimum_distance!,
-    set_dressed_X_minimum_distance!, set_dressed_Z_minimum_distance!
+    set_dressed_X_minimum_distance!, set_dressed_Z_minimum_distance!,
+    metacheck, X_metacheck, Z_metacheck, set_metacheck!, set_X_metacheck!,
+    set_Z_metacheck!
 
 #############################
  # Quantum/stabilizer_code.jl
@@ -564,6 +568,7 @@ export qubit_degrees, generator_weights, stabilizer_weights, gauge_weights,
 #############################
 
 include("Quantum/Tanner.jl")
+export Tanner_graph_X, Tanner_graph_Z
 
 #############################
 # Quantum/code_expansion.jl
@@ -677,7 +682,29 @@ export heuristic_minimum_distance
 #############################
 
 include("Quantum/misc_known_codes.jl")
+
+"""
+    TriangularColorCode488(d::Int)
+
+Return the 4.8.8 triangular color code of distance `d`, whose qubits are
+numbered in trellis order.
+
+# Note
+- Run `using JLD2` to activate this extension. The stabilizers and logicals are
+  loaded from stored data, which currently covers odd ``3 \\leq d \\leq 19``.
+"""
 function TriangularColorCode488 end
+
+"""
+    TriangularColorCode666(d::Int)
+
+Return the 6.6.6 triangular color code of distance `d`, whose qubits are
+numbered in trellis order.
+
+# Note
+- Run `using JLD2` to activate this extension. The stabilizers and logicals are
+  loaded from stored data, which currently covers odd ``3 \\leq d \\leq 21``.
+"""
 function TriangularColorCode666 end
 export GaugedShorCode, Q9143, BaconShorCode, BravyiBaconShorCode,
     GeneralizedBaconShorCode, LocalBravyiBaconShorCode,
@@ -695,7 +722,29 @@ export FiveQubitCode, Q513, SteaneCode, Q713, ShorCode, Q913, Q412,
     HeavyHexCode, HeavySquareCode, ColorCode4612
 
 # JLD2-backed constructors with stored trellis ordering live in `ext/JLD2Ext`.
+
+"""
+    PlanarSurfaceCode3D_X(d::Int)
+
+Return the ``X``-check, ``X``-logical, and ``X``-metacheck matrices of the
+three-dimensional planar surface code of distance `d`.
+
+# Note
+- Run `using JLD2` to activate this extension. The matrices are loaded from
+  stored data, which currently covers ``3 \\leq d \\leq 9``.
+"""
 function PlanarSurfaceCode3D_X end
+
+"""
+    ToricCode3D_X(d::Int)
+
+Return the ``X``-check, ``X``-logical, and ``X``-metacheck matrices of the
+three-dimensional toric code of distance `d`.
+
+# Note
+- Run `using JLD2` to activate this extension. The matrices are loaded from
+  stored data, which currently covers ``2 \\leq d \\leq 13``.
+"""
 function ToricCode3D_X end
 export PlanarSurfaceCode3D_X, ToricCode3D_X
 

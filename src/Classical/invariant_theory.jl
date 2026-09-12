@@ -54,7 +54,7 @@ end
 $(TYPEDSIGNATURES)
 
 Return the fundamental Gleason polynomial generators for binary self-dual codes.
-Returns the tuple `(ϕ_2, ϕ_8, ϕ_24)` as polynomials in `R = QQ[x, y]`.
+Return the tuple `(ϕ_2, ϕ_8, ϕ_24)` as polynomials in `R = QQ[x, y]`.
 """
 function gleason_generators()
     R, (x, y) = polynomial_ring(QQ, ["x", "y"])
@@ -221,7 +221,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Generate the exact theoretical weight enumerator of an extremal self-dual code of length `n`.
+Return the theoretical weight enumerator of an extremal self-dual code of
+length `n`.
 
 # Notes
 * Mathematically forces the low-weight coefficients to 0 to maximize minimum distance.

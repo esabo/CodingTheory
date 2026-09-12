@@ -121,6 +121,13 @@ function SingleParityCheckCode(q::Int, n::Int)
     cache = Dict{Symbol, Any}(:G => G)
     return LinearCode(F, n, n - 1, 2, 2, 2, cache)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the ``[n, n - 1, 2]`` single parity-check code over
+``\\operatorname{GF}(q)``.
+This is an alias for `SingleParityCheckCode`.
+"""
 SPCCode(q::Int, n::Int) = SingleParityCheckCode(q, n)
 
 """
@@ -437,7 +444,20 @@ function HadamardCode(m::Int)
     cache = Dict{Symbol, Any}(:G => G, :weight_enum => hwe)
     return LinearCode(F, n, k, d, d, d, cache)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the ``[2^m, m, 2^{m - 1}]`` binary Hadamard code.
+This is an alias for `HadamardCode`.
+"""
 WalshHadamardCode(m::Int) = HadamardCode(m)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the ``[2^m, m, 2^{m - 1}]`` binary Hadamard code.
+This is an alias for `HadamardCode` and `WalshHadamardCode`.
+"""
 WalshCode(m::Int) = HadamardCode(m)
 
 # ==============================================================================

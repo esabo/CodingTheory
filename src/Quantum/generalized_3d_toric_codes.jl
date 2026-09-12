@@ -144,14 +144,38 @@ function stabilizers(S::FiniteGeneralized3DToricCode; standform::Bool = false)
 end
 
 character_vector(S::FiniteGeneralized3DToricCode) = S.cache[:char_vec]
+"""
+$(TYPEDSIGNATURES)
+
+Return the pair of Laurent polynomials defining the generalized
+three-dimensional toric code `S`.
+"""
 defining_polynomials(
     S::Union{Generalized3DToricCode, FiniteGeneralized3DToricCode}
 ) = S.a, S.b
+"""
+$(TYPEDSIGNATURES)
+
+Return the three-variable Laurent polynomial ring of `S`.
+"""
 Laurent_polynomial_ring(
     S::Union{Generalized3DToricCode, FiniteGeneralized3DToricCode}
 ) = S.LR
+"""
+$(TYPEDSIGNATURES)
+
+Return the two integer vectors generating the finite code's periodic lattice
+in the ``xy`` plane.
+"""
 twist_vectors(S::FiniteGeneralized3DToricCode) = S.a1, S.a2
 
+"""
+$(TYPEDSIGNATURES)
+
+Return twice the vector-space dimension of the quotient by the defining
+polynomials, the maximum dimension of a finite member of the family.
+For a finite code, return its dimension.
+"""
 function maximum_dimension(S::Generalized3DToricCode)
     R2 = Oscar._polyringquo(S.LR)
     R = codomain(R2)

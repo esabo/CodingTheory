@@ -1,8 +1,13 @@
 """
-    Tanner_graph_X(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Return the bipartite `SimpleGraph` representing only the X-checks and qubits.
-Results are cached in `S.cache[:Tanner_graph_X]`.
+Return `(G, qubits, checks)` for the ``X`` sector of the CSS code `S`, where `G`
+is the bipartite `SimpleGraph` on the qubits and the ``X`` checks and the other
+two entries are the vertex indices of each side.
+
+# Notes
+- Throws an `ArgumentError` for a non-CSS code.
+- The result is cached on the code.
 """
 function Tanner_graph_X(S::AbstractSubsystemCode)
     CSSTrait(typeof(S)) == IsCSS() || throw(ArgumentError("Tanner_graph_X is only defined for CSS codes."))
@@ -27,10 +32,15 @@ function Tanner_graph_X(S::AbstractSubsystemCode)
 end
 
 """
-    Tanner_graph_Z(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Return the bipartite `SimpleGraph` representing only the Z-checks and qubits.
-Results are cached in `S.cache[:Tanner_graph_Z]`.
+Return `(G, qubits, checks)` for the ``Z`` sector of the CSS code `S`, where `G`
+is the bipartite `SimpleGraph` on the qubits and the ``Z`` checks and the other
+two entries are the vertex indices of each side.
+
+# Notes
+- Throws an `ArgumentError` for a non-CSS code.
+- The result is cached on the code.
 """
 function Tanner_graph_Z(S::AbstractSubsystemCode)
     CSSTrait(typeof(S)) == IsCSS() || throw(ArgumentError("Tanner_graph_Z is only defined for CSS codes."))
@@ -55,7 +65,7 @@ function Tanner_graph_Z(S::AbstractSubsystemCode)
 end
 
 """
-    Tanner_graph(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the `SimpleGraph` object representing the Tanner graph of the code `S`.
 Automatically generates a tripartite graph (4-tuple) for CSS codes and a bipartite graph (3-tuple) for non-CSS codes.

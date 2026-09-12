@@ -34,6 +34,13 @@ function u_u_plus_v(C1::AbstractLinearCode, C2::AbstractLinearCode)
     cache = Dict{Symbol, Any}()
     return PlotkinCode(C1, C2, C1.F, n_new, k_new, d_new, lb, ub, cache)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the Plotkin ``(u \\mid u + v)`` construction of `C1` and `C2`, an
+``[2n, k_1 + k_2, \\min(2d_1, d_2)]`` code when both inputs have length ``n``.
+This is an alias for `u_u_plus_v`.
+"""
 Plotkin_construction(C1::AbstractLinearCode, C2::AbstractLinearCode) = u_u_plus_v(C1, C2)
 
 """
@@ -93,6 +100,14 @@ function construction_A(C::AbstractLinearCode, c::Union{Vector{Int}, Vector{<:CT
     
     return C_res
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the residue code from Construction A applied to `C` and its nonzero
+codeword `c`. If `c` has weight ``w``, the result has length ``n - w``,
+dimension ``k - 1``, and lower bound ``d - w + \\lceil w/q \\rceil``.
+This is an alias for `construction_A`.
+"""
 residue_code(C::AbstractLinearCode, c) = construction_A(C, c)
 
 """
@@ -120,7 +135,22 @@ function construction_B(C::AbstractLinearCode, h::Union{Vector{Int}, Vector{<:CT
     
     return C_new
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return Construction Y1 (Construction B) applied to `C` using the dual
+codeword `h`. If ``s = \\operatorname{wt}(h)``, the result has length
+``n - s``, dimension at least ``k - s + 1``, and preserves the distance
+lower bound of `C`. This is an alias for `construction_B`.
+"""
 construction_Y1(C::AbstractLinearCode, h) = construction_B(C, h)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return Construction Y applied to `C` using the dual codeword `h`.
+This is an alias for `construction_B` and hence for `construction_Y1`.
+"""
 construction_Y(C::AbstractLinearCode, h) = construction_B(C, h)
 
 """
@@ -277,7 +307,24 @@ function ×(C1::AbstractLinearCode, C2::AbstractLinearCode)
     cache = Dict{Symbol, Any}()
     return TensorProductCode(C1, C2, C1.F, n_new, k_new, d_new, lb, ub, cache)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the product code of `C1` and `C2`, with generator matrix
+``G_1 \\otimes G_2`` and parameters
+``[n_1 n_2, k_1 k_2, d_1 d_2]`` when both distances are known.
+This is an alias for `×`.
+"""
 direct_product(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 × C2
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the product code of `C1` and `C2`, with generator matrix
+``G_1 \\otimes G_2`` and parameters
+``[n_1 n_2, k_1 k_2, d_1 d_2]`` when both distances are known.
+This is an alias for `direct_product` and `×`.
+"""
 product_code(C1::AbstractLinearCode, C2::AbstractLinearCode) = C1 × C2
 
 """
@@ -466,7 +513,21 @@ function /(C2::AbstractLinearCode, C1::AbstractLinearCode)
     return LinearCode(C1.F, C1.n, nrows(Q), missing, lb, C1.n, cache)
 end
 quo(C1::AbstractLinearCode, C2::AbstractLinearCode) = /(C1, C2)
+"""
+$(TYPEDSIGNATURES)
+
+Return a complementary subcode representing `C1 / C2`, where `C2 ⊆ C1`.
+The result has length ``n`` and dimension ``k_1 - k_2``.
+This is an alias for `/`.
+"""
 quotient(C1::AbstractLinearCode, C2::AbstractLinearCode) = /(C1, C2)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a complement of the subcode `C2` in the supercode `C1`, representing
+`C1 / C2`. The result has length ``n`` and dimension ``k_1 - k_2``.
+"""
 code_complement(C2::AbstractLinearCode, C1::AbstractLinearCode) = /(C1, C2)
 
 # ==============================================================================
@@ -615,6 +676,13 @@ end
 extend(C::AbstractLinearCode, c::Integer) = extend(C, matrix(field(C), 1, C.n, ones(Int, C.n)), c)
 extend(C::AbstractLinearCode, a::CTMatrixTypes) = extend(C, a, C.n + 1)
 extend(C::AbstractLinearCode) = extend(C, matrix(field(C), 1, C.n, ones(Int, C.n)), C.n + 1)
+"""
+$(TYPEDSIGNATURES)
+
+Return the length ``n + 1``, dimension ``k`` extension of `C` obtained by
+appending a coordinate that makes every codeword's coordinate sum zero.
+This is an alias for `extend(C)`.
+"""
 even_extension(C::AbstractLinearCode) = extend(C)
 
 """

@@ -3,10 +3,10 @@
 # ==============================================================================
 
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 
-Store the reusable buffers for order-statistic decoding.
-Gaussian Elimination is performed in-place using a pre-allocated dense matrix.
+Store the reusable buffers for ordered statistics decoding (OSD).
+Gaussian elimination is performed in-place using a pre-allocated dense matrix.
 """
 struct OSDWorkspace
     num_var::Int
@@ -38,7 +38,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return an OSD workspace for the supplied parity-check matrix.
+Return an ordered statistics decoding (OSD) workspace for the supplied
+parity-check matrix.
 """
 function init_osd_workspace(H::AbstractMatrix)
     num_check, num_var = size(H)
@@ -61,7 +62,10 @@ function init_osd_workspace(H::AbstractMatrix)
 end
 
 """
-Initialize the OSD workspace from a Flint matrix.
+$(TYPEDSIGNATURES)
+
+Return an ordered statistics decoding (OSD) workspace built from a Flint matrix.
+
 The array methods are reserved for callers crossing the Python boundary, so the
 one-time conversion to a plain Julia matrix lives here.
 """
@@ -319,6 +323,13 @@ end
 # ALGORITHMS: GUESSING RANDOM ADDITIVE NOISE DECODING (GRAND)
 # ==============================================================================
 
+"""
+$(TYPEDEF)
+
+Store the reusable buffers for guessing random additive noise decoding (GRAND).
+The syndrome is updated incrementally as candidate patterns are toggled, so no
+candidate requires a fresh matrix-vector product.
+"""
 struct GRANDWorkspace
     num_var::Int
     num_check::Int
@@ -363,7 +374,10 @@ function init_grand_workspace(H::AbstractMatrix)
 end
 
 """
-Initialize the GRAND workspace from a Flint matrix. See [`init_osd_workspace`](@ref).
+$(TYPEDSIGNATURES)
+
+Return a GRAND workspace built from a Flint matrix. See
+[`init_osd_workspace`](@ref).
 
 This delegates to the `AbstractMatrix` method above, so it is the only place any
 new `GRANDWorkspace` field has to be initialized.
@@ -402,10 +416,15 @@ caller may probe patterns in any order.
 end
 
 """
-Executes Post-BP GRAND. 
-Searches every error pattern of weight up to `max_weight` (capped at 3) over the
-`max_lrb` Least Reliable Bits and returns the syndrome-matching pattern of least
-soft cost `sum(abs(total_llrs[i]) for i in flipped)`. That is the same
+$(TYPEDSIGNATURES)
+
+Return the syndrome-matching error pattern of least soft cost found by guessing
+random additive noise decoding (GRAND) applied to the belief-propagation output
+`total_llrs`.
+
+Every error pattern of weight up to `max_weight`, capped at 3, is searched over the
+`max_lrb` least reliable bits, and the pattern of least soft cost
+`sum(abs(total_llrs[i]) for i in flipped)` is returned. That is the same
 maximum-likelihood rule [`osd_decode!`](@ref) ranks its candidates by; returning
 the first match in Hamming-weight order instead would prefer one expensive flip
 over several cheap ones.
@@ -525,6 +544,12 @@ end
 # ALGORITHMS: RESIDUAL WEIGHTED BIT-FLIPPING (WBF)
 # ==============================================================================
 
+"""
+$(TYPEDEF)
+
+Store the reusable buffers for weighted bit flipping (WBF), including the residual
+syndrome, which is updated in place as bits are flipped.
+"""
 struct WBFWorkspace
     num_var::Int
     num_check::Int
@@ -536,6 +561,12 @@ struct WBFWorkspace
     mismatch_syndrome::Vector{UInt8} # 1 if check fails, 0 if it passes
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a weighted-bit-flipping (WBF) workspace for the supplied parity-check
+matrix.
+"""
 function init_wbf_workspace(H::AbstractMatrix)
     num_check, num_var = size(H)
     var_to_checks = [Int[] for _ in 1:num_var]
@@ -557,14 +588,31 @@ function init_wbf_workspace(H::AbstractMatrix)
 end
 
 """
-Initialize the WBF workspace from a Flint matrix. See [`init_osd_workspace`](@ref).
+$(TYPEDSIGNATURES)
+
+Return a weighted-bit-flipping workspace built from a Flint matrix. See
+[`init_osd_workspace`](@ref).
 """
 init_wbf_workspace(H::Union{fpMatrix, FqMatrix}) =
     init_wbf_workspace(_Flint_matrix_to_Julia_support_matrix(H))
 
 """
-Executes Post-BP WBF. 
-Iteratively flips the single bit with the highest energy score until the syndrome is zero.
+$(TYPEDSIGNATURES)
+
+Return `(success, codeword, iterations)` from weighted bit flipping (WBF) applied to
+the belief-propagation output `total_llrs`.
+
+Starting from the hard decisions of `total_llrs`, the bit maximizing the energy score
+
+```math
+\\mathrm{score}(v) = |\\{c \\sim v : c \\text{ unsatisfied}\\}| - \\alpha\\,|L_v|
+```
+
+is flipped, and the residual syndrome is updated incrementally. The first term
+rewards a bit that explains many unsatisfied checks and the second penalizes a bit
+the decoder is confident about, so `alpha` trades those off. Flipping stops as soon
+as the residual syndrome vanishes, in which case `success` is `true`, or after
+`max_iters` flips.
 """
 function wbf_decode!(W::WBFWorkspace, total_llrs::Vector{Float64};
                      syndrome::Vector{UInt8} = zeros(UInt8, W.num_check),

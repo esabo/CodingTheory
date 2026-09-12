@@ -1,8 +1,8 @@
 """
-    logbinomial(n::Int, k::Int)
+$(TYPEDSIGNATURES)
 
 Safely computes log(n choose k) using the Gamma function to prevent BigInt overflow.
-Returns -Inf if k < 0 or k > n.
+Return -Inf if k < 0 or k > n.
 """
 function logbinomial(n::Int, k::Int)
     if k < 0 || k > n return -Inf end
@@ -179,7 +179,8 @@ function _Stern_minimum_distance_binary(G::Matrix{Int}, target_w::Int; p::Int = 
 end
 
 """
-    probabilistic_minimum_distance_prange(C::AbstractLinearCode; confidence::Float64 = 0.99, verbose::Bool=true)
+$(TYPEDSIGNATURES)
+
 """
 function probabilistic_minimum_distance_prange(C::AbstractLinearCode; confidence::Float64 = 0.99, verbose::Bool=true)
     k, n = C.k, C.n
@@ -285,7 +286,7 @@ function _Leon_minimum_distance_nonbinary(G::CTMatrixTypes, target_w::Int; p::In
             
             try _make_systematic_gf!(G_loc, perm, k) catch; continue end
             
-            for cols in combinations(1:k, p)
+            for cols in Combinatorics.combinations(1:k, p)
                 if !keep_going[] break end
                 for scalars in Iterators.product(fill(non_zeros, p)...)
                     scalar_vec = collect(scalars)
@@ -489,9 +490,11 @@ function _Leon_minimum_distance_GF4(G::CTMatrixTypes, target_w::Int; p::Int = 2,
 end
 
 """
-    probabilistic_minimum_distance_lee_brickell(G::Matrix{Int}; confidence::Float64 = 0.99, p::Int = 2, verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using the Lee-Brickell algorithm.
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by the Lee--Brickell algorithm. If the search fails, return
+`(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_lee_brickell(G::Matrix{Int}; confidence::Float64 = 0.99, p::Int = 2, verbose::Bool=true)
     k, n = size(G)
@@ -515,10 +518,11 @@ function probabilistic_minimum_distance_lee_brickell(G::Matrix{Int}; confidence:
 end
 
 """
-    probabilistic_minimum_distance_leon(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using Leon's algorithm, scaling iterations to hit the target confidence level.
-Automatically routes to bitsliced hardware-accelerated engines for GF(2), GF(3), and GF(4) for maximum performance.
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by Leon's algorithm at the target confidence level. If the
+search fails, return `(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_leon(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), verbose::Bool=true)
     k, n = C.k, C.n
@@ -558,9 +562,11 @@ function probabilistic_minimum_distance_leon(C::AbstractLinearCode; confidence::
 end
 
 """
-    probabilistic_minimum_distance_stern(G::Matrix{Int}; confidence::Float64 = 0.99, p::Int = 2, l::Int = 12, verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using Stern's algorithm.
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by Stern's algorithm. If the search fails, return
+`(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_stern(G::Matrix{Int}; confidence::Float64 = 0.99, p::Int = 2, l::Int = 12, verbose::Bool=true)
     k, n = size(G)
@@ -1641,10 +1647,11 @@ function _Lee_Brickell_minimum_distance_GF4(G::CTMatrixTypes, target_w::Int; p::
 end
 
 """
-    probabilistic_minimum_distance_lee_brickell(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 2, verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using the Lee-Brickell algorithm, scaling iterations to hit the target confidence level.
-Automatically routes to bitsliced hardware-accelerated engines for GF(2), GF(3), and GF(4).
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by the Lee--Brickell algorithm at the target confidence level.
+If the search fails, return `(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_lee_brickell(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 2, verbose::Bool=true)
     k, n = C.k, C.n
@@ -1886,10 +1893,11 @@ function _mmt_succ_prob(n::Int, k::Int, w::Int, p::Int, l1::Int, l2::Int)
 end
 
 """
-    probabilistic_minimum_distance_mmt(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 4, l1::Int = (Int(order(C.F)) == 2 ? 8 : 2), l2::Int = (Int(order(C.F)) == 2 ? 8 : 2), verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using the May-Meurer-Thomae (MMT) 4-way merge tree. 
-Automatically routes to bitsliced hardware-accelerated engines for GF(2), GF(3), and GF(4).
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by the May--Meurer--Thomae (MMT) four-way merge tree. If the
+search fails, return `(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_mmt(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 4, l1::Int = (Int(order(C.F)) == 2 ? 8 : 2), l2::Int = (Int(order(C.F)) == 2 ? 8 : 2), verbose::Bool=true)
     k, n = C.k, C.n
@@ -2965,10 +2973,11 @@ function _DOOM_Stern_minimum_distance_nonbinary(G::CTMatrixTypes, target_w::Int;
 end
 
 """
-    probabilistic_minimum_distance_stern_DOOM(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using Sendrier's DOOM (Decoding One Out of Many) framework applied to Stern's algorithm. 
-Automatically routes to bitsliced hardware-accelerated engines for GF(2), GF(3), and GF(4).
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by Sendrier's DOOM framework applied to Stern's algorithm. If
+the search fails, return `(n, zeros(Int, n))`.
 
 DOOM targets an error vector of weight w-1 by simultaneously checking all n columns of the parity-check matrix, 
 drastically reducing the required number of iterations compared to standard Stern.
@@ -3243,10 +3252,11 @@ function _bjmm_succ_prob(n::Int, k::Int, w::Int, p::Int, ϵ1::Int, l1::Int, l2::
 end
 
 """
-    probabilistic_minimum_distance_bjmm(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 4, ϵ1::Int = 1, l1::Int = (Int(order(C.F)) == 2 ? 10 : 2), l2::Int = (Int(order(C.F)) == 2 ? 10 : 2), verbose::Bool=true)
+$(TYPEDSIGNATURES)
 
-Finds the minimum distance using the Becker-Joux-May-Meurer (BJMM) 3rd-Generation algorithm.
-Automatically hooks up bitsliced SIMD hardware-acceleration engines for GF(2), GF(3), and GF(4).
+Return an upper bound on the minimum distance and a codeword witnessing that
+bound, as found by the Becker--Joux--May--Meurer (BJMM) algorithm. If the search
+fails, return `(n, zeros(Int, n))`.
 """
 function probabilistic_minimum_distance_bjmm(C::AbstractLinearCode; confidence::Float64 = 0.99, p::Int = 4, ϵ1::Int = 1, l1::Int = (Int(order(C.F)) == 2 ? 10 : 2), l2::Int = (Int(order(C.F)) == 2 ? 10 : 2), verbose::Bool=true)
     k, n = C.k, C.n

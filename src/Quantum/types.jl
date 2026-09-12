@@ -8,18 +8,95 @@
       # abstract types
 #############################
 
+"""
+$(TYPEDEF)
+
+Supertype for additive quantum subsystem codes, including stabilizer codes as the gauge-free specialization.
+"""
 abstract type AbstractSubsystemCode <: AbstractAdditiveCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS subsystem codes with separate ``X``- and ``Z``-type stabilizer data.
+"""
 abstract type AbstractSubsystemCodeCSS <: AbstractSubsystemCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for stabilizer codes, represented in this hierarchy as subsystem codes without gauge qubits.
+"""
 abstract type AbstractStabilizerCode <: AbstractSubsystemCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS stabilizer codes with separate ``X``- and ``Z``-type stabilizer data.
+"""
 abstract type AbstractStabilizerCodeCSS <: AbstractStabilizerCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for graph-state subsystem-code representations.
+"""
 abstract type AbstractGraphStateSubsystem <: AbstractSubsystemCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS graph-state subsystem-code representations.
+"""
 abstract type AbstractGraphStateSubsystemCSS <: AbstractSubsystemCodeCSS end
+
+"""
+$(TYPEDEF)
+
+Supertype for graph-state stabilizer-code representations.
+"""
 abstract type AbstractGraphStateStabilizer <: AbstractStabilizerCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS graph-state stabilizer-code representations.
+"""
 abstract type AbstractGraphStateStabilizerCSS <: AbstractStabilizerCodeCSS end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS stabilizer codes obtained from the hypergraph-product construction.
+"""
 abstract type AbstractHypergraphProductCode <: AbstractStabilizerCodeCSS end
+
+"""
+$(TYPEDEF)
+
+Supertype for entanglement-assisted subsystem codes.
+"""
 abstract type AbstractEASubsystemCode <: AbstractSubsystemCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS entanglement-assisted subsystem codes.
+"""
 abstract type AbstractEASubsystemCodeCSS <: AbstractEASubsystemCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for entanglement-assisted stabilizer codes.
+"""
 abstract type AbstractEAStabilizerCode <: AbstractStabilizerCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for CSS entanglement-assisted stabilizer codes.
+"""
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
 
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
@@ -157,6 +234,8 @@ end
 #############################
 
 """
+$(TYPEDEF)
+
 An algebraic bivariate-bicycle datum before a finite lattice is chosen.
 
 This is deliberately not an `AbstractSubsystemCode`: it has no finite block
@@ -170,6 +249,8 @@ struct InfiniteBBCode{T, U, V}
 end
 
 """
+$(TYPEDEF)
+
 A finite bivariate-bicycle CSS stabilizer code.
 
 Representation-specific information (a standard quotient, a twisted Laurent
@@ -196,6 +277,8 @@ end
 #############################
 
 """
+$(TYPEDEF)
+
 An algebraic three-dimensional generalized toric-code datum.
 """
 struct Generalized3DToricCode{T, U, V}
@@ -206,6 +289,8 @@ struct Generalized3DToricCode{T, U, V}
 end
 
 """
+$(TYPEDEF)
+
 A finite three-dimensional generalized toric CSS stabilizer code.
 """
 mutable struct FiniteGeneralized3DToricCode{T, U, V} <: AbstractStabilizerCodeCSS
@@ -222,6 +307,11 @@ mutable struct FiniteGeneralized3DToricCode{T, U, V} <: AbstractStabilizerCodeCS
     cache::Dict{Symbol, Any}
 end
 
+"""
+$(TYPEDEF)
+
+A stabilizer code formed by concatenating an outer stabilizer code with an inner stabilizer code.
+"""
 mutable struct QuantumConcatenatedCode <: AbstractStabilizerCode
     F::CTFieldTypes
     outer_code::AbstractStabilizerCode
@@ -244,6 +334,11 @@ mutable struct HypergraphProductCode <: AbstractHypergraphProductCode
     cache::Dict{Symbol, Any}
 end
 
+"""
+$(TYPEDEF)
+
+A generalized Shor subsystem code constructed from two classical linear codes.
+"""
 mutable struct GeneralizedShorCode <: AbstractSubsystemCode
     F::CTFieldTypes
     C1::AbstractLinearCode
@@ -287,6 +382,11 @@ mutable struct GeneralizedBicycleCode{T <: CTMatrixTypes} <: AbstractStabilizerC
     cache::Dict{Symbol, Any}
 end
 
+"""
+$(TYPEDEF)
+
+A CSS stabilizer code defined by a lifted-product construction from matrices `A` and `B`.
+"""
 mutable struct LiftedProductCode{T} <: AbstractStabilizerCodeCSS
     F::CTFieldTypes
     A::T
@@ -297,6 +397,11 @@ mutable struct LiftedProductCode{T} <: AbstractStabilizerCodeCSS
     cache::Dict{Symbol, Any}
 end
 
+"""
+$(TYPEDEF)
+
+A bias-tailored lifted-product stabilizer code defined by matrices `A` and `B`.
+"""
 mutable struct BiasTailoredLiftedProductCode{T} <: AbstractStabilizerCode
     F::CTFieldTypes
     A::T
@@ -346,20 +451,71 @@ end
 const CSSTypes = Union{AbstractSubsystemCodeCSS, AbstractStabilizerCodeCSS, AbstractGraphStateStabilizerCSS, AbstractGraphStateSubsystemCSS, AbstractHypergraphProductCode}
 const GraphStateTypes = Union{AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer, AbstractGraphStateStabilizerCSS}
 
+"""
+$(TYPEDEF)
+
+Holy-trait function and root trait type that map a quantum code type to `HasLogicals` or `HasNoLogicals`. Dispatch on this trait instead of testing concrete code types.
+"""
 abstract type LogicalTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `LogicalTrait` for code types that carry logical operators.
+"""
 struct HasLogicals <: LogicalTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `LogicalTrait` for graph-state code types, which do not carry logical operators.
+"""
 struct HasNoLogicals <: LogicalTrait end
 LogicalTrait(::Type{T}) where {T <: AbstractSubsystemCode} = HasLogicals()
 LogicalTrait(::Type{T}) where {T <: GraphStateTypes} = HasNoLogicals()
 
+"""
+$(TYPEDEF)
+
+Holy-trait function and root trait type that map a quantum code type to `HasGauges` or `HasNoGauges`. Dispatch on this trait instead of testing concrete code types.
+"""
 abstract type GaugeTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `GaugeTrait` for subsystem-code types with gauge operators.
+"""
 struct HasGauges <: GaugeTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `GaugeTrait` for stabilizer-code types without gauge operators.
+"""
 struct HasNoGauges <: GaugeTrait end
 GaugeTrait(::Type{T}) where {T <: AbstractSubsystemCode} = HasGauges()
 GaugeTrait(::Type{T}) where {T <: AbstractStabilizerCode} = HasNoGauges()
 
+"""
+$(TYPEDEF)
+
+Holy-trait function and root trait type that map a quantum code type to `IsCSS` or `IsNotCSS`. Dispatch on this trait instead of testing concrete code types.
+"""
 abstract type CSSTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `CSSTrait` for code types in `CSSTypes`.
+"""
 struct IsCSS <: CSSTrait end
+
+"""
+$(TYPEDEF)
+
+Singleton trait returned by `CSSTrait` for non-CSS subsystem-code types.
+"""
 struct IsNotCSS <: CSSTrait end
 CSSTrait(::Type{T}) where {T <: AbstractSubsystemCode} = IsNotCSS()
 CSSTrait(::Type{T}) where {T <: CSSTypes} = IsCSS()

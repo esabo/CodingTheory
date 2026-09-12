@@ -8,14 +8,36 @@
       # abstract types
 #############################
 
+"""
+$(TYPEDEF)
+
+Supertype for linear low-density parity-check code representations.
+"""
 abstract type AbstractLDPCCode <: AbstractLinearCode end
 # abstract type AbstractNoiseChannel end
 # abstract type AbstractClassicalNoiseChannel <: AbstractNoiseChannel end
 # abstract type AbstractBinaryErasureChannel <: AbstractClassicalNoiseChannel end
 # abstract type AbstractBinarySymmetricChannel <: AbstractClassicalNoiseChannel end
 # abstract type AbstractBAWGNChannel <: AbstractClassicalNoiseChannel end
+"""
+$(TYPEDEF)
+
+Root type for communication-channel models used by decoders and density evolution.
+"""
 abstract type AbstractChannel end
+
+"""
+$(TYPEDEF)
+
+Supertype for channels with discrete input and output alphabets.
+"""
 abstract type AbstractDiscreteChannel <: AbstractChannel end
+
+"""
+$(TYPEDEF)
+
+Supertype for channels with continuous-valued outputs.
+"""
 abstract type AbstractContinuousChannel <: AbstractChannel end
 
 #############################
@@ -46,9 +68,9 @@ end
 #############################
 
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 
-Binary Erasure Channel (BEC) with erasure probability `ε`.
+Binary Erasure Channel (BEC) with erasure probability `ε`. Also available as `BEC`.
 """
 struct BinaryErasureChannel <: AbstractDiscreteChannel
     ε::Float64
@@ -60,9 +82,9 @@ end
 const BEC = BinaryErasureChannel
 
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 
-Binary Symmetric Channel (BSC) with crossover probability `p`.
+Binary Symmetric Channel (BSC) with crossover probability `p`. Also available as `BSC`.
 """
 struct BinarySymmetricChannel <: AbstractDiscreteChannel
     p::Float64
@@ -74,10 +96,9 @@ end
 const BSC = BinarySymmetricChannel
 
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 
-Binary-Input Additive White Gaussian Noise (BIAWGN) Channel.
-Defined by noise standard deviation `σ`.
+Binary-Input Additive White Gaussian Noise (BIAWGN) Channel, defined by noise standard deviation `σ`. Also available as `BAWGNC`.
 """
 struct BAWGNChannel <: AbstractContinuousChannel
     σ::Float64
@@ -88,6 +109,11 @@ struct BAWGNChannel <: AbstractContinuousChannel
 end
 const BAWGNC = BAWGNChannel
 
+"""
+$(TYPEDEF)
+
+A binary Z-channel with transition probability `param`.
+"""
 struct ZChannel <: AbstractDiscreteChannel
     param::Float64
     function ZChannel(p::Float64)
@@ -96,6 +122,11 @@ struct ZChannel <: AbstractDiscreteChannel
     end
 end
 
+"""
+$(TYPEDEF)
+
+A Rayleigh-fading channel with base noise standard deviation `param`.
+"""
 struct RayleighFadingChannel <: AbstractContinuousChannel
     param::Float64 # Base noise standard deviation σ (assuming E[a^2] = 1)
     function RayleighFadingChannel(sigma::Float64)
@@ -121,6 +152,8 @@ mutable struct LDPCEnsemble
 end
 
 """
+$(TYPEDEF)
+
 A structural representation of a Multi-Edge Type (MET) LDPC Ensemble.
 """
 struct METEnsemble
@@ -139,4 +172,9 @@ struct METEnsemble
 end
 
 # Define a Union type so we don't duplicate dispatches for LDPC and MET ensembles
+"""
+$(TYPEDEF)
+
+Union alias for the supported LDPC ensemble representations, `LDPCEnsemble` and `METEnsemble`.
+"""
 const AbstractLDPCFamily = Union{LDPCEnsemble, METEnsemble}

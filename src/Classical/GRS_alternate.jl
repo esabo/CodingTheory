@@ -50,9 +50,9 @@ function parity_check_matrix(C::GeneralizedReedSolomonCode, stand_form::Bool = f
 end
 
 """
-    GeneralizedReedSolomonCode(k::Int, v::Vector{FqFieldElem}, γ::Vector{FqFieldElem})
+$(TYPEDSIGNATURES)
 
-Return the dimension `k` Generalized Reed-Solomon code with scalars `v` and
+Return the dimension `k` generalized Reed-Solomon code with scalars `v` and
 evaluation points `γ`.
 
 # Notes
@@ -88,16 +88,16 @@ end
 
 # using notation of MacWilliams & Sloane, p. 340
 """
-    GeneralizedReedSolomonCode(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
 Return the generalized Reed-Solomon code associated with the Goppa code `C`.
 """
 GeneralizedReedSolomonCode(C::AbstractGoppaCode) = GeneralizedReedSolomonCode(C.n - degree(C.g), [C.g(C.L[i]) * prod(C.L[j] - C.L[i] for j in 1:C.n if i ≠ j)^(-1) for i in 1:C.n], C.L)
 
 """
-    GeneralizedReedSolomonCode(C::AbstractAlternateCode)
+$(TYPEDSIGNATURES)
 
-Return the generalized Reed-Solomon code associated with the alternate code `C`.
+Return the generalized Reed-Solomon code associated with the alternant code `C`.
 """
 GeneralizedReedSolomonCode(C::AbstractAlternateCode) = dual(GeneralizedReedSolomonCode(C.k, C.scalars, C.eval_pts))
 
@@ -131,7 +131,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Convert a cyclic `ReedSolomonCode` into its equivalent `GeneralizedReedSolomonCode` representation.
+Return the `GeneralizedReedSolomonCode` representation of the cyclic
+`ReedSolomonCode` `C`.
 """
 function GeneralizedReedSolomonCode(C::ReedSolomonCode)
     n = C.n
@@ -155,10 +156,10 @@ function GeneralizedReedSolomonCode(C::ReedSolomonCode)
 end
 
 """
-    AlternateCode(F::CTFieldTypes, r::Int, v::Vector{<:CTFieldElem}, γ::Vector{<:CTFieldElem})
+$(TYPEDSIGNATURES)
 
-Return the Alternate code `A_r(v, γ)` over the subfield `F`, derived from a parent 
-Generalized Reed-Solomon code over `E` with redundancy `r`.
+Return the alternant code ``A_r(v, \\gamma)`` over the subfield `F`, the subfield
+subcode of the generalized Reed-Solomon code over `E` with redundancy `r`.
 """
 function AlternateCode(F::CTFieldTypes, r::Int, v::Vector{<:CTFieldElem}, γ::Vector{<:CTFieldElem})
     n = length(γ)
@@ -253,7 +254,7 @@ function GeneralizedSrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, 
 end
 
 """
-    SrivastavaCode(F::CTFieldTypes, a::Vector{T}, w::Vector{T}, z::Vector{T}, t::Int) where T <: CTFieldElem
+$(TYPEDSIGNATURES)
 
 Return the Srivastava code over `F` given `a`, `w`, and `z`.
 
@@ -294,26 +295,32 @@ end
 #############################
 
 """
-    scalars(C::GeneralizedReedSolomonCode)
+$(TYPEDSIGNATURES)
 
-Return the scalars `v` of the Generalized Reed-Solomon code `C`.
+Return the scalars `v` of the generalized Reed-Solomon code `C`.
 """
 scalars(C::GeneralizedReedSolomonCode) = C.scalars
 
 """
-    dual_scalars(C::GeneralizedReedSolomonCode)
+$(TYPEDSIGNATURES)
 
-Return the scalars of the dual of the Generalized Reed-Solomon code `C`.
+Return the scalars of the dual of the generalized Reed-Solomon code `C`.
 """
 dual_scalars(C::GeneralizedReedSolomonCode) = C.dual_scalars
 
 """
-    evaluation_points(C::GeneralizedReedSolomonCode)
+$(TYPEDSIGNATURES)
 
-Return the evaluation points `γ` of the Generalized Reed-Solomon code `C`.
+Return the evaluation points `γ` of the generalized Reed-Solomon code `C`.
 """
 evaluation_points(C::GeneralizedReedSolomonCode) = C.eval_pts
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the extension field over which the parent generalized Reed-Solomon code of
+`C` is defined. For a Goppa code this is the field of the Goppa polynomial.
+"""
 extension_field(C::AbstractAlternateCode) = C.E
 
 #############################
@@ -325,17 +332,17 @@ extension_field(C::AbstractAlternateCode) = C.E
 #############################
 
 """
-    is_primitive(C::AbstractGeneralizedSrivastavaCode)
+$(TYPEDSIGNATURES)
 
-Return `true` if `C` is primitive
+Return whether `C` is primitive.
 """
 is_primitive(C::AbstractGeneralizedSrivastavaCode) = C.n == Int(order(C.E)) - length(C.w)
 
 """
 $(TYPEDSIGNATURES)
 
-Compute the sequence of syndromes for the received vector `y` with respect to 
-the Generalized Reed-Solomon code `C`.
+Return the sequence of syndromes for the received vector `y` with respect to 
+the generalized Reed-Solomon code `C`.
 """
 function syndromes(C::GeneralizedReedSolomonCode, y::Union{Vector{Int}, Vector{<:CTFieldElem}})
     F = C.F
@@ -358,8 +365,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the syndrome polynomial `S(z)` for the received vector `y` with respect to 
-the Generalized Reed-Solomon code `C`. This polynomial is the standard input 
+Return the syndrome polynomial ``S(z)`` for the received vector `y` with respect to 
+the generalized Reed-Solomon code `C`. This polynomial is the standard input 
 for the Berlekamp-Massey or Sugiyama Euclidean decoding algorithms.
 """
 function syndrome_polynomial(C::GeneralizedReedSolomonCode, y::Union{Vector{Int}, Vector{<:CTFieldElem}})

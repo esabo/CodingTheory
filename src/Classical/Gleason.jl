@@ -1,7 +1,7 @@
 """
-    Gleason_bound(C::AbstractLinearCode)
+$(TYPEDSIGNATURES)
 
-Returns the theoretical maximum minimum distance for a self-dual code 
+Return the theoretical maximum minimum distance for a self-dual code 
 under Gleason's Theorems. Returns `missing` if the code does not fit a standard extremal classification.
 """
 function Gleason_bound(C::AbstractLinearCode)
@@ -36,10 +36,10 @@ function Gleason_bound(C::AbstractLinearCode)
 end
 
 """
-    is_extremal(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Determines if a self-dual code achieves the absolute theoretical maximum 
-minimum distance allowed by Gleason's Theorems.
+Return `true` if a self-dual code attains the maximum minimum distance allowed
+by Gleason's theorems; otherwise, return `false`.
 """
 function is_extremal(C::AbstractLinearCode; verbose::Bool=false)
     bound = Gleason_bound(C)

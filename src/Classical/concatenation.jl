@@ -276,6 +276,14 @@ function concatenate(outers_unexpanded::Vector{T}, inners::Vector{T}) where T <:
     # FIX: Correctly maps (C_outs, C_ins) without swapping!
     return MultilevelConcatenatedCode(outers_unexpanded, inners, types, bases, dual_bases, F, n_new, k_new, d_new, lb, n_new, cache)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the generalized concatenation of `outers` with the nested sequence
+`inners`. This is an alias for `concatenate(outers, inners)`; the result has
+length ``n_{\\mathrm{in}} n_{\\mathrm{out}}`` and dimension equal to the sum
+of the outer-code dimensions.
+"""
 multilevel_concatenation(outers::Vector{T}, inners::Vector{T}) where T <: AbstractLinearCode = concatenate(outers, inners)
 
 # ==============================================================================

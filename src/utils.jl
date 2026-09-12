@@ -9,9 +9,9 @@
 #############################
 
 """
-    copy(C::T) where T <: AbstractCode
+$(TYPEDSIGNATURES)
 
-Returns a copy of the code `C`.
+Return a copy of the code `C`.
 """
 function copy(C::T) where T <: AbstractCode
     C2 = deepcopy(C)
@@ -115,15 +115,19 @@ tensor_product(A::Union{CTMatrixTypes, MatElem{<: ResElem}, MatElem{<: CTGroupAl
 # I think we should avoid length checking here and return it for entire matrix if given
 # Hamming_weight(v::T) where T <: Union{CTMatrixTypes, gfp_mat, Vector{S}} where S <: Integer = count(i->(i != 0), v)
 """
-    Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    weight(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    wt(v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
+$(TYPEDSIGNATURES)
 
 Return the Hamming weight of `v`.
 """
 function Hamming_weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer
     count(x -> !iszero(x), v)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming weight of the finite-field or integer vector or matrix `v`.
+This is an alias for `Hamming_weight` and counts all nonzero entries.
+"""
 weight(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 wt(v::T) where T <: Union{CTMatrixTypes, Vector{<:CTFieldElem}, Vector{S}, Adjoint{S, Vector{S}}, AbstractMatrix{S}} where S <: Integer = Hamming_weight(v)
 
@@ -140,7 +144,7 @@ end
 # wt(v::Matrix{Int}) = count(x -> !iszero(x), v)
 
 """
-    wt(f::CTPolyRingElem)
+$(TYPEDSIGNATURES)
 
 Return the number of nonzero coefficients of the polynomial `f`.
 """
@@ -178,18 +182,29 @@ function _min_wt_col(A::Union{CTMatrixTypes, Matrix{S}, LinearAlgebra.Adjoint{S,
 end
 
 """
-    Hamming_distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
-    dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer
+$(TYPEDSIGNATURES)
 
 Return the Hamming distance between `u` and `v`.
 """
 Hamming_distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming distance between same-typed Oscar finite-field matrices or
+integer vectors `u` and `v`. This is an alias for `Hamming_distance`.
+"""
 distance(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the Hamming distance between same-typed Oscar finite-field matrices or
+integer vectors `u` and `v`. This is an alias for `distance`.
+"""
 dist(u::T, v::T) where T <: Union{CTMatrixTypes, Vector{S}} where S <: Integer = Hamming_weight(u - v)
 
 """
-    symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the symplectic inner product of `u` and `v`.
 """
@@ -205,7 +220,7 @@ function symplectic_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
 end
 
 """
-    are_symplectic_orthogonal(A::CTMatrixTypes, B::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if the rows of the matrices `A` and `B` are symplectic orthogonal.
 """
@@ -225,7 +240,7 @@ end
 # end
 
 """
-    Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the Hermitian inner product of `u` and `v`.
 """
@@ -242,7 +257,7 @@ function Hermitian_inner_product(u::CTMatrixTypes, v::CTMatrixTypes)
 end
 
 """
-    Hermitian_conjugate_matrix(A::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return the Hermitian conjugate of the matrix `A`.
 """
@@ -1037,6 +1052,12 @@ function _col_permutation_symp!(X::Matrix{T}, A::Matrix{T}, p::AbstractVector{In
     return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the integer represented in base `base` by the digits in `x`, ordered
+from most significant to least significant.
+"""
 function digits_to_int(x::Vector{Int}, base::Int=2)
     res = 0
     for digit in x
@@ -1075,7 +1096,7 @@ function _CT_adjoint(A::MatElem{T}) where T <: CTGroupAlgebra
 end
 
 """
-    residue_polynomial_to_circulant_matrix(f::ResElem)
+$(TYPEDSIGNATURES)
 
     Return the circulant matrix whose first row or column is the coefficients of `f` if `type` is `:row` or `:col`, respectively.
 """
@@ -1115,7 +1136,7 @@ function residue_polynomial_to_circulant_matrix(f::ResElem, type::Symbol=:col)
 end
 
 """
-    group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra; type::Symbol=:col)
+$(TYPEDSIGNATURES)
 
 Return the circulant matrix whose first row or column is the coefficients of `x` if `type` is `:row` or `:col`, respectively.
 """
@@ -1145,7 +1166,7 @@ function group_algebra_element_to_circulant_matrix(x::CTGroupAlgebra, type::Symb
 end
 
 """
-    lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
+$(TYPEDSIGNATURES)
 
 Return the matrix whose residue polynomial elements are converted to circulant matrices
 over the base field.
@@ -1175,7 +1196,7 @@ function lift(A::MatElem{T}, type::Symbol=:col) where T <: ResElem
 end
 
 """
-    lift(A::MatElem{T}, type::Symbol=:col) where T <: CTGroupAlgebra
+$(TYPEDSIGNATURES)
 
 Return the matrix whose group algebra elements are converted to circulant matrices
 over the base field.
@@ -1219,11 +1240,11 @@ function _concat(locations::Union{CTMatrixTypes, Matrix}, M::CTMatrixTypes)
     return output
 end
 
-""""
-    row_supports(M::CTMatrixTypes)
+"""
+$(TYPEDSIGNATURES)
 
-Returns a vector where the ith entry lists the indices of the nonzero
-entries of `M[i, :]`
+Return a vector whose ``i``th entry lists the indices of the nonzero entries of
+`M[i, :]`.
 """
 function row_supports(M::Union{CTMatrixTypes,
     MatElem{EuclideanRingResidueRingElem{fpPolyRingElem}}})
@@ -1237,11 +1258,11 @@ function row_supports(M::Union{CTMatrixTypes,
     return output
 end
 
-""""
-    row_supports_symplectic(M::CTMatrixTypes)
+"""
+$(TYPEDSIGNATURES)
 
-Returns a vector where the ith entry is a 2-tuple of lists with the
-indices of the nonzero X and Z entries of `M[i, :]`
+Return a vector whose ``i``th entry is a two-tuple of lists giving the indices
+of the nonzero ``X`` and ``Z`` entries of `M[i, :]`.
 """
 function row_supports_symplectic(M::CTMatrixTypes)
     iseven(ncols(M)) || throw(ArgumentError("Matrix should have an even number of cols"))
@@ -1267,7 +1288,7 @@ function _node_adjacencies(H::Union{CTMatrixTypes, AbstractMatrix})
 end
 
 """
-    strongly_lower_triangular_reduction(A::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Return a strongly lower triangular basis for the kernel of `A` and
 a unit vector basis for the complement of the image of `transpose(A)`.
@@ -1312,7 +1333,7 @@ function strongly_lower_triangular_reduction(A::CTMatrixTypes)
 end
 
 """
-    load_alist(file::String)
+$(TYPEDSIGNATURES)
 
 Return a `Matrix{Int}` object from the matrix stored in the alist file format in `file`.
 """
@@ -1376,10 +1397,10 @@ end
     is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
     is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
 
-Return `true` if the binary matrix `G` is triorthogonal.
+Return whether the binary matrix `G` is triorthogonal.
 
 # Notes
-* If the optional parameter `verbos` is set to `true`, the first pair or triple of
+- If the optional parameter `verbose` is set to `true`, the first pair or triple of
   non-orthogonal rows will be identified on the console.
 """
 function is_triorthogonal(G::CTMatrixTypes, verbose::Bool=false)
@@ -1421,6 +1442,12 @@ function is_triorthogonal(G::Matrix{Int}, verbose::Bool=false)
     return true
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return `nothing` after printing each string in `A` on its own line.
+When `without_Is` is `true`, print spaces in place of every `I`.
+"""
 function print_string_array(A::Vector{String}, without_Is=false)
     for a in A
         if !without_Is
@@ -1505,7 +1532,7 @@ end
 #############################
 
 """
-    tr(x::fqPolyRepFieldElem, K::fqPolyRepField, verify::Bool=false)
+$(TYPEDSIGNATURES)
 
 Return the relative trace of `x` from its base field to the field `K`.
 
@@ -1574,7 +1601,7 @@ function _expand_matrix(M::CTMatrixTypes, D::AbstractDict, m::Int)
 end
 
 """
-    expand_matrix(M::CTMatrixTypes, K::fqPolyRepField, β::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return the matrix constructed by expanding the elements of `M` to the subfield
 `K` using the basis `β` for the base ring of `M` over `K`.
@@ -1598,7 +1625,7 @@ function expand_matrix(M::CTMatrixTypes, K::CTFieldTypes, β::Vector{<:CTFieldEl
 end
 
 """
-    quadratic_residues(q::Int, n::Int)
+$(TYPEDSIGNATURES)
 
 Return the sets of quadratic resides and quadratic non-residues of `q` and `n`.
 """
@@ -1639,7 +1666,7 @@ function _is_basis(E::CTFieldTypes, basis::Vector{<:CTFieldElem}, q::Int)
 end
 
 """
-    is_extension(E::CTFieldTypes, F::CTFieldTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
 `false, -1`.
@@ -1661,7 +1688,7 @@ function is_extension(E::CTFieldTypes, F::CTFieldTypes)
 end
 
 """
-    is_subfield(F::CTFieldTypes, E::CTFieldTypes)
+$(TYPEDSIGNATURES)
 
 Return `true` if `E/F` is a valid field extension and the degree of the extension; otherwise return
 `false, -1`.
@@ -1669,7 +1696,7 @@ Return `true` if `E/F` is a valid field extension and the degree of the extensio
 is_subfield(F::CTFieldTypes, E::CTFieldTypes) = is_extension(E, F)
 
 """
-    is_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` and the dual (complementary) basis if `basis` is a basis for `E/F`,
 otherwise return `false, missing`.
@@ -1686,7 +1713,7 @@ function is_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}
 end
 
 """
-    primitive_basis(E::fqPolyRepField, F::fqPolyRepField)
+$(TYPEDSIGNATURES)
 
 Return a primitive basis for `E/F` and its dual (complementary) basis.
 """
@@ -1702,13 +1729,13 @@ end
 # polynomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
 # monomialbasis(E::fqPolyRepField, F::fqPolyRepField) = primitive_basis(E, F)
 
-"""
-    normal_basis(E::fqPolyRepField, F::fqPolyRepField)
-
-Return a normal basis for `E/F` and its dual (complementary) basis.
-"""
 # "Normal Bases over Finite Fields" by Shuhong Gao has algorithms for this but they are
 # complicated for the field sizes intended in this work
+"""
+$(TYPEDSIGNATURES)
+
+Return a normal basis for the finite-field extension `E/F` and its dual basis.
+"""
 function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
     flag, m = is_extension(E, F)
     flag || throw(ArgumentError("Second field is not a subfield of the first."))
@@ -1724,23 +1751,29 @@ function normal_basis(E::CTFieldTypes, F::CTFieldTypes)
 end
 
 """
-    dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
-    complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
-Return the dual (complentary) basis of `basis` for the extension `E/F`.
+Return the dual, or complementary, basis of `basis` for the finite-field
+extension `E/F`.
 """
 function dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem})
     flag, λ = is_basis(E, F, basis)
     flag || throw(ArgumentError("The provided vector is not a basis for the extension."))
     return λ
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual, or complementary, basis of `basis` for the finite-field
+extension `E/F`. This is an alias for `dual_basis`.
+"""
 complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}) = dual_basis(E, F, basis)
 
 """
-    verify_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
-    verify_complementary_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem}, dual_basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
-Return `true` if `basis` is the dual of `dual_basis` for `E/F`, otherwise return `false`.
+Return whether `basis` is the dual of `dual_basis` for the finite-field
+extension `E/F`.
 """
 function verify_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem})
     flag, m = is_extension(E, F)
@@ -1769,10 +1802,17 @@ function verify_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTF
     end
     return B * B_inv == identity_matrix(E, m)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if `basis` and `dual_basis` are dual bases for the finite-field
+extension `E/F`, and `false` otherwise. This is an alias for
+`verify_dual_basis`.
+"""
 verify_complementary_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CTFieldElem}, dual_basis::Vector{<:CTFieldElem}) = verify_dual_basis(E, F, basis, dual_basis)
 
 """
-    are_equivalent_basis(basis::Vector{fqPolyRepFieldElem}, basis2::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a scalar multiple of `basis2`.
 """
@@ -1791,7 +1831,7 @@ function are_equivalent_basis(basis::Vector{<:CTFieldElem}, basis2::Vector{<:CTF
 end
 
 """
-    is_self_dual_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is equal to its dual.
 """
@@ -1802,7 +1842,7 @@ function is_self_dual_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_primitive_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a primitive basis for `E/F`.
 """
@@ -1818,7 +1858,7 @@ function is_primitive_basis(E::CTFieldTypes, F::CTFieldTypes, basis::Vector{<:CT
 end
 
 """
-    is_normal_basis(E::fqPolyRepField, F::fqPolyRepField, basis::Vector{fqPolyRepFieldElem})
+$(TYPEDSIGNATURES)
 
 Return `true` if `basis` is a normal basis for `E/F`.
 """
@@ -1844,7 +1884,7 @@ end
 #############################
 
 """
-    is_regular(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return `true` if `G` is regular.
 """
@@ -1854,7 +1894,7 @@ function is_regular(G::SimpleGraph{Int})
 end
 
 """
-    edge_vertex_incidence_matrix(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return the edge-vertex incidence matrix of `G` along with the vertex incides of the left
 and right bipartition.
@@ -1868,7 +1908,7 @@ function edge_vertex_incidence_matrix(G::SimpleGraph{Int})
 end
 
 """
-    edge_vertex_incidence_graph(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return the edge-vertex incidence graph of `G` along with the vertex incides of the left
 and right bipartition.
@@ -1879,7 +1919,7 @@ function edge_vertex_incidence_graph(G::SimpleGraph{Int})
 end
 
 """
-    is_valid_bipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vector{Int})
+$(TYPEDSIGNATURES)
 
 Return `true` if the vertices indexed by `left` and `right` form a valid bipartition for `G`.
 """
@@ -1908,18 +1948,20 @@ function is_valid_bipartition(G::SimpleGraph{Int}, left::Vector{Int}, right::Vec
 end
 
 """
-    extract_bipartition(G::SimpleGraph{Int})
+$(TYPEDSIGNATURES)
 
 Return two vectors representing the vertex indices of each side of the bipartition.
 """
 function extract_bipartition(G::SimpleGraph{Int})
     temp = bipartite_map(G)
     # this is the definition of the function is_bipartite in Graphs.jl
-    length(temp) == nv(G) || throw(ArgumentError("Input graph is not bipartite."))
+    length(temp) == Grphs.nv(G) || throw(ArgumentError("Input graph is not bipartite."))
     left = Vector{Int}()
     right = Vector{Int}()
-    for i in temp
-        i == 1 ? (push!(i, left);) : (push!(i, right);)
+    # bipartite_map stores the color of each vertex, so the vertex index is the
+    # position within it
+    for (v, color) in enumerate(temp)
+        color == 1 ? push!(left, v) : push!(right, v)
     end
     return left, right
 end
@@ -1958,8 +2000,15 @@ function _rand_invertible_matrix(F::CTFieldTypes, n::Integer)
     return A
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return ``\\binom{x}{y}`` as a `UInt128` when `y <= x`, and zero otherwise.
+"""
 function extended_binomial(x::Union{Int, UInt}, y::Union{Int, UInt})
-    return y <= x ? UInt128.(binomial(x, y)) : UInt128(0)
+    # the intermediate must be arbitrary precision, since binomial overflows
+    # Int64 well before the result exceeds UInt128
+    return y <= x ? UInt128(binomial(big(x), big(y))) : UInt128(0)
 end
 
 function _value_distribution(vals)

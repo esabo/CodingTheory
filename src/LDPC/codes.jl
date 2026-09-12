@@ -25,8 +25,14 @@ function LDPCCode(H::CTMatrixTypes)
     is_reg = (c_min == c_max) && (r_min == r_max)
     
     R, x = polynomial_ring(Nemo.QQ, :x)
-    col_poly = divexact(sum(i * x^(i - 1) for i in cols), num_edges)
-    row_poly = divexact(sum(i * x^(i - 1) for i in rows), num_edges)
+    # degree-zero nodes contribute nothing to the edge-perspective polynomials,
+    # and are skipped so that the exponent i - 1 stays nonnegative
+    col_poly = sum(i * x^(i - 1) for i in cols if i > 0; init = zero(R))
+    row_poly = sum(i * x^(i - 1) for i in rows if i > 0; init = zero(R))
+    if !iszero(num_edges)
+        col_poly = divexact(col_poly, num_edges)
+        row_poly = divexact(row_poly, num_edges)
+    end
     
     k_design = max(1, nc - nr)
     
@@ -112,62 +118,62 @@ end
 #############################
 
 """
-    variable_degree_distribution(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the variable node degree distribution of `C`.
 """
 variable_degree_distribution(C::LDPCCode) = C.cache[:col_degs]
 """
-    check_degree_distribution(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the check node degree distribution of `C`.
 """
 check_degree_distribution(C::LDPCCode) = C.cache[:row_degs]
 
 """
-    degree_distributions(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the variable and check node degree distributions of `C`.
 """
 degree_distributions(C::LDPCCode) = (C.cache[:col_degs], C.cache[:row_degs])
 
 """
-    column_bound(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the column bound `c` of the `(c, r)`-LDPC code `C`.
 """
 column_bound(C::LDPCCode) = C.cache[:c_bound]
 
 """
-    row_bound(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the row bound `r` of the `(c, r)`-LDPC code `C`.
 """
 row_bound(C::LDPCCode) = C.cache[:r_bound]
 
 """
-    column_row_bounds(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the column and row bounds `c, r` of the `(c, r)`-LDPC code `C`.
 """
 column_row_bounds(C::LDPCCode) = (C.cache[:c_bound], C.cache[:r_bound])
 
 """
-    limited(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the maximum of the row and column bounds for `C`.
 """
 limited(C::LDPCCode) = max(C.cache[:c_bound], C.cache[:r_bound])
 
 """
-    density(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the density of the parity-check matrix of `C`.
 """
 density(C::LDPCCode) = C.cache[:density]
 
 """
-    is_regular(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return `true` if the `C` is a regular LDPC code.
 
@@ -177,14 +183,14 @@ Return `true` if the `C` is a regular LDPC code.
 is_regular(C::LDPCCode) = C.is_reg
 
 """
-    variable_degree_polynomial(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the variable degree polynomial of `C`.
 """
 variable_degree_polynomial(C::AbstractLDPCCode) = C.λ
 
 """
-    check_degree_polynomial(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Return the check degree polynomial of `C`.
 """
@@ -213,11 +219,17 @@ Return the design dimension of the LDPC code, computed instantly as `n - m`.
 """
 design_dimension(C::LDPCCode) = C.k_design
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the design rate of `C`, given by its design dimension divided by its
+block length.
+"""
 design_rate(C::LDPCCode) = C.k_design / C.n
 rate(C::LDPCCode) = dimension(C) / C.n
 
 """
-    parity_check_matrix(C::AbstractLDPCCode)
+$(TYPEDSIGNATURES)
 
 Retrieve the parity-check matrix H. Checks the cache first, then falls back to 
 the struct field, throwing an error if neither exists.

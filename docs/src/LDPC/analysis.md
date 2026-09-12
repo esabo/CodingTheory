@@ -1,52 +1,29 @@
-# LDPC Ensemble Analysis
+# [LDPC Ensemble Analysis](@id ldpc-analysis-api)
 
-## Degree Distributions
+An LDPC ensemble is specified by its degree distributions rather than by a
+particular parity-check matrix, and density evolution tracks the distribution
+of decoder messages through the iterations to predict the ensemble's threshold:
+the worst channel parameter for which the error probability still converges to
+zero as the blocklength grows. The design of good irregular codes is the search
+for degree distributions with a high threshold at a given rate, which is what
+the optimization routines below do.
 
-```@docs
-check_concentrated_degree_distribution
-```
-
-```@docs
-optimal_lambda
-```
-
-```@docs
-optimal_rho
-```
-
-```@docs
-optimal_lambda_and_rho
-```
-
-```@docs
-optimal_threshold
-```
-
-## Density Evolution
-```@docs
-density_evolution
-```
-
-
-# Misc
-
-```@docs
-multiplicative_gap_lower_bound
-```
-
-```@docs
-density_lower_bound
-```
-
-See also: `EXIT_chart_plot` and `multiplicative_gap`.
+The ensemble types themselves, `LDPCEnsemble` and `METEnsemble`, are documented
+with the [channels](@ref ldpc-channels-api). EXIT and protograph-EXIT charts visualize the same
+convergence question one iteration at a time; the plotting functions require a
+Makie backend to be loaded.
 
 ## Optimizing degree distributions
 
 The optimization helpers support the following workflows:
 
-* `optimal_lambda` (`optimal_rho`): Given $\lambda$ (or $\rho$) and a threshold $\epsilon^{BP}$ (or target rate), find the distribution $\rho$ (or $\lambda$) with at least that threshold maximizing design rate (with at least that target rate maximizing threshold).
-* `optimal_lambda_and_rho`: Given a target rate (threshold), find distributions $\lambda$ and $\rho$ that maximize threshold (rate).
-* `optimal_threshold`: Given distributions $\lambda$ and $\rho$, compute the threshold
+* `optimal_lambda` and `optimal_rho`: given ``\rho`` (or ``\lambda``) and a
+  threshold ``\epsilon^{BP}`` or target rate, find the other distribution with
+  at least that threshold maximizing design rate, or with at least that target
+  rate maximizing threshold.
+* `optimal_lambda_and_rho`: given a target rate or threshold, find both
+  ``\lambda`` and ``\rho`` maximizing the other quantity.
+* `optimal_threshold`: given ``\lambda`` and ``\rho``, compute the threshold.
 
 Example of using `optimal_lambda_and_rho` and `optimal_threshold`:
 
@@ -64,4 +41,14 @@ julia> λ, ρ, r, ε = optimal_lambda_and_rho(8, 6, 0.4, :ε, Δλ = 0.0001, Δ�
 1.025672727266482436145720743991009459178786186514042575060182100591178904349331e-07
 ```
 
-This shows the accuracy of these functions and how to tune that accuracy. `optimal_lambda` and `optimal_rho` also have an optional keyword parameter `Δ` for tuning accuracy. Note that using `BigFloat` only behaves properly for `optimal_threshold`, any other `Δ` parameter should be `Float64`. Even for `optimal_threshold`, it's best to just use `Float64` unless you are specifically testing numerical stability.
+This shows the accuracy of these functions and how to tune it. `optimal_lambda`
+and `optimal_rho` also take a keyword `Δ` for the same purpose. Note that
+`BigFloat` only behaves properly for `optimal_threshold`; any other `Δ` should
+be a `Float64`, and even for `optimal_threshold` it is best to use `Float64`
+unless you are specifically testing numerical stability.
+
+```@autodocs
+Modules = [CodingTheory]
+Pages = ["LDPC/analysis.jl"]
+Private = false
+```

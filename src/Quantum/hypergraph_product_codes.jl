@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    HypergraphProductCode(C1::AbstractLinearCode, C2::AbstractLinearCode)
+$(TYPEDSIGNATURES)
 
 Return a lazy `HypergraphProductCode`. Computes parameters `n`, `k`, and bounds 
 instantly without generating the quantum parity check matrices.
@@ -151,7 +151,7 @@ function stabilizers(S::HypergraphProductCode)
 end
 
 """
-    Quintavalle_basis(C::HypergraphProductCode)
+$(TYPEDSIGNATURES)
 
 Return a symplectic canonical basis for the logical operators of `C`.
     

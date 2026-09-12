@@ -8,26 +8,144 @@
       # abstract types
 #############################
 
+"""
+$(TYPEDEF)
+
+Root type for all classical and quantum code representations.
+"""
 abstract type AbstractCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for code families that are not additive.
+"""
 abstract type AbstractNonadditiveCode <: AbstractCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for nonlinear classical code families.
+"""
 abstract type AbstractNonlinearCode <: AbstractCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for code families whose codewords form an additive group.
+"""
 abstract type AbstractAdditiveCode <: AbstractCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for linear classical codes over a finite field.
+"""
 abstract type AbstractLinearCode <: AbstractAdditiveCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for linear codes constructed from constituent codes and a coefficient matrix.
+"""
 abstract type AbstractMatrixProductCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for Reed--Muller code families.
+"""
 abstract type AbstractReedMullerCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for one-dimensional cyclic linear code families.
+"""
 abstract type AbstractCyclicCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for BCH codes within the cyclic-code hierarchy.
+"""
 abstract type AbstractBCHCode <: AbstractCyclicCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for Reed--Solomon codes represented as BCH codes.
+"""
 abstract type AbstractReedSolomonCode <: AbstractBCHCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for two-dimensional cyclic code families.
+"""
 abstract type AbstractCyclicCode2D <: AbstractCyclicCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for quasi-cyclic linear code families.
+"""
 abstract type AbstractQuasiCyclicCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for generalized Reed--Solomon code families.
+"""
 abstract type AbstractGeneralizedReedSolomonCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for linear codes constructed from algebraic curves.
+"""
 abstract type AbstractAlgebraicGeometryCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for linear codes formed by concatenating constituent codes.
+"""
 abstract type AbstractConcatenatedCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for alternate-code families.
+"""
 abstract type AbstractAlternateCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for Goppa codes within the alternate-code hierarchy.
+"""
 abstract type AbstractGoppaCode <: AbstractAlternateCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for generalized Srivastava codes within the alternate-code hierarchy.
+"""
 abstract type AbstractGeneralizedSrivastavaCode <: AbstractAlternateCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for twisted Reed--Solomon code families.
+"""
 abstract type AbstractTwistedReedSolomonCode <: AbstractLinearCode end
-abstract type AbstractConcatenatedCode <: AbstractLinearCode end
+
+"""
+$(TYPEDEF)
+
+Supertype for linear codes defined from Tanner-graph constraints.
+"""
 abstract type AbstractTannerCode <: AbstractLinearCode end
 
 #############################

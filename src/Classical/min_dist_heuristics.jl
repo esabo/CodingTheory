@@ -162,10 +162,10 @@ function _minimum_distance_ACO(C::AbstractLinearCode; y_max::Int=500, m_ants::In
 end
 
 """
-    heuristic_minimum_distance_ga(C::AbstractLinearCode; max_gens::Int=1000, pop_size::Int=200, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Executes a standalone Genetic Algorithm (Askali et al., 2013) to estimate the minimum distance of a linear code.
-Returns `(d_upper_bound, witness)`. Note that this is a probabilistic metaheuristic and does NOT 
+Return `(d_upper_bound, witness)`. Note that this is a probabilistic metaheuristic and does NOT 
 mathematically guarantee the true minimum distance.
 """
 function heuristic_minimum_distance_ga(C::AbstractLinearCode; max_gens::Int=1000, pop_size::Int=200, verbose::Bool=false)
@@ -187,11 +187,11 @@ function heuristic_minimum_distance_ga(C::AbstractLinearCode; max_gens::Int=1000
 end
 
 """
-    heuristic_minimum_distance_aco(C::AbstractLinearCode; y_max::Int=500, m_ants::Int=0, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Executes a standalone Ant Colony Optimization algorithm (Bouzkraoui et al., 2018) to estimate 
 the minimum distance of a linear code.
-Returns `(d_upper_bound, witness)`. Note that this is a probabilistic metaheuristic and does NOT 
+Return `(d_upper_bound, witness)`. Note that this is a probabilistic metaheuristic and does NOT 
 mathematically guarantee the true minimum distance.
 """
 function heuristic_minimum_distance_aco(C::AbstractLinearCode; y_max::Int=500, m_ants::Int=0, verbose::Bool=false)
@@ -314,11 +314,11 @@ function _minimum_distance_GGA_order(C::AbstractLinearCode; max_gens::Int=500, p
 end
 
 """
-    heuristic_minimum_distance_gga_order(C::AbstractLinearCode; max_gens::Int=500, pop_size::Int=50, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Executes the GGA-Order metaheuristic (Cuéllar et al., 2020) to estimate the minimum distance.
 Explores the permutation space `S_n` rather than the discrete message space `F_q^k`.
-Returns `(d_upper_bound, witness)`. Does NOT mathematically guarantee the true minimum distance.
+Return `(d_upper_bound, witness)`. Does NOT mathematically guarantee the true minimum distance.
 """
 function heuristic_minimum_distance_gga_order(C::AbstractLinearCode; max_gens::Int=500, pop_size::Int=50, verbose::Bool=false)
     if !ismissing(C.d)
@@ -336,7 +336,7 @@ function heuristic_minimum_distance_gga_order(C::AbstractLinearCode; max_gens::I
 end
 
 """
-    heuristic_minimum_distance_irons(C::AbstractLinearCode; num_iters::Int=1000, p_max::Int=3, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Implements the non-binary probabilistic algorithm (Algorithm 5) from Irons (2005).
 Randomly selects combinations of up to `p_max` rows of the generator matrix and evaluates their weights.
@@ -382,7 +382,7 @@ function heuristic_minimum_distance_irons(C::AbstractLinearCode; num_iters::Int=
 end
 
 """
-    heuristic_minimum_distance_nncs(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Implements the Nearest Nonzero Codeword Search (NNCS) using the Bit-Reversing noise 
 pattern from Hu et al. (2004). Uses an OSD-0 (Order Statistic Decoding) hard-decision 
@@ -428,12 +428,13 @@ function heuristic_minimum_distance_nncs(C::AbstractLinearCode; verbose::Bool=fa
 end
 
 """
-    heuristic_weight_distribution_hirotomo(C::AbstractLinearCode, target_w::Int; t_iters::Int=1000)
+$(TYPEDSIGNATURES)
 
-Estimates the low-part weight distribution A_w of an LDPC code using Hirotomo et al. (2005).
-Executes Stern's algorithm `t_iters` times to populate the frequency spectrum B_w, and calculates 
-the true multiplicity by dividing by Stern's mathematical success probability pi_w.
-Returns a Dictionary of {Weight => Estimated Count}.
+Return a `Dict` of weight to estimated count for the low-weight part of the weight
+distribution ``A_w`` of an LDPC code, using the method of Hirotomo et al. (2005).
+Stern's algorithm is run `t_iters` times to populate the frequency spectrum ``B_w``,
+and the multiplicity is estimated by dividing by Stern's success probability
+``\\pi_w``.
 """
 function heuristic_weight_distribution_hirotomo(C::AbstractLinearCode, target_w::Int; t_iters::Int=1000)
     k, n = C.k, C.n

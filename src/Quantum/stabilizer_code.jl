@@ -80,12 +80,19 @@ function StabilizerCodeCSS(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzMo
         F, n, dim_code, X_final, Z_final, clean_char_vec, cache)
     return _seed_quantum_singleton_bound!(result)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the CSS stabilizer code whose trimmed `X`- and `Z`-stabilizer matrices
+are `X_matrix` and `Z_matrix`. This is an alias for `StabilizerCodeCSS`.
+"""
 CSSCode(X_matrix::T, Z_matrix::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: CTMatrixTypes = StabilizerCodeCSS(X_matrix, Z_matrix,
     char_vec = char_vec, logs_alg = logs_alg)
 
 """
-    StabilizerCode(stabs::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the stabilizer code whose stabilizers is determined by `stabs`.
 """
@@ -204,9 +211,9 @@ function _quadratic_code_to_symplectic(
 end
 
 """
-    StabilizerCode(C::AbstractLinearCode, F; basis=missing, ...)
+$(TYPEDSIGNATURES)
 
-Construct the symplectic stabilizer code over `F` associated with a Hermitian
+Return the symplectic stabilizer code over `F` associated with a Hermitian
 self-orthogonal linear code over the quadratic extension of `F`. The optional
 `basis` is an ordered extension basis; a primitive basis is used by default.
 """
@@ -227,7 +234,8 @@ function StabilizerCode(
 end
 
 """
-    StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}}
+$(TYPEDSIGNATURES)
+
 """
 function StabilizerCodeCSS(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}}
@@ -242,7 +250,8 @@ end
 CSSCode(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}} = StabilizerCodeCSS(S_Pauli, char_vec = char_vec, logs_alg = logs_alg)
 
 """
-    StabilizerCode(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}}
+$(TYPEDSIGNATURES)
+
 """
 function StabilizerCode(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing,
     logs_alg::Symbol = :stnd_frm) where T <: Union{String, Vector{Char}}
@@ -254,7 +263,8 @@ function StabilizerCode(S_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem
 end
 
 """
-    StabilizerCodeCSS(S::AbstractStabilizerCode; logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
+
 """
 function StabilizerCodeCSS(S::AbstractStabilizerCode; logs_alg::Symbol = :stnd_frm)
     Z = deepcopy(stabilizers(S))
@@ -265,7 +275,8 @@ end
 CSSCode(S::AbstractStabilizerCode; logs_alg::Symbol = :stnd_frm) = StabilizerCodeCSS(S; logs_alg = logs_alg)
 
 """
-    StabilizerCode(S::AbstractStabilizerCode; logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
+
 """
 StabilizerCode(S::T; logs_alg::Symbol = :stnd_frm) where {T <: AbstractStabilizerCode} = StabilizerCode(CSSTrait(T), S, logs_alg)
 function StabilizerCode(::IsCSS, S::AbstractStabilizerCode, logs_alg::Symbol)
@@ -277,7 +288,8 @@ end
 StabilizerCode(::IsNotCSS, S::AbstractStabilizerCode, logs_alg::Symbol) = throw(ArgumentError("Only valid for CSS codes of even length"))
 
 """
-    StabilizerCode(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 """
 function StabilizerCode(S::AbstractSubsystemCode)
     typeof(S) <: AbstractStabilizerCode && return S
@@ -290,19 +302,22 @@ end
 #############################
 
 """
-    minimum_distance_lower_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the minimum distance.
 """
 minimum_distance_lower_bound(S::AbstractStabilizerCode) = get(S.cache, :l_bound, missing)
 
 """
-    minimum_distance_upper_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the minimum distance.
 """
 minimum_distance_upper_bound(S::AbstractStabilizerCode) = get(S.cache, :u_bound, missing)
 
 """
-    X_minimum_distance_lower_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the minimum `X`-distance.
 """
 X_minimum_distance_lower_bound(S::T) where T <: AbstractStabilizerCode = X_minimum_distance_lower_bound(CSSTrait(T), S)
@@ -310,7 +325,8 @@ X_minimum_distance_lower_bound(::IsCSS, S::AbstractStabilizerCode) = get(S.cache
 X_minimum_distance_lower_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
 
 """
-    X_minimum_distance_upper_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the minimum `X`-distance.
 """
 X_minimum_distance_upper_bound(S::T) where T <: AbstractStabilizerCode = X_minimum_distance_upper_bound(CSSTrait(T), S)
@@ -318,7 +334,8 @@ X_minimum_distance_upper_bound(::IsCSS, S::AbstractStabilizerCode) = get(S.cache
 X_minimum_distance_upper_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
 
 """
-    Z_minimum_distance_lower_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the minimum `Z`-distance.
 """
 Z_minimum_distance_lower_bound(S::T) where T <: AbstractStabilizerCode = Z_minimum_distance_lower_bound(CSSTrait(T), S)
@@ -326,7 +343,8 @@ Z_minimum_distance_lower_bound(::IsCSS, S::AbstractStabilizerCode) = get(S.cache
 Z_minimum_distance_lower_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("Only valid for CSS codes")
 
 """
-    Z_minimum_distance_upper_bound(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the minimum `Z`-distance.
 """
 Z_minimum_distance_upper_bound(S::T) where T <: AbstractStabilizerCode = Z_minimum_distance_upper_bound(CSSTrait(T), S)
@@ -339,7 +357,7 @@ Z_minimum_distance_upper_bound(::IsNotCSS, S::AbstractStabilizerCode) = error("O
 #############################
 
 """
-    set_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
 
 Set the minimum distance of the code to `d`.
 """
@@ -370,7 +388,7 @@ function set_minimum_distance!(S::AbstractStabilizerCode, d::Int)
 end
 
 """
-    set_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
 
 Set the minimum `X`-distance of the code to `d`.
 """
@@ -402,7 +420,7 @@ set_X_minimum_distance!(::IsNotCSS, S::AbstractStabilizerCode, d::Int) =
     error("Only valid for CSS codes")
 
 """
-    set_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
 
 Set the minimum `Z`-distance of the code to `d`.
 """
@@ -465,9 +483,9 @@ function _logicals(
 end
 
 """
-   random_CSS_code(n::Int, k::Int)
+$(TYPEDSIGNATURES)
 
-Return a random CSS code with an equal number of X and Z stabilizers.
+Return a random CSS code with an equal number of `X` and `Z` stabilizers.
 """
 function random_CSS_code(n::Int, k::Int)
     d = _rand_single_sector_boundary(n, k)
@@ -499,9 +517,9 @@ function _random_symplectic_pairs(rng::AbstractRNG, F::CTFieldTypes, n::Int)
 end
 
 """
-    random_stabilizer_code([rng], F, n, k; char_vec=missing)
+$(TYPEDSIGNATURES)
 
-Construct a random (not guaranteed uniformly sampled) `[[n,k]]` stabilizer
+Return a random, not necessarily uniformly sampled, ``[[n, k]]`` stabilizer
 code over `F`.
 """
 function random_stabilizer_code(
@@ -526,7 +544,7 @@ random_stabilizer_code(n::Int, k::Union{Int, Rational}; kwargs...) =
     random_stabilizer_code(Random.default_rng(), n, k; kwargs...)
 
 """
-    is_CSS_T_code(S::AbstractStabilizerCode)
+$(TYPEDSIGNATURES)
 
 Return `true` if `S` is a CSS-T code.
 """
@@ -601,7 +619,7 @@ end
 is_CSS_T_code(::IsNotCSS, S::AbstractStabilizerCode; verbose::Bool = false) = false
 
 """
-    is_triorthogonal(S::AbstractStabilizerCodeCSS ; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Return `true` if the CSS code `S` is triorthogonal.
 Cached to avoid recomputing on subsequent checks.

@@ -9,7 +9,7 @@
 #############################
 
 """
-    SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing)
+$(TYPEDSIGNATURES)
 
 Return the subsystem code whose gauge group is determined by `G`.
 """
@@ -91,9 +91,9 @@ function SubsystemCode(G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, 
 end
 
 """
-    SubsystemCode(C::AbstractLinearCode, F; basis=missing, ...)
+$(TYPEDSIGNATURES)
 
-Construct the subsystem code over `F` whose gauge space is the additive
+Return the subsystem code over `F` whose gauge space is the additive
 symplectic image of a linear code over the quadratic extension of `F`.
 """
 function SubsystemCode(
@@ -113,7 +113,7 @@ end
     SubsystemCodeCSS(X_gauges, Z_gauges; char_vec=missing)
     CSSSubsystemCode(X_gauges, Z_gauges; char_vec=missing)
 
-Construct a CSS subsystem code from trimmed `X`- and `Z`-type gauge
+Return the CSS subsystem code defined by trimmed `X`- and `Z`-type gauge
 generators. The constructor may return a stabilizer code when the gauge group
 is abelian.
 """
@@ -145,12 +145,18 @@ function SubsystemCodeCSS(
         generator_matrix(C_X), generator_matrix(C_Z); char_vec=char_vec)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return a CSS subsystem code from `X`- and `Z`-type gauge generators.
+This is an alias for `SubsystemCodeCSS`.
+"""
 CSSSubsystemCode(args...; kwargs...) = SubsystemCodeCSS(args...; kwargs...)
 
 """
-    random_subsystem_code([rng], F, n, k, r; char_vec=missing)
+$(TYPEDSIGNATURES)
 
-Construct a random (not guaranteed uniformly sampled) `[[n,k,r]]` subsystem
+Return a random, not necessarily uniformly sampled, ``[[n, k, r]]`` subsystem
 code over `F`.
 """
 function random_subsystem_code(
@@ -188,7 +194,7 @@ random_subsystem_code(n::Int, k::Union{Int, Rational}, r::Int; kwargs...) =
     random_subsystem_code(Random.default_rng(), n, k, r; kwargs...)
 
 """
-    SubsystemCode(G_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing) where T <: Union{String, Vector{Char}}
+$(TYPEDSIGNATURES)
 
 Return the subsystem code whose gauge group is determined by the vector of Pauli strings `G_Pauli`.
 """
@@ -201,7 +207,7 @@ function SubsystemCode(G_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}
 end
 
 """
-    SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing)
+$(TYPEDSIGNATURES)
 
 Return the subsystem code whose stabilizers are given by `S`, (bare) logical operators
 by `L`, gauge operators (not including stabilizers) by `G`.
@@ -315,7 +321,8 @@ function SubsystemCode(S::CTMatrixTypes, L::CTMatrixTypes, G::CTMatrixTypes;
 end
 
 """
-    SubsystemCode(S_Pauli::Vector{T}, L_Pauli::Vector{T}, G_Pauli::Vector{T}; char_vec::Union{Vector{zzModRingElem}, Missing} = missing) where T <: Union{String, Vector{Char}}
+$(TYPEDSIGNATURES)
+
 """
 function SubsystemCode(S_Pauli::Vector{T}, L_Pauli::Vector{T}, G_Pauli::Vector{T};
     char_vec::Union{Vector{zzModRingElem}, Missing} = missing) where T <: Union{String, Vector{Char}}
@@ -334,7 +341,7 @@ end
 #############################
 
 """
-    field(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the base ring of the code.
 """
@@ -347,17 +354,23 @@ field(S::AbstractSubsystemCode) = S.F
 Return the length of the code.
 """
 length(S::AbstractSubsystemCode) = S.n
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the number of physical qubits or qudits in `S`.
+"""
 num_qubits(S::AbstractSubsystemCode) = S.n
 
 """
-    dimension(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the dimension of the code.
 """
 dimension(S::AbstractSubsystemCode) = S.k
 
 """
-    cardinality(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the cardinality of the stabilizer group of the code.
 """
@@ -365,21 +378,21 @@ cardinality(S::AbstractSubsystemCode) =
     BigInt(characteristic(S.F))^_additive_rank(stabilizers(S), S.F)
 
 """
-    rate(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the rate, `R = k/n`, of the code.
 """
 rate(S::AbstractSubsystemCode) = S.k / S.n
 
 """
-    is_overcomplete(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return `true` if `S` has an overcomplete set of stabilizers.
 """
 is_overcomplete(S::AbstractSubsystemCode) = get(S.cache, :overcomplete, false)
 
 """
-    is_CSS(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return `true` if `S` is CSS.
 """
@@ -388,7 +401,7 @@ is_CSS(::IsCSS, S::AbstractSubsystemCode) = true
 is_CSS(::IsNotCSS, S::AbstractSubsystemCode) = false
 
 """
-    signs(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the signs of the stabilizers of the code. Lazily computes them if a non-trivial character vector exists.
 """
@@ -408,7 +421,7 @@ function signs(S::AbstractSubsystemCode)
 end
 
 """
-    X_signs(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the signs of the `X` stabilizers of the CSS code.
 """
@@ -419,7 +432,7 @@ end
 X_signs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    Z_signs(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the signs of the `Z` stabilizers of the CSS code.
 """
@@ -430,7 +443,7 @@ end
 Z_signs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
+$(TYPEDSIGNATURES)
 
 Return the stabilizer matrix of the code. Computes the unified matrix for CSS codes if missing.
 
@@ -476,7 +489,7 @@ function stabilizers(S::AbstractSubsystemCode; standform::Bool = false)
 end
 
 """
-    standard_form_permutation(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the permutation matrix required to permute the columns of the code matrices to have the same
 row space as the matrices in standard form. Returns `missing` if no such permutation is required.
@@ -488,7 +501,7 @@ function standard_form_permutation(S::AbstractSubsystemCode)
 end
 
 """
-    X_stabilizers(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the `X`-stabilizer matrix of the CSS code.
 """
@@ -497,7 +510,7 @@ X_stabilizers(::IsCSS, S::AbstractSubsystemCode) = S.X_stabs
 X_stabilizers(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    Z_stabilizers(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the `Z`-stabilizer matrix of the CSS code.
 """
@@ -506,7 +519,7 @@ Z_stabilizers(::IsCSS, S::AbstractSubsystemCode) = S.Z_stabs
 Z_stabilizers(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    standard_form_A(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the named matrix `A` from the standard form of the stabilizer matrix.
 """
@@ -517,8 +530,8 @@ function standard_form_A(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_A1(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `A1` from the standard form of the stabilizer matrix.
 """
 function standard_form_A1(S::AbstractSubsystemCode)
@@ -529,8 +542,8 @@ function standard_form_A1(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_A2(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `A2` from the standard form of the stabilizer matrix.
 """
 function standard_form_A2(S::AbstractSubsystemCode)
@@ -541,8 +554,8 @@ function standard_form_A2(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_B(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `B` from the standard form of the stabilizer matrix.
 """
 function standard_form_B(S::AbstractSubsystemCode)
@@ -552,8 +565,8 @@ function standard_form_B(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_C1(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `C1` from the standard form of the stabilizer matrix.
 """
 function standard_form_C1(S::AbstractSubsystemCode)
@@ -564,8 +577,8 @@ function standard_form_C1(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_C2(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `C2` from the standard form of the stabilizer matrix.
 """
 function standard_form_C2(S::AbstractSubsystemCode)
@@ -576,8 +589,8 @@ function standard_form_C2(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_D(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `D` from the standard form of the stabilizer matrix.
 """
 function standard_form_D(S::AbstractSubsystemCode)
@@ -588,8 +601,8 @@ function standard_form_D(S::AbstractSubsystemCode)
 end
 
 """
-    standard_form_E(S::AbstractSubsystemCode)
-    
+$(TYPEDSIGNATURES)
+
 Return the named matrix `E` from the standard form of the stabilizer matrix.
 """
 function standard_form_E(S::AbstractSubsystemCode)
@@ -600,27 +613,37 @@ function standard_form_E(S::AbstractSubsystemCode)
 end
 
 """
-    metacheck(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Return the metacheck matrix of the code, if it has been set; otherwise returns missing.
+Return the metacheck matrix of `S` if it has been set and `missing` otherwise.
+
+# Notes
+- A metacheck matrix ``M`` satisfies ``M H = 0`` for the stabilizer matrix
+  ``H``, so it detects errors in the measured syndrome itself and is what makes
+  single-shot decoding possible.
+- For a CSS code use `X_metacheck` or `Z_metacheck` instead.
 """
 metacheck(S::T) where {T <: AbstractSubsystemCode} = metacheck(CSSTrait(T), S)
 metacheck(::IsCSS, S::AbstractSubsystemCode) = error("Use `X_metacheck` or `Z_metacheck` for CSS codes.")
 metacheck(::IsNotCSS, S::AbstractSubsystemCode) = get(S.cache, :metacheck, missing)
 
 """
-    X_metacheck(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Return the `X`-metacheck matrix of the CSS code, if it has been set; otherwise returns missing.
+Return the ``X``-metacheck matrix of the CSS code `S` if it has been set and
+`missing` otherwise. This matrix annihilates the ``X`` stabilizer matrix and so
+detects errors in the measured ``X`` syndrome.
 """
 X_metacheck(S::T) where {T <: AbstractSubsystemCode} = X_metacheck(CSSTrait(T), S)
 X_metacheck(::IsCSS, S::AbstractSubsystemCode) = get(S.cache, :X_metacheck, missing)
 X_metacheck(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    Z_metacheck(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Return the `Z`-metacheck matrix of the CSS code, if it has been set; otherwise returns missing.
+Return the ``Z``-metacheck matrix of the CSS code `S` if it has been set and
+`missing` otherwise. This matrix annihilates the ``Z`` stabilizer matrix and so
+detects errors in the measured ``Z`` syndrome.
 """
 Z_metacheck(S::T) where {T <: AbstractSubsystemCode} = Z_metacheck(CSSTrait(T), S)
 Z_metacheck(::IsCSS, S::AbstractSubsystemCode) = get(S.cache, :Z_metacheck, missing)
@@ -678,14 +701,36 @@ function logicals(::HasLogicals, S::AbstractSubsystemCode)
     return logs
 end
 logicals(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the logical operator generators as a vector of symplectic operator pairs.
+For subsystem codes these are bare logicals, which commute with the gauge group.
+This is an alias for `logicals`.
+"""
 logical_operators(S::AbstractSubsystemCode) = logicals(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the bare logical generators as a vector of symplectic operator pairs.
+Each operator commutes with the gauge group. This is an alias for `logicals`.
+"""
 bare_logicals(S::AbstractSubsystemCode) = logicals(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the bare logical generators as a vector of symplectic operator pairs.
+This is an alias for `logicals`.
+"""
 bare(S::AbstractSubsystemCode) = logicals(S)
 
 """
-    logicals_matrix(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
-Returns the result of `logicals(S)` as a vertically concatenated matrix.
+Return the result of `logicals(S)` as a vertically concatenated matrix.
 """
 logicals_matrix(S::T) where {T <: AbstractSubsystemCode} = logicals_matrix(LogicalTrait(T), S)
 function logicals_matrix(::HasLogicals, S::AbstractSubsystemCode)
@@ -697,7 +742,7 @@ end
 logicals_matrix(::HasNoLogicals, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no logicals.")
 
 """
-    logicals_standard_form(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return a matrix of logical operators as determined by the stabilizers in standard form.
 """
@@ -731,6 +776,13 @@ function gauges(::HasGauges, S::AbstractSubsystemCode)
     error("Gauge operators not found in cache.")
 end
 gauges(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the gauge generators as a vector of symplectic operator pairs.
+This is an alias for `gauges`.
+"""
 gauge_operators(S::AbstractSubsystemCode) = gauges(S)
 
 """
@@ -746,6 +798,13 @@ function gauges_matrix(::HasGauges, S::AbstractSubsystemCode)
     error("Gauge matrix not found in cache.")
 end
 gauges_matrix(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the gauge operator pairs as a vertically concatenated symplectic
+``[X \\mid Z]`` matrix. This is an alias for `gauges_matrix`.
+"""
 gauge_operators_matrix(S::AbstractSubsystemCode) = gauges_matrix(S)
 
 """
@@ -760,8 +819,29 @@ gauge_group(S::T) where {T <: AbstractSubsystemCode} = gauge_group(GaugeTrait(T)
 gauge_group(::HasGauges, S::AbstractSubsystemCode) =
     _vcat_code_matrices(S.F, stabilizers(S), gauges_matrix(S))
 gauge_group(::HasNoGauges, S::AbstractSubsystemCode) = error("Type $(typeof(S)) has no gauges.")
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a possibly overcomplete symplectic ``[X \\mid Z]`` generator matrix for
+the gauge group. This is an alias for `gauge_group`.
+"""
 gauge_group_matrix(S::AbstractSubsystemCode) = gauge_group(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a possibly overcomplete symplectic ``[X \\mid Z]`` generator matrix for
+the gauge group. This is an alias for `gauge_group`.
+"""
 gauge_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a possibly overcomplete symplectic ``[X \\mid Z]`` generator matrix for
+the gauge group. This is an alias for `gauge_group`.
+"""
 gauge_group_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 
 # # -----------------------------------------------------------------------------
@@ -833,7 +913,7 @@ gauge_group_generators_matrix(S::AbstractSubsystemCode) = gauge_group(S)
 # dressed_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode) = error("Only valid for subsystem codes; use `Z_minimum_distance_upper_bound` for stabilizer codes.")
 
 """
-    num_X_stabs(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the number of `X` stabilizers of the CSS code.
 """
@@ -842,7 +922,7 @@ num_X_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(X_stabilizers(S))
 num_X_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    num_Z_stabs(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the number of `Z` stabilizers of the CSS code.
 """
@@ -851,7 +931,7 @@ num_Z_stabs(::IsCSS, S::AbstractSubsystemCode) = nrows(Z_stabilizers(S))
 num_Z_stabs(::IsNotCSS, S::AbstractSubsystemCode) = error("Only valid for CSS codes.")
 
 """
-    character_vector(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the character vector of the code.
 """
@@ -864,7 +944,7 @@ end
 # MDS/optimal for subsystem codes: k + r <= n - 2d + 2
 
 """
-    relative_distance(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
 
 Return the relative minimum distance, `δ = d / n` of the code if `d` is known,
 otherwise errors.
@@ -897,11 +977,28 @@ function dressed(S::T) where {T <: AbstractSubsystemCode}
     end
     return logicals(S) ∪ gauges(S)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dressed logical generators as the union of the bare logical and
+gauge operator pairs. These operators commute with the stabilizer group but
+need not commute with the gauge group. This is an alias for `dressed`.
+"""
 dressed_operators(S::AbstractSubsystemCode) = dressed(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dressed logical generators as the union of the bare logical and
+gauge operator pairs. These operators commute with the stabilizer group but
+need not commute with the gauge group. This is an alias for `dressed`.
+"""
 dressed_logicals(S::AbstractSubsystemCode) = dressed(S)
 
 """
-    bare_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the bare minimum distance.
 """
 bare_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
@@ -911,7 +1008,8 @@ bare_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    bare_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the bare minimum distance.
 """
 bare_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
@@ -921,7 +1019,8 @@ bare_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    dressed_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the dressed minimum distance.
 """
 dressed_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode =
@@ -931,7 +1030,8 @@ dressed_minimum_distance_lower_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    dressed_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the dressed minimum distance.
 """
 dressed_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode =
@@ -941,7 +1041,8 @@ dressed_minimum_distance_upper_bound(::HasNoGauges, S::AbstractSubsystemCode) =
     error("Only valid for subsystem codes; use `minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    bare_X_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the bare `X`-minimum distance.
 """
 bare_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -955,7 +1056,8 @@ bare_X_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystem
     error("Only valid for subsystem codes; use `X_minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    bare_X_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the bare `X`-minimum distance.
 """
 bare_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -969,7 +1071,8 @@ bare_X_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystem
     error("Only valid for subsystem codes; use `X_minimum_distance_upper_bound` for stabilizer codes.")
 
 """
-    dressed_X_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the dressed `X`-minimum distance.
 """
 dressed_X_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -983,7 +1086,8 @@ dressed_X_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsys
     error("Only valid for subsystem codes; use `X_minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    dressed_X_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the dressed `X`-minimum distance.
 """
 dressed_X_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_X_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -997,7 +1101,8 @@ dressed_X_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsys
     error("Only valid for subsystem codes; use `X_minimum_distance_upper_bound` for stabilizer codes.")
 
 """
-    bare_Z_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the bare `Z`-minimum distance.
 """
 bare_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -1011,7 +1116,8 @@ bare_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystem
     error("Only valid for subsystem codes; use `Z_minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    bare_Z_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the bare `Z`-minimum distance.
 """
 bare_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = bare_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -1025,7 +1131,8 @@ bare_Z_minimum_distance_upper_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsystem
     error("Only valid for subsystem codes; use `Z_minimum_distance_upper_bound` for stabilizer codes.")
 
 """
-    dressed_Z_minimum_distance_lower_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored lower bound on the dressed `Z`-minimum distance.
 """
 dressed_Z_minimum_distance_lower_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_lower_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -1039,7 +1146,8 @@ dressed_Z_minimum_distance_lower_bound(::HasNoGauges, ::IsCSS, S::AbstractSubsys
     error("Only valid for subsystem codes; use `Z_minimum_distance_lower_bound` for stabilizer codes.")
 
 """
-    dressed_Z_minimum_distance_upper_bound(S::AbstractSubsystemCode)
+$(TYPEDSIGNATURES)
+
 Return the currently stored upper bound on the dressed `Z`-minimum distance.
 """
 dressed_Z_minimum_distance_upper_bound(S::T) where T <: AbstractSubsystemCode = dressed_Z_minimum_distance_upper_bound(GaugeTrait(T), CSSTrait(T), S)
@@ -1065,7 +1173,7 @@ Set the character vector of `S` to `char_vec` and update the signs.
 function set_signs!(S::AbstractSubsystemCode, char_vec::Vector{zzModRingElem})
     if !isempty(char_vec)
         length(char_vec) == 2 * S.n || throw(ArgumentError("Characteristic vector is of improper length for the code."))
-        R = base_ring(char_vec[1])
+        R = parent(char_vec[1])
         R_expect = residue_ring(Nemo.ZZ, Int(characteristic(S.F)) == 2 ? 4 : Int(characteristic(S.F)))[1]
         modulus(R) == modulus(R_expect) || throw(ArgumentError("Phases are not in the correct ring."))
     end
@@ -1078,7 +1186,7 @@ function set_signs!(S::AbstractSubsystemCode, char_vec::Vector{zzModRingElem})
     delete!(S.cache, :Z_signs)
     return nothing
 end
-set_signs(S::AbstractSubsystemCode, char_vec::Vector{zzModRingElem}) = (S_new = deepcopy(S); set_signs!(S_new, char_vec); return S_new)
+set_signs(S::AbstractSubsystemCode, char_vec::Vector{zzModRingElem}) = (S_new = copy(S); set_signs!(S_new, char_vec); return S_new)
 
 """
     set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
@@ -1134,10 +1242,18 @@ function set_stabilizers!(S::AbstractSubsystemCode, stabs::CTMatrixTypes)
     _invalidate_stabilizer_form_cache!(S)
     return nothing
 end
-set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = deepcopy(S); set_stabilizers!(S_new, stabs); return S_new)
 
 """
-    set_X_stabilizers!(S::AbstractSubsystemCode, X_stabs::CTMatrixTypes; trimmed::Bool = true)
+$(TYPEDSIGNATURES)
+
+Return a copy of `S` using the equivalent stabilizer presentation `stabs`,
+leaving `S` unchanged. The input must span the current stabilizer group.
+"""
+set_stabilizers(S::AbstractSubsystemCode, stabs::CTMatrixTypes) = (S_new = copy(S); set_stabilizers!(S_new, stabs); return S_new)
+
+"""
+$(TYPEDSIGNATURES)
+
 """
 set_X_stabilizers!(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = set_X_stabilizers!(CSSTrait(T), S, X_stabs, trimmed)
 function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool)
@@ -1179,10 +1295,19 @@ function set_X_stabilizers!(::IsCSS, S::AbstractSubsystemCode, X_stabs::CTMatrix
     return nothing
 end
 set_X_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, X_stabs::CTMatrixTypes, trimmed::Bool) = error("X stabilizers are only defined for CSS codes")
-set_X_stabilizers(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); set_X_stabilizers!(S_new, X_stabs, trimmed=trimmed); return S_new)
 
 """
-    set_Z_stabilizers!(S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes; trimmed::Bool = true)
+$(TYPEDSIGNATURES)
+
+Return a copy of the CSS code `S` using the equivalent `X`-stabilizer
+presentation `X_stabs`, leaving `S` unchanged. If `trimmed` is `false`,
+`X_stabs` must be a symplectic ``[X \\mid 0]`` matrix.
+"""
+set_X_stabilizers(S::T, X_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = (S_new = copy(S); set_X_stabilizers!(S_new, X_stabs, trimmed=trimmed); return S_new)
+
+"""
+$(TYPEDSIGNATURES)
+
 """
 set_Z_stabilizers!(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = set_Z_stabilizers!(CSSTrait(T), S, Z_stabs, trimmed)
 function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool)
@@ -1223,10 +1348,19 @@ function set_Z_stabilizers!(::IsCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrix
     return nothing
 end
 set_Z_stabilizers!(::IsNotCSS, S::AbstractSubsystemCode, Z_stabs::CTMatrixTypes, trimmed::Bool) = error("Z stabilizers are only defined for CSS codes")
-set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); set_Z_stabilizers!(S_new, Z_stabs, trimmed=trimmed); return S_new)
 
 """
-    set_logicals!(S::AbstractSubsystemCode, L::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Return a copy of the CSS code `S` using the equivalent `Z`-stabilizer
+presentation `Z_stabs`, leaving `S` unchanged. If `trimmed` is `false`,
+`Z_stabs` must be a symplectic ``[0 \\mid Z]`` matrix.
+"""
+set_Z_stabilizers(S::T, Z_stabs::CTMatrixTypes; trimmed::Bool = true) where {T <: AbstractSubsystemCode} = (S_new = copy(S); set_Z_stabilizers!(S_new, Z_stabs, trimmed=trimmed); return S_new)
+
+"""
+$(TYPEDSIGNATURES)
+
 """
 set_logicals!(S::T, L::W) where {T <: AbstractSubsystemCode, W <: CTMatrixTypes} = set_logicals!(LogicalTrait(T), S, L)
 function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <: CTMatrixTypes}
@@ -1257,10 +1391,16 @@ function set_logicals!(::HasLogicals, S::AbstractSubsystemCode, L::W) where {W <
     return nothing
 end
 set_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, L::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
-set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); set_logicals!(S_new, L); return S_new)
+set_logicals(S::T, L::CTMatrixTypes) where {T <: AbstractSubsystemCode} = (S_new = copy(S); set_logicals!(S_new, L); return S_new)
 
 """
-    set_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Set the metacheck matrix of `S` to `M` and return `nothing`.
+
+# Notes
+- Throws an error unless ``M H = 0`` for the stabilizer matrix ``H``.
+- For a CSS code use `set_X_metacheck!` or `set_Z_metacheck!` instead.
 """
 set_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = set_metacheck!(CSSTrait(T), S, M)
 set_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) = error("Use `set_X_metacheck` and `set_Z_metacheck` for CSS codes.")
@@ -1268,10 +1408,13 @@ function set_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
     iszero(M * stabilizers(S)) ? (S.cache[:metacheck] = M) : error("Invalid metacheck for code")
     return nothing
 end
-set_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = deepcopy(S); set_metacheck!(S_new, M); return S_new)
+set_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = copy(S); set_metacheck!(S_new, M); return S_new)
 
 """
-    set_X_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Set the ``X``-metacheck matrix of the CSS code `S` to `M` and return `nothing`.
+Throws an error unless `M` annihilates the ``X`` stabilizer matrix.
 """
 set_X_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = set_X_metacheck!(CSSTrait(T), S, M)
 function set_X_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
@@ -1279,10 +1422,13 @@ function set_X_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
     return nothing
 end
 set_X_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) = error("Only valid for CSS codes.")
-set_X_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = deepcopy(S); set_X_metacheck!(S_new, M); return S_new)
+set_X_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = copy(S); set_X_metacheck!(S_new, M); return S_new)
 
 """
-    set_Z_metacheck!(S::AbstractSubsystemCode, M::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Set the ``Z``-metacheck matrix of the CSS code `S` to `M` and return `nothing`.
+Throws an error unless `M` annihilates the ``Z`` stabilizer matrix.
 """
 set_Z_metacheck!(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = set_Z_metacheck!(CSSTrait(T), S, M)
 function set_Z_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
@@ -1290,14 +1436,15 @@ function set_Z_metacheck!(::IsCSS, S::AbstractSubsystemCode, M::CTMatrixTypes)
     return nothing
 end
 set_Z_metacheck!(::IsNotCSS, S::AbstractSubsystemCode, M::CTMatrixTypes) = error("Only valid for CSS codes.")
-set_Z_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = deepcopy(S); set_Z_metacheck!(S_new, M); return S_new)
+set_Z_metacheck(S::T, M::U) where {T <: AbstractSubsystemCode, U <: CTMatrixTypes} = (S_new = copy(S); set_Z_metacheck!(S_new, M); return S_new)
 
 # -----------------------------------------------------------------------------
 # Distance Setters
 # -----------------------------------------------------------------------------
 
 """
-    set_bare_minimum_distance!(S::AbstractSubsystemCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_bare_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_bare_minimum_distance!(GaugeTrait(T), S, d)
 function set_bare_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d::Int)
@@ -1329,7 +1476,8 @@ end
 set_bare_minimum_distance!(::HasNoGauges, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_minimum_distance!` for stabilizer codes.")
 
 """
-    set_bare_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_bare_X_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_bare_X_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
 function set_bare_X_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
@@ -1367,7 +1515,8 @@ set_bare_X_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode
 set_bare_X_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_X_minimum_distance!` for stabilizer codes.")
 
 """
-    set_bare_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_bare_Z_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_bare_Z_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
 function set_bare_Z_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
@@ -1405,7 +1554,8 @@ set_bare_Z_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemCode
 set_bare_Z_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_Z_minimum_distance!` for stabilizer codes.")
 
 """
-    set_dressed_minimum_distance!(S::AbstractSubsystemCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_dressed_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_minimum_distance!(GaugeTrait(T), S, d)
 function set_dressed_minimum_distance!(::HasGauges, S::AbstractSubsystemCode, d::Int)
@@ -1441,7 +1591,8 @@ set_dressed_minimum_distance!(::HasNoGauges, S::AbstractSubsystemCode, d::Int) =
 
 
 """
-    set_dressed_X_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_dressed_X_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_X_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
 function set_dressed_X_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
@@ -1476,7 +1627,8 @@ set_dressed_X_minimum_distance!(::HasNoGauges, ::IsNotCSS, S::AbstractSubsystemC
 set_dressed_X_minimum_distance!(::HasNoGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int) = error("Only valid for subsytem codes; use `set_X_minimum_distance!` for stabilizer codes.")
 
 """
-    set_dressed_Z_minimum_distance!(S::AbstractStabilizerCode, d::Int)
+$(TYPEDSIGNATURES)
+
 """
 set_dressed_Z_minimum_distance!(S::T, d::Int) where T <: AbstractSubsystemCode = set_dressed_Z_minimum_distance!(GaugeTrait(T), CSSTrait(T), S, d)
 function set_dressed_Z_minimum_distance!(::HasGauges, ::IsCSS, S::AbstractSubsystemCode, d::Int)
@@ -1786,7 +1938,7 @@ function _in_row_space(M::CTMatrixTypes, v::CTMatrixTypes)
 end
 
 """
-    symplectic_weight(v)
+$(TYPEDSIGNATURES)
 
 Return the Pauli weight of a symplectic vector, counting a nonzero `X` or `Z`
 component on a coordinate once.
@@ -1811,6 +1963,13 @@ stabilizer group.
 """
 normalizer_matrix(S::AbstractSubsystemCode) =
     _additive_centralizer(stabilizers(S), S.F)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a row basis in symplectic ``[X \\mid Z]`` form for the centralizer of
+the stabilizer group. This is an alias for `normalizer_matrix`.
+"""
 stabilizer_centralizer_matrix(S::AbstractSubsystemCode) = normalizer_matrix(S)
 
 """
@@ -1825,10 +1984,17 @@ gauge_centralizer_matrix(::HasGauges, S::AbstractSubsystemCode) =
     _additive_centralizer(gauge_group(S), S.F)
 gauge_centralizer_matrix(::HasNoGauges, S::AbstractSubsystemCode) =
     normalizer_matrix(S)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a row basis in symplectic ``[X \\mid Z]`` form for the centralizer of
+the gauge group. This is an alias for `gauge_centralizer_matrix`.
+"""
 bare_normalizer_matrix(S::AbstractSubsystemCode) = gauge_centralizer_matrix(S)
 
 """
-    is_stabilizer(S, v)
+$(TYPEDSIGNATURES)
 
 Return whether `v` belongs to the row space of the stabilizer generators.
 """
@@ -1836,7 +2002,7 @@ is_stabilizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
     _in_row_space(stabilizers(S), _symplectic_row(S, v))
 
 """
-    is_normalizer(S, v)
+$(TYPEDSIGNATURES)
 
 Return whether `v` commutes with every stabilizer.
 """
@@ -1844,7 +2010,7 @@ is_normalizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
     are_symplectic_orthogonal(stabilizers(S), _symplectic_row(S, v))
 
 """
-    is_bare_normalizer(S, v)
+$(TYPEDSIGNATURES)
 
 Return whether `v` commutes with the full gauge group.
 """
@@ -1854,10 +2020,10 @@ is_bare_normalizer(S::AbstractSubsystemCode, v::CTMatrixTypes) =
         _symplectic_row(S, v))
 
 """
-    robust_CSS_split(stabs::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
 Splits a stabilizer matrix into pure-X and pure-Z generators using left nullspaces.
-Returns `(is_css, pure_X, pure_Z)`.
+Return `(is_css, pure_X, pure_Z)`.
 """
 function robust_CSS_split(stabs::CTMatrixTypes)
     n = div(ncols(stabs), 2)
@@ -1886,9 +2052,9 @@ function robust_CSS_split(stabs::CTMatrixTypes)
 end
 
 """
-    is_CSS_symplectic(stabs::CTMatrixTypes)
+$(TYPEDSIGNATURES)
 
-Returns `true` if the given symplectic matrix spans a CSS code.
+Return `true` if the given symplectic matrix spans a CSS code.
 """
 function is_CSS_symplectic(stabs::CTMatrixTypes)
     is_css, _, _ = robust_CSS_split(stabs)
@@ -1984,7 +2150,8 @@ end
 _test_logicals_relationships(::HasNoLogicals, S) = error("Type $(typeof(S)) has no logicals.")
 
 """
-    is_logical(S::AbstractSubsystemCode, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
 """
 is_logical(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_logical(LogicalTrait(T), S, v)
 function is_logical(::HasLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes)
@@ -1997,7 +2164,7 @@ end
 is_logical(::HasNoLogicals, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Type $(typeof(S)) has no logicals.")
 
 """
-    is_bare_logical(S, v)
+$(TYPEDSIGNATURES)
 
 Return whether `v` is a nontrivial bare logical: it centralizes the gauge
 group but is not a stabilizer.
@@ -2008,7 +2175,8 @@ function is_bare_logical(S::AbstractSubsystemCode, v::CTMatrixTypes)
 end
 
 """
-    is_gauge(S::AbstractSubsystemCode, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
 """
 is_gauge(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = is_gauge(GaugeTrait(T), S, v)
 function is_gauge(::HasGauges, S::AbstractSubsystemCode, v::CTMatrixTypes)
@@ -2071,7 +2239,7 @@ function _minimum_CSS_group_weight(M::CTMatrixTypes, n::Int; alg::Symbol=:auto)
 end
 
 """
-    minimum_stabilizer_weight(S; alg=:auto)
+$(TYPEDSIGNATURES)
 
 Return the minimum Pauli weight of a nonidentity stabilizer. For CSS codes this
 uses the classical minimum-distance machinery on each sector. General
@@ -2087,7 +2255,7 @@ function minimum_stabilizer_weight(
 end
 
 """
-    minimum_gauge_weight(S; alg=:auto)
+$(TYPEDSIGNATURES)
 
 Return the minimum Pauli weight of a nonidentity element of the gauge group.
 """
@@ -2111,10 +2279,10 @@ end
     is_pure(S; distance=missing, alg=:auto)
     is_degenerate(S; distance=missing, alg=:auto)
 
-Determine purity from the exact code distance and the minimum weight of the
-stabilizer group (stabilizer codes) or gauge group (subsystem codes). This does
-not require a full weight enumerator, but the minimum-group-weight computation
-can still be exponential.
+Return `true` if the minimum stabilizer-group weight (for a stabilizer code) or
+gauge-group weight (for a subsystem code) is at least the exact code distance;
+otherwise, return `false`. This does not require a full weight enumerator, but
+the minimum-group-weight computation can still be exponential.
 """
 function is_pure(
     S::AbstractSubsystemCode; distance::Union{Int, Missing}=missing,
@@ -2129,7 +2297,8 @@ end
 is_degenerate(S::AbstractSubsystemCode; kwargs...) = !is_pure(S; kwargs...)
 
 """
-    syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
 """
 function syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
     (size(v) != (2 * S.n, 1) && size(v) != (1, 2 * S.n)) &&
@@ -2140,11 +2309,19 @@ function syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
 end
 
 """
-    X_syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Return the ``X`` syndrome of the vector `v` with respect to the CSS code `S`.
+
+# Notes
+- `v` may be given either as the length-``n`` ``Z`` component or as a full
+  symplectic ``[X \\mid Z]`` vector of length ``2n``, since the ``X`` checks
+  detect ``Z`` errors.
 """
 X_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = X_syndrome(CSSTrait(T), S, v)
 function X_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
-    length(v) == 2 * S.n && (v = v[S.n + 1:end])
+    length(v) == 2 * S.n &&
+        (v = nrows(v) == 1 ? v[:, S.n + 1:2 * S.n] : v[S.n + 1:2 * S.n, :])
     (size(v) != (S.n, 1) && size(v) != (1, S.n)) &&
         error("Vector to be tested is of incorrect dimension; expected length $(S.n), received: $(size(v)).")
     base_ring(v) == S.F || error("Vector must have the same base ring as the stabilizers.")
@@ -2154,11 +2331,18 @@ end
 X_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
 
 """
-    Z_syndrome(S::AbstractSubsystemCode, v::CTMatrixTypes)
+$(TYPEDSIGNATURES)
+
+Return the ``Z`` syndrome of the vector `v` with respect to the CSS code `S`.
+
+# Notes
+- `v` may be given either as the length-``n`` ``X`` component or as a full
+  symplectic ``[X \\mid Z]`` vector of length ``2n``, since the ``Z`` checks
+  detect ``X`` errors.
 """
 Z_syndrome(S::T, v::CTMatrixTypes) where {T <: AbstractSubsystemCode} = Z_syndrome(CSSTrait(T), S, v)
 function Z_syndrome(::IsCSS, S::AbstractSubsystemCode, v::CTMatrixTypes)
-    length(v) == 2 * S.n && (v = v[1:S.n])
+    length(v) == 2 * S.n && (v = nrows(v) == 1 ? v[:, 1:S.n] : v[1:S.n, :])
     (size(v) != (S.n, 1) && size(v) != (1, S.n)) &&
         error("Vector to be tested is of incorrect dimension; expected length $(S.n), received: $(size(v)).")
     base_ring(v) == S.F || error("Vector must have the same base ring as the stabilizers.")
@@ -2168,7 +2352,8 @@ end
 Z_syndrome(::IsNotCSS, S::AbstractSubsystemCode, v::CTMatrixTypes) = error("Only valid for CSS codes.")
 
 """
-    promote_logicals_to_gauge!(S::AbstractSubsystemCode, pairs::Vector{Int})
+$(TYPEDSIGNATURES)
+
 """
 promote_logicals_to_gauge!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_logicals_to_gauge!(LogicalTrait(T), S, pairs)
 function promote_logicals_to_gauge!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -2195,10 +2380,18 @@ function promote_logicals_to_gauge!(::HasLogicals, S::AbstractSubsystemCode, pai
     return nothing
 end
 promote_logicals_to_gauge!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
-promote_logicals_to_gauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); promote_logicals_to_gauge!(S_new, pairs); return S_new)
 
 """
-    promote_gauges_to_logical!(S::AbstractSubsystemCode, pairs::Vector{Int})
+$(TYPEDSIGNATURES)
+
+Return a copy of `S` with the selected logical pairs promoted to gauge pairs,
+leaving `S` unchanged.
+"""
+promote_logicals_to_gauge(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = (S_new = copy(S); promote_logicals_to_gauge!(S_new, pairs); return S_new)
+
+"""
+$(TYPEDSIGNATURES)
+
 """
 promote_gauges_to_logical!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = promote_gauges_to_logical!(LogicalTrait(T), S, pairs)
 function promote_gauges_to_logical!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -2225,10 +2418,18 @@ function promote_gauges_to_logical!(::HasLogicals, S::AbstractSubsystemCode, pai
     return nothing
 end
 promote_gauges_to_logical!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
-promote_gauges_to_logical(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = (S_new = deepcopy(S); promote_gauges_to_logical!(S_new, pairs); return S_new)
 
 """
-    swap_X_Z_logicals!(S::AbstractSubsystemCode, pairs::Vector{Int})
+$(TYPEDSIGNATURES)
+
+Return a copy of `S` with the selected gauge pairs promoted to bare logical
+pairs, leaving `S` unchanged.
+"""
+promote_gauges_to_logical(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = (S_new = copy(S); promote_gauges_to_logical!(S_new, pairs); return S_new)
+
+"""
+$(TYPEDSIGNATURES)
+
 """
 swap_X_Z_logicals!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = swap_X_Z_logicals!(LogicalTrait(T), S, pairs)
 function swap_X_Z_logicals!(::HasLogicals, S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -2244,7 +2445,8 @@ end
 swap_X_Z_logicals!(::HasNoLogicals, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no logicals.")
 
 """
-    swap_X_Z_gauge_operators!(S::AbstractSubsystemCode, pairs::Vector{Int})
+$(TYPEDSIGNATURES)
+
 """
 swap_X_Z_gauge_operators!(S::T, pairs::Vector{Int}) where {T <: AbstractSubsystemCode} = swap_X_Z_gauge_operators!(GaugeTrait(T), S, pairs)
 function swap_X_Z_gauge_operators!(::HasGauges, S::AbstractSubsystemCode, pairs::Vector{Int})
@@ -2260,7 +2462,8 @@ end
 swap_X_Z_gauge_operators!(::HasNoGauges, S::AbstractSubsystemCode, pairs::Vector{Int}) = error("Type $(typeof(S)) has no gauges.")
 
 """
-    are_equivalent(S1::T, S2::T) where T <: AbstractSubsystemCode
+$(TYPEDSIGNATURES)
+
 """
 function are_equivalent(S1::T, S2::T) where {T <: AbstractSubsystemCode}
     (S1.n == S2.n && S1.k == S2.k) || return false
@@ -2283,7 +2486,8 @@ function are_equivalent(S1::T, S2::T) where {T <: AbstractSubsystemCode}
 end
 
 """
-    fix_gauge(::HasGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol)
+$(TYPEDSIGNATURES)
+
 """
 fix_gauge(S::T, pair::Int, which::Symbol) where {T <: AbstractSubsystemCode} = fix_gauge(GaugeTrait(T), S, pair, which)
 function fix_gauge(::HasGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol)
@@ -2299,7 +2503,7 @@ end
 fix_gauge(::HasNoGauges, S::AbstractSubsystemCode, pair::Int, which::Symbol) = error("Type $(typeof(S)) has no gauges.")
 
 """
-    fix_all_gauges(S::AbstractSubsystemCode; choice::Symbol = :X)
+$(TYPEDSIGNATURES)
 
 Return the stabilizer code obtained by promoting one commuting half of every
 gauge pair to stabilizers.
@@ -2458,7 +2662,7 @@ function permute_code!(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{I
     end
     return nothing
 end
-permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}}) = (S_new = deepcopy(S); permute_code!(S_new, σ); return S_new)
+permute_code(S::AbstractSubsystemCode, σ::Union{PermGroupElem, Perm{Int}, Vector{Int}}) = (S_new = copy(S); permute_code!(S_new, σ); return S_new)
 
 """
     augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::Bool = true)
@@ -2472,7 +2676,7 @@ function _legacy_augment(S::AbstractSubsystemCode, row::CTMatrixTypes; verbose::
     prod = hcat(stabs[:, S.n + 1:end], -stabs[:, 1:S.n]) * transpose(row)
     if iszero(prod)
         verbose && println("Vector is already in the stabilizer group. Nothing to update.")    
-        S_new = deepcopy(S)
+        S_new = copy(S)
         if is_CSS(S)
             S_new.cache[:stabs] = vcat(stabs, row)
         else
@@ -2611,7 +2815,7 @@ function _legacy_expurgate(S::AbstractSubsystemCode, rows::Vector{Int}; verbose:
     new_logs = _quotient_space(new_stabs, H_tr, :sys_eqs)
     if iszero(new_logs)
         verbose && println("No new logicals need to be added")
-        S_new = deepcopy(S)
+        S_new = copy(S)
         if is_CSS(S)
             S_new.cache[:stabs] = new_stabs
         else

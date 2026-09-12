@@ -171,21 +171,26 @@ end
 #############################
 
 """
-    order(C::ReedMullerCode)
-    RM_r(C::ReedMullerCode)
+$(TYPEDSIGNATURES)
 
-Return the order, `r`, of the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
+Return the order ``r`` of the ``\\mathcal{RM}(r, m)`` Reed-Muller code `C`.
 """
 order(C::ReedMullerCode) = C.r
+"""
+$(TYPEDSIGNATURES)
+
+Return the order ``r`` of the ``\\mathcal{RM}(r, m)`` Reed-Muller code `C`.
+This is an alias for `order`.
+"""
 RM_r(C::ReedMullerCode) = order(C)
 
-"""
-    number_of_variables(C::ReedMullerCode)
-    RM_m(C::ReedMullerCode)
-
-Return the number of variables, `m`, of the ``\\mathcal{RM}(r, m)`` Reed-Muller code.
-"""
 # number_of_variables(C::ReedMullerCode) = C.m
+"""
+$(TYPEDSIGNATURES)
+
+Return the number of variables ``m`` of the ``\\mathcal{RM}(r, m)``
+Reed-Muller code `C`.
+"""
 RM_m(C::ReedMullerCode) = C.m
 
 #############################

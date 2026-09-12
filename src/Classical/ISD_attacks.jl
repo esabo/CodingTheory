@@ -903,7 +903,7 @@ function _Stern_attack_nonbinary(G::CTMatrixTypes, target_w::Int; w_recv::Vector
             
             # 3. Hash Map for X
             hash_X = Dict{Vector{typeof(zero(F))}, Vector{Tuple{Vector{Int}, Vector{typeof(zero(F))}}}}()
-            for cols in combinations(X_cols, p), scalars in Iterators.product(fill(non_zeros, p)...)
+            for cols in Combinatorics.combinations(X_cols, p), scalars in Iterators.product(fill(non_zeros, p)...)
                 scalar_vec = collect(scalars)
                 v_X = [zero(F) for _ in 1:l]
                 for i in 1:p, j in 1:l; v_X[j] += scalar_vec[i] * P_window[cols[i], j] end
@@ -913,7 +913,7 @@ function _Stern_attack_nonbinary(G::CTMatrixTypes, target_w::Int; w_recv::Vector
             end
             
             # 4. Collision Search for Y
-            for cols in combinations(Y_cols, p), scalars in Iterators.product(fill(non_zeros, p)...)
+            for cols in Combinatorics.combinations(Y_cols, p), scalars in Iterators.product(fill(non_zeros, p)...)
                 if !keep_going[] break end
                 scalar_vec = collect(scalars)
                 v_Y = [zero(F) for _ in 1:l]
@@ -1124,7 +1124,7 @@ function _Lee_Brickell_attack_nonbinary(G::CTMatrixTypes, target_w::Int; w_recv:
             end
             
             # Guess e_info of weight p
-            for cols in combinations(1:k, p)
+            for cols in Combinatorics.combinations(1:k, p)
                 if !keep_going[] break end
                 for scalars in Iterators.product(fill(non_zeros, p)...)
                     scalar_vec = collect(scalars)
@@ -1236,7 +1236,7 @@ function _Leon_attack_nonbinary(G::CTMatrixTypes, target_w::Int; w_recv::Vector{
                 end
             end
             
-            for cols in combinations(1:k, p)
+            for cols in Combinatorics.combinations(1:k, p)
                 if !keep_going[] break end
                 for scalars in Iterators.product(fill(non_zeros, p)...)
                     scalar_vec = collect(scalars)
@@ -1592,22 +1592,24 @@ end
 #############################
 
 """
-    Stern_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes Stern's Information Set Decoding (ISD) algorithm for linear 
 block codes. This function incorporate the most valuable parts of Dumer’s refinement.
 
-### Dual Modes of Operation
+# Notes
+The algorithm supports two modes:
+
 1. **Minimum Distance Search (Default):** If `w_recv` is the all-zero vector, 
    searches the nullspace for a codeword of weight `target_w`.
 2. **Syndrome Decoding (Error Correction):** If `w_recv` is provided, searches for an 
    error vector of weight `target_w` to correct the received word.
 
-### Arguments
+# Arguments
 * `C::AbstractLinearCode`: The linear block code over GF(q).
 * `target_w::Int`: The target Hamming weight of the codeword or error vector.
 
-### Keyword Arguments
+# Keyword arguments
 * `w_recv::Vector{Int} = zeros(Int, C.n)`: The received word. Defaults to the all-zero vector.
 * `p::Int = 2`: The search weight per half of the Information Set. Keep this small, 
   as the search space grows exponentially with the field size `q`.
@@ -1618,7 +1620,7 @@ block codes. This function incorporate the most valuable parts of Dumer’s refi
 * `num_find::Int = 1`: The number of valid vectors to find before terminating.
 * `max_iters::Int = 10000`: The maximum number of random permutations to attempt.
 
-### Returns
+# Returns
 * `Set{Vector{Int}}`: A set containing the discovered vectors of weight `target_w`. 
   Returns an empty set if no vectors are found within `max_iters`.
 """
@@ -1647,11 +1649,13 @@ function Stern_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} 
 end
 
 """
-    Prange_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes Prange's foundational Information Set Decoding (ISD) algorithm.
 
-### Dual Modes of Operation
+# Notes
+The algorithm supports two modes:
+
 1. **Minimum Distance Search (Default):** If `w_recv` is the all-zero vector, 
    the algorithm evaluates the rows of the systematized matrix (p=1) to find 
    codewords of weight `target_w`.
@@ -1659,16 +1663,16 @@ Executes Prange's foundational Information Set Decoding (ISD) algorithm.
    errors exist in the information set (p=0) and checks if the parity syndrome 
    has weight `target_w`.
 
-### Arguments
+# Arguments
 * `C::AbstractLinearCode`: The linear block code.
 * `target_w::Int`: The target Hamming weight of the codeword or error vector.
 
-### Keyword Arguments
+# Keyword arguments
 * `w_recv::Vector{Int} = zeros(Int, C.n)`: The received word. 
 * `num_find::Int = 1`: The number of valid vectors to find before terminating.
 * `max_iters::Int = 10000`: Maximum random permutations to attempt.
 
-### Returns
+# Returns
 * `Set{Vector{Int}}`: A set containing the discovered vectors. Returns an empty 
   set if `max_iters` is reached without finding matches.
 """
@@ -1686,30 +1690,32 @@ function Prange_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int}
 end
 
 """
-    Lee_Brickell_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 2, num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes the Lee-Brickell Information Set Decoding (ISD) algorithm.
 Automatically strips the structural objects and routes to optimized binary 
 or nonbinary engines based on the code's base field.
 
-### Dual Modes of Operation
+# Notes
+The algorithm supports two modes:
+
 1. **Minimum Distance Search (Default):** If `w_recv` is the all-zero vector, 
    searches the nullspace for a codeword of weight `target_w` by enforcing exactly 
    `p` non-zero elements in the Information Set.
 2. **Syndrome Decoding:** If `w_recv` is provided, searches for an error vector 
    of weight `target_w` to correct the received word.
 
-### Arguments
+# Arguments
 * `C::AbstractLinearCode`: The linear block code.
 * `target_w::Int`: The target Hamming weight of the codeword or error vector.
 
-### Keyword Arguments
+# Keyword arguments
 * `w_recv::Vector{Int} = zeros(Int, C.n)`: The received word. 
 * `p::Int = 2`: The number of errors assumed to be in the Information Set.
 * `num_find::Int = 1`: The number of valid vectors to find before terminating.
 * `max_iters::Int = 10000`: Maximum random permutations to attempt.
 
-### Returns
+# Returns
 * `Set{Vector{Int}}`: A set containing the discovered vectors. Returns an empty 
   set if `max_iters` is reached without finding matches.
 """
@@ -1726,31 +1732,33 @@ function Lee_Brickell_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vecto
 end
 
 """
-    Leon_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n),p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes Leon's Information Set Decoding (ISD) algorithm. Leon's algorithm improves 
 upon Lee-Brickell by enforcing a strict filter: it demands that exactly `0` errors 
 occur within a designated window of length `l`. This aggressively prunes the search 
 tree before evaluating the full parity tail.
 
-### Dual Modes of Operation
+# Notes
+The algorithm supports two modes:
+
 1. **Minimum Distance Search (Default):** If `w_recv` is the all-zero vector, 
    searches the nullspace for a codeword of weight `target_w`.
 2. **Syndrome Decoding:** If `w_recv` is provided, searches for an error vector 
    of weight `target_w` to correct the received word.
 
-### Arguments
+# Arguments
 * `C::AbstractLinearCode`: The linear block code.
 * `target_w::Int`: The target Hamming weight of the codeword or error vector.
 
-### Keyword Arguments
+# Keyword arguments
 * `w_recv::Vector{Int} = zeros(Int, C.n)`: The received word. 
 * `p::Int = 2`: The number of errors assumed to be in the Information Set.
 * `l::Int = (Int(order(C.F)) == 2 ? 12 : 3)`: The size of the strict zero-error window. 
 * `num_find::Int = 1`: The number of valid vectors to find before terminating.
 * `max_iters::Int = 10000`: Maximum random permutations to attempt.
 
-### Returns
+# Returns
 * `Set{Vector{Int}}`: A set containing the discovered vectors. Returns an empty 
   set if `max_iters` is reached without finding matches.
 """
@@ -1766,31 +1774,33 @@ function Leon_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} =
 end
 
 """
-    Canteaut_Chabaud_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes the Canteaut-Chabaud variant of Information Set Decoding (ISD). 
 This algorithm modifies Stern's approach by replacing the O(n^3) full Gaussian 
 elimination at each iteration with an O(n^2) single-column swap and pivot update. 
 It reconstructs the full matrix entirely only after a set number of fast iterations.
 
-### Dual Modes of Operation
+# Notes
+The algorithm supports two modes:
+
 1. **Minimum Distance Search (Default):** If `w_recv` is the all-zero vector, 
    searches the nullspace for a codeword of weight `target_w`.
 2. **Syndrome Decoding:** If `w_recv` is provided, searches for an error vector 
    of weight `target_w` to correct the received word.
 
-### Arguments
+# Arguments
 * `C::AbstractLinearCode`: The linear block code.
 * `target_w::Int`: The target Hamming weight of the codeword or error vector.
 
-### Keyword Arguments
+# Keyword arguments
 * `w_recv::Vector{Int} = zeros(Int, C.n)`: The received word. 
 * `p::Int = 2`: The number of errors assumed to be in *each half* of the Information Set.
 * `l::Int = (Int(order(C.F)) == 2 ? 12 : 3)`: The size of the collision window. 
 * `num_find::Int = 1`: The number of valid vectors to find before terminating.
 * `max_iters::Int = 10000`: Maximum random permutations/pivot updates to attempt.
 
-### Returns
+# Returns
 * `Set{Vector{Int}}`: A set containing the discovered vectors. Returns an empty 
   set if `max_iters` is reached without finding matches.
 """
@@ -1809,10 +1819,11 @@ function Canteaut_Chabaud_attack(C::AbstractLinearCode, target_w::Int; w_recv::V
 end
 
 """
-    required_ISD_iterations(alg::Symbol, n::Int, k::Int, w::Int, target_success_rate::Float64; kwargs...)
+$(TYPEDSIGNATURES)
 
-Calculates the mathematically required number of matrix permutations to recover a specific error vector of weight w, 
-using allocation-free log-domain hyper-geometric probabilities.
+Return the number of matrix permutations required to recover a specified
+weight-`w` error vector at `target_success_rate`, using log-domain
+hypergeometric probabilities.
 """
 function required_ISD_iterations(alg::Symbol, n::Int, k::Int, w::Int, target_success_rate::Float64; p::Int=2, l::Int=12, l1::Int=8, l2::Int=8, ϵ1::Int=1)
     P_succ = 0.0
@@ -1849,14 +1860,15 @@ function required_ISD_iterations(alg::Symbol, n::Int, k::Int, w::Int, target_suc
 end
 
 """
-    Gilbert_Varshamov_bound(n::Int, k::Int, q::Int)
+$(TYPEDSIGNATURES)
 
-Calculates the Gilbert-Varshamov (GV) bound for a linear code. 
-This represents the expected minimum distance of a random [n, k] code over GF(q).
+Return the Gilbert--Varshamov distance bound for a linear ``[n, k]`` code over
+``\\mathrm{GF}(q)``.
 """
 function Gilbert_Varshamov_bound(n::Int, k::Int, q::Int)
     target_vol = big(q)^(n - k)
-    vol = big(1)
+    # the d = 1 pass contributes the i = 0 term of the sphere volume
+    vol = big(0)
     d = 1
     
     while true
@@ -2706,7 +2718,7 @@ function _MMT_attack_GF4(G::CTMatrixTypes, w_recv::Vector{Int}, target_w::Int; p
 end
 
 """
-    DOOM_Stern_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 2, l::Int = (Int(order(C.F)) == 2 ? 12 : 3), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes Sendrier's DOOM (Decoding One Out of Many) algorithm for full Information Set Decoding attacks.
 Simultaneously targets all valid error permutations of weight w-1 by checking all columns of the parity-check matrix in parallel.
@@ -2736,7 +2748,7 @@ function DOOM_Stern_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{
 end
 
 """
-    MMT_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 4, l1::Int = (Int(order(C.F)) == 2 ? 8 : 2), l2::Int = (Int(order(C.F)) == 2 ? 8 : 2), num_find::Int = 1, max_iters::Int = 10000)
+$(TYPEDSIGNATURES)
 
 Executes the May-Meurer-Thomae (MMT) Second Generation 4-way merge tree algorithm for full Information Set Decoding attacks.
 """
@@ -3679,7 +3691,7 @@ function _BJMM_attack_nonbinary(G::CTMatrixTypes, w_recv::Vector{Int}, target_w:
 end
 
 """
-    syndrome_decode(C::AbstractLinearCode, w_recv::Vector{Int}, target_w::Int; alg::Symbol = :BJMM, confidence::Float64 = 0.99, unroll::Bool = true, kwargs...)
+$(TYPEDSIGNATURES)
 
 The master Information Set Decoding attack dispatcher. 
 Automatically calculates the required iteration budget, and seamlessly routes the attack 
@@ -3689,7 +3701,9 @@ If `unroll=true` (default), the dispatcher routes algorithms equipped with leaf-
 loop unrolling (Stern, DOOM, MMT, BJMM) to their highly specialized "overdrive" engines 
 to maximize CPU cache utilization and memory bandwidth.
 
-### Supported Algorithms
+# Notes
+The supported algorithms are:
+
 * 1st Gen: `:Prange`, `:LeeBrickell`, `:Leon`, `:Stern`, `:CanteautChabaud`
 * DOOM: `:DOOM` (Sendrier's multi-target optimization)
 * 2nd Gen: `:MMT` (4-way merge tree)
@@ -6840,7 +6854,8 @@ function _BJMM_minimum_distance_generic_unrolled(G::CTMatrixTypes, target_w::Int
 end
 
 """
-    BJMM_attack(C::AbstractLinearCode, target_w::Int; ...)
+$(TYPEDSIGNATURES)
+
 """
 function BJMM_attack(C::AbstractLinearCode, target_w::Int; w_recv::Vector{Int} = zeros(Int, C.n), p::Int = 4, ϵ1::Int = 1, l1::Int = (Int(order(C.F)) == 2 ? 10 : 2), l2::Int = (Int(order(C.F)) == 2 ? 10 : 2), num_find::Int = 1, max_iters::Int = 10000, unroll::Bool=true)
     q = Int(order(C.F))

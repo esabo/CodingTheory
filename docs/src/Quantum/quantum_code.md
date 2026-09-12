@@ -1,62 +1,22 @@
-# Quantum-code API
+# [Quantum Code API](@id quantum-code-api)
 
 Quantum code constructors accept symplectic matrices, CSS check pairs, or
-binary Pauli strings. Constructors validate commutation and return the most
-specific supported code type. Use the common accessors documented below
-instead of relying on struct fields.
+Pauli strings. They validate commutation and return the most specific
+supported code type, so a constructor given data with no gauge operators
+returns a stabilizer code, and a stabilizer code whose checks split by type
+returns a CSS code. Use the accessors rather than reaching into struct fields,
+and prefer dispatching on the traits (`LogicalTrait`, `GaugeTrait`,
+`CSSTrait`) over testing concrete types.
 
 For a guided introduction, see [Quantum Codes](@ref quantum-codes-tutorial).
 
-## Types and core operations
+Because every stabilizer code is a subsystem code with no gauge qubits, the
+bulk of the shared accessors are documented on the
+[subsystem code page](@ref quantum-subsystem-api); this page covers the type
+hierarchy, the traits, and the stabilizer-specific constructors and solvers.
 
 ```@autodocs
 Modules = [CodingTheory]
-Pages = [
-    "Quantum/types.jl",
-    "Quantum/stabilizer_code.jl",
-    "Quantum/subsystem_code.jl",
-]
-Private = false
-```
-
-## New codes from old
-
-These operations include quantum direct sums, puncturing, shortening,
-augmentation and expurgation, local Fourier transformations, and conversions
-between stabilizer and subsystem presentations.
-
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["Quantum/new_codes_from_old.jl"]
-Private = false
-```
-
-## Distance and bounds
-
-```@autodocs
-Modules = [CodingTheory]
-Pages = [
-    "Quantum/min_dist_bounds.jl",
-    "Quantum/min_dist_exact.jl",
-    "Quantum/min_dist_probabilistic.jl",
-    "Quantum/min_dist_heuristics.jl",
-    "Quantum/bounds.jl",
-]
-Private = false
-```
-
-## Weight enumerators
-
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["Quantum/weight_enumerators.jl"]
-Private = false
-```
-
-## Input and output
-
-```@autodocs
-Modules = [CodingTheory]
-Pages = ["Quantum/io.jl"]
+Pages = ["Quantum/types.jl", "Quantum/stabilizer_code.jl"]
 Private = false
 ```

@@ -118,48 +118,41 @@ end
 #############################
 
 """
-    Goppa_polynomial(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
 Return the Goppa polynomial of `C`.
 """
 Goppa_polynomial(C::AbstractGoppaCode) = C.g
-
-"""
-    extension_field(C::AbstractGoppaCode)
-
-Return the field over which the Goppa polynomial is defined.
-"""
-extension_field(C::AbstractGoppaCode) = C.E
 
 #############################
 # general functions
 #############################
 
 """
-    is_irreducible(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
-Return true if the Goppa polynomial is irreducible.
+Return whether the Goppa polynomial is irreducible.
 """
 is_irreducible(C::AbstractGoppaCode) = Oscar.is_irreducible(C.g)
 
 """
-    is_separable(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
-Return true if the Goppa polynomial is separable (square-free).
+Return whether the Goppa polynomial is separable, that is square-free.
 """
 is_separable(C::AbstractGoppaCode) = is_squarefree(C.g)
 
 """
-    nonzeros(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
-Return the set `L` of the `Γ(L, g)` Goppa code.
+Return the set `L` of the Goppa code ``\\Gamma(L, g)``.
 """
 nonzeros(C::AbstractGoppaCode) = C.L
 
 """
-    is_cumulative(C::AbstractGoppaCode)
+$(TYPEDSIGNATURES)
 
-Return true if the Goppa polynomial is of the form `g(z) = (z - β)^r`.
+Return whether the Goppa polynomial is of the form ``g(z) = (z - \\beta)^r``.
 """
 function is_cumulative(C::AbstractGoppaCode)
     facs = factor(C.g)

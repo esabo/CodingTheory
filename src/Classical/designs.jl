@@ -1,5 +1,5 @@
 """
-    is_design_holder(C::AbstractLinearCode, t::Int; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Evaluates the Assmus-Mattson theorem to determine if the codewords of `C` 
 form a `t`-design.
@@ -35,10 +35,10 @@ function is_design_holder(C::AbstractLinearCode, t::Int; verbose::Bool=false)
 end
 
 """
-    design_strength(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Finds the maximum strength `t` for which the Assmus-Mattson theorem 
-guarantees the code forms a `t`-design.
+Return the maximum strength `t` for which the Assmus--Mattson theorem
+guarantees that the code forms a `t`-design.
 """
 function design_strength(C::AbstractLinearCode; verbose::Bool=false)
     dist_res = ismissing(C.d) ? minimum_distance(C) : C.d

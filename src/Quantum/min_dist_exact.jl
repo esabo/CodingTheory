@@ -526,9 +526,37 @@ function minimum_distance(
     return dz, wz
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact `X`-distance and a witnessing logical operator in symplectic
+``[X \\mid Z]`` form for a binary CSS code. A nonnegative returned distance is
+exact; `-1` means no exact value was certified within the requested limits.
+A found witness may still tighten the stored upper bound after a time limit.
+This computation can be expensive.
+"""
 X_minimum_distance(S::AbstractStabilizerCodeCSS; kwargs...) =
     minimum_distance(S; which=:X, kwargs...)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact `Z`-distance and a witnessing logical operator in symplectic
+``[X \\mid Z]`` form for a binary CSS code. A nonnegative returned distance is
+exact; `-1` means no exact value was certified within the requested limits.
+A found witness may still tighten the stored upper bound after a time limit.
+This computation can be expensive.
+"""
 Z_minimum_distance(S::AbstractStabilizerCodeCSS; kwargs...) =
     minimum_distance(S; which=:Z, kwargs...)
+
+"""
+$(TYPEDSIGNATURES)
+
+Return a tuple containing the exact `X`- and `Z`-distances of a binary CSS
+code. Either entry may be `-1` when that sector was not certified within the
+requested limits; any nonnegative entry is exact. These computations can be
+expensive.
+"""
 XZ_minimum_distance(S::AbstractStabilizerCodeCSS; kwargs...) =
     (X_minimum_distance(S; kwargs...)[1], Z_minimum_distance(S; kwargs...)[1])

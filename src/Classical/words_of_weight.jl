@@ -564,10 +564,10 @@ function _words_of_minimum_weight_nonbinary_recursive!(
 end
 
 """
-    words_of_minimum_weight(C::AbstractLinearCode; expand::Bool=true, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Calculates the minimum weight and returns all words of that minimum weight in a single pass.
-Automatically routes to zero-allocation hardware engines based on the field size.
+Return the minimum weight and all codewords of that weight, computed in one
+pass with an engine selected for the field size.
 """
 function words_of_minimum_weight(C::AbstractLinearCode; expand::Bool=true, verbose::Bool=false)
     # 1. Check the cache!
@@ -1408,7 +1408,7 @@ function _words_of_weight_range_trellis(G::Matrix{T}, boundaries::Vector{Int}, w
 end
 
 """
-    words_of_weight(C::AbstractLinearCode, w_range::UnitRange{Int}; max_span::Int=20, expand::Bool=true, verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Extracts all codewords whose weight falls within `w_range` (e.g., `1:4`).
 Dynamically routes to a Trellis Traceback sweep for low-complexity codes, or a bit-packed DFS for dense codes.
@@ -1457,7 +1457,7 @@ function words_of_weight(C::AbstractLinearCode, w_range::UnitRange{Int}; max_spa
 end
 
 """
-    words_of_weight(C::AbstractLinearCode, w::Int; kwargs...)
+$(TYPEDSIGNATURES)
 
 Fallback to extract codewords of a single specific weight `w`.
 """
@@ -1859,7 +1859,7 @@ function Base.show(io::IO, hwe::HammingWeightEnumerator)
 end
 
 """
-    polynomial(hwe::HammingWeightEnumerator, R::Oscar.MPolyRing)
+$(TYPEDSIGNATURES)
 
 Converts the HammingWeightEnumerator into an actual Oscar polynomial.
 Requires a bivariate polynomial ring `R`, e.g., `R, (x, y) = PolynomialRing(ZZ, ["x", "y"])`.
@@ -1878,7 +1878,7 @@ function polynomial(hwe::HammingWeightEnumerator, R)
 end
 
 """
-    HammingWeightEnumerator(cwe::CompleteWeightEnumerator)
+$(TYPEDSIGNATURES)
 
 Reduces a Complete Weight Enumerator down to a Homogeneous Hamming Weight Enumerator.
 """
@@ -1925,7 +1925,7 @@ function Base.show(io::IO, cwe::CompleteWeightEnumerator)
 end
 
 """
-    polynomial(cwe::CompleteWeightEnumerator, R)
+$(TYPEDSIGNATURES)
 
 Converts the CompleteWeightEnumerator into an Oscar multivariate polynomial. 
 Requires an MPolyRing `R` with at least `q` variables (e.g., z0, z1, ..., z_{q-1}).
@@ -1949,10 +1949,54 @@ function polynomial(cwe::CompleteWeightEnumerator, R)
 end
 
 """
-    MacWilliams_transform(input_hwe::HammingWeightEnumerator, k_in::Int, q::Int)
+$(TYPEDSIGNATURES)
 
-Applies the MacWilliams identity to a HWE to obtain the Dual HWE.
-Uses the highly optimized Krawtchouk polynomial evaluation over the internal dictionary.
+Return the value of the Krawtchouk polynomial ``P_i(j; n, q)``.
+"""
+function Krawtchouk(i::Int, j::Int, n::Int, q::Int)
+    val = BigInt(0)
+    for r in 0:i
+        if r <= j && (i - r) <= (n - j)
+            term = (BigInt(-1)^r) * (BigInt(q - 1)^(i - r)) * binomial(BigInt(j), BigInt(r)) * binomial(BigInt(n - j), BigInt(i - r))
+            val += term
+        end
+    end
+    return val
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual Hamming weight distribution of `input_hwe` by applying the
+MacWilliams identity via Krawtchouk polynomials.
+"""
+function MacWilliams_HWE_transform(input_hwe::Dict{Int, BigInt}, n::Int, k_in::Int, q::Int)
+    output_hwe = Dict{Int, BigInt}()
+    scaling_factor = BigInt(q)^k_in
+    
+    for i in 0:n
+        A_i = BigInt(0)
+        for (j, A_in_j) in input_hwe
+            A_i += A_in_j * Krawtchouk(i, j, n, q)
+        end
+        
+        @assert A_i % scaling_factor == 0 "MacWilliams transform yielded non-integer. Check inputs."
+        
+        actual_A_i = A_i ÷ scaling_factor
+        if actual_A_i > 0
+            output_hwe[i] = actual_A_i
+        end
+    end
+    
+    return output_hwe
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the dual Hamming weight enumerator of `input_hwe` by applying the
+MacWilliams identity. Delegates to [`MacWilliams_HWE_transform`](@ref) over the
+internal dictionary.
 """
 function MacWilliams_transform(input_hwe::HammingWeightEnumerator, k_in::Int, q::Int)
     # Route directly to your existing combinatorial Krawtchouk engine
@@ -1961,10 +2005,10 @@ function MacWilliams_transform(input_hwe::HammingWeightEnumerator, k_in::Int, q:
 end
 
 """
-    weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Calculates or retrieves the cached Hamming weight distribution of the code.
-Returns a `Dict{Int, BigInt}`.
+Return the cached or newly computed Hamming weight distribution as a
+`Dict{Int, BigInt}`.
 """
 function weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
     return get!(C.cache, :weight_dist) do
@@ -1989,10 +2033,20 @@ function weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
 end
 
 """
-    complete_weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Calculates the Complete Weight Distribution (CWD) of the code.
-Returns a `Dict{Tuple, BigInt}` mapping field element frequencies to codeword count.
+Return the sorted weights occurring in `C`, that is, the support of its weight
+distribution.
+"""
+function _weight_support(C::AbstractLinearCode)
+    return sort!([w for (w, count) in weight_distribution(C) if !iszero(count)])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the complete weight distribution as a `Dict{Tuple, BigInt}` mapping
+field-element frequencies to codeword counts.
 """
 function complete_weight_distribution(C::AbstractLinearCode; verbose::Bool=false)
     k, n = C.k, C.n
@@ -2014,10 +2068,10 @@ function complete_weight_distribution(C::AbstractLinearCode; verbose::Bool=false
 end
 
 """
-    weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
 Retrieves the cached Hamming Weight Enumerator, or builds it from the distribution.
-Returns a `HammingWeightEnumerator` struct.
+Return a `HammingWeightEnumerator` struct.
 """
 function weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
     return get!(C.cache, :weight_enum) do
@@ -2029,6 +2083,12 @@ function weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the cached complete weight enumerator of `C`, computing its complete
+weight distribution when necessary.
+"""
 function complete_weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
     return get!(C.cache, :cwe_enum) do
         counts = complete_weight_distribution(C, verbose=verbose)
@@ -2041,11 +2101,10 @@ function complete_weight_enumerator(C::AbstractLinearCode; verbose::Bool=false)
 end
 
 """
-    weight_distribution_array(C::AbstractLinearCode; verbose::Bool=false)
+$(TYPEDSIGNATURES)
 
-Calculates the Hamming weight distribution of the code.
-Returns a `Vector{BigInt}` of length `n + 1`, where the `i`-th element 
-is the number of codewords of weight `i - 1`.
+Return the Hamming weight distribution as a `Vector{BigInt}` of length `n + 1`,
+where entry `i` is the number of codewords of weight `i - 1`.
 """
 function weight_distribution_array(C::AbstractLinearCode; verbose::Bool=false)
     # Fetch the raw dictionary
@@ -2078,7 +2137,8 @@ function weight_plot end
 """
 $(TYPEDSIGNATURES)
 
-Compute the exact Hamming Weight Enumerator for a Direct Sum code via discrete convolution.
+Return the exact Hamming weight enumerator of a direct-sum code, computed by
+discrete convolution.
 """
 function weight_enumerator(C::DirectSumCode)
     cache = getfield(C, :cache)

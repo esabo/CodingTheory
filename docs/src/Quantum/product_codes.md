@@ -42,19 +42,24 @@ lattice vectors. The `twisted` property records which finite presentation was
 selected; use `twist_vectors(S)` to inspect those vectors.
 
 
+Quantum Tanner codes are included here as well: like the product
+constructions, they build a quantum code out of classical ingredients placed on
+a graph, and their distance guarantees come from expansion of that graph.
+
 ```@autodocs
 Modules = [CodingTheory]
 Pages = [
-    "BB_codes.jl",
-    "generalized_3d_toric_codes.jl",
-    "concatenated_codes.jl",
-    "hypergraph_product_codes.jl",
-    "generalized_shor_codes.jl",
-    "bicycle_codes.jl",
-    "hyperbicycle_codes.jl",
-    "lifted_product_codes.jl",
-    "fold_product_codes.jl",
-    "homological_product_codes.jl",
+    "Quantum/BB_codes.jl",
+    "Quantum/generalized_3d_toric_codes.jl",
+    "Quantum/concatenated_codes.jl",
+    "Quantum/hypergraph_product_codes.jl",
+    "Quantum/generalized_shor_codes.jl",
+    "Quantum/bicycle_codes.jl",
+    "Quantum/hyperbicycle_codes.jl",
+    "Quantum/lifted_product_codes.jl",
+    "Quantum/fold_product_codes.jl",
+    "Quantum/homological_product_codes.jl",
+    "Quantum/Tanner.jl",
 ]
 Private = false
 ```

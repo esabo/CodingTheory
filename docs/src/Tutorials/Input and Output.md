@@ -1,4 +1,4 @@
-# Input and Output
+# [Input and Output](@id io-tutorial)
 
 `save_code(path, code; type=...)` is the common export entry point. The `type`
 keyword is a symbol and dispatches through `Val(type)`. If it is omitted, the

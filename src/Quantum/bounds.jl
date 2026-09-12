@@ -69,8 +69,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_Singleton_bound(S)
-    Singleton_bound(S)
 
 Return the quantum Singleton upper bound on distance. For a stabilizer code,
 `k ≤ n - 2d + 2`; for a subsystem code,
@@ -109,11 +107,16 @@ function quantum_Singleton_bound(
         r=_quantum_gauge_dimension(S),
         field_degree=degree(_quantum_bound_field(S)))
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return the quantum Singleton upper bound on the distance of `S`. This is an
+alias for `quantum_Singleton_bound`.
+"""
 Singleton_bound(S::AbstractSubsystemCode) = quantum_Singleton_bound(S)
 
 """
 $(TYPEDSIGNATURES)
-    is_MDS(S)
 
 Return whether the known exact (dressed, for subsystem codes) distance meets
 the quantum Singleton bound. Return `missing` when the exact distance is not
@@ -133,6 +136,13 @@ function is_quantum_MDS(S::AbstractSubsystemCode)
     ismissing(d) && return missing
     return d == quantum_Singleton_bound(S)
 end
+"""
+$(TYPEDSIGNATURES)
+
+Return whether the stored exact distance of `S` meets the quantum Singleton
+bound, and `missing` when that distance is unknown. This is an alias for
+`is_quantum_MDS`.
+"""
 is_MDS(S::AbstractSubsystemCode) = is_quantum_MDS(S)
 
 """
@@ -184,7 +194,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_Hamming_bound(S; assume_pure=false)
 
 Return the largest distance not excluded by the pure quantum Hamming
 (sphere-packing) bound. The code method requires cached purity or an explicit
@@ -223,15 +232,11 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_Gilbert_Varshamov_bound(n, k, q; r=0, variant=:additive)
-    quantum_Gilbert_Varshamov_bound(S)
 
-Test, or return the largest `d` guaranteed by, a finite quantum
-Gilbert--Varshamov existence bound. `variant=:additive` supports additive
-stabilizer and subsystem parameters. `:linear` is the Fq²-linear Ketkar bound,
-and `:pure_feng_ma` is the pure linear Feng--Ma bound. These are parameter
-benchmarks, not certified lower bounds for a concrete code, and therefore
-never change its distance cache.
+Return whether a finite quantum Gilbert--Varshamov existence inequality holds
+for the target distance `d`. `variant=:additive` supports additive stabilizer
+and subsystem parameters, `:linear` selects the ``\\mathbb{F}_{q^2}``-linear
+Ketkar bound, and `:pure_feng_ma` selects the pure linear Feng--Ma bound.
 """
 function quantum_Gilbert_Varshamov_exists(
     n::Integer, k::Union{Integer, Rational}, d::Integer, q::Integer;
@@ -286,6 +291,14 @@ function quantum_Gilbert_Varshamov_exists(
     return multiplier * volume < right
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the largest distance ``d`` for which the selected quantum
+Gilbert--Varshamov existence inequality holds at the supplied length,
+dimension, alphabet size, and gauge dimension. This is an integer existence
+bound on distance, not a Boolean predicate.
+"""
 function quantum_Gilbert_Varshamov_bound(
     n::Integer, k::Union{Integer, Rational}, q::Integer;
     r::Union{Integer, Rational}=0, variant::Symbol=:additive,
@@ -309,7 +322,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_stabilizer_generator_weight_lower_bound(S; min_distance=2)
 
 Return `ceil(2n/(n-k))`, the finite lower bound of Wei et al. on
 the optimal maximum generator weight of a binary stabilizer code, strengthened
@@ -359,7 +371,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_low_weight_stabilizer_distance_bound(S)
 
 Return the finite distance upper bound for a binary stabilizer presentation
 whose generators all have weight at most three. A weight-at-most-two
@@ -392,7 +403,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    satisfies_quantum_CSS_subsystem_weight_two_bounds(n, k, d_X, d_Z)
 
 Return `min(floor(sqrt(n)), floor(n/k))`, the dressed-distance upper bound
 for a binary CSS subsystem code presented by gauge checks of weight at most
@@ -410,6 +420,20 @@ function quantum_CSS_subsystem_weight_two_distance_bound(
     return min(isqrt(BigInt(n)), fld(BigInt(n), BigInt(k)))
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return whether the parameters ``n``, ``k``, ``d_X``, and ``d_Z`` satisfy the
+weight-two gauge-check bounds ``d_X d_Z \\leq n``, ``k d_X \\leq n``, and
+``k d_Z \\leq n`` for a binary CSS subsystem code.
+
+# Notes
+- These asymmetric statements are stronger than the single dressed-distance
+  bound returned by `quantum_CSS_subsystem_weight_two_distance_bound`.
+- Like that function, this takes parameters rather than a code object, because
+  the theorem needs the original weight-two gauge-check presentation, which is
+  not retained on the code.
+"""
 function satisfies_quantum_CSS_subsystem_weight_two_bounds(
     n::Integer, k::Integer, d_X::Integer, d_Z::Integer,
 )
@@ -443,12 +467,10 @@ end
 
 """
 $(TYPEDSIGNATURES)
-    quantum_stabilizer_group_total_weight(n, k, A₁=0)
 
-Evaluate Wei et al.'s exact stabilizer-group identity for distance at least
-two:
-`sum(j*A_j)/sum(A_j) = (3n-A₁)/4`. The total-weight form uses
-`sum(A_j)=2^(n-k)` and returns exact `Rational{BigInt}` arithmetic.
+Return the exact average Pauli weight ``(3n-A_1)/4`` of a binary stabilizer
+group with `A₁` weight-one elements, using Wei et al.'s identity for distance
+at least two.
 """
 function quantum_stabilizer_group_average_weight(
     n::Integer, A₁::Integer=0,
@@ -459,6 +481,13 @@ function quantum_stabilizer_group_average_weight(
     return (3 * BigInt(n) - A₁) // 4
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the exact total Pauli weight of a binary ``[[n, k]]`` stabilizer group
+with `A₁` weight-one elements, using the identity
+``\\sum_j j A_j = 2^{n-k}(3n-A_1)/4``.
+"""
 function quantum_stabilizer_group_total_weight(
     n::Integer, k::Integer, A₁::Integer=0,
 )
@@ -641,7 +670,7 @@ function quantum_check_weight_LP_postprocess(
 end
 
 """
-    QuantumLPResult
+$(TYPEDEF)
 
 Result of an arbitrary-precision quantum weight-enumerator LP. `status` is
 `:feasible`, `:infeasible_numerical`, or `:unknown`; numerical infeasibility

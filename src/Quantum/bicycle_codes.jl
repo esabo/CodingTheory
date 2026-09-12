@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-    GeneralizedBicycleCode(A::CTMatrixTypes, B::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the generealized bicycle code given by `A` and `B`.
 
@@ -62,7 +62,7 @@ function GeneralizedBicycleCode(A::T, B::T;
 end
 
 """
-    GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: ResElem
+$(TYPEDSIGNATURES)
 
 Return the generealized bicycle code determined by `a` and `b`.
 
@@ -80,7 +80,7 @@ function GeneralizedBicycleCode(a::T, b::T; kwargs...) where T <: ResElem
 end
 
 """
-    GeneralizedBicycleCode(a::T, b::T; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm) where T <: CTGroupAlgebra
+$(TYPEDSIGNATURES)
 
 Return the generealized bicycle code determined by `a` and `b`.
 
@@ -144,7 +144,7 @@ function stabilizers(S::GeneralizedBicycleCode)
 end
 
 """
-    BicycleCode(A::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return a lazy Bicycle code given by the square matrix `A`. 
 This is equivalent to a Generalized Bicycle Code where `B = A^T`.
@@ -163,7 +163,7 @@ function BicycleCode(A::CTMatrixTypes; char_vec::Union{Vector{zzModRingElem}, Mi
 end
 
 """
-    BicycleCode(a::ResElem; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the lazy Bicycle code determined by the residue ring element `a`.
 """
@@ -179,7 +179,7 @@ function BicycleCode(a::ResElem; char_vec::Union{Vector{zzModRingElem}, Missing}
 end
 
 """
-    BicycleCode(a::CTGroupAlgebra; char_vec::Union{Vector{zzModRingElem}, Missing} = missing, logs_alg::Symbol = :stnd_frm)
+$(TYPEDSIGNATURES)
 
 Return the lazy Bicycle code determined by the group algebra element `a`.
 """

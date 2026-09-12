@@ -350,7 +350,7 @@ end
 
 # covered nicely in van Lint and Betten et al
 """
-    QuadraticResidueCode(q::Int, n::Int)
+$(TYPEDSIGNATURES)
 
 Return the cyclic code whose roots are the quadratic residues of `q`, `n`.
 """
@@ -529,7 +529,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Returns the set of `q`-cyclotomic cosets of the numbers in `nums` modulo `n`.
+Return the set of `q`-cyclotomic cosets of the numbers in `nums` modulo `n`.
 If `flat` is true, returns a single sorted array of the defining set.
 """
 function defining_set(nums::Vector{Int}, q::Int, n::Int, flat::Bool = true)
@@ -551,7 +551,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the Mattson-Solomon polynomial for a vector `v` of length `n` over `F`.
+Return the Mattson--Solomon polynomial of a vector `v` over `F`.
 
 # Notes
 * The Mattson-Solomon transform is the finite field equivalent of the 
@@ -575,8 +575,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Compute the inverse Mattson-Solomon transform to recover the vector `v` 
-from its Mattson-Solomon polynomial `MS`.
+Return the vector recovered by applying the inverse Mattson--Solomon transform
+to the Mattson--Solomon polynomial `MS`.
 """
 function inverse_MattsonSolomon_transform(MS::CTPolyRingElem, n::Int, α::CTFieldElem)
     E = parent(α)
@@ -855,7 +855,22 @@ Return whether or not `C1` is a subcode of `C2`.
 A cyclic code is a subcode of another if and only if its defining set is a superset of the other's.
 """
 ⊆(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C2.def_set ⊆ C1.def_set
-⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2 && C1 != C2
+"""
+$(TYPEDSIGNATURES)
+
+Return whether `C1` is a subcode of `C2`, not necessarily properly. This is an
+alias for `⊆`, matching the behavior for general linear codes; use `⊊` to test
+proper containment.
+"""
+⊂(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
+
+"""
+$(TYPEDSIGNATURES)
+
+Return `true` if `C1` is a subcode of `C2`, and `false` otherwise.
+For cyclic codes this holds exactly when the defining set of `C1` contains
+the defining set of `C2`.
+"""
 is_subcode(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = C1 ⊆ C2
 
 """
@@ -1005,12 +1020,30 @@ entrywise_product_code(C::AbstractCyclicCode) = entrywise_product_code(C, C)
 *(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
 *(C::AbstractCyclicCode) = entrywise_product_code(C)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the entrywise product code of `C1` and `C2`, or the entrywise square
+of `C`. This is an alias for `entrywise_product_code`.
+"""
 Schur_product_code(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
 Schur_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the entrywise product code of `C1` and `C2`, or the entrywise square
+of `C`. This is an alias for `Schur_product_code`.
+"""
 Hadamard_product_code(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
 Hadamard_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the entrywise product code of `C1` and `C2`, or the entrywise square
+of `C`. This is an alias for `Schur_product_code`.
+"""
 componentwise_product_code(C1::AbstractCyclicCode, C2::AbstractCyclicCode) = entrywise_product_code(C1, C2)
 componentwise_product_code(C::AbstractCyclicCode) = entrywise_product_code(C)
 
@@ -1179,13 +1212,13 @@ Return the multiplier group of `C` as a formal subgroup of the unit group `Z_n^x
 # Notes
 * Returns `(H, inc)`, where `H` is the abstract abelian subgroup and `inc` is the injection.
 * To map an element `h ∈ H` back to an integer, use the unit group isomorphism:
-  `R = residue_ring(ZZ, C.n); U, f = unit_group(R); int_val = lift(f(inc(h)))`
+  `R, _ = residue_ring(ZZ, C.n); U, f = unit_group(R); int_val = lift(f(inc(h)))`
 """
 function multiplier_subgroup_Zn(C::AbstractCyclicCode)
     M = multiplier_group(C)
     
     # Construct the residue ring Z/nZ and its abstract unit group
-    R = residue_ring(ZZ, C.n)
+    R, _ = residue_ring(ZZ, C.n)
     U, f = unit_group(R)
     
     # Find the abstract group elements corresponding to our integer multipliers
@@ -1199,7 +1232,7 @@ end
 $(TYPEDSIGNATURES)
 
 Search for a valid `m`-adic splitting of the non-zero `q`-cyclotomic cosets modulo `n`.
-Returns `(true, a, S)` where `a` is the cycling multiplier and `S` is an array of `m` defining sets.
+Return `(true, a, S)` where `a` is the cycling multiplier and `S` is an array of `m` defining sets.
 If no such splitting exists, returns `(false, missing, missing)`.
 """
 function _find_polyadic_splittings(q::Int, n::Int, m::Int)
