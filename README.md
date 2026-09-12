@@ -1,8 +1,8 @@
 # CodingTheory
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://esabo.github.io/CodingTheory/dev/)
-[![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml/badge.svg?branch=master)](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml?query=branch%3Amaster)
-[![Coverage](https://codecov.io/gh/esabo/CodingTheory/branch/master/graph/badge.svg)](https://codecov.io/gh/esabo/CodingTheory)
+[![Build Status](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml/badge.svg?branch=dev)](https://github.com/esabo/CodingTheory/actions/workflows/Tests.yml?query=branch%3Adev)
+[![Coverage](https://codecov.io/gh/esabo/CodingTheory/branch/dev/graph/badge.svg)](https://codecov.io/gh/esabo/CodingTheory/branch/dev)
 
 A classical, LDPC, and quantum coding theory library for Julia.
 
