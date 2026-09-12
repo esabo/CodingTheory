@@ -488,8 +488,7 @@ include("Quantum/types.jl")
 export AbstractSubsystemCode, AbstractSubsystemCodeCSS, AbstractStabilizerCode, AbstractStabilizerCodeCSS,
     AbstractGraphStateSubsystem, AbstractGraphStateSubsystemCSS, AbstractGraphStateStabilizer,
     AbstractGraphStateStabilizerCSS, AbstractHypergraphProductCode, AbstractEASubsystemCode,
-    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS,
-    AbstractGeneralizedToricCode
+    AbstractEASubsystemCodeCSS, AbstractEAStabilizerCode, AbstractEAStabilizerCodeCSS
 export LogicalTrait, GaugeTrait, CSSTrait, HasLogicals, HasNoLogicals, HasGauges, HasNoGauges,
     IsCSS, IsNotCSS, copy, ChainComplex
 
@@ -822,13 +821,5 @@ export copying, gauging, thickening_and_choose_heights, coning,
 
 include("Quantum/homological_measurements.jl")
 export homological_measurement, Cheeger_constant
-
-#############################
-# Quantum/GeneralizedToricCode.jl
-#############################
-
-include("Quantum/GeneralizedToricCode.jl")
-export GeneralizedToricCode, FiniteGeneralizedToricCode, maximum_dimension,
-    Laurent_polynomial_ring, defining_polynomials, twist_vectors
 
 end

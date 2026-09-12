@@ -98,10 +98,6 @@ $(TYPEDEF)
 Supertype for CSS entanglement-assisted stabilizer codes.
 """
 abstract type AbstractEAStabilizerCodeCSS <: AbstractEAStabilizerCode end
-abstract type AbstractMonomialCode <: AbstractStabilizerCodeCSS end
-abstract type AbstractBivariateBicycleCode <: AbstractMonomialCode end
-abstract type AbstractGeneralizedToricCode <: AbstractMonomialCode end
-abstract type AbstractGeneralized3DToricCode <: AbstractMonomialCode end
 
 # AbstractQuantumLDPCCode, AbstractQuantumLDPCCSSCode?
 
@@ -446,88 +442,6 @@ mutable struct HomologicalProductCode <: AbstractStabilizerCodeCSS
     k::Int
     char_vec::Vector{zzModRingElem}
     cache::Dict{Symbol, Any}
-end
-
-#############################
-# Quantum/GeneralizedToricCode.jl
-#############################
-
-
-struct MonomialCode <: AbstractMonomialCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-end
-
-struct FiniteMonomialCode <: AbstractMonomialCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
-end
-
-struct BivariateBicycleCode <: AbstractBivariateBicycleCode
-      R::CTPolyRing
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTPolyRingElem
-      g::CTPolyRingElem
-      l::Int
-      m::Int
-end
-
-struct CoprimeBivariateBicycleCode <: AbstractBivariateBicycleCode
-      R::CTPolyRing
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTPolyRingElem
-      g::CTPolyRingElem
-      l::Int
-      m::Int
-end
-
-struct GeneralizedToricCode <: AbstractGeneralizedToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-end
-
-struct FiniteGeneralizedToricCode <: AbstractGeneralizedToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      n::Int
-      k::Int
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
-end
-
-struct Generalized3DToricCode <: AbstractGeneralized3DToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-end
-
-struct FiniteGeneralized3DToricCode <: AbstractGeneralized3DToricCode
-      LR::AbstractAlgebra.Generic.LaurentMPolyWrapRing{fpFieldElem, fpMPolyRing}
-      F::CTFieldTypes
-      f::CTLRPolyElem
-      g::CTLRPolyElem
-      a1::Tuple{Int, Int}
-      a2::Tuple{Int, Int}
-      l::Int
 end
 
 #############################
