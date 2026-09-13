@@ -1,0 +1,4 @@
+# Codecov otherwise infers its default branch from GitHub's, which is still
+# master, so development coverage would never become the headline number.
+codecov:
+  branch: dev

@@ -56,6 +56,10 @@ jobs:
         with:
           prefix: xvfb-run
       - uses: julia-actions/julia-processcoverage@latest
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # Uploads are rejected without a token, and the action treats that as
+          # a warning by default, which hid two years of missing reports.
+          fail_ci_if_error: true
