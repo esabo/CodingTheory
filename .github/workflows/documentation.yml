@@ -2,7 +2,8 @@ name: Documentation
 
 permissions:
   actions: write
-  contents: read
+  contents: write
+  statuses: write
 
 on:
   push:
@@ -13,20 +14,18 @@ on:
 
 jobs:
   build:
-    # permissions:
-    #   contents: write
     runs-on: ubuntu-latest
     steps:
       # This is from the GLMakie github action
       # - run: sudo apt-get update && sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
-      - uses: actions/checkout@v3
-      - uses: awalsh128/cache-apt-pkgs-action@latest
+      - uses: actions/checkout@v4
+      - uses: awalsh128/cache-apt-pkgs-action@v1.6.3
         with:
           packages: xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
       - uses: julia-actions/setup-julia@latest
         with:
-          version: '1.11'
-      - uses: julia-actions/cache@v1
+          version: '1.13'
+      - uses: julia-actions/cache@v3
         with:
           # cache-name: master-docs
           # WARNING: cache-registries is actually slower for Windows runners
@@ -44,7 +43,7 @@ jobs:
             Pkg.instantiate()'
       - name: Build and deploy
         env:
-          GITHUB_TOKEN: ${{ secrets.Docs }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project=docs/ docs/make.jl
       #   run: julia --project=docs/ --code-coverage=user docs/make.jl
       # - uses: julia-actions/julia-processcoverage@v1

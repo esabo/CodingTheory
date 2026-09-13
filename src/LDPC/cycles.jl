@@ -63,57 +63,59 @@ function girth(C::LDPCCode)
     # Thread-safe global minimum
     global_min_girth = Threads.Atomic{Int}(typemax(Int))
     
-    # Pre-allocate EXACTLY one workspace per thread to avoid GC thrashing
+    # Pre-allocate exactly one workspace per task to avoid GC thrashing. Do not
+    # index these by threadid(): thread IDs need not be contiguous within the
+    # active thread pool, and tasks may migrate between threads.
     n_threads = Threads.nthreads()
     dists   = [fill(-1, total_nodes) for _ in 1:n_threads]
     parents = [fill(-1, total_nodes) for _ in 1:n_threads]
     queues  = [Vector{Int}(undef, total_nodes) for _ in 1:n_threads]
     
-    Threads.@threads for root in 1:nc
-        # Bipartite graphs cannot have cycles < 4. Stop everything if we found the absolute floor.
-        global_min_girth[] == 4 && continue 
-        
-        tid = Threads.threadid()
-        dist = dists[tid]
-        parent = parents[tid]
-        queue = queues[tid]
-        
-        # Reset only the workspace for this specific thread
-        fill!(dist, -1)
-        fill!(parent, -1)
-        
-        head = 1
-        tail = 2
-        queue[1] = root
-        dist[root] = 0
-        
-        while head < tail
-            u = queue[head]
-            head += 1
-            
-            # Pruning: Stop if this tree's depth exceeds the globally found shortest cycle
-            if dist[u] * 2 >= global_min_girth[]
-                break
-            end
-            
-            is_var = u <= nc
-            neighbors = is_var ? var_adj[u] : check_adj[u - nc]
-            
-            for n_idx in neighbors
-                v = is_var ? n_idx + nc : n_idx
-                
-                if v != parent[u]
-                    if dist[v] == -1
-                        dist[v] = dist[u] + 1
-                        parent[v] = u
-                        queue[tail] = v
-                        tail += 1
-                    else
-                        # Cycle found!
-                        cycle_len = dist[u] + dist[v] + 1
-                        if cycle_len < global_min_girth[]
-                            # Safely update the global minimum across all threads
-                            Threads.atomic_min!(global_min_girth, cycle_len)
+    Threads.@threads for slot in 1:n_threads
+        dist = dists[slot]
+        parent = parents[slot]
+        queue = queues[slot]
+
+        for root in slot:n_threads:nc
+            # Bipartite graphs cannot have cycles < 4. Stop this task if the absolute floor was found.
+            global_min_girth[] == 4 && break
+
+            fill!(dist, -1)
+            fill!(parent, -1)
+
+            head = 1
+            tail = 2
+            queue[1] = root
+            dist[root] = 0
+
+            while head < tail
+                u = queue[head]
+                head += 1
+
+                # Pruning: Stop if this tree's depth exceeds the globally found shortest cycle
+                if dist[u] * 2 >= global_min_girth[]
+                    break
+                end
+
+                is_var = u <= nc
+                neighbors = is_var ? var_adj[u] : check_adj[u - nc]
+
+                for n_idx in neighbors
+                    v = is_var ? n_idx + nc : n_idx
+
+                    if v != parent[u]
+                        if dist[v] == -1
+                            dist[v] = dist[u] + 1
+                            parent[v] = u
+                            queue[tail] = v
+                            tail += 1
+                        else
+                            # Cycle found!
+                            cycle_len = dist[u] + dist[v] + 1
+                            if cycle_len < global_min_girth[]
+                                # Safely update the global minimum across all threads
+                                Threads.atomic_min!(global_min_girth, cycle_len)
+                            end
                         end
                     end
                 end
@@ -503,14 +505,15 @@ function enumerate_simple_cycles(C::AbstractLDPCCode; len::Int = 16)
     # Seed each thread's unique set with the base set so it ignores already-cached cycles
     unique_cycles_tls = [copy(base_unique) for _ in 1:n_threads]
 
-    Threads.@threads for i in 1:nc
-        tid = Threads.threadid()
-        
-        blocked = fill(false, total_nodes)
-        B = [Int[] for _ in 1:total_nodes]
-        stack = Int[]
-        
-        _circuit_recursive!(i, i, blocked, B, stack, cycles_tls[tid], unique_cycles_tls[tid], len, check_adj, var_adj, nc)
+    Threads.@threads for slot in 1:n_threads
+        for i in slot:n_threads:nc
+            blocked = fill(false, total_nodes)
+            B = [Int[] for _ in 1:total_nodes]
+            stack = Int[]
+
+            _circuit_recursive!(i, i, blocked, B, stack, cycles_tls[slot],
+                unique_cycles_tls[slot], len, check_adj, var_adj, nc)
+        end
     end
 
     # 2. Safely merge all thread-local results into the final output
@@ -902,81 +905,82 @@ function _compute_ACE_distributions(C::LDPCCode)
     shortest_lens = fill(typemax(Int), nc)
     ace_dists = [Int[] for _ in 1:nc]
 
-    # Pre-allocate exactly one zero-allocation workspace per thread
+    # Pre-allocate exactly one zero-allocation workspace per task.
     n_threads = Threads.nthreads()
     dists   = [fill(-1, total_nodes) for _ in 1:n_threads]
     parents = [fill(-1, total_nodes) for _ in 1:n_threads]
     ace_wts = [fill(0, total_nodes) for _ in 1:n_threads]
     queues  = [Vector{Int}(undef, total_nodes) for _ in 1:n_threads]
 
-    Threads.@threads for root in 1:nc
-        tid = Threads.threadid()
-        dist = dists[tid]
-        parent = parents[tid]
-        ace_wt = ace_wts[tid]
-        queue = queues[tid]
+    Threads.@threads for slot in 1:n_threads
+        dist = dists[slot]
+        parent = parents[slot]
+        ace_wt = ace_wts[slot]
+        queue = queues[slot]
 
-        fill!(dist, -1)
-        fill!(parent, -1)
+        for root in slot:n_threads:nc
+            fill!(dist, -1)
+            fill!(parent, -1)
 
-        head = 1
-        tail = 2
-        queue[1] = root
-        dist[root] = 0
-        
-        # Local ACE of the root node
-        root_deg = length(var_adj[root])
-        ace_wt[root] = root_deg - 2
+            head = 1
+            tail = 2
+            queue[1] = root
+            dist[root] = 0
 
-        min_len = typemax(Int)
-        local_aces = Int[]
+            # Local ACE of the root node
+            root_deg = length(var_adj[root])
+            ace_wt[root] = root_deg - 2
 
-        while head < tail
-            u = queue[head]
-            head += 1
+            min_len = typemax(Int)
+            local_aces = Int[]
 
-            # Prune search instantly once we exceed the shortest cycle length found for THIS node
-            if dist[u] * 2 > min_len
-                break
-            end
+            while head < tail
+                u = queue[head]
+                head += 1
 
-            is_var = u <= nc
-            neighbors = is_var ? var_adj[u] : check_adj[u - nc]
+                # Prune search instantly once we exceed the shortest cycle length found for THIS node
+                if dist[u] * 2 > min_len
+                    break
+                end
 
-            for n_idx in neighbors
-                v = is_var ? n_idx + nc : n_idx
+                is_var = u <= nc
+                neighbors = is_var ? var_adj[u] : check_adj[u - nc]
 
-                if v != parent[u]
-                    if dist[v] == -1
-                        dist[v] = dist[u] + 1
-                        parent[v] = u
-                        
-                        # Accumulate ACE mathematically
-                        if v <= nc
-                            ace_wt[v] = ace_wt[u] + length(var_adj[v]) - 2
+                for n_idx in neighbors
+                    v = is_var ? n_idx + nc : n_idx
+
+                    if v != parent[u]
+                        if dist[v] == -1
+                            dist[v] = dist[u] + 1
+                            parent[v] = u
+
+                            # Accumulate ACE mathematically
+                            if v <= nc
+                                ace_wt[v] = ace_wt[u] + length(var_adj[v]) - 2
+                            else
+                                ace_wt[v] = ace_wt[u]
+                            end
+
+                            queue[tail] = v
+                            tail += 1
                         else
-                            ace_wt[v] = ace_wt[u]
-                        end
-                        
-                        queue[tail] = v
-                        tail += 1
-                    else
-                        # Collision! A cycle is closed.
-                        cycle_len = dist[u] + dist[v] + 1
-                        if cycle_len <= min_len
-                            min_len = cycle_len
-                            # The exact ACE of the cycle avoids double-counting the root
-                            c_ace = ace_wt[u] + ace_wt[v] - (root_deg - 2)
-                            push!(local_aces, c_ace)
+                            # Collision! A cycle is closed.
+                            cycle_len = dist[u] + dist[v] + 1
+                            if cycle_len <= min_len
+                                min_len = cycle_len
+                                # The exact ACE of the cycle avoids double-counting the root
+                                c_ace = ace_wt[u] + ace_wt[v] - (root_deg - 2)
+                                push!(local_aces, c_ace)
+                            end
                         end
                     end
                 end
             end
+
+            shortest_lens[root] = min_len == typemax(Int) ? -1 : min_len
+            # The BFS explores symmetrically, so collisions are detected twice. `unique` instantly deduplicates.
+            ace_dists[root] = unique(local_aces)
         end
-        
-        shortest_lens[root] = min_len == typemax(Int) ? -1 : min_len
-        # The BFS explores symmetrically, so collisions are detected twice. `unique` instantly deduplicates.
-        ace_dists[root] = unique(local_aces) 
     end
 
     C.cache[:shortest_cycle_lens] = shortest_lens
