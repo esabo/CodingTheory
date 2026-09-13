@@ -138,7 +138,8 @@ export complement, dual, Schur_product_code,
        Hadamard_product_code, componentwise_product_code, apply_multiplier, 
        is_multiplier_equivalent, multiplier_group, multiplier_subgroup_Sn, 
        multiplier_subgroup_Zn, constituents, ambient_constituents, 
-       MattsonSolomon_transform, inverse_MattsonSolomon_transform
+       MattsonSolomon_transform, inverse_MattsonSolomon_transform,
+       print_all_cyclotomic_cosets, print_all_cyclic_codes
 
 #############################
   # Classical/cyclotomic.jl

@@ -193,4 +193,39 @@
             @test is_irreducible(c)
         end
     end
+
+    @testset "Cyclotomic code tables and trivial cyclic codes" begin
+        cosets = CodingTheory.all_cyclotomic_cosets(2, 7)
+
+        C_full = CyclicCode(2, 7, Vector{Vector{Int}}())
+        @test dimension(C_full) == 7
+        @test minimum_distance(C_full)[1] == 1
+        @test size(generator_matrix(C_full)) == (7, 7)
+        @test size(parity_check_matrix(C_full)) == (0, 7)
+        @test weight_distribution(C_full)[3] == 35
+
+        C_zero = CyclicCode(2, 7, cosets)
+        @test dimension(C_zero) == 0
+        @test minimum_distance(C_zero)[1] == 0
+        @test size(generator_matrix(C_zero)) == (0, 7)
+        @test parity_check_matrix(C_zero) ==
+              identity_matrix(CodingTheory.field(C_zero), 7)
+        @test weight_distribution(C_zero) == Dict{Int, BigInt}(0 => 1)
+
+        io = IOBuffer()
+        @test isnothing(print_all_cyclotomic_cosets(io, 7, 2))
+        coset_table = String(take!(io))
+        @test count(==('\n'), coset_table) == 5
+        @test occursin("omitted coset", coset_table)
+        @test occursin("[1, 2, 4]", coset_table)
+        @test occursin(" b  δ ", coset_table)
+
+        io = IOBuffer()
+        @test isnothing(print_all_cyclic_codes(io, 7, 2, true))
+        code_table = String(take!(io))
+        @test count(==('\n'), code_table) == 10
+        @test occursin("All cyclic codes of length 7 over GF(2)", code_table)
+        @test occursin("[0, 1, 2, 3, 4, 5, 6]", code_table)
+        @test any(line -> startswith(line, "7 "), split(code_table, '\n'))
+    end
 end

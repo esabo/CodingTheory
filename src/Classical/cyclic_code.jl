@@ -111,7 +111,8 @@ function _cyclic_algebra_from_def_set(q::Int, n::Int, def_set::Vector{Int}, cose
     com_cosets = complement_qcosets(q, n, cosets)
     
     g = _generator_polynomial(R, β, def_set)
-    h = _generator_polynomial(R, β, reduce(vcat, com_cosets))
+    com_def_set = isempty(com_cosets) ? Int[] : reduce(vcat, com_cosets)
+    h = _generator_polynomial(R, β, com_def_set)
     e = _idempotent(g, h, n)
     
     # Compute bounds eagerly only because we need them to auto-detect BCH/RS
@@ -143,6 +144,23 @@ function CyclicCode(q::Int, n::Int, cosets::Vector{Vector{Int}})
         :bch_runs => runs,
         :d => missing
     )
+
+    if k == n
+        counts = Dict{Int, BigInt}(
+            w => BigInt(binomial(n, w)) * BigInt(q - 1)^w for w in 0:n)
+        cache[:d] = 1
+        cache[:weight_dist] = counts
+        cache[:weight_enum] = HammingWeightEnumerator(n, counts)
+        return CyclicCode(F, E, R, β, n, k, 1, 1, cosets, qcosets_reps,
+            def_set, g, h, e, cache)
+    elseif iszero(k)
+        counts = Dict{Int, BigInt}(0 => BigInt(1))
+        cache[:d] = 0
+        cache[:weight_dist] = counts
+        cache[:weight_enum] = HammingWeightEnumerator(n, counts)
+        return CyclicCode(F, E, R, β, n, k, 0, 0, cosets, qcosets_reps,
+            def_set, g, h, e, cache)
+    end
     
     if δ >= 2 && def_set == defining_set(collect(b:(b + δ - 2)), q, n, true)
         deg = ord(n, q)
@@ -1013,6 +1031,91 @@ $(TYPEDSIGNATURES)
 Return `true` if the BCH code is antiprimitive.
 """
 is_antiprimitive(C::AbstractBCHCode) = C.n == Int(order(C.F)) + 1
+
+function _print_cyclic_table(io::IO, headers::Vector{String}, rows::Vector{Vector{String}})
+    widths = [
+        maximum((textwidth(row[j]) for row in rows); init = textwidth(headers[j]))
+        for j in eachindex(headers)
+    ]
+    println(io, join((rpad(headers[j], widths[j]) for j in eachindex(headers)), "  "))
+    for row in rows
+        println(io, join((rpad(row[j], widths[j]) for j in eachindex(headers)), "  "))
+    end
+    return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Print one cyclic code for each `q`-cyclotomic coset modulo `n`.
+
+Each row gives the code obtained by omitting that coset from the defining set,
+together with its dimension, BCH offset and bound, generator polynomial,
+idempotent, and defining cosets.
+"""
+function print_all_cyclotomic_cosets(io::IO, n::Int, q::Int)
+    cosets = all_cyclotomic_cosets(q, n)
+    rows = Vector{Vector{String}}()
+    for i in eachindex(cosets)
+        defining_cosets = [cosets[j] for j in eachindex(cosets) if j != i]
+        C = CyclicCode(q, n, defining_cosets)
+        push!(rows, [
+            string(cosets[i]),
+            string(dimension(C)),
+            string(BCH_offset(C)),
+            string(BCH_bound(C)),
+            string(generator_polynomial(C)),
+            string(idempotent(C)),
+            string(defining_cosets),
+        ])
+    end
+
+    println(io, "Cyclic codes associated with the q-cyclotomic cosets modulo $n over GF($q):")
+    _print_cyclic_table(io, ["omitted coset", "dim", "b", "δ", "generator",
+        "idempotent", "defining cosets"], rows)
+end
+print_all_cyclotomic_cosets(n::Int, q::Int) =
+    print_all_cyclotomic_cosets(stdout, n, q)
+
+"""
+$(TYPEDSIGNATURES)
+
+Print all cyclic codes of length `n` over `GF(q)`.
+
+Set `def_set` to `true` to include each defining set, BCH offset, and BCH bound.
+The table includes the zero and full ambient codes.
+"""
+function print_all_cyclic_codes(io::IO, n::Int, q::Int, def_set::Bool = false)
+    cosets = all_cyclotomic_cosets(q, n)
+    rows = Vector{Vector{String}}()
+    for r in 0:length(cosets)
+        for combination in Combinatorics.combinations(cosets, r)
+            C = CyclicCode(q, n, collect(combination))
+            row = [
+                string(dimension(C)),
+                string(generator_polynomial(C)),
+                string(idempotent(C)),
+            ]
+            if def_set
+                append!(row, [
+                    string(defining_set(C)),
+                    string(BCH_offset(C)),
+                    string(BCH_bound(C)),
+                ])
+            end
+            push!(rows, row)
+        end
+    end
+    sort!(rows; by = row -> parse(Int, row[1]))
+
+    println(io, "All cyclic codes of length $n over GF($q):")
+    headers = def_set ?
+        ["dim", "generator", "idempotent", "defining set", "b", "δ"] :
+        ["dim", "generator", "idempotent"]
+    _print_cyclic_table(io, headers, rows)
+end
+print_all_cyclic_codes(n::Int, q::Int, def_set::Bool = false) =
+    print_all_cyclic_codes(stdout, n, q, def_set)
 
 """
 $(TYPEDSIGNATURES)
