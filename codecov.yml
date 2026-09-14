@@ -2,3 +2,20 @@
 # master, so development coverage would never become the headline number.
 codecov:
   branch: dev
+
+# Coverage.process_folder walks every .jl file under src/ and reports those
+# with no .cov data as 0%. The paths below are not part of the loaded module —
+# their include is commented out in src/CodingTheory.jl or absent entirely —
+# so leaving them in would understate coverage of the code that actually ships.
+ignore:
+  - "src/iterators.jl"
+  - "src/chain_complex.jl"
+  - "src/Classical/McEliece.jl"
+  - "src/Convolutional/**"
+  - "src/Lattices/**"
+  - "src/LDPC/MP_decoders_old.jl"
+  - "src/LDPC/simulations.jl"
+  - "src/Quantum/chain_complex.jl"
+  - "src/Quantum/decoders/**"
+  - "src/Quantum/graph_state.jl"
+  - "src/Quantum/simulation.jl"
